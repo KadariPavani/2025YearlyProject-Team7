@@ -7,5 +7,5 @@ Members
 Pavani K
 Satish D -> SD ; Rahul -> JD
 Satvika -> SD ; Devi -> JD
-Akhila -> SD ; Mohan -> JD  (Email : mvmanikanta98851@gmail.com)
+Akhila -> SD ; Mohan -> JD
 Yamini -> SD ; Nikitha -> JDs
