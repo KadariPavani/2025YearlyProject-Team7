@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Shield, ArrowLeft, Mail, Lock } from 'lucide-react';
-import api from '../../services/api';
+import { Eye, EyeOff, User, ArrowLeft, Mail, Lock } from 'lucide-react';
 
-const SuperAdminLogin = () => {
+const StudentLogin = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -27,26 +26,15 @@ const SuperAdminLogin = () => {
     setLoading(true);
     setError('');
 
-    try {
-      const response = await api.post('/api/admin/super-admin-login', formData);
-      
-      if (response.data.success) {
-        // Store email in sessionStorage for OTP verification
-        sessionStorage.setItem('adminEmail', formData.email);
-        navigate('/otp-verification');
-      }
-    } catch (error) {
-      setError(
-        error.response?.data?.message || 
-        'Server connection failed. Please check if the server is running.'
-      );
-    } finally {
+    // Placeholder - implement actual login logic
+    setTimeout(() => {
+      setError('Student login functionality will be implemented here');
       setLoading(false);
-    }
+    }, 1000);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-red-50 flex items-center justify-center p-4">
       {/* Back to Home */}
       <button
         onClick={() => navigate('/')}
@@ -59,11 +47,11 @@ const SuperAdminLogin = () => {
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="bg-red-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Shield className="h-8 w-8 text-white" />
+          <div className="bg-purple-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <User className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Super Admin Login</h1>
-          <p className="text-gray-600">Secure access to admin dashboard</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Student Login</h1>
+          <p className="text-gray-600">Access your student dashboard</p>
         </div>
 
         {/* Login Form */}
@@ -72,7 +60,7 @@ const SuperAdminLogin = () => {
             {/* Email Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Admin Email
+                Student Email
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -82,8 +70,8 @@ const SuperAdminLogin = () => {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
-                  placeholder="Enter admin email"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                  placeholder="Enter student email"
                 />
               </div>
             </div>
@@ -91,7 +79,7 @@ const SuperAdminLogin = () => {
             {/* Password Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Admin Password
+                Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -101,8 +89,8 @@ const SuperAdminLogin = () => {
                   value={formData.password}
                   onChange={handleChange}
                   required
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
-                  placeholder="Enter admin password"
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors"
+                  placeholder="Enter password"
                 />
                 <button
                   type="button"
@@ -125,40 +113,26 @@ const SuperAdminLogin = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed"
             >
-              {loading ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>Sending OTP...</span>
-                </div>
-              ) : (
-                'Send OTP'
-              )}
+              {loading ? 'Logging in...' : 'Login'}
             </button>
 
-            {/* Forgot Password Link */}
+            {/* Reset Password Link */}
             <div className="text-center">
               <button
                 type="button"
-                onClick={() => navigate('/admin-forgot-password')}
-                className="text-sm text-red-600 hover:text-red-700"
+                onClick={() => navigate('/reset-password?type=student')}
+                className="text-sm text-purple-600 hover:text-purple-700"
               >
-                Forgot password?
+                Reset password
               </button>
             </div>
           </form>
-
-          {/* Info */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-700">
-              <strong>Security Notice:</strong> An OTP will be sent to your registered email for verification.
-            </p>
-          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default SuperAdminLogin;
+export default StudentLogin;

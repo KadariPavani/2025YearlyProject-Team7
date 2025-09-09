@@ -6,6 +6,8 @@ import axios from 'axios';
 import Landing from './pages/Landing';
 import SuperAdminLogin from './components/auth/SuperAdminLogin';
 import OTPVerification from './components/auth/OTPVerification';
+import AdminForgotPassword from './components/auth/AdminForgotPassword';
+import AdminResetPassword from './components/auth/AdminResetPassword';
 import AdminDashboard from './pages/admin/AdminDashboard';
 
 // Configure axios defaults
@@ -56,6 +58,8 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/super-admin-login" element={<SuperAdminLogin />} />
           <Route path="/otp-verification" element={<OTPVerification />} />
+          <Route path="/admin-forgot-password" element={<AdminForgotPassword />} />
+          <Route path="/admin-reset-password" element={<AdminResetPassword />} />
           
           {/* Protected Admin Routes */}
           <Route 
