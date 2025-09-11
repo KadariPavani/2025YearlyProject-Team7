@@ -5,7 +5,9 @@ const {
   getAdminDashboard,
   logoutAdmin,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  changePassword,
+  getAdminProfile  // Add this import
 } = require('../controllers/adminController');
 const auth = require('../middleware/auth');
 
@@ -20,5 +22,7 @@ router.post('/reset-password', resetPassword);
 // Protected routes
 router.get('/dashboard', auth, getAdminDashboard);
 router.post('/logout', auth, logoutAdmin);
+router.post('/change-password', auth, changePassword);
+router.get('/profile', auth, getAdminProfile);  // Add this route
 
 module.exports = router;

@@ -15,11 +15,12 @@ const AdminForgotPassword = () => {
     setLoading(true);
     setError('');
     setMessage('');
+    
     try {
       await requestAdminPasswordResetOTP(email);
       sessionStorage.setItem('resetEmail', email);
-      setMessage('OTP sent to your email. Check your inbox.');
-      setTimeout(() => navigate('/admin-reset-password'), 1000);
+      setMessage('OTP sent to your email. Redirecting...');
+      setTimeout(() => navigate('/admin-reset-password'), 2000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to send OTP');
     } finally {
@@ -39,6 +40,8 @@ const AdminForgotPassword = () => {
 
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Forgot Admin Password</h1>
+        <p className="text-gray-600 mb-6">Enter your email address to receive a verification code.</p>
+        
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Admin Email</label>
@@ -56,10 +59,15 @@ const AdminForgotPassword = () => {
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-sm">{error}</div>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-sm">
+              {error}
+            </div>
           )}
+          
           {message && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 text-sm">{message}</div>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 text-sm">
+              {message}
+            </div>
           )}
 
           <button
@@ -67,7 +75,7 @@ const AdminForgotPassword = () => {
             disabled={loading}
             className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-all"
           >
-            {loading ? 'Sending...' : 'Send OTP'}
+            {loading ? 'Sending OTP...' : 'Send OTP'}
           </button>
         </form>
       </div>

@@ -138,7 +138,7 @@ const SuperAdminLogin = () => {
             </button>
 
             {/* Forgot Password Link */}
-            <div className="text-center">
+            <div className="text-center space-y-2">
               <button
                 type="button"
                 onClick={() => navigate('/admin-forgot-password')}
@@ -148,13 +148,6 @@ const SuperAdminLogin = () => {
               </button>
             </div>
           </form>
-
-          {/* Info */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-700">
-              <strong>Security Notice:</strong> An OTP will be sent to your registered email for verification.
-            </p>
-          </div>
         </div>
       </div>
     </div>

@@ -1,34 +1,37 @@
 const jwt = require('jsonwebtoken');
+const Admin = require('../models/Admin');
 
 const auth = async (req, res, next) => {
-  let token;
-
-  // Check for token in headers
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
-  }
-  // Check for token in cookies
-  else if (req.cookies.token) {
-    token = req.cookies.token;
-  }
-
-  // Make sure token exists
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Not authorized to access this route'
-    });
-  }
-
   try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'No token, authorization denied'
+      });
+    }
+
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    
+    // Find admin
+    const admin = await Admin.findById(decoded.id);
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token is not valid'
+      });
+    }
+
+    // Add admin to request
+    req.admin = admin;
     next();
   } catch (error) {
-    return res.status(401).json({
+    console.error('Auth Middleware Error:', error);
+    res.status(401).json({
       success: false,
-      message: 'Not authorized to access this route'
+      message: 'Token is not valid'
     });
   }
 };

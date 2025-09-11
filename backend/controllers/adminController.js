@@ -317,11 +317,91 @@ const logoutAdmin = async (req, res) => {
   }
 };
 
+// @desc    Change Admin Password
+// @route   POST /api/admin/change-password
+// @access  Private
+const changePassword = async (req, res) => {
+  try {
+    const { email, currentPassword, newPassword } = req.body;
+
+    // Find admin
+    const admin = await Admin.findOne({ email }).select('+password');
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+
+    // Check current password
+    const isMatch = await admin.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Current password is incorrect'
+      });
+    }
+
+    // Update password
+    admin.password = newPassword;
+    await admin.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+  } catch (error) {
+    console.error('Change Password Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to change password'
+    });
+  }
+};
+
+// @desc    Get Admin Profile
+// @route   GET /api/admin/profile
+// @access  Private
+const getAdminProfile = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+    
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: admin._id,
+        email: admin.email,
+        role: admin.role,
+        permissions: admin.permissions,
+        status: admin.status,
+        lastLogin: admin.lastLogin,
+        createdAt: admin.createdAt,
+        updatedAt: admin.updatedAt
+      }
+    });
+  } catch (error) {
+    console.error('Get Profile Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+};
+
 module.exports = {
   superAdminLogin,
   verifyOTP,
   getAdminDashboard,
   logoutAdmin,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  changePassword,
+  getAdminProfile
 };

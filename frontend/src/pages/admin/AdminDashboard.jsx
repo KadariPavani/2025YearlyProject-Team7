@@ -2,25 +2,33 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Shield, 
-  Users, 
-  BookOpen, 
-  GraduationCap, 
-  UserCheck, 
-  Activity,
-  TrendingUp,
   Bell,
   Settings,
   LogOut,
   Eye,
-  Plus,
-  BarChart3
+  Lock,
+  EyeOff,
+  ChevronDown,
+  X,
+  UserCircle // Add this import
 } from 'lucide-react';
 import axios from 'axios';
+import { changeAdminPassword } from '../../services/adminService';
 
 const AdminDashboard = () => {
-  const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [changePasswordData, setChangePasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const navigate = useNavigate();
 
   const fetchDashboardData = useCallback(async () => {
@@ -30,13 +38,12 @@ const AdminDashboard = () => {
         throw new Error('No token found');
       }
 
-      const response = await axios.get('/api/admin/dashboard', {
+      await axios.get('/api/admin/dashboard', {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
 
-      setDashboardData(response.data.data);
       setError('');
     } catch (error) {
       setError('Failed to fetch dashboard data');
@@ -70,50 +77,42 @@ const AdminDashboard = () => {
     }
   };
 
-  const stats = [
-    {
-      title: 'Total Users',
-      value: dashboardData?.totalUsers || 0,
-      icon: Users,
-      color: 'bg-blue-500',
-      change: '+12%'
-    },
-    {
-      title: 'TPOs',
-      value: dashboardData?.totalTPOs || 0,
-      icon: Users,
-      color: 'bg-green-500',
-      change: '+5%'
-    },
-    {
-      title: 'Trainers',
-      value: dashboardData?.totalTrainers || 0,
-      icon: BookOpen,
-      color: 'bg-purple-500',
-      change: '+8%'
-    },
-    {
-      title: 'Students',
-      value: dashboardData?.totalStudents || 0,
-      icon: GraduationCap,
-      color: 'bg-yellow-500',
-      change: '+15%'
-    },
-    {
-      title: 'Coordinators',
-      value: dashboardData?.totalCoordinators || 0,
-      icon: UserCheck,
-      color: 'bg-red-500',
-      change: '+3%'
-    },
-    {
-      title: 'Active Users',
-      value: dashboardData?.systemStats?.activeUsers || 0,
-      icon: Activity,
-      color: 'bg-indigo-500',
-      change: '+7%'
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
+      setError('New passwords do not match');
+      setLoading(false);
+      return;
     }
-  ];
+
+    try {
+      const adminData = JSON.parse(localStorage.getItem('adminData'));
+      await changeAdminPassword({
+        email: adminData.email,
+        currentPassword: changePasswordData.currentPassword,
+        newPassword: changePasswordData.newPassword
+      });
+
+      setPasswordMessage('Password changed successfully');
+      setChangePasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+      
+      setTimeout(() => {
+        setShowChangePassword(false);
+        setPasswordMessage('');
+      }, 2000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to change password');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -126,51 +125,76 @@ const AdminDashboard = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <button
-            onClick={fetchDashboardData}
-            className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-lg">
+      {/* Header with Landing page style */}
+      <header className="bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             {/* Logo and Welcome */}
             <div className="flex items-center space-x-4">
-              <div className="bg-red-500 p-2 rounded-lg">
-                <Shield className="h-8 w-8 text-white" />
+              <div className="bg-white p-2 rounded-lg">
+                <Shield className="h-8 w-8 text-red-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Hello Admin</h1>
-                <p className="text-sm text-gray-600">Welcome to InfoVerse Dashboard</p>
+                <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+                <p className="text-sm opacity-90">Welcome to InfoVerse Admin Panel</p>
               </div>
             </div>
 
             {/* Header Actions */}
-            <div className="flex items-center space-x-4">
-              <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors">
+            <div className="flex items-center space-x-6">
+              <button className="relative p-2 text-white hover:text-gray-200 transition-colors">
                 <Bell className="h-6 w-6" />
-                <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
+                <span className="absolute top-0 right-0 h-2 w-2 bg-yellow-400 rounded-full"></span>
               </button>
-              <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                <Settings className="h-6 w-6" />
+              
+              {/* Add Profile Button */}
+              <button
+                onClick={() => navigate('/admin-profile')}
+                className="flex items-center space-x-2 p-2 text-white hover:text-gray-200 transition-colors"
+              >
+                <UserCircle className="h-6 w-6" />
+                <span className="hidden sm:inline">Profile</span>
               </button>
+              
+              {/* Settings Dropdown */}
+              <div className="relative">
+                <button 
+                  onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+                  className="flex items-center space-x-1 p-2 text-white hover:text-gray-200 transition-colors"
+                >
+                  <Settings className="h-6 w-6" />
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                
+                {showSettingsDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
+                    <button
+                      onClick={() => {
+                        setShowSettingsDropdown(false);
+                        navigate('/admin-profile')
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      View Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSettingsDropdown(false);
+                        setShowChangePassword(true);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Change Password
+                    </button>
+                  </div>
+                )}
+              </div>
+              
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors"
+                className="flex items-center space-x-2 bg-white text-red-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors font-medium"
               >
                 <LogOut className="h-4 w-4" />
                 <span>Logout</span>
@@ -180,106 +204,141 @@ const AdminDashboard = () => {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content Area - Empty for now */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {stats.map((stat, index) => {
-            const IconComponent = stat.icon;
-            return (
-              <div key={index} className="bg-white rounded-xl shadow-lg p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                    <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                    <p className="text-sm text-green-600 mt-1">{stat.change} from last month</p>
-                  </div>
-                  <div className={`${stat.color} p-3 rounded-lg`}>
-                    <IconComponent className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Dashboard Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Quick Actions */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-            <div className="space-y-3">
-              <button className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group">
-                <div className="flex items-center space-x-3">
-                  <Users className="h-5 w-5 text-blue-600" />
-                  <span className="font-medium text-gray-900">Manage Users</span>
-                </div>
-                <Eye className="h-5 w-5 text-gray-400 group-hover:text-blue-600" />
-              </button>
-              <button className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors group">
-                <div className="flex items-center space-x-3">
-                  <Plus className="h-5 w-5 text-green-600" />
-                  <span className="font-medium text-gray-900">Add New User</span>
-                </div>
-                <Eye className="h-5 w-5 text-gray-400 group-hover:text-green-600" />
-              </button>
-              <button className="w-full flex items-center justify-between p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors group">
-                <div className="flex items-center space-x-3">
-                  <BarChart3 className="h-5 w-5 text-purple-600" />
-                  <span className="font-medium text-gray-900">View Reports</span>
-                </div>
-                <Eye className="h-5 w-5 text-gray-400 group-hover:text-purple-600" />
-              </button>
-            </div>
-          </div>
-
-          {/* System Status */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">System Status</h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">System Health</span>
-                <div className="flex items-center space-x-2">
-                  <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                  <span className="text-green-600 font-medium">{dashboardData?.systemStats?.systemHealth || 'Good'}</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Active Sessions</span>
-                <span className="font-medium">{dashboardData?.systemStats?.activeUsers || 0}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Pending Approvals</span>
-                <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-sm">
-                  {dashboardData?.systemStats?.pendingApprovals || 0}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Activities */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activities</h3>
-          <div className="space-y-4">
-            {dashboardData?.recentActivities?.map((activity, index) => (
-              <div key={index} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
-                <div className="bg-blue-500 p-2 rounded-full">
-                  <Activity className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-gray-900 font-medium">{activity.action}</p>
-                  <p className="text-sm text-gray-600">
-                    {new Date(activity.timestamp).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            )) || (
-              <p className="text-gray-600 text-center py-8">No recent activities</p>
-            )}
-          </div>
+        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Admin Dashboard</h2>
+          <p className="text-gray-600">Select an option from the navigation menu to get started.</p>
         </div>
       </main>
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 relative">
+            <button
+              onClick={() => setShowChangePassword(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <h2 className="text-2xl font-bold mb-4">Change Password</h2>
+            
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              {/* Current Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Current Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <input
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={changePasswordData.currentPassword}
+                    onChange={(e) => setChangePasswordData({
+                      ...changePasswordData,
+                      currentPassword: e.target.value
+                    })}
+                    required
+                    className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* New Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  New Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={changePasswordData.newPassword}
+                    onChange={(e) => setChangePasswordData({
+                      ...changePasswordData,
+                      newPassword: e.target.value
+                    })}
+                    required
+                    className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={changePasswordData.confirmPassword}
+                    onChange={(e) => setChangePasswordData({
+                      ...changePasswordData,
+                      confirmPassword: e.target.value
+                    })}
+                    required
+                    className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+
+              {passwordMessage && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-green-600 text-sm">{passwordMessage}</p>
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
+              )}
+
+              <div className="flex space-x-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePassword(false)}
+                  className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Updating...' : 'Update Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -9,6 +9,7 @@ import OTPVerification from './components/auth/OTPVerification';
 import AdminForgotPassword from './components/auth/AdminForgotPassword';
 import AdminResetPassword from './components/auth/AdminResetPassword';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminProfile from './pages/admin/AdminProfile';
 
 // Configure axios defaults
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -67,6 +68,24 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin-profile" 
+            element={
+              <ProtectedRoute>
+                <AdminProfile />
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* Route for change password */}
+          <Route 
+            path="/admin-change-password" 
+            element={
+              <ProtectedRoute>
+                <SuperAdminLogin />
               </ProtectedRoute>
             } 
           />
