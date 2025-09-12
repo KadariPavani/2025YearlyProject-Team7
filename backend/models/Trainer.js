@@ -2,6 +2,11 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const TrainerSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Name is required'],
+    trim: true
+  },
   email: {
     type: String,
     required: [true, 'Email is required'],
@@ -15,30 +20,63 @@ const TrainerSchema = new mongoose.Schema({
     minlength: [6, 'Password must be at least 6 characters'],
     select: false
   },
-  firstName: {
+  phone: {
     type: String,
-    required: [true, 'First name is required'],
-    trim: true
+    required: [true, 'Phone number is required'],
+    match: [/^[0-9]{10}$/, 'Phone number must be 10 digits']
   },
-  lastName: {
+  employeeId: {
     type: String,
-    required: [true, 'Last name is required'],
-    trim: true
-  },
-  specialization: {
-    type: String,
-    required: [true, 'Specialization is required'],
+    required: [true, 'Employee ID is required'],
+    unique: true,
     trim: true
   },
   experience: {
     type: Number,
-    required: [true, 'Experience is required'],
+    default: 0,
     min: 0
   },
-  phone: {
+  subjects: [{
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    type: {
+      type: String,
+      enum: ['technical', 'non-technical'],
+      required: true
+    }
+  }],
+  linkedIn: {
     type: String,
-    required: [true, 'Phone number is required'],
     trim: true
+  },
+  role: {
+    type: String,
+    default: 'trainer',
+    immutable: true
+  },
+  assignedBatches: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Batch'
+  }],
+  createdQuizzes: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Quiz'
+  }],
+  createdCodingQuestions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CodingQuestion'
+  }],
+  createdAssignments: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Assignment'
+  }],
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Admin',
+    required: true
   },
   status: {
     type: String,
@@ -52,12 +90,9 @@ const TrainerSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Hash password if modified
 TrainerSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    return next();
-  }
-
+  if (!this.isModified('password')) return next();
+  
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -67,7 +102,6 @@ TrainerSchema.pre('save', async function(next) {
   }
 });
 
-// Compare password method
 TrainerSchema.methods.matchPassword = async function(enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };
