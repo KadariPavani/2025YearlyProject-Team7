@@ -1,13 +1,18 @@
+// backend/routes/adminRoutes.js
 const express = require('express');
 const {
   superAdminLogin,
   verifyOTP,
+  addTrainer,
+  addTPO,
+  getAllTrainers,
+  getAllTPOs,
   getAdminDashboard,
   logoutAdmin,
   forgotPassword,
   resetPassword,
   changePassword,
-  getAdminProfile  // Add this import
+  getAdminProfile
 } = require('../controllers/adminController');
 const auth = require('../middleware/auth');
 
@@ -23,6 +28,12 @@ router.post('/reset-password', resetPassword);
 router.get('/dashboard', auth, getAdminDashboard);
 router.post('/logout', auth, logoutAdmin);
 router.post('/change-password', auth, changePassword);
-router.get('/profile', auth, getAdminProfile);  // Add this route
+router.get('/profile', auth, getAdminProfile);
+
+// User management routes
+router.post('/add-trainer', auth, addTrainer);
+router.post('/add-tpo', auth, addTPO);
+router.get('/trainers', auth, getAllTrainers);
+router.get('/tpos', auth, getAllTPOs);
 
 module.exports = router;

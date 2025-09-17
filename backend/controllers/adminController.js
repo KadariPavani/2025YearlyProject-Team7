@@ -1,9 +1,11 @@
 const Admin = require('../models/Admin');
+const TPO = require('../models/TPO');
+const Trainer = require('../models/Trainer');
 const OTP = require('../models/OTP');
 const generateOTP = require('../utils/generateOTP');
+const generatePassword = require('../utils/generatePassword');
 const sendEmail = require('../utils/sendEmail');
 const generateToken = require('../utils/generateToken');
-const bcrypt = require('bcryptjs');
 
 // Initialize super admin if not exists
 const initializeSuperAdmin = async () => {
@@ -15,11 +17,8 @@ const initializeSuperAdmin = async () => {
         password: process.env.SUPER_ADMIN_PASSWORD,
         role: 'super_admin'
       });
-      // Save will trigger the pre-save hook to hash the password
       await newSuperAdmin.save();
       console.log('Super admin created successfully');
-    } else {
-      console.log('Super admin already exists');
     }
   } catch (error) {
     console.error('Super admin initialization failed:', error);
@@ -35,39 +34,30 @@ const superAdminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find admin
     const admin = await Admin.findOne({ email }).select('+password');
     if (!admin) {
-      console.log('Admin not found for email:', email);
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       });
     }
 
-    console.log('Admin found, checking password...');
     const isMatch = await admin.matchPassword(password);
     if (!isMatch) {
-      console.log('Password mismatch for admin:', email);
       return res.status(401).json({
         success: false,
         message: 'Invalid credentials'
       });
     }
 
-    console.log('Password verified, generating OTP...');
-
-    // Generate OTP
     const otp = generateOTP();
     
-    // Store OTP in database
     await OTP.create({
       email,
       otp,
       purpose: 'login'
     });
 
-    // Send OTP via email
     await sendEmail({
       email,
       subject: 'Admin Login Verification',
@@ -93,7 +83,6 @@ const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    // Find the latest OTP for this email
     const otpDoc = await OTP.findOne({ 
       email,
       purpose: 'login'
@@ -106,7 +95,6 @@ const verifyOTP = async (req, res) => {
       });
     }
 
-    // Check if OTP has expired
     if (Date.now() > otpDoc.expires.getTime()) {
       await OTP.deleteOne({ _id: otpDoc._id });
       return res.status(400).json({
@@ -115,7 +103,6 @@ const verifyOTP = async (req, res) => {
       });
     }
 
-    // Check attempts
     if (otpDoc.attempts >= 3) {
       await OTP.deleteOne({ _id: otpDoc._id });
       return res.status(400).json({
@@ -124,7 +111,6 @@ const verifyOTP = async (req, res) => {
       });
     }
 
-    // Verify OTP
     if (otpDoc.otp !== otp) {
       otpDoc.attempts += 1;
       await otpDoc.save();
@@ -134,7 +120,6 @@ const verifyOTP = async (req, res) => {
       });
     }
 
-    // Find admin
     const admin = await Admin.findOne({ email });
     if (!admin) {
       return res.status(404).json({
@@ -143,17 +128,14 @@ const verifyOTP = async (req, res) => {
       });
     }
 
-    // Generate token
     const token = generateToken({
       id: admin._id,
       email: admin.email,
       role: admin.role
     });
 
-    // Delete used OTP
     await OTP.deleteOne({ _id: otpDoc._id });
 
-    // Update last login
     admin.lastLogin = new Date();
     await admin.save();
 
@@ -173,6 +155,215 @@ const verifyOTP = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Internal server error during OTP verification'
+    });
+  }
+};
+
+// @desc    Add Trainer
+// @route   POST /api/admin/add-trainer
+// @access  Private (Admin with canAddTrainer permission)
+const addTrainer = async (req, res) => {
+  try {
+    const { name, email, phone, employeeId, experience, subjects, linkedIn } = req.body;
+
+    // Check admin permissions
+    if (!req.admin.permissions.canAddTrainer) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to add trainers'
+      });
+    }
+
+    // Check if trainer already exists
+    const existingTrainer = await Trainer.findOne({ 
+      $or: [{ email }, { employeeId }] 
+    });
+    
+    if (existingTrainer) {
+      return res.status(400).json({
+        success: false,
+        message: 'Trainer with this email or employee ID already exists'
+      });
+    }
+
+    // Generate temporary password
+    const tempPassword = generatePassword();
+
+    // Create trainer
+    const trainer = new Trainer({
+      name,
+      email,
+      password: tempPassword,
+      phone,
+      employeeId,
+      experience,
+      subjects,
+      linkedIn,
+      createdBy: req.admin.id
+    });
+
+    await trainer.save();
+
+    // Send credentials via email
+    await sendEmail({
+      email,
+      subject: 'Your Trainer Account Credentials - InfoVerse',
+      message: `
+        <h2>Welcome to InfoVerse!</h2>
+        <p>Your trainer account has been created successfully.</p>
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3>Login Credentials:</h3>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Temporary Password:</strong> ${tempPassword}</p>
+        </div>
+        <p>Please login and change your password immediately.</p>
+        <p>Login URL: ${process.env.FRONTEND_URL}/trainer-login</p>
+        <br>
+        <p>Best regards,<br>InfoVerse Team</p>
+      `
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Trainer added successfully and credentials sent via email',
+      data: {
+        id: trainer._id,
+        name: trainer.name,
+        email: trainer.email,
+        employeeId: trainer.employeeId
+      }
+    });
+
+  } catch (error) {
+    console.error('Add Trainer Error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Add TPO
+// @route   POST /api/admin/add-tpo
+// @access  Private (Admin with canAddTPO permission)
+const addTPO = async (req, res) => {
+  try {
+    const { name, email, phone, experience, linkedIn } = req.body;
+
+    // Check admin permissions
+    if (!req.admin.permissions.canAddTPO) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to add TPOs'
+      });
+    }
+
+    // Check if TPO already exists
+    const existingTPO = await TPO.findOne({ email });
+    
+    if (existingTPO) {
+      return res.status(400).json({
+        success: false,
+        message: 'TPO with this email already exists'
+      });
+    }
+
+    // Generate temporary password
+    const tempPassword = generatePassword();
+
+    // Create TPO
+    const tpo = new TPO({
+      name,
+      email,
+      password: tempPassword,
+      phone,
+      experience,
+      linkedIn,
+      createdBy: req.admin.id
+    });
+
+    await tpo.save();
+
+    // Send credentials via email
+    await sendEmail({
+      email,
+      subject: 'Your TPO Account Credentials - InfoVerse',
+      message: `
+        <h2>Welcome to InfoVerse!</h2>
+        <p>Your TPO account has been created successfully.</p>
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3>Login Credentials:</h3>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Temporary Password:</strong> ${tempPassword}</p>
+        </div>
+        <p>Please login and change your password immediately.</p>
+        <p>Login URL: ${process.env.FRONTEND_URL}/tpo-login</p>
+        <br>
+        <p>Best regards,<br>InfoVerse Team</p>
+      `
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'TPO added successfully and credentials sent via email',
+      data: {
+        id: tpo._id,
+        name: tpo.name,
+        email: tpo.email
+      }
+    });
+
+  } catch (error) {
+    console.error('Add TPO Error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get All Trainers
+// @route   GET /api/admin/trainers
+// @access  Private
+const getAllTrainers = async (req, res) => {
+  try {
+    const trainers = await Trainer.find()
+      .select('-password')
+      .populate('createdBy', 'email role')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: trainers.length,
+      data: trainers
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get All TPOs
+// @route   GET /api/admin/tpos
+// @access  Private
+const getAllTPOs = async (req, res) => {
+  try {
+    const tpos = await TPO.find()
+      .select('-password')
+      .populate('createdBy', 'email role')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: tpos.length,
+      data: tpos
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };
@@ -257,25 +448,22 @@ const resetPassword = async (req, res) => {
 
 // @desc    Get Admin Dashboard Data
 // @route   GET /api/admin/dashboard
-// @access  Private (Super Admin only)
+// @access  Private
 const getAdminDashboard = async (req, res) => {
   try {
-    // In a real application, you would fetch actual data from database
+    const totalTrainers = await Trainer.countDocuments();
+    const totalTPOs = await TPO.countDocuments();
+    
     const dashboardData = {
-      message: 'Hello Admin',
-      totalUsers: 150,
-      totalTPOs: 5,
-      totalTrainers: 20,
-      totalStudents: 100,
-      totalCoordinators: 25,
+      message: 'Welcome Admin',
+      totalTPOs,
+      totalTrainers,
       recentActivities: [
-        { id: 1, action: 'New student registered', timestamp: new Date() },
-        { id: 2, action: 'Trainer updated profile', timestamp: new Date() },
-        { id: 3, action: 'TPO created new job posting', timestamp: new Date() }
+        { id: 1, action: 'New trainer added', timestamp: new Date() },
+        { id: 2, action: 'TPO updated profile', timestamp: new Date() }
       ],
       systemStats: {
-        activeUsers: 45,
-        pendingApprovals: 12,
+        activeUsers: totalTrainers + totalTPOs,
         systemHealth: 'Good'
       }
     };
@@ -299,11 +487,6 @@ const getAdminDashboard = async (req, res) => {
 // @access  Private
 const logoutAdmin = async (req, res) => {
   try {
-    res.cookie('token', 'none', {
-      expires: new Date(Date.now() + 10 * 1000),
-      httpOnly: true
-    });
-
     res.status(200).json({
       success: true,
       message: 'Logged out successfully'
@@ -324,7 +507,6 @@ const changePassword = async (req, res) => {
   try {
     const { email, currentPassword, newPassword } = req.body;
 
-    // Find admin
     const admin = await Admin.findOne({ email }).select('+password');
     if (!admin) {
       return res.status(404).json({
@@ -333,7 +515,6 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // Check current password
     const isMatch = await admin.matchPassword(currentPassword);
     if (!isMatch) {
       return res.status(401).json({
@@ -342,7 +523,6 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // Update password
     admin.password = newPassword;
     await admin.save();
 
@@ -398,6 +578,10 @@ const getAdminProfile = async (req, res) => {
 module.exports = {
   superAdminLogin,
   verifyOTP,
+  addTrainer,
+  addTPO,
+  getAllTrainers,
+  getAllTPOs,
   getAdminDashboard,
   logoutAdmin,
   forgotPassword,

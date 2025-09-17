@@ -1,137 +1,169 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Shield, 
-  Bell,
-  Settings,
-  LogOut,
-  Eye,
-  Lock,
-  EyeOff,
-  ChevronDown,
-  X,
-  UserCircle // Add this import
+  Shield, Bell, Settings, LogOut, ChevronDown, X, UserCircle,
+  Plus, Users, GraduationCap, Phone, Mail, MapPin, Trash2, Edit, Check, AlertCircle
 } from 'lucide-react';
-import axios from 'axios';
-import { changeAdminPassword } from '../../services/adminService';
 
 const AdminDashboard = () => {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [changePasswordData, setChangePasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordMessage, setPasswordMessage] = useState('');
+  const [adminData, setAdminData] = useState(null);
+  const [showAddTrainer, setShowAddTrainer] = useState(false);
+  const [showAddTPO, setShowAddTPO] = useState(false);
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+  
+
+  // Trainer form state
+  const [trainerData, setTrainerData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    employeeId: '',
+    experience: '',
+    linkedIn: '',
+    subjects: []
+  });
+  const [newSubject, setNewSubject] = useState({ name: '', type: 'technical' });
+
+  // TPO form state
+  const [tpoData, setTpoData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    experience: '',
+    linkedIn: ''
+  });
+
+  const [successMessage, setSuccessMessage] = useState('');
   const navigate = useNavigate();
 
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      const token = localStorage.getItem('adminToken');
-      if (!token) {
-        throw new Error('No token found');
-      }
-
-      await axios.get('/api/admin/dashboard', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      setError('');
-    } catch (error) {
-      setError('Failed to fetch dashboard data');
-      if (error.response?.status === 401) {
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminData');
-        window.location.replace('/super-admin-login');
-      }
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    const storedAdminData = localStorage.getItem('adminData');
+    if (storedAdminData) {
+      setAdminData(JSON.parse(storedAdminData));
     }
   }, []);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
-
   const handleLogout = async () => {
-    try {
-      const token = localStorage.getItem('adminToken');
-      await axios.post('/api/admin/logout', {}, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      localStorage.removeItem('adminToken');
-      navigate('/');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminData');
+    navigate('/');
+  };
+
+
+  const addSubject = () => {
+    if (newSubject.name.trim()) {
+      setTrainerData(prev => ({
+        ...prev,
+        subjects: [...prev.subjects, { ...newSubject, id: Date.now() }]
+      }));
+      setNewSubject({ name: '', type: 'technical' });
     }
   };
 
-  const handleChangePassword = async (e) => {
+  const removeSubject = (id) => {
+    setTrainerData(prev => ({
+      ...prev,
+      subjects: prev.subjects.filter(subject => subject.id !== id)
+    }));
+  };
+
+  const handleAddTrainer = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
-      setError('New passwords do not match');
-      setLoading(false);
-      return;
-    }
-
     try {
-      const adminData = JSON.parse(localStorage.getItem('adminData'));
-      await changeAdminPassword({
-        email: adminData.email,
-        currentPassword: changePasswordData.currentPassword,
-        newPassword: changePasswordData.newPassword
+      const response = await fetch('/api/admin/add-trainer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        },
+        body: JSON.stringify({
+          ...trainerData,
+          experience: parseInt(trainerData.experience) || 0,
+          subjects: trainerData.subjects.map(s => ({ name: s.name, type: s.type }))
+        })
       });
 
-      setPasswordMessage('Password changed successfully');
-      setChangePasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-      
-      setTimeout(() => {
-        setShowChangePassword(false);
-        setPasswordMessage('');
-      }, 2000);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to change password');
+      const result = await response.json();
+
+      if (result.success) {
+        setSuccessMessage('Trainer added successfully! Credentials sent to their email.');
+        setTrainerData({
+          name: '',
+          email: '',
+          phone: '',
+          employeeId: '',
+          experience: '',
+          linkedIn: '',
+          subjects: []
+        });
+        setTimeout(() => {
+          setShowAddTrainer(false);
+          setSuccessMessage('');
+        }, 3000);
+      } else {
+        setError(result.message);
+      }
+    } catch {
+      setError('Failed to add trainer');
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleAddTPO = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/admin/add-tpo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        },
+        body: JSON.stringify({
+          ...tpoData,
+          experience: parseInt(tpoData.experience) || 0
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setSuccessMessage('TPO added successfully! Credentials sent to their email.');
+        setTpoData({
+          name: '',
+          email: '',
+          phone: '',
+          experience: '',
+          linkedIn: ''
+        });
+        setTimeout(() => {
+          setShowAddTPO(false);
+          setSuccessMessage('');
+        }, 3000);
+      } else {
+        setError(result.message);
+      }
+    } catch {
+      setError('Failed to add TPO');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header with Landing page style */}
+      {/* Header */}
       <header className="bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            {/* Logo and Welcome */}
             <div className="flex items-center space-x-4">
               <div className="bg-white p-2 rounded-lg">
                 <Shield className="h-8 w-8 text-red-600" />
@@ -142,14 +174,12 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Header Actions */}
             <div className="flex items-center space-x-6">
               <button className="relative p-2 text-white hover:text-gray-200 transition-colors">
                 <Bell className="h-6 w-6" />
                 <span className="absolute top-0 right-0 h-2 w-2 bg-yellow-400 rounded-full"></span>
               </button>
               
-              {/* Add Profile Button */}
               <button
                 onClick={() => navigate('/admin-profile')}
                 className="flex items-center space-x-2 p-2 text-white hover:text-gray-200 transition-colors"
@@ -158,7 +188,6 @@ const AdminDashboard = () => {
                 <span className="hidden sm:inline">Profile</span>
               </button>
               
-              {/* Settings Dropdown */}
               <div className="relative">
                 <button 
                   onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
@@ -182,7 +211,7 @@ const AdminDashboard = () => {
                     <button
                       onClick={() => {
                         setShowSettingsDropdown(false);
-                        setShowChangePassword(true);
+                        navigate('/admin-change-password');
                       }}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
@@ -204,125 +233,218 @@ const AdminDashboard = () => {
         </div>
       </header>
 
-      {/* Main Content Area - Empty for now */}
+      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Admin Dashboard</h2>
-          <p className="text-gray-600">Select an option from the navigation menu to get started.</p>
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center">
+            <Check className="h-5 w-5 text-green-600 mr-3" />
+            <span className="text-green-700">{successMessage}</span>
+          </div>
+        )}
+
+        {/* Action Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {/* Add Trainer Card */}
+          {adminData?.permissions?.canAddTrainer && (
+            <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+              <div className="flex items-center mb-4">
+                <div className="bg-green-100 p-3 rounded-lg mr-4">
+                  <GraduationCap className="h-8 w-8 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Add Trainer</h3>
+                  <p className="text-sm text-gray-600">Create new trainer account</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddTrainer(true)}
+                className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Trainer
+              </button>
+            </div>
+          )}
+
+          {/* Add TPO Card */}
+          {adminData?.permissions?.canAddTPO && (
+            <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+              <div className="flex items-center mb-4">
+                <div className="bg-blue-100 p-3 rounded-lg mr-4">
+                  <Users className="h-8 w-8 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Add TPO</h3>
+                  <p className="text-sm text-gray-600">Create new TPO account</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddTPO(true)}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add TPO
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Dashboard Stats */}
+        <div className="bg-white rounded-xl shadow-lg p-8">
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">Dashboard Overview</h2>
+          <p className="text-gray-600">Welcome to your admin dashboard. Use the action cards above to manage users.</p>
         </div>
       </main>
 
-      {/* Change Password Modal */}
-      {showChangePassword && (
+      {/* Add Trainer Modal */}
+      {showAddTrainer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 relative">
-            <button
-              onClick={() => setShowChangePassword(false)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-5 w-5" />
-            </button>
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Add New Trainer</h2>
+              <button
+                onClick={() => setShowAddTrainer(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
             
-            <h2 className="text-2xl font-bold mb-4">Change Password</h2>
-            
-            <form onSubmit={handleChangePassword} className="space-y-4">
-              {/* Current Password */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Current Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <form onSubmit={handleAddTrainer} className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Name*</label>
                   <input
-                    type={showCurrentPassword ? 'text' : 'password'}
-                    value={changePasswordData.currentPassword}
-                    onChange={(e) => setChangePasswordData({
-                      ...changePasswordData,
-                      currentPassword: e.target.value
-                    })}
+                    type="text"
                     required
-                    className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    value={trainerData.name}
+                    onChange={(e) => setTrainerData({...trainerData, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    placeholder="Enter trainer name"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showCurrentPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email*</label>
+                  <input
+                    type="email"
+                    required
+                    value={trainerData.email}
+                    onChange={(e) => setTrainerData({...trainerData, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    placeholder="Enter email address"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone*</label>
+                  <input
+                    type="tel"
+                    required
+                    value={trainerData.phone}
+                    onChange={(e) => setTrainerData({...trainerData, phone: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    placeholder="10-digit phone number"
+                    maxLength={10}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Employee ID*</label>
+                  <input
+                    type="text"
+                    required
+                    value={trainerData.employeeId}
+                    onChange={(e) => setTrainerData({...trainerData, employeeId: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    placeholder="Enter employee ID"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Experience (Years)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={trainerData.experience}
+                    onChange={(e) => setTrainerData({...trainerData, experience: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    placeholder="Years of experience"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn Profile</label>
+                  <input
+                    type="url"
+                    value={trainerData.linkedIn}
+                    onChange={(e) => setTrainerData({...trainerData, linkedIn: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    placeholder="LinkedIn profile URL"
+                  />
                 </div>
               </div>
 
-              {/* New Password */}
+              {/* Subjects Section */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  New Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <label className="block text-sm font-medium text-gray-700 mb-3">Subjects/Skills</label>
+                <div className="flex gap-2 mb-3">
                   <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    value={changePasswordData.newPassword}
-                    onChange={(e) => setChangePasswordData({
-                      ...changePasswordData,
-                      newPassword: e.target.value
-                    })}
-                    required
-                    className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    type="text"
+                    value={newSubject.name}
+                    onChange={(e) => setNewSubject({...newSubject, name: e.target.value})}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    placeholder="Subject/Skill name"
                   />
+                  <select
+                    value={newSubject.type}
+                    onChange={(e) => setNewSubject({...newSubject, type: e.target.value})}
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="technical">Technical</option>
+                    <option value="non-technical">Non-Technical</option>
+                  </select>
                   <button
                     type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    onClick={addSubject}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                   >
-                    {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    <Plus className="h-4 w-4" />
                   </button>
                 </div>
+                
+                {trainerData.subjects.length > 0 && (
+                  <div className="space-y-2">
+                    {trainerData.subjects.map((subject) => (
+                      <div key={subject.id} className="flex items-center justify-between bg-gray-50 px-3 py-2 rounded-lg">
+                        <div>
+                          <span className="font-medium">{subject.name}</span>
+                          <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                            subject.type === 'technical' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
+                          }`}>
+                            {subject.type}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeSubject(subject.id)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-
-              {/* Confirm Password */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirm New Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={changePasswordData.confirmPassword}
-                    onChange={(e) => setChangePasswordData({
-                      ...changePasswordData,
-                      confirmPassword: e.target.value
-                    })}
-                    required
-                    className="w-full pl-10 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
-
-              {passwordMessage && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <p className="text-green-600 text-sm">{passwordMessage}</p>
-                </div>
-              )}
 
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-red-600 text-sm">{error}</p>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center">
+                  <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
+                  <span className="text-red-700">{error}</span>
                 </div>
               )}
 
-              <div className="flex space-x-4 mt-6">
+              <div className="flex space-x-4 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowChangePassword(false)}
+                  onClick={() => setShowAddTrainer(false)}
                   className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   Cancel
@@ -330,15 +452,119 @@ const AdminDashboard = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                  className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  {loading ? 'Updating...' : 'Update Password'}
+                  {loading ? 'Adding...' : 'Add Trainer'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Add TPO Modal */}
+      {showAddTPO && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Add New TPO</h2>
+              <button
+                onClick={() => setShowAddTPO(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddTPO} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Name*</label>
+                <input
+                  type="text"
+                  required
+                  value={tpoData.name}
+                  onChange={(e) => setTpoData({...tpoData, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter TPO name"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Email*</label>
+                <input
+                  type="email"
+                  required
+                  value={tpoData.email}
+                  onChange={(e) => setTpoData({...tpoData, email: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter email address"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Phone*</label>
+                <input
+                  type="tel"
+                  required
+                  value={tpoData.phone}
+                  onChange={(e) => setTpoData({...tpoData, phone: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="10-digit phone number"
+                  maxLength={10}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Experience (Years)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={tpoData.experience}
+                  onChange={(e) => setTpoData({...tpoData, experience: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Years of experience"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">LinkedIn Profile</label>
+                <input
+                  type="url"
+                  value={tpoData.linkedIn}
+                  onChange={(e) => setTpoData({...tpoData, linkedIn: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="LinkedIn profile URL"
+                />
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center">
+                  <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
+                  <span className="text-red-700">{error}</span>
+                </div>
+              )}
+
+              <div className="flex space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddTPO(false)}
+                  className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'Adding...' : 'Add TPO'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
