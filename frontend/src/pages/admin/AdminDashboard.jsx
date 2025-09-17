@@ -180,13 +180,13 @@ const AdminDashboard = () => {
                 <span className="absolute top-0 right-0 h-2 w-2 bg-yellow-400 rounded-full"></span>
               </button>
               
-              <button
+              {/* <button
                 onClick={() => navigate('/admin-profile')}
                 className="flex items-center space-x-2 p-2 text-white hover:text-gray-200 transition-colors"
               >
                 <UserCircle className="h-6 w-6" />
                 <span className="hidden sm:inline">Profile</span>
-              </button>
+              </button> */}
               
               <div className="relative">
                 <button 

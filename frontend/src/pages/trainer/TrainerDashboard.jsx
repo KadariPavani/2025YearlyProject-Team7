@@ -36,22 +36,22 @@ const TrainerDashboard = () => {
     }
   };
 
-  const fetchProfile = async () => {
-    try {
-      const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/auth/profile/trainer', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const result = await response.json();
-      if (result.success) {
-        setTrainerData(prev => ({ ...prev, profile: result.data }));
-      }
-    } catch {
-      setError('Failed to fetch profile data');
-    }
-  };
+  // const fetchProfile = async () => {
+  //   try {
+  //     const token = localStorage.getItem('userToken');
+  //     const response = await fetch('/api/auth/profile/trainer', {
+  //       headers: {
+  //         'Authorization': `Bearer ${token}`
+  //       }
+  //     });
+  //     const result = await response.json();
+  //     if (result.success) {
+  //       setTrainerData(prev => ({ ...prev, profile: result.data }));
+  //     }
+  //   } catch {
+  //     setError('Failed to fetch profile data');
+  //   }
+  // };
 
   const handleLogout = async () => {
     try {
@@ -100,7 +100,7 @@ const TrainerDashboard = () => {
                 <span className="absolute top-0 right-0 h-2 w-2 bg-yellow-400 rounded-full"></span>
               </button>
               
-              <button
+              {/* <button
                 onClick={() => {
                   setShowProfile(true);
                   fetchProfile();
@@ -109,7 +109,7 @@ const TrainerDashboard = () => {
               >
                 <User className="h-6 w-6" />
                 <span className="hidden sm:inline">Profile</span>
-              </button>
+              </button> */}
               
               <div className="relative">
                 <button 
@@ -253,99 +253,7 @@ const TrainerDashboard = () => {
         </div>
       </main>
 
-      {/* Profile Modal */}
-      {showProfile && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">My Profile</h2>
-              <button onClick={() => setShowProfile(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            
-            {trainerData?.profile && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="flex items-center space-x-3">
-                    <User className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-600">Name</p>
-                      <p className="font-medium">{trainerData.profile.name}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-3">
-                    <Mail className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-600">Email</p>
-                      <p className="font-medium">{trainerData.profile.email}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-3">
-                    <Phone className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-600">Phone</p>
-                      <p className="font-medium">{trainerData.profile.phone}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-3">
-                    <Award className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-600">Employee ID</p>
-                      <p className="font-medium">{trainerData.profile.employeeId}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-3">
-                    <Clock className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-600">Experience</p>
-                      <p className="font-medium">{trainerData.profile.experience} years</p>
-                    </div>
-                  </div>
-                  
-                  {trainerData.profile.linkedIn && (
-                    <div className="flex items-center space-x-3">
-                      <MapPin className="h-5 w-5 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-600">LinkedIn</p>
-                        <a href={trainerData.profile.linkedIn} target="_blank" rel="noopener noreferrer" 
-                           className="font-medium text-green-600 hover:underline">
-                          View Profile
-                        </a>
-                      </div>
-                    </div>
-                  )}
-                </div>
 
-                {/* Subjects Section */}
-                {trainerData.profile.subjects && trainerData.profile.subjects.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Subjects & Skills</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {trainerData.profile.subjects.map((subject, index) => (
-                        <div key={index} className="flex items-center justify-between bg-gray-50 px-4 py-3 rounded-lg">
-                          <span className="font-medium text-gray-900">{subject.name}</span>
-                          <span className={`px-3 py-1 text-xs rounded-full font-medium ${
-                            subject.type === 'technical' 
-                              ? 'bg-blue-100 text-blue-800' 
-                              : 'bg-purple-100 text-purple-800'
-                          }`}>
-                            {subject.type}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
 
     </div>

@@ -113,38 +113,6 @@ const TrainerProfile = () => {
     }
   };
 
-  const handlePasswordChange = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (passwordData.newPassword.length < 6) {
-      setError('Password must be at least 6 characters long');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await changePassword('trainer', {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
-      });
-      
-      if (response.data.success) {
-        setShowPasswordModal(false);
-        setShowPasswordChangeModal(false);
-        setNeedsPasswordChange(false);
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setSuccess('Password changed successfully');
-        setTimeout(() => setSuccess(''), 3000);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to change password');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleCancel = () => {
     setFormData(profile);
@@ -176,13 +144,7 @@ const TrainerProfile = () => {
               <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
             </div>
             <div className="flex space-x-3">
-              <button
-                onClick={() => setShowPasswordModal(true)}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
-              >
-                <Lock className="h-4 w-4" />
-                <span>Change Password</span>
-              </button>
+
               {!isEditing ? (
                 <button
                   onClick={() => setIsEditing(true)}
@@ -437,120 +399,7 @@ const TrainerProfile = () => {
         </div>
       </div>
 
-      {/* Password Change Modal */}
-      {(showPasswordModal || showPasswordChangeModal) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {showPasswordChangeModal ? 'Change Password Required' : 'Change Password'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowPasswordModal(false);
-                  setShowPasswordChangeModal(false);
-                  setError('');
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
 
-            {showPasswordChangeModal && (
-              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-yellow-800 text-sm">
-                  For security reasons, you need to change your password before continuing.
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              {!showPasswordChangeModal && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <input
-                      type={showPasswords.current ? 'text' : 'password'}
-                      value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
-                      className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPasswords({...showPasswords, current: !showPasswords.current})}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <input
-                    type={showPasswords.new ? 'text' : 'password'}
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
-                    className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPasswords({...showPasswords, new: !showPasswords.new})}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <input
-                    type={showPasswords.confirm ? 'text' : 'password'}
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-                    className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPasswords({...showPasswords, confirm: !showPasswords.confirm})}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowPasswordModal(false);
-                  setShowPasswordChangeModal(false);
-                  setError('');
-                }}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handlePasswordChange}
-                disabled={loading}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Changing...' : 'Change Password'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

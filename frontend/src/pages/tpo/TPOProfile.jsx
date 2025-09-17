@@ -5,7 +5,7 @@ import {
   Edit3, Save, X, Eye, EyeOff, Lock, AlertCircle, CheckCircle,
   Briefcase, Linkedin
 } from 'lucide-react';
-import { getProfile, updateProfile, changePassword, checkPasswordChange } from '../../services/generalAuthService';
+import { getProfile, updateProfile, checkPasswordChange } from '../../services/generalAuthService';
 
 const TPOProfile = () => {
   const navigate = useNavigate();
@@ -89,38 +89,38 @@ const TPOProfile = () => {
     }
   };
 
-  const handlePasswordChange = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
+  // const handlePasswordChange = async () => {
+  //   if (passwordData.newPassword !== passwordData.confirmPassword) {
+  //     setError('Passwords do not match');
+  //     return;
+  //   }
 
-    if (passwordData.newPassword.length < 6) {
-      setError('Password must be at least 6 characters long');
-      return;
-    }
+  //   if (passwordData.newPassword.length < 6) {
+  //     setError('Password must be at least 6 characters long');
+  //     return;
+  //   }
 
-    try {
-      setLoading(true);
-      const response = await changePassword('tpo', {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
-      });
+  //   try {
+  //     setLoading(true);
+  //     const response = await changePassword('tpo', {
+  //       currentPassword: passwordData.currentPassword,
+  //       newPassword: passwordData.newPassword
+  //     });
       
-      if (response.data.success) {
-        setShowPasswordModal(false);
-        setShowPasswordChangeModal(false);
-        setNeedsPasswordChange(false);
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setSuccess('Password changed successfully');
-        setTimeout(() => setSuccess(''), 3000);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to change password');
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     if (response.data.success) {
+  //       setShowPasswordModal(false);
+  //       setShowPasswordChangeModal(false);
+  //       setNeedsPasswordChange(false);
+  //       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  //       setSuccess('Password changed successfully');
+  //       setTimeout(() => setSuccess(''), 3000);
+  //     }
+  //   } catch (err) {
+  //     setError(err.response?.data?.message || 'Failed to change password');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleCancel = () => {
     setFormData(profile);
@@ -152,13 +152,13 @@ const TPOProfile = () => {
               <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
             </div>
             <div className="flex space-x-3">
-              <button
+              {/* <button
                 onClick={() => setShowPasswordModal(true)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
               >
                 <Lock className="h-4 w-4" />
                 <span>Change Password</span>
-              </button>
+              </button> */}
               {!isEditing ? (
                 <button
                   onClick={() => setIsEditing(true)}
@@ -339,7 +339,7 @@ const TPOProfile = () => {
         </div>
       </div>
 
-      {/* Password Change Modal */}
+      {/* Password Change Modal
       {(showPasswordModal || showPasswordChangeModal) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
@@ -452,7 +452,7 @@ const TPOProfile = () => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };

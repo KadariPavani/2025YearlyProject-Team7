@@ -41,22 +41,22 @@ const TPODashboard = () => {
     }
   };
 
-  const fetchProfile = async () => {
-    try {
-      const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/auth/profile/tpo', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const result = await response.json();
-      if (result.success) {
-        setTpoData(prev => ({ ...prev, profile: result.data }));
-      }
-    } catch  {
-      setError('Failed to fetch profile data');
-    }
-  };
+  // const fetchProfile = async () => {
+  //   try {
+  //     const token = localStorage.getItem('userToken');
+  //     const response = await fetch('/api/auth/profile/tpo', {
+  //       headers: {
+  //         'Authorization': `Bearer ${token}`
+  //       }
+  //     });
+  //     const result = await response.json();
+  //     if (result.success) {
+  //       setTpoData(prev => ({ ...prev, profile: result.data }));
+  //     }
+  //   } catch  {
+  //     setError('Failed to fetch profile data');
+  //   }
+  // };
 
   const handleLogout = async () => {
     try {
@@ -105,7 +105,7 @@ const TPODashboard = () => {
                 <span className="absolute top-0 right-0 h-2 w-2 bg-yellow-400 rounded-full"></span>
               </button>
               
-              <button
+              {/* <button
                 onClick={() => {
                   setShowProfile(true);
                   fetchProfile();
@@ -115,7 +115,7 @@ const TPODashboard = () => {
                 <User className="h-6 w-6" />
                 <span className="hidden sm:inline">Profile</span>
               </button>
-              
+               */}
               <div className="relative">
                 <button 
                   onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
@@ -247,7 +247,7 @@ const TPODashboard = () => {
       </main>
 
       {/* Profile Modal */}
-      {showProfile && (
+      {/* {showProfile && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-6">
@@ -307,7 +307,7 @@ const TPODashboard = () => {
             )}
           </div>
         </div>
-      )}
+      )} */}
 
 
     </div>
