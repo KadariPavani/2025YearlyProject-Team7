@@ -504,29 +504,122 @@
 // };
 
 // export default AdminDashboard;
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Shield, Bell, Settings, LogOut, ChevronDown,
+  Users, GraduationCap, Eye, BarChart3,
+} from "lucide-react";
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  Shield, Bell, Settings, LogOut, ChevronDown, 
-  Plus, Users, GraduationCap, Eye
-} from 'lucide-react';
+function LoadingSpinner() {
+  return (
+    <div className="flex justify-center items-center min-h-[100px]">
+      <div className="animate-spin h-8 w-8 border-b-2 border-green-600 rounded-full"></div>
+    </div>
+  );
+}
 
 const AdminDashboard = () => {
   const [adminData, setAdminData] = useState(null);
+  const [dashboard, setDashboard] = useState({ totalTPOs: 0, totalTrainers: 0 });
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+
+  const [visibleList, setVisibleList] = useState(null);
+
+  const [trainers, setTrainers] = useState([]);
+  const [tpos, setTpos] = useState([]);
+  const [trainersLoading, setTrainersLoading] = useState(false);
+  const [tposLoading, setTposLoading] = useState(false);
+
+  const [trainerSearch, setTrainerSearch] = useState("");
+  const [tpoSearch, setTpoSearch] = useState("");
+
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const storedAdminData = localStorage.getItem('adminData');
+    const storedAdminData = localStorage.getItem("adminData");
     if (storedAdminData) setAdminData(JSON.parse(storedAdminData));
+    fetchDashboardAnalytics();
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminData');
-    navigate('/');
+  const fetchWithAuth = async (url) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      handleLogout();
+      return null;
+    }
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+      if (res.status === 401) {
+        handleLogout();
+        return null;
+      }
+      const json = await res.json();
+      return json.success ? json.data : null;
+    } catch {
+      return null;
+    }
   };
+
+  const fetchDashboardAnalytics = async () => {
+    setAnalyticsLoading(true);
+    const data = await fetchWithAuth("/api/admin/dashboard");
+    if (data) setDashboard(data);
+    setAnalyticsLoading(false);
+  };
+
+  const fetchTrainers = async () => {
+    setTrainersLoading(true);
+    const data = await fetchWithAuth("/api/admin/trainers");
+    setTrainers(data || []);
+    setTrainersLoading(false);
+  };
+
+  const fetchTpos = async () => {
+    setTposLoading(true);
+    const data = await fetchWithAuth("/api/admin/tpos");
+    setTpos(data || []);
+    setTposLoading(false);
+  };
+
+  const toggleList = (type) => {
+    if (visibleList === type) {
+      setVisibleList(null);
+      return;
+    }
+    setVisibleList(type);
+    if (type === "trainers" && trainers.length === 0) fetchTrainers();
+    if (type === "tpos" && tpos.length === 0) fetchTpos();
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminData");
+    navigate("/");
+  };
+
+  const filteredTrainers = useMemo(() => {
+    return trainers.filter((t) =>
+      t.name.toLowerCase().includes(trainerSearch.toLowerCase()) ||
+      t.email.toLowerCase().includes(trainerSearch.toLowerCase()) ||
+      t.employeeId.toLowerCase().includes(trainerSearch.toLowerCase())
+    );
+  }, [trainers, trainerSearch]);
+
+  const filteredTpos = useMemo(() => {
+    return tpos.filter((t) =>
+      t.name.toLowerCase().includes(tpoSearch.toLowerCase()) ||
+      t.email.toLowerCase().includes(tpoSearch.toLowerCase())
+    );
+  }, [tpos, tpoSearch]);
+
+  if (!adminData || analyticsLoading) return <LoadingSpinner />;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -543,13 +636,11 @@ const AdminDashboard = () => {
                 <p className="text-sm opacity-90">Welcome to InfoVerse Admin Panel</p>
               </div>
             </div>
-
             <div className="flex items-center space-x-6">
               <button className="relative p-2 text-white hover:text-gray-200 transition-colors">
                 <Bell className="h-6 w-6" />
                 <span className="absolute top-0 right-0 h-2 w-2 bg-yellow-400 rounded-full"></span>
               </button>
-
               <div className="relative">
                 <button
                   onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
@@ -558,13 +649,12 @@ const AdminDashboard = () => {
                   <Settings className="h-6 w-6" />
                   <ChevronDown className="h-4 w-4" />
                 </button>
-
                 {showSettingsDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
                     <button
                       onClick={() => {
                         setShowSettingsDropdown(false);
-                        navigate('/admin-profile');
+                        navigate("/admin-profile");
                       }}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
@@ -573,7 +663,7 @@ const AdminDashboard = () => {
                     <button
                       onClick={() => {
                         setShowSettingsDropdown(false);
-                        navigate('/admin-change-password');
+                        navigate("/admin-change-password");
                       }}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
@@ -582,7 +672,6 @@ const AdminDashboard = () => {
                   </div>
                 )}
               </div>
-
               <button
                 onClick={handleLogout}
                 className="flex items-center space-x-2 bg-white text-red-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors font-medium"
@@ -595,17 +684,44 @@ const AdminDashboard = () => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
-          {/* Add Trainer Card */}
-          {adminData?.permissions?.canAddTrainer && (
-            <div 
-              className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer" 
-              onClick={() => navigate('/add-trainer')}
+      {/* Analytics */}
+      <main className="max-w-7xl mx-auto px-4 py-8 space-y-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div
+            className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
+            onClick={() => toggleList("trainers")}
+          >
+            <div className="bg-green-100 p-3 rounded-full">
+              <BarChart3 className="h-8 w-8 text-green-600" />
+            </div>
+            <div>
+              <div className="text-gray-900 text-lg font-bold">{dashboard.totalTrainers}</div>
+              <div className="text-gray-600 text-sm">Total Trainers</div>
+            </div>
+          </div>
+          <div
+            className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
+            onClick={() => toggleList("tpos")}
+          >
+            <div className="bg-blue-100 p-3 rounded-full">
+              <BarChart3 className="h-8 w-8 text-blue-600" />
+            </div>
+            <div>
+              <div className="text-gray-900 text-lg font-bold">{dashboard.totalTPOs}</div>
+              <div className="text-gray-600 text-sm">Total TPOs</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Add/View Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {adminData.permissions?.canAddTrainer && (
+            <div
+              className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer"
+              onClick={() => navigate("/add-trainer")}
               role="button"
               tabIndex={0}
-              onKeyPress={(e) => { if(e.key === 'Enter') navigate('/add-trainer'); }}
+              onKeyPress={e => e.key === "Enter" && navigate("/add-trainer")}
             >
               <div className="flex items-center mb-4">
                 <div className="bg-green-100 p-3 rounded-lg mr-4">
@@ -619,14 +735,13 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* View Trainers Card */}
-          {adminData?.permissions?.canViewTrainer && (
+          {adminData.permissions?.canViewTrainer && (
             <div
               className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer"
-              onClick={() => navigate('/view-trainers')}
+              onClick={() => toggleList("trainers")}
               role="button"
               tabIndex={0}
-              onKeyPress={(e) => { if(e.key === 'Enter') navigate('/view-trainers'); }}
+              onKeyPress={e => e.key === "Enter" && toggleList("trainers")}
             >
               <div className="flex items-center mb-4">
                 <div className="bg-green-100 p-3 rounded-lg mr-4">
@@ -640,14 +755,13 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Add TPO Card */}
-          {adminData?.permissions?.canAddTPO && (
+          {adminData.permissions?.canAddTPO && (
             <div
               className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer"
-              onClick={() => navigate('/add-tpo')}
+              onClick={() => navigate("/add-tpo")}
               role="button"
               tabIndex={0}
-              onKeyPress={(e) => { if(e.key === 'Enter') navigate('/add-tpo'); }}
+              onKeyPress={e => e.key === "Enter" && navigate("/add-tpo")}
             >
               <div className="flex items-center mb-4">
                 <div className="bg-blue-100 p-3 rounded-lg mr-4">
@@ -661,14 +775,13 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* View TPOs Card */}
-          {adminData?.permissions?.canViewTPO && (
+          {adminData.permissions?.canViewTPO && (
             <div
               className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer"
-              onClick={() => navigate('/view-tpos')}
+              onClick={() => toggleList("tpos")}
               role="button"
               tabIndex={0}
-              onKeyPress={(e) => { if(e.key === 'Enter') navigate('/view-tpos'); }}
+              onKeyPress={e => e.key === "Enter" && toggleList("tpos")}
             >
               <div className="flex items-center mb-4">
                 <div className="bg-blue-100 p-3 rounded-lg mr-4">
@@ -683,13 +796,104 @@ const AdminDashboard = () => {
           )}
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Dashboard Overview</h2>
-          <p className="text-gray-600">Welcome to your admin dashboard. Use the action cards above to manage users.</p>
-        </div>
+        {/* Trainer Table */}
+        {visibleList === "trainers" && (
+          <section className="mt-10">
+            <h2 className="text-xl font-semibold mb-4">Trainer Details</h2>
+            <SearchableList
+              loading={trainersLoading}
+              data={filteredTrainers}
+              columns={[
+                { label: "Name", key: "name" },
+                { label: "Email", key: "email" },
+                { label: "Phone", key: "phone" },
+                { label: "Employee ID", key: "employeeId" },
+                { label: "Experience", key: "experience" },
+                { label: "Subject", key: "subjectDealing" },
+                { label: "Category", key: "category" },
+                { label: "LinkedIn", key: "linkedIn" }
+                // { label: "Status", key: "status" },
+                // { label: "Last Login", key: "lastLogin" },
+              ]}
+              searchValue={trainerSearch}
+              onSearchChange={setTrainerSearch}
+            />
+          </section>
+        )}
+
+        {/* TPO Table */}
+        {visibleList === "tpos" && (
+          <section className="mt-10">
+            <h2 className="text-xl font-semibold mb-4">TPO Details</h2>
+            <SearchableList
+              loading={tposLoading}
+              data={filteredTpos}
+              columns={[
+                { label: "Name", key: "name" },
+                { label: "Email", key: "email" },
+                { label: "Phone", key: "phone" },
+                { label: "Experience", key: "experience" },
+                { label: "LinkedIn", key: "linkedIn" },
+                { label: "Status", key: "status" },
+                { label: "Last Login", key: "lastLogin" },
+              ]}
+              searchValue={tpoSearch}
+              onSearchChange={setTpoSearch}
+            />
+          </section>
+        )}
       </main>
     </div>
   );
 };
+
+function SearchableList({ loading, data, columns, searchValue, onSearchChange }) {
+  if (loading) return <LoadingSpinner />;
+
+  return (
+    <>
+      <input
+        type="search"
+        className="border border-gray-300 rounded px-3 py-2 mb-6 w-full max-w-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+        placeholder="Search..."
+        value={searchValue}
+        onChange={e => onSearchChange(e.target.value)}
+      />
+      {data.length === 0 ? (
+        <p className="text-center text-gray-600">No records found.</p>
+      ) : (
+        <div className="overflow-x-auto border rounded-md">
+          <table className="min-w-full table-auto border-collapse border border-gray-200">
+            <thead>
+              <tr className="bg-gray-100">
+                {columns.map(col => (
+                  <th
+                    key={col.key}
+                    className="border border-gray-300 px-4 py-2 text-left text-gray-700 font-semibold"
+                  >
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.map(item => (
+                <tr key={item._id} className="hover:bg-gray-50">
+                  {columns.map(col => (
+                    <td key={col.key} className="border border-gray-300 px-4 py-2">
+                      {col.key === 'lastLogin' && item[col.key]
+                        ? new Date(item[col.key]).toLocaleString()
+                        : item[col.key] ?? "-"}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
 
 export default AdminDashboard;

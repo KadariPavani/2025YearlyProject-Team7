@@ -119,6 +119,8 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminProfile from './pages/admin/AdminProfile';
 import AddTrainerPage from './pages/admin/AddTrainerPage';
 import AddTPOPage from './pages/admin/AddTPOPage';
+import ViewTPOsPage from './pages/admin/ViewTPOsPage';
+import ViewTrainersPage from './pages/admin/ViewTrainersPage';
 // Import the dashboard components
 import TPODashboard from './pages/tpo/TPODashboard';
 import TrainerDashboard from './pages/trainer/TrainerDashboard';
@@ -403,7 +405,8 @@ function App() {
           <Route path="/admin-reset-password" element={<AdminResetPassword />} />
           <Route path="/add-trainer" element={<AddTrainerPage />} />
           <Route path="/add-tpo" element={<AddTPOPage />} />
-          
+          <Route path="/view-tpos" element={<ViewTPOsPage />} />
+          <Route path="/view-trainers" element={<ViewTrainersPage />} /> 
           {/* General User Login Routes */}
           <Route path="/tpo-login" element={<GeneralLogin />} />
           <Route path="/trainer-login" element={<GeneralLogin />} />
