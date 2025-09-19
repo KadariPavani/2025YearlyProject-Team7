@@ -159,12 +159,44 @@ const verifyOTP = async (req, res) => {
   }
 };
 
+// Resend OTP for login verification
+const resendOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Validate email exists
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'Admin not found' });
+    }
+
+    // Generate new OTP
+    const otp = generateOTP();
+
+    // Save OTP doc with the purpose 'login'
+    await OTP.create({ email, otp, purpose: 'login' });
+
+    // Send OTP to email
+    await sendEmail({
+      email,
+      subject: 'Your OTP Code - InfoVerse',
+      message: `Your OTP code is: ${otp}`,
+    });
+
+    res.status(200).json({ success: true, message: 'OTP resent successfully' });
+  } catch (error) {
+    console.error('Resend OTP error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+
 // @desc    Add Trainer
 // @route   POST /api/admin/add-trainer
 // @access  Private (Admin with canAddTrainer permission)
 const addTrainer = async (req, res) => {
   try {
-    const { name, email, phone, employeeId, experience, subjects, linkedIn } = req.body;
+    const { name, email, phone, employeeId, experience, subjectDealing, category, linkedIn } = req.body;
 
     // Check admin permissions
     if (!req.admin.permissions.canAddTrainer) {
@@ -197,7 +229,8 @@ const addTrainer = async (req, res) => {
       phone,
       employeeId,
       experience,
-      subjects,
+      subjectDealing,
+      category,
       linkedIn,
       createdBy: req.admin.id
     });
@@ -578,6 +611,7 @@ const getAdminProfile = async (req, res) => {
 module.exports = {
   superAdminLogin,
   verifyOTP,
+  resendOTP,
   addTrainer,
   addTPO,
   getAllTrainers,

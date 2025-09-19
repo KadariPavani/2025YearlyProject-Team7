@@ -117,7 +117,8 @@ import AdminForgotPassword from './components/auth/AdminForgotPassword';
 import AdminResetPassword from './components/auth/AdminResetPassword';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminProfile from './pages/admin/AdminProfile';
-
+import AddTrainerPage from './pages/admin/AddTrainerPage';
+import AddTPOPage from './pages/admin/AddTPOPage';
 // Import the dashboard components
 import TPODashboard from './pages/tpo/TPODashboard';
 import TrainerDashboard from './pages/trainer/TrainerDashboard';
@@ -400,6 +401,8 @@ function App() {
           <Route path="/otp-verification" element={<OTPVerification />} />
           <Route path="/admin-forgot-password" element={<AdminForgotPassword />} />
           <Route path="/admin-reset-password" element={<AdminResetPassword />} />
+          <Route path="/add-trainer" element={<AddTrainerPage />} />
+          <Route path="/add-tpo" element={<AddTPOPage />} />
           
           {/* General User Login Routes */}
           <Route path="/tpo-login" element={<GeneralLogin />} />

@@ -36,18 +36,21 @@ const TrainerSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
-  subjects: [{
-    name: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    type: {
-      type: String,
-      enum: ['technical', 'non-technical'],
-      required: true
-    }
-  }],
+  // subjects: [{
+  //   name: {
+  //     type: String,
+  //     required: true,
+  //     trim: true
+  //   },
+  //   type: {
+  //     type: String,
+  //     enum: ['technical', 'non-technical'],
+  //     required: true
+  //   }
+  // }],
+   subjectDealing: { type: String, required: true, trim: true },
+  category: { type: String, enum: ['technical', 'non-technical'], required: true },
+
   linkedIn: {
     type: String,
     trim: true

@@ -3,6 +3,7 @@ const express = require('express');
 const {
   superAdminLogin,
   verifyOTP,
+  resendOTP,
   addTrainer,
   addTPO,
   getAllTrainers,
@@ -21,6 +22,7 @@ const router = express.Router();
 // Public routes
 router.post('/super-admin-login', superAdminLogin);
 router.post('/verify-otp', verifyOTP);
+router.post('/resend-otp', resendOTP);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 
