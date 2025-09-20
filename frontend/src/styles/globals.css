@@ -1,0 +1,11 @@
+@keyframes marquee {
+  0% { transform: translateX(0%); }   /* start at leftmost */
+  100% { transform: translateX(-50%); } /* scroll full width */
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 48s linear infinite; /* adjust 20s for speed */
+  animation-delay: 0s; /* ensures it starts immediately */
+}

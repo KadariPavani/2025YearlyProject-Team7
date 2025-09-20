@@ -7,7 +7,7 @@
 
 .logo {
   height: 6em;
-  padding: 1.5em;
+  padding: 1.6em;
   will-change: filter;
   transition: filter 300ms;
 }
@@ -39,4 +39,40 @@
 
 .read-the-docs {
   color: #888;
+}
+
+/* ------------------ MARQUEE (continuous scrolling) ------------------ */
+.marquee__track {
+  display: flex;
+  width: max-content;
+  gap: 3rem; /* spacing between items */
+  animation: marquee 15s linear infinite;
+  will-change: transform;
+}
+
+.marquee__content {
+  display: flex;
+  gap: 3rem;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #dc2626; /* red-600 */
+}
+
+.marquee__content span {
+  white-space: nowrap;
+}
+
+/* Keyframes to shift left continuously */
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Pause animation on hover (optional) */
+.marquee__track:hover {
+  animation-play-state: paused;
 }
