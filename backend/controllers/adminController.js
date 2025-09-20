@@ -190,6 +190,73 @@ const resendOTP = async (req, res) => {
   }
 };
 
+// Add new admin (POST /api/admin/add-admin)
+const addAdmin = async (req, res) => {
+  try {
+    const { email, role } = req.body;
+
+    if (!req.admin.permissions?.canAddAdmin) {
+      return res.status(403).json({ success: false, message: "No permission to add admin" });
+    }
+    if (!email || !role) {
+      return res.status(400).json({ success: false, message: "Email and role are required" });
+    }
+    if (await Admin.findOne({ email })) {
+      return res.status(400).json({ success: false, message: "Admin with this email already exists" });
+    }
+
+    // Generate strong random password
+    const generatedPassword = generatePassword();
+
+    const newAdmin = new Admin({
+      email,
+      password: generatedPassword,
+      role,
+      createdBy: req.admin.id
+    });
+
+    await newAdmin.save();
+
+    // Send credentials email
+    await sendEmail({
+      email,
+      subject: "Your Admin Account Credentials - InfoVerse",
+      message: `
+        <h2>Welcome to InfoVerse!</h2>
+        <p>Your admin account has been created.</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Password:</strong> ${generatedPassword}</p>
+        <p>Please login and change your password immediately.</p>
+      `
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id: newAdmin._id,
+        email: newAdmin.email,
+        role: newAdmin.role,
+        permissions: newAdmin.permissions
+      }
+    });
+
+  } catch (error) {
+    console.error("Add admin error:", error);
+    res.status(500).json({ success: false, message: "Failed to add admin" });
+  }
+};
+
+
+// GET all admins (GET /api/admin/admins)
+const getAllAdmins = async (req, res) => {
+  try {
+    const admins = await Admin.find().select("-password").sort({ createdAt: -1 });
+    res.status(200).json({ success: true, data: admins });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch admins" });
+  }
+};
+
 
 // @desc    Add Trainer
 // @route   POST /api/admin/add-trainer
@@ -355,51 +422,38 @@ const addTPO = async (req, res) => {
   }
 };
 
-// @desc    Get All Trainers
-// @route   GET /api/admin/trainers
-// @access  Private
+// @desc Get All Trainers
+// @route GET /api/admin/trainers
+// @access Private
 const getAllTrainers = async (req, res) => {
   try {
-    const trainers = await Trainer.find()
-      .select('-password')
-      .populate('createdBy', 'email role')
-      .sort({ createdAt: -1 });
-
+    const trainers = await Trainer.find().select('-password').sort({ createdAt: -1 });
     res.status(200).json({
       success: true,
       count: trainers.length,
       data: trainers
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// @desc    Get All TPOs
-// @route   GET /api/admin/tpos
-// @access  Private
+// @desc Get All TPOs
+// @route GET /api/admin/tpos
+// @access Private
 const getAllTPOs = async (req, res) => {
   try {
-    const tpos = await TPO.find()
-      .select('-password')
-      .populate('createdBy', 'email role')
-      .sort({ createdAt: -1 });
-
+    const tpos = await TPO.find().select('-password').sort({ createdAt: -1 });
     res.status(200).json({
       success: true,
       count: tpos.length,
       data: tpos
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // @desc    Forgot Password (send OTP)
 // @route   POST /api/admin/forgot-password
@@ -482,38 +536,29 @@ const resetPassword = async (req, res) => {
 // @desc    Get Admin Dashboard Data
 // @route   GET /api/admin/dashboard
 // @access  Private
+// @desc Get Admin Dashboard Data (Analytics)
+// @route GET /api/admin/dashboard
+// @access Private
 const getAdminDashboard = async (req, res) => {
   try {
     const totalTrainers = await Trainer.countDocuments();
     const totalTPOs = await TPO.countDocuments();
-    
-    const dashboardData = {
-      message: 'Welcome Admin',
-      totalTPOs,
-      totalTrainers,
-      recentActivities: [
-        { id: 1, action: 'New trainer added', timestamp: new Date() },
-        { id: 2, action: 'TPO updated profile', timestamp: new Date() }
-      ],
-      systemStats: {
-        activeUsers: totalTrainers + totalTPOs,
-        systemHealth: 'Good'
-      }
-    };
 
     res.status(200).json({
       success: true,
-      data: dashboardData
+      data: {
+        totalTrainers,
+        totalTPOs
+      }
     });
-
   } catch (error) {
-    console.error(error);
     res.status(500).json({
       success: false,
-      message: 'Server error occurred'
+      message: error.message
     });
   }
 };
+
 
 // @desc    Logout Admin
 // @route   POST /api/admin/logout
@@ -612,6 +657,8 @@ module.exports = {
   superAdminLogin,
   verifyOTP,
   resendOTP,
+  addAdmin,
+  getAllAdmins,
   addTrainer,
   addTPO,
   getAllTrainers,

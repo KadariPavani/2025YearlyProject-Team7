@@ -4,6 +4,8 @@ const {
   superAdminLogin,
   verifyOTP,
   resendOTP,
+  addAdmin,
+  getAllAdmins,
   addTrainer,
   addTPO,
   getAllTrainers,
@@ -37,5 +39,7 @@ router.post('/add-trainer', auth, addTrainer);
 router.post('/add-tpo', auth, addTPO);
 router.get('/trainers', auth, getAllTrainers);
 router.get('/tpos', auth, getAllTPOs);
+router.post('/add-admin', auth, addAdmin);
+router.get('/admins', auth, getAllAdmins);
 
 module.exports = router;
