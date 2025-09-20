@@ -121,6 +121,8 @@ import AddTrainerPage from './pages/admin/AddTrainerPage';
 import AddTPOPage from './pages/admin/AddTPOPage';
 import ViewTPOsPage from './pages/admin/ViewTPOsPage';
 import ViewTrainersPage from './pages/admin/ViewTrainersPage';
+import AddAdmin from './pages/admin/AddAdmin';
+import ViewAdmins from './pages/admin/ViewAdmins';
 // Import the dashboard components
 import TPODashboard from './pages/tpo/TPODashboard';
 import TrainerDashboard from './pages/trainer/TrainerDashboard';
@@ -407,6 +409,8 @@ function App() {
           <Route path="/add-tpo" element={<AddTPOPage />} />
           <Route path="/view-tpos" element={<ViewTPOsPage />} />
           <Route path="/view-trainers" element={<ViewTrainersPage />} /> 
+          <Route path="/add-admin" element={<AddAdmin />} />
+          <Route path="/view-admins" element={<ViewAdmins />} />
           {/* General User Login Routes */}
           <Route path="/tpo-login" element={<GeneralLogin />} />
           <Route path="/trainer-login" element={<GeneralLogin />} />

@@ -519,20 +519,32 @@ function LoadingSpinner() {
   );
 }
 
+// Permission label map for display
+const PERMISSION_LABELS = {
+  canAddAdmin: "Add Admin",
+  canAddTrainer: "Add Trainer",
+  canAddTPO: "Add TPO",
+  canViewActivity: "View Activity"
+};
+
 const AdminDashboard = () => {
   const [adminData, setAdminData] = useState(null);
-  const [dashboard, setDashboard] = useState({ totalTPOs: 0, totalTrainers: 0 });
+  const [dashboard, setDashboard] = useState({ totalTPOs: 0, totalTrainers: 0, totalAdmins: 0 });
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
   const [visibleList, setVisibleList] = useState(null);
 
   const [trainers, setTrainers] = useState([]);
   const [tpos, setTpos] = useState([]);
+  const [admins, setAdmins] = useState([]);
+
   const [trainersLoading, setTrainersLoading] = useState(false);
   const [tposLoading, setTposLoading] = useState(false);
+  const [adminsLoading, setAdminsLoading] = useState(false);
 
   const [trainerSearch, setTrainerSearch] = useState("");
   const [tpoSearch, setTpoSearch] = useState("");
+  const [adminSearch, setAdminSearch] = useState("");
 
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const navigate = useNavigate();
@@ -570,8 +582,17 @@ const AdminDashboard = () => {
   const fetchDashboardAnalytics = async () => {
     setAnalyticsLoading(true);
     const data = await fetchWithAuth("/api/admin/dashboard");
-    if (data) setDashboard(data);
+    if (data) setDashboard({ ...data, totalAdmins: 0 }); // totalAdmins will be fetched separately
+    await fetchAdminsCount();
     setAnalyticsLoading(false);
+  };
+
+  const fetchAdminsCount = async () => {
+    const data = await fetchWithAuth("/api/admin/admins");
+    if (data) {
+      setAdmins(data);
+      setDashboard(d => ({ ...d, totalAdmins: data.length }));
+    }
   };
 
   const fetchTrainers = async () => {
@@ -588,6 +609,13 @@ const AdminDashboard = () => {
     setTposLoading(false);
   };
 
+  const fetchAdmins = async () => {
+    setAdminsLoading(true);
+    const data = await fetchWithAuth("/api/admin/admins");
+    setAdmins(data || []);
+    setAdminsLoading(false);
+  };
+
   const toggleList = (type) => {
     if (visibleList === type) {
       setVisibleList(null);
@@ -596,6 +624,7 @@ const AdminDashboard = () => {
     setVisibleList(type);
     if (type === "trainers" && trainers.length === 0) fetchTrainers();
     if (type === "tpos" && tpos.length === 0) fetchTpos();
+    if (type === "admins" && admins.length === 0) fetchAdmins();
   };
 
   const handleLogout = () => {
@@ -618,6 +647,14 @@ const AdminDashboard = () => {
       t.email.toLowerCase().includes(tpoSearch.toLowerCase())
     );
   }, [tpos, tpoSearch]);
+
+  const filteredAdmins = useMemo(() => {
+    return admins.filter(a =>
+      a.email.toLowerCase().includes(adminSearch.toLowerCase()) ||
+      a.role.toLowerCase().includes(adminSearch.toLowerCase())
+    );
+  }, [admins, adminSearch]);
+
 
   if (!adminData || analyticsLoading) return <LoadingSpinner />;
 
@@ -686,7 +723,7 @@ const AdminDashboard = () => {
 
       {/* Analytics */}
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div
             className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
             onClick={() => toggleList("trainers")}
@@ -699,6 +736,7 @@ const AdminDashboard = () => {
               <div className="text-gray-600 text-sm">Total Trainers</div>
             </div>
           </div>
+
           <div
             className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
             onClick={() => toggleList("tpos")}
@@ -711,150 +749,169 @@ const AdminDashboard = () => {
               <div className="text-gray-600 text-sm">Total TPOs</div>
             </div>
           </div>
+
+          <div
+            className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
+            onClick={() => toggleList("admins")}
+          >
+            <div className="bg-purple-100 p-3 rounded-full">
+              <Users className="h-8 w-8 text-purple-600" />
+            </div>
+            <div>
+              <div className="text-gray-900 text-lg font-bold">{dashboard.totalAdmins}</div>
+              <div className="text-gray-600 text-sm">Total Admins</div>
+            </div>
+          </div>
         </div>
 
-        {/* Add/View Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {/* Add Cards for Navigation */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-10">
           {adminData.permissions?.canAddTrainer && (
-            <div
-              className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer"
+            <AdminCard
+              icon={<GraduationCap className="h-8 w-8 text-green-600" />}
+              title="Add Trainer"
+              description="Create new trainer account"
               onClick={() => navigate("/add-trainer")}
-              role="button"
-              tabIndex={0}
-              onKeyPress={e => e.key === "Enter" && navigate("/add-trainer")}
-            >
-              <div className="flex items-center mb-4">
-                <div className="bg-green-100 p-3 rounded-lg mr-4">
-                  <GraduationCap className="h-8 w-8 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Add Trainer</h3>
-                  <p className="text-sm text-gray-600">Create new trainer account</p>
-                </div>
-              </div>
-            </div>
+            />
           )}
 
           {adminData.permissions?.canViewTrainer && (
-            <div
-              className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer"
+            <AdminCard
+              icon={<Eye className="h-8 w-8 text-green-600" />}
+              title="View Trainers"
+              description="Browse all trainers"
               onClick={() => toggleList("trainers")}
-              role="button"
-              tabIndex={0}
-              onKeyPress={e => e.key === "Enter" && toggleList("trainers")}
-            >
-              <div className="flex items-center mb-4">
-                <div className="bg-green-100 p-3 rounded-lg mr-4">
-                  <Eye className="h-8 w-8 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">View Trainers</h3>
-                  <p className="text-sm text-gray-600">Browse all trainers</p>
-                </div>
-              </div>
-            </div>
+            />
           )}
 
           {adminData.permissions?.canAddTPO && (
-            <div
-              className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer"
+            <AdminCard
+              icon={<Users className="h-8 w-8 text-blue-600" />}
+              title="Add TPO"
+              description="Create new TPO account"
               onClick={() => navigate("/add-tpo")}
-              role="button"
-              tabIndex={0}
-              onKeyPress={e => e.key === "Enter" && navigate("/add-tpo")}
-            >
-              <div className="flex items-center mb-4">
-                <div className="bg-blue-100 p-3 rounded-lg mr-4">
-                  <Users className="h-8 w-8 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Add TPO</h3>
-                  <p className="text-sm text-gray-600">Create new TPO account</p>
-                </div>
-              </div>
-            </div>
+            />
           )}
 
           {adminData.permissions?.canViewTPO && (
-            <div
-              className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow cursor-pointer"
+            <AdminCard
+              icon={<Eye className="h-8 w-8 text-blue-600" />}
+              title="View TPOs"
+              description="Browse all TPOs"
               onClick={() => toggleList("tpos")}
-              role="button"
-              tabIndex={0}
-              onKeyPress={e => e.key === "Enter" && toggleList("tpos")}
-            >
-              <div className="flex items-center mb-4">
-                <div className="bg-blue-100 p-3 rounded-lg mr-4">
-                  <Eye className="h-8 w-8 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">View TPOs</h3>
-                  <p className="text-sm text-gray-600">Browse all TPOs</p>
-                </div>
-              </div>
-            </div>
+            />
           )}
+
+          {adminData.permissions?.canAddAdmin && (
+            <AdminCard
+              icon={<Shield className="h-8 w-8 text-purple-600" />}
+              title="Add Admin"
+              description="Create new admin"
+              onClick={() => navigate("/add-admin")}
+            />
+          )}
+
+          {/* <AdminCard
+            icon={<Users className="h-8 w-8 text-purple-600" />}
+            title="View Admins"
+            description="Browse all admins and roles"
+            onClick={() => toggleList("admins")}
+          /> */}
         </div>
 
-        {/* Trainer Table */}
+        {/* Lists to show tables */}
         {visibleList === "trainers" && (
-          <section className="mt-10">
-            <h2 className="text-xl font-semibold mb-4">Trainer Details</h2>
-            <SearchableList
-              loading={trainersLoading}
-              data={filteredTrainers}
-              columns={[
-                { label: "Name", key: "name" },
-                { label: "Email", key: "email" },
-                { label: "Phone", key: "phone" },
-                { label: "Employee ID", key: "employeeId" },
-                { label: "Experience", key: "experience" },
-                { label: "Subject", key: "subjectDealing" },
-                { label: "Category", key: "category" },
-                { label: "LinkedIn", key: "linkedIn" }
-                // { label: "Status", key: "status" },
-                // { label: "Last Login", key: "lastLogin" },
-              ]}
-              searchValue={trainerSearch}
-              onSearchChange={setTrainerSearch}
-            />
-          </section>
+          <SectionTable
+            title="Trainer Details"
+            loading={trainersLoading}
+            searchValue={trainerSearch}
+            onSearchChange={setTrainerSearch}
+            data={filteredTrainers}
+            columns={[
+              { label: "Name", key: "name" },
+              { label: "Email", key: "email" },
+              { label: "Phone", key: "phone" },
+              { label: "Employee ID", key: "employeeId" },
+              { label: "Experience", key: "experience" },
+              { label: "Subject", key: "subjectDealing" },
+              { label: "Category", key: "category" },
+              { label: "LinkedIn", key: "linkedIn" },
+            ]}
+          />
         )}
 
-        {/* TPO Table */}
         {visibleList === "tpos" && (
-          <section className="mt-10">
-            <h2 className="text-xl font-semibold mb-4">TPO Details</h2>
-            <SearchableList
-              loading={tposLoading}
-              data={filteredTpos}
-              columns={[
-                { label: "Name", key: "name" },
-                { label: "Email", key: "email" },
-                { label: "Phone", key: "phone" },
-                { label: "Experience", key: "experience" },
-                { label: "LinkedIn", key: "linkedIn" },
-                { label: "Status", key: "status" },
-                { label: "Last Login", key: "lastLogin" },
-              ]}
-              searchValue={tpoSearch}
-              onSearchChange={setTpoSearch}
-            />
-          </section>
+          <SectionTable
+            title="TPO Details"
+            loading={tposLoading}
+            searchValue={tpoSearch}
+            onSearchChange={setTpoSearch}
+            data={filteredTpos}
+            columns={[
+              { label: "Name", key: "name" },
+              { label: "Email", key: "email" },
+              { label: "Phone", key: "phone" },
+              { label: "Experience", key: "experience" },
+              { label: "LinkedIn", key: "linkedIn" },
+              { label: "Status", key: "status" },
+              { label: "Last Login", key: "lastLogin" },
+            ]}
+          />
+        )}
+
+        {visibleList === "admins" && (
+          <SectionTable
+            title="Admin Details"
+            loading={adminsLoading}
+            searchValue={adminSearch}
+            onSearchChange={setAdminSearch}
+            data={admins}
+            columns={[
+              { label: "Email", key: "email" },
+              { label: "Role", key: "role" },
+              { label: "Can Add Admin", key: "permissions.canAddAdmin", type: "boolean" },
+              { label: "Can Add Trainer", key: "permissions.canAddTrainer", type: "boolean" },
+              { label: "Can Add TPO", key: "permissions.canAddTPO", type: "boolean" },
+              { label: "Can View Activity", key: "permissions.canViewActivity", type: "boolean" },
+              { label: "Status", key: "status" },
+              { label: "Last Login", key: "lastLogin" },
+            ]}
+          />
         )}
       </main>
     </div>
   );
 };
 
-function SearchableList({ loading, data, columns, searchValue, onSearchChange }) {
+const AdminCard = ({ icon, title, description, onClick }) => (
+  <div
+    className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow"
+    onClick={onClick}
+    role="button"
+    tabIndex={0}
+    onKeyPress={e => e.key === "Enter" && onClick()}
+  >
+    <div className="flex items-center mb-4">
+      <div className="p-3 rounded-lg mr-4 bg-gray-100">{icon}</div>
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <p className="text-sm text-gray-600">{description}</p>
+      </div>
+    </div>
+  </div>
+);
+
+const SectionTable = ({ title, loading, data, columns, searchValue, onSearchChange }) => {
   if (loading) return <LoadingSpinner />;
 
+  const getNestedValue = (obj, key) => key.split('.').reduce((o, k) => (o ? o[k] : undefined), obj);
+
   return (
-    <>
+    <section className="mt-10 max-w-full overflow-x-auto">
+      <h2 className="text-xl font-semibold mb-4">{title}</h2>
       <input
         type="search"
-        className="border border-gray-300 rounded px-3 py-2 mb-6 w-full max-w-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+        className="border border-gray-300 rounded px-3 py-2 mb-4 max-w-sm w-full"
         placeholder="Search..."
         value={searchValue}
         onChange={e => onSearchChange(e.target.value)}
@@ -862,38 +919,38 @@ function SearchableList({ loading, data, columns, searchValue, onSearchChange })
       {data.length === 0 ? (
         <p className="text-center text-gray-600">No records found.</p>
       ) : (
-        <div className="overflow-x-auto border rounded-md">
-          <table className="min-w-full table-auto border-collapse border border-gray-200">
-            <thead>
-              <tr className="bg-gray-100">
-                {columns.map(col => (
-                  <th
-                    key={col.key}
-                    className="border border-gray-300 px-4 py-2 text-left text-gray-700 font-semibold"
-                  >
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.map(item => (
-                <tr key={item._id} className="hover:bg-gray-50">
-                  {columns.map(col => (
-                    <td key={col.key} className="border border-gray-300 px-4 py-2">
-                      {col.key === 'lastLogin' && item[col.key]
-                        ? new Date(item[col.key]).toLocaleString()
-                        : item[col.key] ?? "-"}
-                    </td>
-                  ))}
-                </tr>
+        <table className="min-w-full border-collapse border border-gray-200">
+          <thead>
+            <tr className="bg-gray-100">
+              {columns.map(col => (
+                <th
+                  key={col.key}
+                  className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-700"
+                >
+                  {col.label}
+                </th>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map(item => (
+              <tr key={item._id || item.email} className="hover:bg-gray-50">
+                {columns.map(col => {
+                  let val = getNestedValue(item, col.key);
+                  if (col.type === "boolean") val = val ? "✔️" : "❌";
+                  else if (col.key === "lastLogin" && val) val = new Date(val).toLocaleString();
+                  else if (val === undefined || val === null) val = "-";
+                  return (
+                    <td key={col.key} className="border border-gray-300 px-4 py-2">{val}</td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
-    </>
+    </section>
   );
-}
+};
 
 export default AdminDashboard;
