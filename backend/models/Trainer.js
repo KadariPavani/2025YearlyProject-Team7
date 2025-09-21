@@ -1,3 +1,4 @@
+// trainer.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -17,8 +18,8 @@ const TrainerSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters'],
-    select: false
+    minlength: [6, 'Password must be at least 6 characters']
+    // Removed select: false to allow password selection during login
   },
   phone: {
     type: String,
@@ -36,21 +37,16 @@ const TrainerSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
-  // subjects: [{
-  //   name: {
-  //     type: String,
-  //     required: true,
-  //     trim: true
-  //   },
-  //   type: {
-  //     type: String,
-  //     enum: ['technical', 'non-technical'],
-  //     required: true
-  //   }
-  // }],
-   subjectDealing: { type: String, required: true, trim: true },
-  category: { type: String, enum: ['technical', 'non-technical'], required: true },
-
+  subjectDealing: { 
+    type: String, 
+    required: true, 
+    trim: true 
+  },
+  category: { 
+    type: String, 
+    enum: ['technical', 'non-technical'], 
+    required: true 
+  },
   linkedIn: {
     type: String,
     trim: true
@@ -78,8 +74,8 @@ const TrainerSchema = new mongoose.Schema({
   }],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Admin',
-    required: true
+    ref: 'Admin'
+    // Removed required: true to allow direct trainer registration
   },
   status: {
     type: String,
