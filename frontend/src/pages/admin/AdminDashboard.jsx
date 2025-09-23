@@ -720,7 +720,12 @@ const AdminDashboard = () => {
           </div>
         </div>
       </header>
-
+<button
+  onClick={() => navigate('/crt-management')}
+  className="bg-green-600 px-4 py-2 rounded text-white hover:bg-green-700"
+>
+  Manage CRT Batches
+</button>
       {/* Analytics */}
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-10">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">

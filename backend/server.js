@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 const cookieParser = require('cookie-parser');
+const fileUpload = require('express-fileupload'); // Add this
 
 // Load env vars
 dotenv.config();
@@ -12,6 +13,13 @@ dotenv.config();
 connectDB();
 
 const app = express();
+
+// File upload middleware setup (must be before routes)
+app.use(fileUpload({
+  createParentPath: true,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max file size
+  abortOnLimit: true,
+}));
 
 // Body parser
 app.use(express.json());
@@ -36,10 +44,12 @@ const coordinatorRoutes = require('./routes/coordinatorRoutes');
 const quizRoutes = require('./routes/quizroutes');
 const referenceRoutes = require('./routes/referenceRoutes');
 const assignmentRoutes = require('./routes/AssignmentRoutes');
-const syllabusRoutes = require('./routes/syllabusRoutes'); // Added
+const syllabusRoutes = require('./routes/syllabusRoutes');
+const adminBatchRoutes = require('./routes/adminBatchRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminBatchRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/tpo', tpoRoutes);
 app.use('/api/trainer', trainerRoutes);
@@ -50,7 +60,7 @@ app.use('/api/references', referenceRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/syllabi', syllabusRoutes); // Added
 
-// Error handler
+// Error handler middleware (should be last)
 app.use((err, req, res, next) => {
   console.error('Server Error:', err.message, err.stack);
   res.status(err.status || 500).json({

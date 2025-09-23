@@ -1,23 +1,38 @@
 const jwt = require('jsonwebtoken');
 const TPO = require('../models/TPO');
 const Trainer = require('../models/Trainer');
-// Add other models as needed
-// const Student = require('../models/Student');
-// const Coordinator = require('../models/Coordinator');
+const Student = require('../models/Student');
+const Coordinator = require('../models/Coordinator');
 
 const generalAuth = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const authHeader = req.headers.authorization;
 
-    if (!token) {
+    // Check if Authorization header exists and has correct format
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({
         success: false,
-        message: 'No token, authorization denied'
+        message: 'Invalid authorization format'
       });
     }
 
+    const token = authHeader.split(' ')[1];
+    if (!token || token.trim() === '') {
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided'
+      });
+    }
+
+    // Log token info for debugging (remove in production)
+    console.log('Token received:', {
+      length: token.length,
+      firstChars: token.substring(0, 10) + '...',
+      lastChars: '...' + token.substring(token.length - 10)
+    });
+
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token.trim(), process.env.JWT_SECRET);
     
     // Get the appropriate model based on userType
     let Model;
@@ -28,12 +43,12 @@ const generalAuth = async (req, res, next) => {
       case 'trainer':
         Model = Trainer;
         break;
-      // case 'student':
-      //   Model = Student;
-      //   break;
-      // case 'coordinator':
-      //   Model = Coordinator;
-      //   break;
+      case 'student':
+        Model = Student;
+        break;
+      case 'coordinator':
+        Model = Coordinator;
+        break;
       default:
         return res.status(401).json({
           success: false,

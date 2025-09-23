@@ -2,6 +2,7 @@
 const express = require('express');
 const {
   generalLogin,
+  validateSession,
   getDashboard,
   getProfile,
   updateProfile,
@@ -17,6 +18,7 @@ const router = express.Router();
 
 // Public routes
 router.post('/login', generalLogin);
+router.get('/validate-session', validateSession);
 router.post('/forgot-password/:userType', forgotPassword);
 router.post('/reset-password/:userType', resetPassword);
 

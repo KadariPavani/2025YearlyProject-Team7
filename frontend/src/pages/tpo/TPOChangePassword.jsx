@@ -20,20 +20,60 @@ const TPOChangePassword = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const validatePassword = (password) => {
+    // Add password validation rules
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    const errors = [];
+    if (password.length < minLength) errors.push(`Password must be at least ${minLength} characters long`);
+    if (!hasUpperCase) errors.push('Password must contain at least one uppercase letter');
+    if (!hasLowerCase) errors.push('Password must contain at least one lowercase letter');
+    if (!hasNumbers) errors.push('Password must contain at least one number');
+    if (!hasSpecialChar) errors.push('Password must contain at least one special character');
+
+    return errors;
+  };
+
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setSuccessMessage('');
 
+    // Validate password fields are not empty
+    if (!changePasswordData.currentPassword || !changePasswordData.newPassword || !changePasswordData.confirmPassword) {
+      setError('All password fields are required');
+      setLoading(false);
+      return;
+    }
+
+    // Validate new password matches confirm password
     if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
       setError('New passwords do not match');
       setLoading(false);
       return;
     }
 
+    // Validate new password meets requirements
+    const passwordErrors = validatePassword(changePasswordData.newPassword);
+    if (passwordErrors.length > 0) {
+      setError(passwordErrors.join('\\n'));
+      setLoading(false);
+      return;
+    }
+
     try {
       const token = localStorage.getItem('userToken');
+      if (!token) {
+        setError('Not authenticated. Please login again.');
+        navigate('/tpo-login');
+        return;
+      }
+
       const response = await fetch('/api/auth/change-password/tpo', {
         method: 'POST',
         headers: {
@@ -47,6 +87,11 @@ const TPOChangePassword = () => {
       });
 
       const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to change password');
+      }
+      
       if (result.success) {
         setSuccessMessage('Password changed successfully!');
         setChangePasswordData({

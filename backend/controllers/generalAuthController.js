@@ -6,6 +6,46 @@ const OTP = require('../models/OTP');
 const generateOTP = require('../utils/generateOTP');
 const sendEmail = require('../utils/sendEmail');
 const generateToken = require('../utils/generateToken');
+const jwt = require('jsonwebtoken');
+
+// @desc    Validate session token
+// @route   GET /api/auth/validate-session
+// @access  Public
+const validateSession = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      return res.json({ valid: false });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Check if user still exists
+    const userTypes = ['tpo', 'trainer', 'student', 'coordinator'];
+    for (const userType of userTypes) {
+      const { Model } = getModelAndType(userType);
+      const user = await Model.findById(decoded.id);
+      if (user) {
+        return res.json({ 
+          valid: true,
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            userType
+          }
+        });
+      }
+    }
+
+    return res.json({ valid: false });
+  } catch (error) {
+    console.error('Session validation error:', error);
+    return res.json({ valid: false });
+  }
+};
 
 // Helper function to get model and type based on userType
 const getModelAndType = (userType) => {
@@ -161,13 +201,29 @@ const getDashboard = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const { userType } = req.params;
+    
+    // Check if user exists in request
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not authenticated'
+      });
+    }
+    
     const userId = req.user.id;
+
+    // Validate user type
+    if (!userType || !['tpo', 'trainer', 'student', 'coordinator'].includes(userType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user type'
+      });
+    }
 
     const { Model } = getModelAndType(userType);
 
-    const user = await Model.findById(userId)
-      .select('-password')
-      .populate('createdBy', 'email role');
+    // Find user without populate first
+    const user = await Model.findById(userId).select('-password');
 
     if (!user) {
       return res.status(404).json({
@@ -176,16 +232,27 @@ const getProfile = async (req, res) => {
       });
     }
 
+    // Only populate if createdBy exists
+    let populatedUser = user;
+    if (user.createdBy) {
+      populatedUser = await Model.findById(userId)
+        .select('-password')
+        .populate('createdBy', 'email role');
+    }
+
     res.status(200).json({
       success: true,
-      data: user
+      data: populatedUser
     });
 
   } catch (error) {
     console.error('Get Profile Error:', error);
+    // Send more specific error message if possible
+    const errorMessage = error.name === 'CastError' ? 'Invalid user ID format' : 'Failed to fetch profile';
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch profile'
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
@@ -197,8 +264,25 @@ const changePassword = async (req, res) => {
   try {
     const { userType } = req.params;
     const { currentPassword, newPassword } = req.body;
-    const userId = req.user.id;
 
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Current password and new password are required'
+      });
+    }
+
+    // Validate password requirements
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number and one special character'
+      });
+    }
+
+    const userId = req.user.id;
     const { Model } = getModelAndType(userType);
 
     // Find user
@@ -470,6 +554,7 @@ const logout = async (req, res) => {
 
 module.exports = {
   generalLogin,
+  validateSession,
   getDashboard,
   getProfile,
   updateProfile,

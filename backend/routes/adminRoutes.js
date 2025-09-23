@@ -15,7 +15,8 @@ const {
   forgotPassword,
   resetPassword,
   changePassword,
-  getAdminProfile
+  getAdminProfile,
+  createCrtBatch
 } = require('../controllers/adminController');
 const auth = require('../middleware/auth');
 
@@ -41,5 +42,6 @@ router.get('/trainers', auth, getAllTrainers);
 router.get('/tpos', auth, getAllTPOs);
 router.post('/add-admin', auth, addAdmin);
 router.get('/admins', auth, getAllAdmins);
+router.post('/crt-batch', auth, createCrtBatch);  // <-- must be a function, properly imported
 
 module.exports = router;

@@ -38,7 +38,7 @@ import CoordinatorChangePassword from './pages/coordinator/CoordinatorChangePass
 // Import auth components
 import GeneralForgotPassword from './components/auth/GeneralForgotPassword';
 import GeneralResetPassword from './components/auth/GeneralResetPassword';
-
+import CrtManagementPage from './pages/admin/CrtManagementPage';
 // Lazy-loaded trainer components
 const TrainerRegister = React.lazy(() => import('./pages/trainer/TrainerRegister').catch(() => ({
   default: () => (
@@ -488,7 +488,14 @@ function App() {
               <Route path="/student-reset-password" element={<GeneralResetPassword />} />
               <Route path="/coordinator-reset-password" element={<GeneralResetPassword />} />
               <Route path="/reset-password" element={<GeneralResetPassword />} />
-
+<Route
+  path="/crt-management"
+  element={
+    <ProtectedAdminRoute>
+      <CrtManagementPage />
+    </ProtectedAdminRoute>
+  }
+/>
               {/* Protected Admin Routes */}
               <Route 
                 path="/admin-dashboard" 

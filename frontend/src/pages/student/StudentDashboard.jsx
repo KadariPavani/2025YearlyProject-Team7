@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap, Settings, LogOut, User, Mail, Phone, Clock,
   Calendar, BookOpen, ChevronDown, MapPin, Award, Users, Bell, 
-  FileText, Code, CheckCircle, Star
+  FileText, Code, CheckCircle, Star, AlertCircle
 } from 'lucide-react';
 import PasswordChangeNotification from '../../components/common/PasswordChangeNotification';
 
@@ -15,12 +15,45 @@ const StudentDashboard = () => {
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
 
+  // Quick action cards
+  const quickActions = [
+    { 
+      title: 'Profile',
+      icon: User,
+      description: 'View and edit your profile',
+      onClick: () => navigate('/student/profile'),
+      color: 'bg-blue-500'
+    },
+    {
+      title: 'Assignments',
+      icon: FileText,
+      description: 'View your assignments',
+      onClick: () => navigate('/student/assignments'),
+      color: 'bg-green-500'
+    },
+    {
+      title: 'Attendance',
+      icon: Clock,
+      description: 'Check your attendance',
+      onClick: () => navigate('/student/attendance'),
+      color: 'bg-yellow-500'
+    },
+    {
+      title: 'Coding Practice',
+      icon: Code,
+      description: 'Practice coding problems',
+      onClick: () => navigate('/student/coding'),
+      color: 'bg-purple-500'
+    }
+  ];
+
   useEffect(() => {
     fetchDashboard();
   }, []);
 
   const fetchDashboard = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem('userToken');
       const response = await fetch('/api/auth/dashboard/student', {
         headers: {
@@ -35,6 +68,8 @@ const StudentDashboard = () => {
       }
     } catch (err) {
       setError('Failed to fetch dashboard data');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -55,6 +90,36 @@ const StudentDashboard = () => {
       navigate('/student-login');
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-red-100 p-4 rounded-lg inline-flex items-center text-red-700 mb-4">
+            <AlertCircle className="h-6 w-6 mr-2" />
+            <span>{error}</span>
+          </div>
+          <button 
+            onClick={fetchDashboard}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -215,21 +280,21 @@ const StudentDashboard = () => {
         {/* Quick Actions */}
         <div className="bg-white rounded-xl shadow-lg p-8">
           <h3 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors">
-              <BookOpen className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-600 font-medium">View Assignments</p>
-            </button>
-            
-            <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors">
-              <Code className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-600 font-medium">Coding Tests</p>
-            </button>
-            
-            <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors">
-              <Calendar className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-gray-600 font-medium">Class Schedule</p>
-            </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {quickActions.map((action, index) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={index}
+                  onClick={action.onClick}
+                  className={`${action.color} text-white p-6 rounded-xl hover:opacity-90 transition-opacity`}
+                >
+                  <Icon className="h-8 w-8 mx-auto mb-3" />
+                  <h4 className="font-semibold text-lg mb-1">{action.title}</h4>
+                  <p className="text-sm opacity-90">{action.description}</p>
+                </button>
+              );
+            })}
           </div>
         </div>
       </main>

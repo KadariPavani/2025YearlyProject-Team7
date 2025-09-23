@@ -38,13 +38,32 @@ const StudentProfile = () => {
 
   const fetchProfile = async () => {
     try {
+      setLoading(true);
+      setError('');
+      const userDataStr = localStorage.getItem('userData');
+      if (!userDataStr) {
+        setError('User session not found');
+        navigate('/student-login');
+        return;
+      }
+      
+      const userData = JSON.parse(userDataStr);
       const response = await getProfile('student');
+      
       if (response.data.success) {
         setProfile(response.data.data);
         setFormData(response.data.data);
+      } else {
+        setError(response.data.message || 'Failed to fetch profile');
       }
     } catch (err) {
-      setError('Failed to fetch profile');
+      console.error('Profile fetch error:', err);
+      setError(err.response?.data?.message || 'Failed to fetch profile');
+      if (err.response?.status === 401) {
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('userData');
+        navigate('/student-login');
+      }
     } finally {
       setLoading(false);
     }
