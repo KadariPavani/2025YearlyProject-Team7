@@ -58,24 +58,44 @@ const BatchStudentsPage = () => {
 
   const handleUpdateStudent = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       await updateStudent(selectedStudent._id, editForm);
       setShowEditModal(false);
-      fetchBatchStudents(); // Refresh the list
+      await fetchBatchStudents(); // Refresh the list
+      setError(null);
+      setLoading(false);
+      // Show success message
+      const message = document.createElement('div');
+      message.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg';
+      message.textContent = 'Student updated successfully';
+      document.body.appendChild(message);
+      setTimeout(() => message.remove(), 3000);
     } catch (error) {
-      setError('Failed to update student');
       console.error('Update error:', error);
+      setError(error.response?.data?.message || 'Failed to update student');
+      setLoading(false);
     }
   };
 
   const handleDeleteConfirm = async () => {
+    setLoading(true);
     try {
       await deleteStudent(selectedStudent._id);
       setShowDeleteModal(false);
-      fetchBatchStudents(); // Refresh the list
+      await fetchBatchStudents(); // Refresh the list
+      setError(null);
+      setLoading(false);
+      // Show success message
+      const message = document.createElement('div');
+      message.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg';
+      message.textContent = 'Student deleted successfully';
+      document.body.appendChild(message);
+      setTimeout(() => message.remove(), 3000);
     } catch (error) {
-      setError('Failed to delete student');
       console.error('Delete error:', error);
+      setError(error.response?.data?.message || 'Failed to delete student');
+      setLoading(false);
     }
   };
 
@@ -158,10 +178,18 @@ const BatchStudentsPage = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <div className="flex space-x-2">
-                    <button className="text-blue-600 hover:text-blue-900">
+                    <button 
+                      onClick={() => handleEdit(student)}
+                      className="text-blue-600 hover:text-blue-900"
+                      disabled={loading}
+                    >
                       <Pencil size={16} />
                     </button>
-                    <button className="text-red-600 hover:text-red-900">
+                    <button 
+                      onClick={() => handleDelete(student)}
+                      className="text-red-600 hover:text-red-900"
+                      disabled={loading}
+                    >
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -212,7 +240,7 @@ const BatchStudentsPage = () => {
                   onChange={(e) => setEditForm({ ...editForm, branch: e.target.value })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
                 >
-                  {['CSE', 'IT', 'ECE', 'EEE', 'CIVIL', 'MECH'].map(branch => (
+                  {['AID', 'CSM', 'CAI', 'CSC', 'CSD'].map(branch => (
                     <option key={branch} value={branch}>{branch}</option>
                   ))}
                 </select>

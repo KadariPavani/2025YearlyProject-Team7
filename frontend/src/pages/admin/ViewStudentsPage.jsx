@@ -126,10 +126,11 @@ const ViewStudentsPage = () => {
             className="rounded-lg border-gray-300 focus:border-green-500 focus:ring-green-500"
           >
             <option value="">All Branches</option>
-            <option value="CSE">CSE</option>
-            <option value="IT">IT</option>
-            <option value="ECE">ECE</option>
-            <option value="EEE">EEE</option>
+            <option value="AID">AID</option>
+            <option value="CSM">CSM</option>
+            <option value="CAI">CAI</option>
+            <option value="CSD">CSD</option>
+            <option value="CSC">CSC</option>
           </select>
 
           <button

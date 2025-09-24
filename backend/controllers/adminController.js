@@ -832,7 +832,9 @@ const createCrtBatch = async (req, res) => {
   }
 };
 
-// Edit student
+// @desc    Update student details
+// @route   PUT /api/admin/students/:id
+// @access  Private/Admin
 const updateStudent = async (req, res) => {
   try {
     const studentId = req.params.id;
@@ -869,7 +871,9 @@ const updateStudent = async (req, res) => {
   }
 };
 
-// Delete student
+// @desc    Delete student
+// @route   DELETE /api/admin/students/:id
+// @access  Private/Admin
 const deleteStudent = async (req, res) => {
   try {
     const studentId = req.params.id;
@@ -884,7 +888,7 @@ const deleteStudent = async (req, res) => {
     }
 
     // Get the batch ID before deleting the student
-    const batchId = student.batch;
+    const batchId = student.batchId;
 
     // Delete the student
     await Student.findByIdAndDelete(studentId);
@@ -929,5 +933,4 @@ module.exports = {
   createCrtBatch,
   updateStudent,
   deleteStudent
-  
 };
