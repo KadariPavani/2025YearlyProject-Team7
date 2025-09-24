@@ -1,23 +1,24 @@
 // import api from './api';
 
-// export const requestAdminPasswordResetOTP = (email) => {
-//   return api.post('/api/admin/forgot-password', { email });
-// };
+import api from './api';
 
-// export const resetAdminPasswordWithOTP = ({ email, otp, newPassword }) => {
-//   return api.post('/api/admin/reset-password', { email, otp, newPassword });
-// };
+export const updateStudent = (studentId, studentData) => {
+  const token = localStorage.getItem('adminToken');
+  return api.put(`/api/admin/students/${studentId}`, studentData, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+};
 
-// export const changeAdminPassword = ({ email, currentPassword, newPassword }) => {
-//   const token = localStorage.getItem('adminToken');
-//   return api.post('/api/admin/change-password', 
-//     { email, currentPassword, newPassword },
-//     {
-//       headers: {
-//         Authorization: `Bearer ${token}`
-//       }
-//     }
-//   );
+export const deleteStudent = (studentId) => {
+  const token = localStorage.getItem('adminToken');
+  return api.delete(`/api/admin/students/${studentId}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+};
 // };
 
 // export const getAdminProfile = () => {
@@ -41,7 +42,7 @@
 // };
 
 // frontend/src/services/adminService.js
-import api from './api';
+// import api from './api';
 
 // Existing admin functions
 export const adminLogin = (credentials) => {
@@ -91,4 +92,21 @@ export const getAllTrainers = () => {
 
 export const getAllTPOs = () => {
   return api.get('/api/admin/tpos');
+};
+
+// Batch Management
+export const getAllBatches = () => {
+  return api.get('/api/admin/batches');
+};
+
+export const getBatchStudents = (batchId) => {
+  return api.get(`/api/admin/batches/${batchId}/students`);
+};
+
+export const updateBatch = (batchId, batchData) => {
+  return api.put(`/api/admin/batches/${batchId}`, batchData);
+};
+
+export const deleteBatch = (batchId) => {
+  return api.delete(`/api/admin/batches/${batchId}`);
 };

@@ -36,9 +36,17 @@ import StudentChangePassword from './pages/student/StudentChangePassword';
 import CoordinatorChangePassword from './pages/coordinator/CoordinatorChangePassword';
 
 // Import auth components
+// import SuperAdminLogin from './components/auth/SuperAdminLogin';
+// import AdminResetPassword from './components/auth/AdminResetPassword';
+// import AdminForgotPassword from './components/auth/AdminForgotPassword';
+
+// Import admin components
+import BatchListPage from './pages/admin/BatchListPage';
+import BatchStudentsPage from './pages/admin/BatchStudentsPage';
 import GeneralForgotPassword from './components/auth/GeneralForgotPassword';
 import GeneralResetPassword from './components/auth/GeneralResetPassword';
 import CrtManagementPage from './pages/admin/CrtManagementPage';
+import ViewStudentsPage from './pages/admin/ViewStudentsPage';
 // Lazy-loaded trainer components
 const TrainerRegister = React.lazy(() => import('./pages/trainer/TrainerRegister').catch(() => ({
   default: () => (
@@ -467,6 +475,14 @@ function App() {
               <Route path="/view-trainers" element={<ViewTrainersPage />} /> 
               <Route path="/add-admin" element={<AddAdmin />} />
               <Route path="/view-admins" element={<ViewAdmins />} />
+              <Route 
+                path="/admin/students" 
+                element={
+                  <ProtectedAdminRoute>
+                    <ViewStudentsPage />
+                  </ProtectedAdminRoute>
+                } 
+              />
               
               {/* General User Login Routes */}
               <Route path="/tpo-login" element={<GeneralLogin />} />
@@ -515,6 +531,24 @@ function App() {
               />
 
               {/* Protected Trainer Routes */}
+              {/* Batch Management Routes */}
+              <Route 
+                path="/admin/batches" 
+                element={
+                  <ProtectedAdminRoute>
+                    <BatchListPage />
+                  </ProtectedAdminRoute>
+                } 
+              />
+              <Route 
+                path="/admin/batches/:batchId/students" 
+                element={
+                  <ProtectedAdminRoute>
+                    <BatchStudentsPage />
+                  </ProtectedAdminRoute>
+                } 
+              />
+
               <Route
                 path="/trainer-dashboard"
                 element={

@@ -16,7 +16,9 @@ const {
   resetPassword,
   changePassword,
   getAdminProfile,
-  createCrtBatch
+  createCrtBatch,
+  updateStudent,
+  deleteStudent
 } = require('../controllers/adminController');
 const auth = require('../middleware/auth');
 
@@ -42,6 +44,8 @@ router.get('/trainers', auth, getAllTrainers);
 router.get('/tpos', auth, getAllTPOs);
 router.post('/add-admin', auth, addAdmin);
 router.get('/admins', auth, getAllAdmins);
-router.post('/crt-batch', auth, createCrtBatch);  // <-- must be a function, properly imported
+router.post('/crt-batch', auth, createCrtBatch);
+router.put('/students/:id', auth, updateStudent);
+router.delete('/students/:id', auth, deleteStudent);
 
 module.exports = router;
