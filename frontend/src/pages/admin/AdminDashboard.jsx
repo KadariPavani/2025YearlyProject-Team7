@@ -510,6 +510,8 @@ import {
   Shield, Bell, Settings, LogOut, ChevronDown,
   Users, GraduationCap, Eye, BarChart3,
 } from "lucide-react";
+// Import CRTBatchSection from the path where you save the new component
+import CRTBatchSection from "./CRTBatchSection"; // Adjust path as needed
 
 function LoadingSpinner() {
   return (
@@ -533,7 +535,6 @@ const AdminDashboard = () => {
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
   const [visibleList, setVisibleList] = useState(null);
-
   const [trainers, setTrainers] = useState([]);
   const [tpos, setTpos] = useState([]);
   const [admins, setAdmins] = useState([]);
@@ -655,7 +656,6 @@ const AdminDashboard = () => {
     );
   }, [admins, adminSearch]);
 
-
   if (!adminData || analyticsLoading) return <LoadingSpinner />;
 
   return (
@@ -720,14 +720,8 @@ const AdminDashboard = () => {
           </div>
         </div>
       </header>
-<button
-  onClick={() => navigate('/crt-management')}
-  className="bg-green-600 px-4 py-2 rounded text-white hover:bg-green-700"
->
-  Manage CRT Batches
-</button>
-      {/* Analytics */}
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-10">
+        {/* Analytics summary cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div
             className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
@@ -741,7 +735,6 @@ const AdminDashboard = () => {
               <div className="text-gray-600 text-sm">Total Trainers</div>
             </div>
           </div>
-
           <div
             className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
             onClick={() => toggleList("tpos")}
@@ -754,7 +747,6 @@ const AdminDashboard = () => {
               <div className="text-gray-600 text-sm">Total TPOs</div>
             </div>
           </div>
-
           <div
             className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
             onClick={() => toggleList("admins")}
@@ -768,8 +760,9 @@ const AdminDashboard = () => {
             </div>
           </div>
         </div>
-
-        {/* Add Cards for Navigation */}
+        {/* CRT Batches Management Section */}
+        <CRTBatchSection />
+        {/* Admin Navigation Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-10">
           {adminData.permissions?.canAddTrainer && (
             <AdminCard
@@ -779,7 +772,6 @@ const AdminDashboard = () => {
               onClick={() => navigate("/add-trainer")}
             />
           )}
-
           {adminData.permissions?.canViewTrainer && (
             <AdminCard
               icon={<Eye className="h-8 w-8 text-green-600" />}
@@ -788,7 +780,6 @@ const AdminDashboard = () => {
               onClick={() => toggleList("trainers")}
             />
           )}
-
           {adminData.permissions?.canAddTPO && (
             <AdminCard
               icon={<Users className="h-8 w-8 text-blue-600" />}
@@ -797,7 +788,6 @@ const AdminDashboard = () => {
               onClick={() => navigate("/add-tpo")}
             />
           )}
-
           {adminData.permissions?.canViewTPO && (
             <AdminCard
               icon={<Eye className="h-8 w-8 text-blue-600" />}
@@ -806,7 +796,6 @@ const AdminDashboard = () => {
               onClick={() => toggleList("tpos")}
             />
           )}
-
           {adminData.permissions?.canAddAdmin && (
             <AdminCard
               icon={<Shield className="h-8 w-8 text-purple-600" />}
@@ -815,15 +804,7 @@ const AdminDashboard = () => {
               onClick={() => navigate("/add-admin")}
             />
           )}
-
-          {/* <AdminCard
-            icon={<Users className="h-8 w-8 text-purple-600" />}
-            title="View Admins"
-            description="Browse all admins and roles"
-            onClick={() => toggleList("admins")}
-          /> */}
         </div>
-
         {/* Lists to show tables */}
         {visibleList === "trainers" && (
           <SectionTable
@@ -844,7 +825,6 @@ const AdminDashboard = () => {
             ]}
           />
         )}
-
         {visibleList === "tpos" && (
           <SectionTable
             title="TPO Details"
@@ -863,7 +843,6 @@ const AdminDashboard = () => {
             ]}
           />
         )}
-
         {visibleList === "admins" && (
           <SectionTable
             title="Admin Details"

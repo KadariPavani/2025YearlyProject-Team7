@@ -77,36 +77,39 @@ router.get('/batches/:batchId/students', auth, async (req, res) => {
 // @route   PUT /api/admin/batches/:batchId
 // @desc    Update a batch
 // @access  Private/Admin
+// Update Batch API
 router.put('/batches/:batchId', auth, async (req, res) => {
   try {
-    const { batchNumber, colleges, tpoId } = req.body;
+    const { batchNumber, colleges, tpoId, startDate, endDate } = req.body;
+
     const batch = await Batch.findById(req.params.batchId);
+    if (!batch) return res.status(404).json({ success: false, message: 'Batch not found' });
 
-    if (!batch) {
-      return res.status(404).json({
-        success: false,
-        message: 'Batch not found'
-      });
+    // Validate colleges if provided
+    if (colleges && !Array.isArray(colleges)) {
+      return res.status(400).json({ success: false, message: 'Colleges must be an array' });
     }
+    const normColleges = colleges ? colleges.map(c => c.trim().toUpperCase()) : batch.colleges;
 
-    const updatedBatch = await Batch.findByIdAndUpdate(
-      req.params.batchId,
-      { batchNumber, colleges, tpoId },
-      { new: true, runValidators: true }
-    ).populate('tpoId', 'name email');
+    // Update batch fields
+    batch.batchNumber = batchNumber || batch.batchNumber;
+    batch.colleges = normColleges;
+    batch.tpoId = tpoId || batch.tpoId;
+    batch.startDate = startDate ? new Date(startDate) : batch.startDate;
+    batch.endDate = endDate ? new Date(endDate) : batch.endDate;
 
-    res.json({
-      success: true,
-      data: updatedBatch
-    });
+    const updatedBatch = await batch.save();
+
+    // Return populated batch with TPO info
+    const populatedBatch = await Batch.findById(updatedBatch._id).populate('tpoId', 'name email');
+
+    res.json({ success: true, data: populatedBatch });
   } catch (error) {
     console.error('Error updating batch:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    res.status(500).json({ success: false, message: 'Server error updating batch' });
   }
 });
+
 
 // @route   DELETE /api/admin/batches/:batchId
 // @desc    Delete a batch
@@ -114,33 +117,22 @@ router.put('/batches/:batchId', auth, async (req, res) => {
 router.delete('/batches/:batchId', auth, async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.batchId);
-
     if (!batch) {
-      return res.status(404).json({
-        success: false,
-        message: 'Batch not found'
-      });
+      return res.status(404).json({ success: false, message: 'Batch not found' });
     }
 
-    // Remove batch references from all students in this batch
-    await Student.updateMany(
-      { _id: { $in: batch.students } },
-      { $unset: { batch: "" } }
-    );
+    // Delete all students in this batch
+    await Student.deleteMany({ batchId: batch._id });
 
+    // Delete the batch itself
     await Batch.findByIdAndDelete(req.params.batchId);
 
-    res.json({
-      success: true,
-      message: 'Batch deleted successfully'
-    });
+    res.json({ success: true, message: 'Batch and all its students deleted successfully' });
   } catch (error) {
     console.error('Error deleting batch:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+    res.status(500).json({ success: false, message: 'Server error deleting batch' });
   }
 });
+
 
 module.exports = router;

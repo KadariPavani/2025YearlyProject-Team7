@@ -657,190 +657,334 @@ const getAdminProfile = async (req, res) => {
   }
 };
 
+// const createCrtBatch = async (req, res) => {
+//   try {
+//     // First validate the request body and files
+//     if (!req.body || !req.files) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Missing request data'
+//       });
+//     }
+
+//     let { batchNumber, colleges, tpoId } = req.body;
+    
+//     console.log('Received request body:', req.body);
+//     console.log('Initial colleges value:', colleges);
+    
+//     // Parse colleges if it's a string
+//     if (typeof colleges === 'string') {
+//       try {
+//         colleges = JSON.parse(colleges);
+//         console.log('Parsed colleges:', colleges);
+//       } catch (err) {
+//         console.error('Error parsing colleges:', err);
+//         return res.status(400).json({
+//           success: false,
+//           message: 'Invalid colleges format'
+//         });
+//       }
+//     }
+
+//     // Ensure colleges is an array
+//     if (!Array.isArray(colleges)) {
+//       console.error('Colleges is not an array:', colleges);
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Colleges must be an array'
+//       });
+//     }
+
+//     // Normalize college values
+//     colleges = colleges.map(c => c.trim().toUpperCase());
+
+//     // Check if all required fields are present
+//     if (!batchNumber || !colleges || !colleges.length || !tpoId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Batch number, colleges and TPO are required'
+//       });
+//     }
+
+//     // Verify TPO exists
+//     const tpo = await TPO.findById(tpoId);
+//     if (!tpo) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'TPO not found'
+//       });
+//     }
+
+//     // Validate file presence and type
+//     if (!req.files.file) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Student Excel file is required'
+//       });
+//     }
+
+//     const file = req.files.file;
+//     if (!file.name.match(/\.(xls|xlsx)$/)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Please upload an Excel file (.xls or .xlsx)'
+//       });
+//     }
+
+//     // Read Excel file
+//     const workbook = XLSX.read(file.data, { type: 'buffer' });
+//     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+//     const data = XLSX.utils.sheet_to_json(worksheet);
+
+//     if (data.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Excel file is empty'
+//       });
+//     }
+
+//     // Create new CRT batch
+//     const batch = await Batch.create({
+//       batchNumber,
+//       colleges,
+//       isCrt: true,
+//       tpoId,
+//       createdBy: req.admin._id
+//     });
+
+//     // Validate and create students
+//     const validBranches = ['AID', 'CSM', 'CAI', 'CSD', 'CSC'];
+//     console.log('Selected colleges for batch:', colleges);
+//     console.log('Valid branches:', validBranches);
+    
+//     const studentPromises = data.map(async (row) => {
+//       // Normalize the data from Excel
+//       const studentData = {
+//         name: row.name?.trim(),
+//         email: row.email?.trim(),
+//         rollNumber: row['roll number']?.trim(), // Excel column name has a space
+//         branch: row.branch?.trim(),
+//         college: row.college?.trim(),
+//         phonenumber: row.phonenumber?.toString().trim() // Convert to string if it's a number
+//       };
+      
+//       console.log('Processing student:', studentData);
+
+//       // Validate required fields
+//       if (!studentData.name || !studentData.email || !studentData.rollNumber || 
+//           !studentData.branch || !studentData.college || !studentData.phonenumber) {
+//         console.log('Invalid student data:', studentData);
+//         throw new Error(`Missing required fields for student: ${JSON.stringify(row)}`);
+//       }
+
+//       // First validate branch
+//       if (!validBranches.includes(studentData.branch)) {
+//         throw new Error(`Invalid branch ${studentData.branch} for student ${studentData.name}. Valid branches are: ${validBranches.join(', ')}`);
+//       }
+
+//       // Then validate college
+//       if (!colleges.includes(studentData.college)) {
+//         throw new Error(`Student's college ${studentData.college} is not in the selected colleges (${colleges.join(', ')}) for this batch. Student: ${studentData.name}`);
+//       }
+
+//       // Create student with all required fields
+//       return await Student.create({
+//         name: studentData.name,
+//         email: studentData.email,
+//         username: studentData.rollNumber, // Use roll number as username
+//         rollNo: studentData.rollNumber,   // Store roll number in rollNo field
+//         branch: studentData.branch,
+//         college: studentData.college,
+//         phonenumber: studentData.phonenumber,
+//         password: studentData.rollNumber, // Will be hashed by the pre-save hook
+//         batchId: batch._id,              // Link to the batch using batchId
+//         yearOfPassing: batchNumber       // Use batch number as year of passing
+//       });
+//     });
+
+//     try {
+//       // Wait for all students to be created
+//       const students = await Promise.all(studentPromises);
+      
+//       // Update batch with student IDs
+//       batch.students = students.map(student => student._id);
+//       await batch.save();
+
+//       res.status(201).json({
+//         success: true,
+//         message: 'CRT batch created successfully',
+//         data: {
+//           batch: batch,
+//           studentsCount: students.length
+//         }
+//       });
+//     } catch (error) {
+//       // If student creation fails, delete the batch and throw error
+//       await Batch.findByIdAndDelete(batch._id);
+//       throw error;
+//     }
+//   } catch (error) {
+//     console.error('Error creating CRT batch:', error);
+//     res.status(400).json({
+//       success: false,
+//       message: error.message || 'Failed to create CRT batch'
+//     });
+//   }
+// };
+
+// // @desc    Update student details
+// // @route   PUT /api/admin/students/:id
+// // @access  Private/Admin
+// const updateStudent = async (req, res) => {
+//   try {
+//     const studentId = req.params.id;
+//     const updates = req.body;
+
+//     // Check if student exists
+//     const student = await Student.findById(studentId);
+//     if (!student) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Student not found'
+//       });
+//     }
+
+//     // Update student fields
+//     const updatedStudent = await Student.findByIdAndUpdate(
+//       studentId,
+//       { $set: updates },
+//       { new: true, runValidators: true }
+//     );
+
+//     res.status(200).json({
+//       success: true,
+//       message: 'Student updated successfully',
+//       data: updatedStudent
+//     });
+//   } catch (error) {
+//     console.error('Error updating student:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: 'Error updating student',
+//       error: error.message
+//     });
+//   }
+// };
+
+// @desc    Delete student
+// @route   DELETE /api/admin/students/:id
+// @access  Private/Admin
+
 const createCrtBatch = async (req, res) => {
   try {
-    // First validate the request body and files
     if (!req.body || !req.files) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing request data'
-      });
+      return res.status(400).json({ success: false, message: 'Missing request data' });
     }
 
-    let { batchNumber, colleges, tpoId } = req.body;
-    
-    console.log('Received request body:', req.body);
-    console.log('Initial colleges value:', colleges);
-    
-    // Parse colleges if it's a string
+    let { batchNumber, colleges, tpoId, startDate, endDate } = req.body;
+
     if (typeof colleges === 'string') {
       try {
         colleges = JSON.parse(colleges);
-        console.log('Parsed colleges:', colleges);
-      } catch (err) {
-        console.error('Error parsing colleges:', err);
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid colleges format'
-        });
+      } catch {
+        return res.status(400).json({ success: false, message: 'Invalid colleges format' });
       }
     }
-
-    // Ensure colleges is an array
     if (!Array.isArray(colleges)) {
-      console.error('Colleges is not an array:', colleges);
-      return res.status(400).json({
-        success: false,
-        message: 'Colleges must be an array'
-      });
+      return res.status(400).json({ success: false, message: 'Colleges must be an array' });
     }
-
-    // Normalize college values
     colleges = colleges.map(c => c.trim().toUpperCase());
 
-    // Check if all required fields are present
-    if (!batchNumber || !colleges || !colleges.length || !tpoId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Batch number, colleges and TPO are required'
-      });
+    if (!batchNumber || !colleges.length || !tpoId || !startDate || !endDate) {
+      return res.status(400).json({ success: false, message: 'Batch number, colleges, TPO, startDate and endDate are required' });
     }
 
-    // Verify TPO exists
     const tpo = await TPO.findById(tpoId);
-    if (!tpo) {
-      return res.status(404).json({
-        success: false,
-        message: 'TPO not found'
-      });
-    }
+    if (!tpo) return res.status(404).json({ success: false, message: 'TPO not found' });
 
-    // Validate file presence and type
-    if (!req.files.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'Student Excel file is required'
-      });
-    }
+    if (!req.files.file) return res.status(400).json({ success: false, message: 'Student Excel file is required' });
 
     const file = req.files.file;
     if (!file.name.match(/\.(xls|xlsx)$/)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please upload an Excel file (.xls or .xlsx)'
-      });
+      return res.status(400).json({ success: false, message: 'Please upload an Excel file (.xls or .xlsx)' });
     }
 
-    // Read Excel file
+    const XLSX = require('xlsx');
     const workbook = XLSX.read(file.data, { type: 'buffer' });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(worksheet);
 
-    if (data.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Excel file is empty'
-      });
+    if (data.length === 0) return res.status(400).json({ success: false, message: 'Excel file is empty' });
+
+    const validBranches = ['AID', 'CSM', 'CAI', 'CSD', 'CSC'];
+
+    // Validate all students before creating batch or students
+    for (const row of data) {
+      const name = row.name?.trim();
+      const email = row.email?.trim();
+      const rollNumber = row['roll number']?.trim();
+      const branch = row.branch?.trim();
+      const college = row.college?.trim();
+      const phonenumber = row.phonenumber?.toString().trim();
+
+      if (!name || !email || !rollNumber || !branch || !college || !phonenumber) {
+        return res.status(400).json({ success: false, message: `Missing fields in student: ${JSON.stringify(row)}` });
+      }
+      if (!validBranches.includes(branch)) {
+        return res.status(400).json({ success: false, message: `Invalid branch ${branch} in student ${name}. Valid: ${validBranches.join(', ')}` });
+      }
+      if (!colleges.includes(college)) {
+        return res.status(400).json({ success: false, message: `College ${college} not in selected batch colleges for student ${name}` });
+      }
     }
 
-    // Create new CRT batch
+    // All validation passed - create batch
     const batch = await Batch.create({
       batchNumber,
       colleges,
       isCrt: true,
       tpoId,
-      createdBy: req.admin._id
+      createdBy: req.admin._id,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate)
     });
 
-    // Validate and create students
-    const validBranches = ['AID', 'CSM', 'CAI', 'CSD', 'CSC'];
-    console.log('Selected colleges for batch:', colleges);
-    console.log('Valid branches:', validBranches);
-    
-    const studentPromises = data.map(async (row) => {
-      // Normalize the data from Excel
-      const studentData = {
-        name: row.name?.trim(),
-        email: row.email?.trim(),
-        rollNumber: row['roll number']?.trim(), // Excel column name has a space
-        branch: row.branch?.trim(),
-        college: row.college?.trim(),
-        phonenumber: row.phonenumber?.toString().trim() // Convert to string if it's a number
-      };
-      
-      console.log('Processing student:', studentData);
+    // Create students after batch creation
+    const studentDocs = await Promise.all(data.map(row => {
+      return new Student({
+        name: row.name.trim(),
+        email: row.email.trim(),
+        username: row['roll number'].trim(),
+        rollNo: row['roll number'].trim(),
+        branch: row.branch.trim(),
+        college: row.college.trim(),
+        phonenumber: row.phonenumber.toString().trim(),
+        password: row['roll number'].trim(),
+        batchId: batch._id,
+        yearOfPassing: batchNumber
+      }).save();
+    }));
 
-      // Validate required fields
-      if (!studentData.name || !studentData.email || !studentData.rollNumber || 
-          !studentData.branch || !studentData.college || !studentData.phonenumber) {
-        console.log('Invalid student data:', studentData);
-        throw new Error(`Missing required fields for student: ${JSON.stringify(row)}`);
-      }
+    // Update batch with student IDs
+    batch.students = studentDocs.map(s => s._id);
+    await batch.save();
 
-      // First validate branch
-      if (!validBranches.includes(studentData.branch)) {
-        throw new Error(`Invalid branch ${studentData.branch} for student ${studentData.name}. Valid branches are: ${validBranches.join(', ')}`);
-      }
-
-      // Then validate college
-      if (!colleges.includes(studentData.college)) {
-        throw new Error(`Student's college ${studentData.college} is not in the selected colleges (${colleges.join(', ')}) for this batch. Student: ${studentData.name}`);
-      }
-
-      // Create student with all required fields
-      return await Student.create({
-        name: studentData.name,
-        email: studentData.email,
-        username: studentData.rollNumber, // Use roll number as username
-        rollNo: studentData.rollNumber,   // Store roll number in rollNo field
-        branch: studentData.branch,
-        college: studentData.college,
-        phonenumber: studentData.phonenumber,
-        password: studentData.rollNumber, // Will be hashed by the pre-save hook
-        batchId: batch._id,              // Link to the batch using batchId
-        yearOfPassing: batchNumber       // Use batch number as year of passing
-      });
-    });
-
-    try {
-      // Wait for all students to be created
-      const students = await Promise.all(studentPromises);
-      
-      // Update batch with student IDs
-      batch.students = students.map(student => student._id);
-      await batch.save();
-
-      res.status(201).json({
-        success: true,
-        message: 'CRT batch created successfully',
-        data: {
-          batch: batch,
-          studentsCount: students.length
-        }
-      });
-    } catch (error) {
-      // If student creation fails, delete the batch and throw error
-      await Batch.findByIdAndDelete(batch._id);
-      throw error;
-    }
+    res.status(201).json({ success: true, message: 'CRT batch created successfully', data: { batch, studentsCount: studentDocs.length } });
   } catch (error) {
     console.error('Error creating CRT batch:', error);
-    res.status(400).json({
-      success: false,
-      message: error.message || 'Failed to create CRT batch'
-    });
+    res.status(400).json({ success: false, message: error.message || 'Failed to create CRT batch' });
   }
 };
 
-// @desc    Update student details
-// @route   PUT /api/admin/students/:id
-// @access  Private/Admin
+
+
+
+// Update Student details controller
 const updateStudent = async (req, res) => {
   try {
     const studentId = req.params.id;
     const updates = req.body;
 
-    // Check if student exists
     const student = await Student.findById(studentId);
     if (!student) {
       return res.status(404).json({
@@ -849,7 +993,6 @@ const updateStudent = async (req, res) => {
       });
     }
 
-    // Update student fields
     const updatedStudent = await Student.findByIdAndUpdate(
       studentId,
       { $set: updates },
@@ -871,9 +1014,6 @@ const updateStudent = async (req, res) => {
   }
 };
 
-// @desc    Delete student
-// @route   DELETE /api/admin/students/:id
-// @access  Private/Admin
 const deleteStudent = async (req, res) => {
   try {
     const studentId = req.params.id;

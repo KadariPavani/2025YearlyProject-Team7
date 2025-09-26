@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  getAllBatches, 
-  updateBatch, 
-  deleteBatch, 
-  getAllTPOs 
+import {
+  getAllBatches,
+  updateBatch,
+  deleteBatch,
+  getAllTPOs
 } from '../../services/adminService';
-import { Pencil, Trash2, Users, AlertCircle } from 'lucide-react';
+import { Pencil, Trash2, Users, AlertCircle, RefreshCw } from 'lucide-react';
+
+function getBatchStatus(startDate, endDate) {
+  const now = new Date();
+  if (startDate && endDate) {
+    if (now <= new Date(endDate)) return 'Ongoing';
+    return 'Completed';
+  }
+  return '-';
+}
 
 const BatchListPage = () => {
   const [batches, setBatches] = useState([]);
@@ -22,7 +31,9 @@ const BatchListPage = () => {
   const [editForm, setEditForm] = useState({
     batchNumber: '',
     colleges: [],
-    tpoId: ''
+    tpoId: '',
+    startDate: '',
+    endDate: ''
   });
 
   useEffect(() => {
@@ -31,6 +42,8 @@ const BatchListPage = () => {
   }, []);
 
   const fetchBatches = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const response = await getAllBatches();
       setBatches(response.data.data);
@@ -45,8 +58,8 @@ const BatchListPage = () => {
     try {
       const response = await getAllTPOs();
       setTpos(response.data.data);
-    } catch (error) {
-      console.error('Failed to fetch TPOs:', error);
+    } catch {
+      setError('Failed to fetch TPOs');
     }
   };
 
@@ -55,7 +68,9 @@ const BatchListPage = () => {
     setEditForm({
       batchNumber: batch.batchNumber,
       colleges: batch.colleges,
-      tpoId: batch.tpoId._id
+      tpoId: batch.tpoId._id,
+      startDate: batch.startDate ? batch.startDate.slice(0,10) : '',
+      endDate: batch.endDate ? batch.endDate.slice(0,10) : '',
     });
     setShowEditModal(true);
   };
@@ -70,9 +85,8 @@ const BatchListPage = () => {
     try {
       await updateBatch(selectedBatch._id, editForm);
       setShowEditModal(false);
-      fetchBatches(); // Refresh the list
-      // Show success message
-    } catch (error) {
+      fetchBatches();
+    } catch {
       setError('Failed to update batch');
     }
   };
@@ -81,9 +95,8 @@ const BatchListPage = () => {
     try {
       await deleteBatch(selectedBatch._id);
       setShowDeleteConfirm(false);
-      fetchBatches(); // Refresh the list
-      // Show success message
-    } catch (error) {
+      fetchBatches();
+    } catch {
       setError('Failed to delete batch');
     }
   };
@@ -92,18 +105,17 @@ const BatchListPage = () => {
     navigate(`/admin/batches/${batchId}/students`);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">CRT Batches</h1>
-      
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">CRT Batches</h1>
+        <button
+          onClick={fetchBatches}
+          className="flex items-center border border-gray-300 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50"
+        >
+          <RefreshCw size={16} className="mr-1" /> Refresh
+        </button>
+      </div>
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
           {error}
@@ -118,26 +130,37 @@ const BatchListPage = () => {
                 <h2 className="text-xl font-semibold text-gray-900">
                   Batch {batch.batchNumber}
                 </h2>
-                <p className="text-gray-600 mt-1">
-                  {batch.colleges.join(', ')}
+                <p className="text-gray-600 mt-1">{batch.colleges.join(', ')}</p>
+                <p className="mt-2 text-sm">
+                  <span className="font-semibold">Status: </span>
+                  <span className={getBatchStatus(batch.startDate, batch.endDate) === 'Ongoing' ? "text-green-600" : "text-gray-600"}>
+                    {getBatchStatus(batch.startDate, batch.endDate)}
+                  </span>
+                </p>
+                <p className="text-sm text-gray-600">
+                  Start: {batch.startDate ? (new Date(batch.startDate)).toLocaleDateString() : '-'}
+                  {" | "}
+                  End: {batch.endDate ? (new Date(batch.endDate)).toLocaleDateString() : '-'}
                 </p>
               </div>
               <div className="flex space-x-2">
                 <button
                   onClick={() => handleEditClick(batch)}
                   className="p-2 text-blue-600 hover:bg-blue-50 rounded-full"
+                  title="Edit Batch"
                 >
                   <Pencil size={16} />
                 </button>
                 <button
                   onClick={() => handleDeleteClick(batch)}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-full"
+                  title="Delete Batch"
                 >
                   <Trash2 size={16} />
                 </button>
               </div>
             </div>
-            
+
             <div className="mt-4">
               <p className="text-sm text-gray-600">
                 TPO: {batch.tpoId?.name || 'Not assigned'}
@@ -172,18 +195,18 @@ const BatchListPage = () => {
                   <input
                     type="text"
                     value={editForm.batchNumber}
-                    onChange={(e) => setEditForm({
-                      ...editForm,
-                      batchNumber: e.target.value
-                    })}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        batchNumber: e.target.value
+                      })
+                    }
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Colleges
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700">Colleges</label>
                   <div className="mt-2 space-y-2">
                     {['KIET', 'KIEK', 'KIEW'].map((college) => (
                       <label key={college} className="inline-flex items-center mr-4">
@@ -205,24 +228,44 @@ const BatchListPage = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    TPO
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700">TPO</label>
                   <select
                     value={editForm.tpoId}
-                    onChange={(e) => setEditForm({
-                      ...editForm,
-                      tpoId: e.target.value
-                    })}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, tpoId: e.target.value })
+                    }
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
                   >
                     <option value="">Select TPO</option>
                     {tpos.map((tpo) => (
-                      <option key={tpo._id} value={tpo._id}>
-                        {tpo.name}
-                      </option>
+                      <option key={tpo._id} value={tpo._id}>{tpo.name}</option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                  <input
+                    type="date"
+                    value={editForm.startDate}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, startDate: e.target.value })
+                    }
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">End Date</label>
+                  <input
+                    type="date"
+                    value={editForm.endDate}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, endDate: e.target.value })
+                    }
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                  />
+                  <small className="text-xs text-gray-500">You can extend the end date if needed</small>
                 </div>
               </div>
 

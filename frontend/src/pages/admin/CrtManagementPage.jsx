@@ -7,6 +7,8 @@ const CrtManagementPage = () => {
   const [tpos, setTpos] = useState([]);
   const [selectedTpo, setSelectedTpo] = useState('');
   const [file, setFile] = useState(null);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -18,9 +20,7 @@ const CrtManagementPage = () => {
       try {
         const adminToken = localStorage.getItem('adminToken');
         const response = await axios.get('/api/admin/tpos', {
-          headers: {
-            'Authorization': `Bearer ${adminToken}`
-          }
+          headers: { 'Authorization': `Bearer ${adminToken}` }
         });
         if (response.data.success) {
           setTpos(response.data.data);
@@ -48,10 +48,10 @@ const CrtManagementPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage(null);
-    
-    // Validate all required fields
-    if (!batchNumber || colleges.length === 0 || !selectedTpo || !file) {
-      setMessage('All fields are required');
+
+    // Validate required fields including startDate and endDate
+    if (!batchNumber || colleges.length === 0 || !selectedTpo || !file || !startDate || !endDate) {
+      setMessage('All fields including start and end dates are required');
       return;
     }
 
@@ -61,24 +61,23 @@ const CrtManagementPage = () => {
       return;
     }
 
+    // Validate date logic: endDate must be same or after startDate
+    if (new Date(endDate) < new Date(startDate)) {
+      setMessage('End Date cannot be before Start Date');
+      return;
+    }
+
     setLoading(true);
     setMessage(null);
 
     try {
-      // Log data before sending
-      console.log('Selected colleges:', colleges);
-
       const formData = new FormData();
       formData.append('batchNumber', batchNumber);
       formData.append('colleges', JSON.stringify(colleges));
       formData.append('tpoId', selectedTpo);
+      formData.append('startDate', startDate);
+      formData.append('endDate', endDate);
       formData.append('file', file);
-
-      // Verify formData contents
-      console.log('FormData contents:');
-      for (let [key, value] of formData.entries()) {
-        console.log(key, ':', value);
-      }
 
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
@@ -86,16 +85,6 @@ const CrtManagementPage = () => {
         setLoading(false);
         return;
       }
-
-      // Log the data being sent
-      console.log('Sending batch creation data:', {
-        batchNumber,
-        colleges,
-        tpoId: selectedTpo,
-        fileName: file.name,
-        fileSize: file.size,
-        fileType: file.type
-      });
 
       const response = await axios.post('/api/admin/crt-batch', formData, {
         headers: {
@@ -109,6 +98,8 @@ const CrtManagementPage = () => {
         setBatchNumber('');
         setColleges([]);
         setSelectedTpo('');
+        setStartDate('');
+        setEndDate('');
         setFile(null);
       } else {
         setMessage(response.data.message || 'Failed to create batch');
@@ -120,22 +111,11 @@ const CrtManagementPage = () => {
         status: err.response?.status,
         details: err.response?.data?.details
       });
-      
-      // Show more specific error message
-      const errorMessage = err.response?.data?.details || 
-                         err.response?.data?.message || 
-                         'Server error while creating batch';
+
+      const errorMessage = err.response?.data?.details ||
+        err.response?.data?.message ||
+        'Server error while creating batch';
       setMessage(errorMessage);
-      
-      // Log the data that was being sent when the error occurred
-      console.log('Data being sent when error occurred:', {
-        batchNumber,
-        colleges,
-        tpoId: selectedTpo,
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size
-      });
     }
     setLoading(false);
   };
@@ -185,6 +165,24 @@ const CrtManagementPage = () => {
             <option key={tpo._id} value={tpo._id}>{tpo.name} ({tpo.email})</option>
           ))}
         </select>
+
+        <label className="block mb-2 font-semibold">Start Date</label>
+        <input
+          type="date"
+          value={startDate}
+          onChange={e => setStartDate(e.target.value)}
+          required
+          className="border px-3 py-2 mb-4 w-full rounded"
+        />
+
+        <label className="block mb-2 font-semibold">End Date</label>
+        <input
+          type="date"
+          value={endDate}
+          onChange={e => setEndDate(e.target.value)}
+          required
+          className="border px-3 py-2 mb-4 w-full rounded"
+        />
 
         <label className="block mb-2 font-semibold">Upload Student Excel</label>
         <div className="mb-2">

@@ -192,9 +192,12 @@ const AdminBatchStudents = () => {
                     className="border border-gray-300 rounded-lg p-2"
                   >
                     <option value="">All Branches</option>
-                    <option value="CSE">CSE</option>
-                    <option value="IT">IT</option>
-                    <option value="ECE">ECE</option>
+                    <option value="CSE">AID</option>
+                    <option value="CSM">CSM</option>
+                    <option value="CAI">CAI</option>
+                    <option value="CSD">CSD</option>
+                    <option value="CSC">CSC</option>
+
                   </select>
                   <select
                     value={filters.year}
