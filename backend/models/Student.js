@@ -1,3 +1,4 @@
+// File: models/Student.js
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
@@ -79,7 +80,7 @@ const StudentSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  profileImage: {
+  profileImageUrl: {  // changed field name to profileImageUrl for clarity
     type: String,
     default: null
   },
@@ -114,7 +115,11 @@ const StudentSchema = new mongoose.Schema({
       min: 0,
       max: 10
     },
-    interDetails: {
+    educationType: {                         // Added educationType to enforce inter OR diploma
+      type: String,
+      enum: ['inter', 'diploma'],
+    },
+    inter: {       // Used only if educationType is 'inter'
       percentage: {
         type: Number,
         min: 0,
@@ -123,7 +128,7 @@ const StudentSchema = new mongoose.Schema({
       board: String,
       passedYear: Number
     },
-    diplomaDetails: {
+    diploma: {    // Used only if educationType is 'diploma'
       percentage: {
         type: Number,
         min: 0,
@@ -139,7 +144,7 @@ const StudentSchema = new mongoose.Schema({
     min: 0
   },
 
-  // Projects and Experience
+  // Projects and Experience - all default to 'pending' verification status
   projects: [{
     title: {
       type: String,
@@ -342,20 +347,15 @@ const StudentSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Before saving, hash password if it's new or modified
 StudentSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    return next();
-  }
+  if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-// Match password method
 StudentSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
 module.exports = mongoose.model('Student', StudentSchema);
-  

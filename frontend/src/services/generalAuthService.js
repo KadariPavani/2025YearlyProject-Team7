@@ -1,4 +1,5 @@
-// frontend/src/services/generalAuthService.js
+// File: src/services/generalAuthService.js
+
 import api from './api';
 
 // General authentication functions
@@ -11,11 +12,11 @@ export const getDashboard = (userType) => {
 };
 
 export const getProfile = (userType) => {
-  return api.get(`/api/auth/profile/${userType}`);
+  return api.get(`/api/${userType}/profile`);  // Updated to reflect backend route pattern
 };
 
 export const updateProfile = (userType, profileData) => {
-  return api.put(`/api/auth/profile/${userType}`, profileData);
+  return api.put(`/api/${userType}/profile`, profileData);  // Updated accordingly
 };
 
 export const changePassword = (userType, passwordData) => {
@@ -37,4 +38,3 @@ export const resetPassword = (userType, resetData) => {
 export const logout = () => {
   return api.post('/api/auth/logout');
 };
-

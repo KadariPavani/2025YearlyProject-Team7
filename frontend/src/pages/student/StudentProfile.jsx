@@ -1,35 +1,96 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  User, Mail, Phone, Calendar, MapPin, GraduationCap, 
-  Edit3, Save, X, Eye, EyeOff, Lock, AlertCircle, CheckCircle,
-  BookOpen, Award, Briefcase, Code, ExternalLink
-} from 'lucide-react';
-import { getProfile, updateProfile, changePassword, checkPasswordChange } from '../../services/generalAuthService';
+// src/components/student/StudentProfile.jsx
+
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  User,
+  Lock,
+  Edit3,
+  Save,
+  X,
+  AlertCircle,
+  CheckCircle,
+  GraduationCap,
+} from "lucide-react";
+import {
+  getProfile,
+  updateProfile,
+  checkPasswordChange,
+} from "../../services/generalAuthService";
+const backendURL = 'http://localhost:5000';
+const emptyProject = {
+  title: "",
+  techStack: [],
+  description: "",
+  links: {},
+  startDate: "",
+  endDate: "",
+  verificationStatus: "pending",
+};
+const emptyInternship = {
+  company: "",
+  role: "",
+  location: "",
+  experience: "",
+  techStack: [],
+  startDate: "",
+  endDate: "",
+  verificationStatus: "pending",
+};
+const emptyAppreciation = { title: "", description: "", dateReceived: "", givenBy: "" };
+const emptyCertification = {
+  name: "",
+  issuer: "",
+  credentialId: "",
+  dateIssued: "",
+  expiryDate: "",
+  imageUrl: "",
+  verificationStatus: "pending",
+};
+const emptySocialLink = { platform: "", url: "" };
+
+const isEmptyProject = (p) =>
+  !p.title &&
+  (!p.techStack || p.techStack.length === 0) &&
+  !p.description &&
+  (!p.links || (!p.links.github && !p.links.live && !p.links.demo)) &&
+  !p.startDate &&
+  !p.endDate;
+
+const isEmptyInternship = (i) =>
+  !i.company &&
+  !i.role &&
+  !i.location &&
+  !i.experience &&
+  (!i.techStack || i.techStack.length === 0) &&
+  !i.startDate &&
+  !i.endDate;
+
+const isEmptyAppreciation = (a) =>
+  !a.title && !a.description && !a.dateReceived && !a.givenBy;
+
+const isEmptyCertification = (c) =>
+  !c.name &&
+  !c.issuer &&
+  !c.credentialId &&
+  !c.dateIssued &&
+  !c.expiryDate &&
+  !c.imageUrl;
+
+const isEmptySocialLink = (s) => !s.platform && !s.url;
 
 const StudentProfile = () => {
   const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
-  const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
 
-  // Form states
+  const [profile, setProfile] = useState(null);
   const [formData, setFormData] = useState({});
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-  const [showPasswords, setShowPasswords] = useState({
-    current: false,
-    new: false,
-    confirm: false
-  });
+  const [loading, setLoading] = useState(true);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
+  const [selectedEducationType, setSelectedEducationType] = useState("inter");
 
   useEffect(() => {
     fetchProfile();
@@ -39,30 +100,21 @@ const StudentProfile = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      setError('');
-      const userDataStr = localStorage.getItem('userData');
-      if (!userDataStr) {
-        setError('User session not found');
-        navigate('/student-login');
-        return;
-      }
-      
-      const userData = JSON.parse(userDataStr);
-      const response = await getProfile('student');
-      
+      setError("");
+      const response = await getProfile("student");
       if (response.data.success) {
         setProfile(response.data.data);
         setFormData(response.data.data);
+        setSelectedEducationType(response.data.data.academics?.educationType || "inter");
       } else {
-        setError(response.data.message || 'Failed to fetch profile');
+        setError(response.data.message || "Failed to fetch profile");
       }
     } catch (err) {
-      console.error('Profile fetch error:', err);
-      setError(err.response?.data?.message || 'Failed to fetch profile');
-      if (err.response?.status === 401) {
-        localStorage.removeItem('userToken');
-        localStorage.removeItem('userData');
-        navigate('/student-login');
+      setError(err?.response?.data?.message || "Failed to fetch profile");
+      if (err?.response?.status === 401) {
+        localStorage.removeItem("userToken");
+        localStorage.removeItem("userData");
+        navigate("/student-login");
       }
     } finally {
       setLoading(false);
@@ -71,71 +123,127 @@ const StudentProfile = () => {
 
   const checkPasswordStatus = async () => {
     try {
-      const response = await checkPasswordChange('student');
+      const response = await checkPasswordChange("student");
       if (response.data.success) {
         setNeedsPasswordChange(response.data.needsPasswordChange);
-        if (response.data.needsPasswordChange) {
-          setShowPasswordChangeModal(true);
-        }
       }
-    } catch (err) {
-      console.error('Failed to check password status:', err);
-    }
+    } catch {}
+  };
+
+  const handleEducationTypeChange = (e) => {
+    const eduType = e.target.value;
+    setSelectedEducationType(eduType);
+    setFormData((prev) => ({
+      ...prev,
+      academics: {
+        ...prev.academics,
+        educationType: eduType,
+        ...(eduType === "inter" ? { diploma: {} } : { inter: {} }),
+      },
+    }));
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    if (name.includes(".")) {
+      const keys = name.split(".");
+      setFormData((prev) => {
+        const copy = { ...prev };
+        let temp = copy;
+        for (let i = 0; i < keys.length - 1; i++) {
+          if (!temp[keys[i]]) temp[keys[i]] = {};
+          temp = temp[keys[i]];
+        }
+        temp[keys[keys.length - 1]] = value;
+        return copy;
+      });
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const addItemToArray = (field, defaultValue) => {
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [field]: prev[field] ? [...prev[field], defaultValue] : [defaultValue],
     }));
+  };
+
+  const removeItemFromArray = (field, idx) => {
+    setFormData((prev) => {
+      const arr = prev[field] ? [...prev[field]] : [];
+      arr.splice(idx, 1);
+      return { ...prev, [field]: arr };
+    });
+  };
+
+  const updateItemInArray = (field, idx, key, val) => {
+    setFormData((prev) => {
+      const arr = prev[field] ? [...prev[field]] : [];
+      const item = { ...arr[idx] };
+      item[key] = val;
+      arr[idx] = item;
+      return { ...prev, [field]: arr };
+    });
+  };
+
+  const updateLinkInArray = (field, idx, linkKey, val) => {
+    setFormData((prev) => {
+      const arr = prev[field] ? [...prev[field]] : [];
+      const item = { ...arr[idx] };
+      item.links = { ...(item.links || {}), [linkKey]: val };
+      arr[idx] = item;
+      return { ...prev, [field]: arr };
+    });
+  };
+
+  const hasEmptyItem = (field, checker) => (formData[field] || []).some(checker);
+
+  const uploadProfileImage = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formDataUpload = new FormData();
+    formDataUpload.append("profileImage", file);
+    setUploadingImage(true);
+    try {
+      const res = await fetch("/api/student/profile-image", {
+        method: "POST",
+        body: formDataUpload,
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("userToken")}`,
+        },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFormData((prev) => ({ ...prev, profileImageUrl: data.data }));
+        setSuccess("Profile image uploaded successfully");
+        setTimeout(() => setSuccess(""), 3000);
+      } else {
+        setError("Image upload failed");
+      }
+    } catch (error) {
+      setError("Image upload failed");
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleSave = async () => {
     try {
       setLoading(true);
-      const response = await updateProfile('student', formData);
+      setError("");
+      const response = await updateProfile("student", formData);
       if (response.data.success) {
         setProfile(response.data.data);
+        setFormData(response.data.data);
+        setSuccess("Profile updated successfully");
+        setTimeout(() => setSuccess(""), 3000);
         setIsEditing(false);
-        setSuccess('Profile updated successfully');
-        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        setError(response.data.message || "Failed to update profile");
       }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update profile');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePasswordChange = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (passwordData.newPassword.length < 6) {
-      setError('Password must be at least 6 characters long');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await changePassword('student', {
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword
-      });
-      
-      if (response.data.success) {
-        setShowPasswordModal(false);
-        setShowPasswordChangeModal(false);
-        setNeedsPasswordChange(false);
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        setSuccess('Password changed successfully');
-        setTimeout(() => setSuccess(''), 3000);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to change password');
+    } catch {
+      setError("Failed to update profile");
     } finally {
       setLoading(false);
     }
@@ -144,26 +252,24 @@ const StudentProfile = () => {
   const handleCancel = () => {
     setFormData(profile);
     setIsEditing(false);
-    setError('');
+    setError("");
   };
 
-  if (loading && !profile) {
+  if (loading && !profile)
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
       </div>
     );
-  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50 pb-10">
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-4">
               <button
-                onClick={() => navigate('/student-dashboard')}
+                onClick={() => navigate("/student-dashboard")}
                 className="text-gray-500 hover:text-gray-700"
               >
                 ← Back to Dashboard
@@ -172,12 +278,13 @@ const StudentProfile = () => {
             </div>
             <div className="flex space-x-3">
               <button
-                onClick={() => setShowPasswordModal(true)}
+                onClick={() => navigate("/student-change-password")}
                 className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
               >
                 <Lock className="h-4 w-4" />
                 <span>Change Password</span>
               </button>
+
               {!isEditing ? (
                 <button
                   onClick={() => setIsEditing(true)}
@@ -210,7 +317,6 @@ const StudentProfile = () => {
         </div>
       </div>
 
-      {/* Alerts */}
       {error && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-2">
@@ -229,274 +335,466 @@ const StudentProfile = () => {
         </div>
       )}
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Profile Card */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <div className="text-center">
-                <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+              <div className="w-24 h-24 rounded-full overflow-hidden mx-auto mb-4 bg-gray-50 flex items-center justify-center">
+                {formData.profileImageUrl ? (
+<img
+  src={`${backendURL}${formData.profileImageUrl}`}
+  alt="Profile"
+  className="w-full h-full object-cover"
+/>
+                ) : (
                   <User className="h-12 w-12 text-purple-600" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                  {profile?.name || 'Student Name'}
-                </h2>
-                <p className="text-gray-600 mb-4">{profile?.rollNo || 'Roll Number'}</p>
-                <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
-                  <GraduationCap className="h-4 w-4" />
-                  <span>{profile?.college || 'College'}</span>
-                </div>
+                )}
+              </div>
+              {isEditing && (
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={uploadProfileImage}
+                  disabled={uploadingImage}
+                  className="mb-4"
+                />
+              )}
+
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">{profile?.name || "Student Name"}</h2>
+              <p className="text-gray-600 mb-4">{profile?.rollNo || "Roll Number"}</p>
+              <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                <GraduationCap className="h-4 w-4" />
+                <span>{profile?.college || "College"}</span>
               </div>
             </div>
           </div>
 
           {/* Profile Details */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Personal Information</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name || ''}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Roll Number</label>
-                  <input
-                    type="text"
-                    name="rollNo"
-                    value={formData.rollNo || ''}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email || ''}
+          <div className="lg:col-span-2 bg-white rounded-lg shadow-sm p-6 overflow-auto max-h-[80vh]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              {[
+                "name",
+                "rollNo",
+                "email",
+                "phonenumber",
+                "college",
+                "branch",
+                "yearOfPassing",
+                "gender",
+                "dob",
+                "currentLocation",
+                "hometown",
+                "bio",
+              ].map((field) => (
+                <div key={field}>
+                  <label className="block mb-1 capitalize">{field.replace(/([A-Z])/g, " $1")}</label>
+                  {field === "gender" ? (
+                    <select
+                      name="gender"
+                      value={formData.gender || ""}
                       onChange={handleInputChange}
                       disabled={!isEditing}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      className="w-full border rounded p-2"
+                    >
+                      <option value="">Select</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  ) : field === "dob" ? (
                     <input
-                      type="tel"
-                      name="phone"
-                      value={formData.phone || ''}
+                      type="date"
+                      name="dob"
+                      value={formData.dob ? formData.dob.slice(0, 10) : ""}
                       onChange={handleInputChange}
                       disabled={!isEditing}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50"
+                      className="w-full border rounded p-2"
                     />
-                  </div>
+                  ) : field === "bio" ? (
+                    <textarea
+                      name="bio"
+                      value={formData.bio || ""}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className="w-full border rounded p-2"
+                      rows={3}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      name={field}
+                      value={formData[field] || ""}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className="w-full border rounded p-2"
+                    />
+                  )}
                 </div>
+              ))}
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Branch</label>
-                  <input
-                    type="text"
-                    name="branch"
-                    value={formData.branch || ''}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50"
-                  />
-                </div>
+            {/* Education */}
+            <div className="mb-6">
+              <label className="block mb-1">Education Type</label>
+              <select
+                value={selectedEducationType}
+                onChange={handleEducationTypeChange}
+                disabled={!isEditing}
+                className="border rounded p-2"
+              >
+                <option value="inter">Inter</option>
+                <option value="diploma">Diploma</option>
+              </select>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Year of Passing</label>
-                  <input
-                    type="number"
-                    name="yearOfPassing"
-                    value={formData.yearOfPassing || ''}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
-                  <select
-                    name="gender"
-                    value={formData.gender || ''}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50"
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
-                  <input
-                    type="date"
-                    name="dob"
-                    value={formData.dob ? new Date(formData.dob).toISOString().split('T')[0] : ''}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
-                <textarea
-                  name="bio"
-                  value={formData.bio || ''}
+            {selectedEducationType === "inter" ? (
+              <>
+                <input
+                  type="number"
+                  placeholder="Inter Percentage"
+                  name="academics.inter.percentage"
+                  value={formData.academics?.inter?.percentage ?? ""}
                   onChange={handleInputChange}
                   disabled={!isEditing}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-50"
-                  placeholder="Tell us about yourself..."
+                  className="border p-2 rounded mb-2 w-full md:w-1/3"
                 />
-              </div>
+                <input
+                  type="text"
+                  placeholder="Inter Board"
+                  name="academics.inter.board"
+                  value={formData.academics?.inter?.board ?? ""}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className="border p-2 rounded mb-2 w-full md:w-1/3"
+                />
+                <input
+                  type="number"
+                  placeholder="Inter Passed Year"
+                  name="academics.inter.passedYear"
+                  value={formData.academics?.inter?.passedYear ?? ""}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className="border p-2 rounded mb-2 w-full md:w-1/3"
+                />
+              </>
+            ) : (
+              <>
+                <input
+                  type="number"
+                  placeholder="Diploma Percentage"
+                  name="academics.diploma.percentage"
+                  value={formData.academics?.diploma?.percentage ?? ""}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className="border p-2 rounded mb-2 w-full md:w-1/3"
+                />
+                <input
+                  type="text"
+                  placeholder="Diploma Board"
+                  name="academics.diploma.board"
+                  value={formData.academics?.diploma?.board ?? ""}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className="border p-2 rounded mb-2 w-full md:w-1/3"
+                />
+                <input
+                  type="number"
+                  placeholder="Diploma Passed Year"
+                  name="academics.diploma.passedYear"
+                  value={formData.academics?.diploma?.passedYear ?? ""}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className="border p-2 rounded mb-2 w-full md:w-1/3"
+                />
+              </>
+            )}
+
+            {/* Backlogs */}
+            <div className="mb-6 w-32">
+              <label>Backlogs</label>
+              <input
+                type="number"
+                name="backlogs"
+                value={formData.backlogs ?? 0}
+                onChange={handleInputChange}
+                disabled={!isEditing}
+                className="border p-2 rounded w-full"
+              />
             </div>
+
+            {/* Dynamic Arrays */}
+            <ArraySection
+              title="Projects"
+              items={formData.projects || []}
+              emptyCheck={isEmptyProject}
+              emptyItem={emptyProject}
+              addItem={() => addItemToArray("projects", emptyProject)}
+              removeItem={(idx) => removeItemFromArray("projects", idx)}
+              updateItem={updateItemInArray}
+              updateLink={updateLinkInArray}
+              isEditing={isEditing}
+            />
+            <ArraySection
+              title="Internships"
+              items={formData.internships || []}
+              emptyCheck={isEmptyInternship}
+              emptyItem={emptyInternship}
+              addItem={() => addItemToArray("internships", emptyInternship)}
+              removeItem={(idx) => removeItemFromArray("internships", idx)}
+              updateItem={updateItemInArray}
+              updateLink={updateLinkInArray}
+              isEditing={isEditing}
+            />
+            <ArraySection
+              title="Appreciations"
+              items={formData.appreciations || []}
+              emptyCheck={isEmptyAppreciation}
+              emptyItem={emptyAppreciation}
+              addItem={() => addItemToArray("appreciations", emptyAppreciation)}
+              removeItem={(idx) => removeItemFromArray("appreciations", idx)}
+              updateItem={updateItemInArray}
+              isEditing={isEditing}
+            />
+            <ArraySection
+              title="Certifications"
+              items={formData.certifications || []}
+              emptyCheck={isEmptyCertification}
+              emptyItem={emptyCertification}
+              addItem={() => addItemToArray("certifications", emptyCertification)}
+              removeItem={(idx) => removeItemFromArray("certifications", idx)}
+              updateItem={updateItemInArray}
+              isEditing={isEditing}
+            />
+            <ArraySection
+              title="Social Links"
+              items={formData.socialLinks || []}
+              emptyCheck={isEmptySocialLink}
+              emptyItem={emptySocialLink}
+              addItem={() => addItemToArray("socialLinks", emptySocialLink)}
+              removeItem={(idx) => removeItemFromArray("socialLinks", idx)}
+              updateItem={updateItemInArray}
+              isEditing={isEditing}
+            />
           </div>
         </div>
       </div>
-
-      {/* Password Change Modal */}
-      {(showPasswordModal || showPasswordChangeModal) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {showPasswordChangeModal ? 'Change Password Required' : 'Change Password'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowPasswordModal(false);
-                  setShowPasswordChangeModal(false);
-                  setError('');
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {showPasswordChangeModal && (
-              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-yellow-800 text-sm">
-                  For security reasons, you need to change your password before continuing.
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              {!showPasswordChangeModal && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <input
-                      type={showPasswords.current ? 'text' : 'password'}
-                      value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
-                      className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPasswords({...showPasswords, current: !showPasswords.current})}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPasswords.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <input
-                    type={showPasswords.new ? 'text' : 'password'}
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
-                    className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPasswords({...showPasswords, new: !showPasswords.new})}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPasswords.new ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <input
-                    type={showPasswords.confirm ? 'text' : 'password'}
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-                    className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPasswords({...showPasswords, confirm: !showPasswords.confirm})}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPasswords.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowPasswordModal(false);
-                  setShowPasswordChangeModal(false);
-                  setError('');
-                }}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handlePasswordChange}
-                disabled={loading}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Changing...' : 'Change Password'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
+
+function ArraySection({
+  title,
+  items,
+  emptyCheck,
+  emptyItem,
+  addItem,
+  removeItem,
+  updateItem,
+  updateLink,
+  isEditing,
+}) {
+  const hasEmpty = items.some(emptyCheck);
+  return (
+    <div className="mb-10">
+      <h3 className="text-xl font-semibold mb-4">{title}</h3>
+      {items.map((item, idx) => (
+        <div key={idx} className="bg-gray-50 border rounded p-4 mb-4 relative">
+          {isEditing && (
+            <button
+              type="button"
+              onClick={() => removeItem(idx)}
+              className="absolute top-1 right-1 text-red-600 font-bold hover:text-red-800"
+            >
+              ×
+            </button>
+          )}
+
+          {title === "Projects" && (
+            <>
+              <label>Title</label>
+              <input
+                type="text"
+                value={item.title || ""}
+                onChange={(e) => updateItem("projects", idx, "title", e.target.value)}
+                disabled={!isEditing}
+                className="w-full p-2 border rounded mb-2"
+              />
+              <label>Tech Stack (comma separated)</label>
+              <input
+                type="text"
+                value={(item.techStack || []).join(", ")}
+                onChange={(e) =>
+                  updateItem("projects", idx, "techStack", e.target.value.split(",").map((s) => s.trim()))
+                }
+                disabled={!isEditing}
+                className="w-full p-2 border rounded mb-2"
+              />
+              <label>Description</label>
+              <textarea
+                value={item.description || ""}
+                onChange={(e) => updateItem("projects", idx, "description", e.target.value)}
+                disabled={!isEditing}
+                className="w-full p-2 border rounded mb-2"
+              />
+              {["github", "live", "demo"].map((linkKey) => (
+                <div key={linkKey}>
+                  <label>{linkKey.charAt(0).toUpperCase() + linkKey.slice(1)}</label>
+                  <input
+                    type="text"
+                    value={item.links?.[linkKey] || ""}
+                    onChange={(e) => updateLink("projects", idx, linkKey, e.target.value)}
+                    disabled={!isEditing}
+                    className="w-full p-2 border rounded mb-2"
+                  />
+                </div>
+              ))}
+              <label>Start Date</label>
+              <input
+                type="date"
+                value={item.startDate ? item.startDate.slice(0, 10) : ""}
+                onChange={(e) => updateItem("projects", idx, "startDate", e.target.value)}
+                disabled={!isEditing}
+                className="w-full p-2 border rounded mb-2"
+              />
+              <label>End Date</label>
+              <input
+                type="date"
+                value={item.endDate ? item.endDate.slice(0, 10) : ""}
+                onChange={(e) => updateItem("projects", idx, "endDate", e.target.value)}
+                disabled={!isEditing}
+                className="w-full p-2 border rounded mb-2"
+              />
+            </>
+          )}
+
+          {title === "Internships" && (
+            <>
+              {["company", "role", "location", "experience"].map((field) => (
+                <div key={field}>
+                  <label>{field.charAt(0).toUpperCase() + field.slice(1)}</label>
+                  <input
+                    type="text"
+                    value={item[field] || ""}
+                    onChange={(e) => updateItem("internships", idx, field, e.target.value)}
+                    disabled={!isEditing}
+                    className="w-full p-2 border rounded mb-2"
+                  />
+                </div>
+              ))}
+              <label>Tech Stack (comma separated)</label>
+              <input
+                type="text"
+                value={(item.techStack || []).join(", ")}
+                onChange={(e) =>
+                  updateItem("internships", idx, "techStack", e.target.value.split(",").map((s) => s.trim()))
+                }
+                disabled={!isEditing}
+                className="w-full p-2 border rounded mb-2"
+              />
+              <label>Start Date</label>
+              <input
+                type="date"
+                value={item.startDate ? item.startDate.slice(0, 10) : ""}
+                onChange={(e) => updateItem("internships", idx, "startDate", e.target.value)}
+                disabled={!isEditing}
+                className="w-full p-2 border rounded mb-2"
+              />
+              <label>End Date</label>
+              <input
+                type="date"
+                value={item.endDate ? item.endDate.slice(0, 10) : ""}
+                onChange={(e) => updateItem("internships", idx, "endDate", e.target.value)}
+                disabled={!isEditing}
+                className="w-full p-2 border rounded mb-2"
+              />
+            </>
+          )}
+
+          {title === "Appreciations" && (
+            <>
+              {["title", "description", "givenBy"].map((field) => (
+                <div key={field}>
+                  <label>{field.charAt(0).toUpperCase() + field.slice(1)}</label>
+                  <input
+                    type="text"
+                    value={item[field] || ""}
+                    onChange={(e) => updateItem("appreciations", idx, field, e.target.value)}
+                    disabled={!isEditing}
+                    className="w-full p-2 border rounded mb-2"
+                  />
+                </div>
+              ))}
+              <label>Date Received</label>
+              <input
+                type="date"
+                value={item.dateReceived ? item.dateReceived.slice(0, 10) : ""}
+                onChange={(e) => updateItem("appreciations", idx, "dateReceived", e.target.value)}
+                disabled={!isEditing}
+                className="w-full p-2 border rounded mb-2"
+              />
+            </>
+          )}
+
+          {title === "Certifications" && (
+            <>
+              {["name", "issuer", "credentialId", "imageUrl"].map((field) => (
+                <div key={field}>
+                  <label>{field.charAt(0).toUpperCase() + field.slice(1)}</label>
+                  <input
+                    type="text"
+                    value={item[field] || ""}
+                    onChange={(e) => updateItem("certifications", idx, field, e.target.value)}
+                    disabled={!isEditing}
+                    className="w-full p-2 border rounded mb-2"
+                  />
+                </div>
+              ))}
+              {["dateIssued", "expiryDate"].map((field) => (
+                <div key={field}>
+                  <label>{field.charAt(0).toUpperCase() + field.slice(1)}</label>
+                  <input
+                    type="date"
+                    value={item[field] ? item[field].slice(0, 10) : ""}
+                    onChange={(e) => updateItem("certifications", idx, field, e.target.value)}
+                    disabled={!isEditing}
+                    className="w-full p-2 border rounded mb-2"
+                  />
+                </div>
+              ))}
+            </>
+          )}
+
+          {title === "Social Links" && (
+            <>
+              {["platform", "url"].map((field) => (
+                <div key={field}>
+                  <label>{field.charAt(0).toUpperCase() + field.slice(1)}</label>
+                  <input
+                    type="text"
+                    value={item[field] || ""}
+                    onChange={(e) => updateItem("socialLinks", idx, field, e.target.value)}
+                    disabled={!isEditing}
+                    className="w-full p-2 border rounded mb-2"
+                  />
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addItem}
+        disabled={hasEmpty || !isEditing}
+        className={`text-purple-700 font-semibold ${
+          hasEmpty || !isEditing ? "opacity-50 cursor-not-allowed" : "hover:text-purple-900"
+        }`}
+      >
+        + Add {title.slice(0, -1)}
+      </button>
+    </div>
+  );
+}
 
 export default StudentProfile;
