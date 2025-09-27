@@ -340,17 +340,18 @@ const StudentProfile = () => {
           {/* Profile Card */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-              <div className="w-24 h-24 rounded-full overflow-hidden mx-auto mb-4 bg-gray-50 flex items-center justify-center">
-                {formData.profileImageUrl ? (
-<img
-  src={`${backendURL}${formData.profileImageUrl}`}
-  alt="Profile"
-  className="w-full h-full object-cover"
-/>
-                ) : (
-                  <User className="h-12 w-12 text-purple-600" />
-                )}
-              </div>
+<div className="w-24 h-24 rounded-full overflow-hidden mx-auto mb-4 bg-gray-50 flex items-center justify-center">
+  {formData.profileImageUrl ? (
+    <img
+      src={formData.profileImageUrl}  // Use Cloudinary absolute URL directly
+      alt="Profile"
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <User className="h-12 w-12 text-purple-600" />
+  )}
+</div>
+
               {isEditing && (
                 <input
                   type="file"

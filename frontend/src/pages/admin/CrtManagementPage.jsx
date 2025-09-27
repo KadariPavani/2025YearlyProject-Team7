@@ -45,80 +45,72 @@ const CrtManagementPage = () => {
     setFile(e.target.files[0]);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage(null);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setMessage(null);
 
-    // Validate required fields including startDate and endDate
-    if (!batchNumber || colleges.length === 0 || !selectedTpo || !file || !startDate || !endDate) {
-      setMessage('All fields including start and end dates are required');
+  if (!batchNumber || colleges.length === 0 || !selectedTpo || !file || !startDate || !endDate) {
+    setMessage('All fields including start and end dates are required');
+    return;
+  }
+
+  if (file && !file.name.match(/\.(xls|xlsx)$/)) {
+    setMessage('Please upload only Excel files (.xls or .xlsx)');
+    return;
+  }
+
+  if (new Date(endDate) < new Date(startDate)) {
+    setMessage('End Date cannot be before Start Date');
+    return;
+  }
+
+  setLoading(true);
+  setMessage(null);
+
+  try {
+    const formData = new FormData();
+    formData.append('batchNumber', batchNumber);
+    formData.append('colleges', JSON.stringify(colleges));
+    formData.append('tpoId', selectedTpo);
+    formData.append('startDate', startDate);
+    formData.append('endDate', endDate);
+    formData.append('file', file);
+
+    const adminToken = localStorage.getItem('adminToken');
+    if (!adminToken) {
+      setMessage('Please login as admin first');
+      setLoading(false);
       return;
     }
 
-    // Validate file type
-    if (file && !file.name.match(/\.(xls|xlsx)$/)) {
-      setMessage('Please upload only Excel files (.xls or .xlsx)');
-      return;
-    }
-
-    // Validate date logic: endDate must be same or after startDate
-    if (new Date(endDate) < new Date(startDate)) {
-      setMessage('End Date cannot be before Start Date');
-      return;
-    }
-
-    setLoading(true);
-    setMessage(null);
-
-    try {
-      const formData = new FormData();
-      formData.append('batchNumber', batchNumber);
-      formData.append('colleges', JSON.stringify(colleges));
-      formData.append('tpoId', selectedTpo);
-      formData.append('startDate', startDate);
-      formData.append('endDate', endDate);
-      formData.append('file', file);
-
-      const adminToken = localStorage.getItem('adminToken');
-      if (!adminToken) {
-        setMessage('Please login as admin first');
-        setLoading(false);
-        return;
+    const response = await axios.post('/api/admin/crt-batch', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${adminToken}`
       }
+    });
 
-      const response = await axios.post('/api/admin/crt-batch', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${adminToken}`
-        }
-      });
+    console.log('Batch creation response:', response.data);
 
-      if (response.data.success) {
-        setMessage('CRT Batch created successfully!');
-        setBatchNumber('');
-        setColleges([]);
-        setSelectedTpo('');
-        setStartDate('');
-        setEndDate('');
-        setFile(null);
-      } else {
-        setMessage(response.data.message || 'Failed to create batch');
-      }
-    } catch (err) {
-      console.error('Error creating batch:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status,
-        details: err.response?.data?.details
-      });
-
-      const errorMessage = err.response?.data?.details ||
-        err.response?.data?.message ||
-        'Server error while creating batch';
-      setMessage(errorMessage);
+    if (response.data.success) {
+      setMessage('CRT Batch created successfully!');
+      setBatchNumber('');
+      setColleges([]);
+      setSelectedTpo('');
+      setStartDate('');
+      setEndDate('');
+      setFile(null);
+    } else {
+      setMessage(response.data.message || 'Failed to create batch');
     }
-    setLoading(false);
-  };
+  } catch (err) {
+    console.error('Error creating batch:', err);
+    const errorMessage = err.response?.data?.message || 'Server error while creating batch';
+    setMessage(errorMessage);
+  }
+  setLoading(false);
+};
+
 
   return (
     <div className="max-w-3xl mx-auto p-6 bg-white rounded shadow">

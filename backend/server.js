@@ -8,21 +8,20 @@ const cookieParser = require('cookie-parser');
 const fileUpload = require('express-fileupload');
 const fs = require('fs');
 const path = require('path');
-
 dotenv.config();
 
 // Ensure upload directory exists
-const uploadDir = path.join(__dirname, 'uploads/profile-images');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// const uploadDir = path.join(__dirname, 'uploads/profile-images');
+// if (!fs.existsSync(uploadDir)) {
+//   fs.mkdirSync(uploadDir, { recursive: true });
+// }
 
 // Connect to database
 connectDB();
 
 const app = express();
 
-// // File upload middleware setup (must be before routes)
+// File upload middleware setup (must be before routes)
 // app.use(
 //   fileUpload({
 //     createParentPath: true,
@@ -30,6 +29,25 @@ const app = express();
 //     abortOnLimit: true,
 //   })
 // );
+
+// app.use(fileUpload({
+//   useTempFiles: true,
+//   tempFileDir: '/tmp/',
+//   createParentPath: true,
+//   limits: { fileSize: 10 * 1024 * 1024 },
+//   abortOnLimit: true,
+// }));
+
+
+app.use(fileUpload({
+  useTempFiles: true,
+  tempFileDir: '/tmp/',
+  createParentPath: true,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  abortOnLimit: true,
+}));
+
+
 
 // Body parser middleware
 app.use(express.json());
@@ -47,7 +65,7 @@ app.use(
 );
 
 // Serve uploaded profile images statically
-app.use('/uploads/profile-images', express.static(uploadDir));
+// app.use('/uploads/profile-images', express.static(uploadDir));
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
