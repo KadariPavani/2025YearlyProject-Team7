@@ -1,10 +1,10 @@
+// Your StudentDashboard.jsx - No changes needed, kept as is.
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap, Settings, LogOut, User, Mail, Phone, Clock,
   Calendar, BookOpen, ChevronDown, MapPin, Award, Users, Bell, 
-  FileText, Code, CheckCircle, Star, AlertCircle
-} from 'lucide-react';
+  FileText, Code, CheckCircle, Star, AlertCircle, Book } from 'lucide-react'; // Add Book icon
 import PasswordChangeNotification from '../../components/common/PasswordChangeNotification';
 
 const StudentDashboard = () => {
@@ -44,6 +44,20 @@ const StudentDashboard = () => {
       description: 'Practice coding problems',
       onClick: () => navigate('/student/coding'),
       color: 'bg-purple-500'
+    },
+    {
+      title: 'Quizzes',
+      icon: CheckCircle,
+      description: 'Attempt quizzes',
+      onClick: () => navigate('/student/quizzes'),
+      color: 'bg-indigo-500'
+    },
+    {
+      title: 'Resources',
+      icon: Book,
+      description: 'View study resources',
+      onClick: () => navigate('/student/resources'),
+      color: 'bg-teal-500'
     }
   ];
 

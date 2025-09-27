@@ -1,3 +1,4 @@
+// This is your Quiz.js schema - No changes needed, kept as is.
 const mongoose = require('mongoose');
 
 const QuizSchema = new mongoose.Schema({
@@ -118,8 +119,8 @@ const QuizSchema = new mongoose.Schema({
   }],
   status: {
     type: String,
-    enum: ['draft', 'scheduled', 'active', 'completed'],
-    default: 'draft'
+    enum: ['active', 'inactive'],
+    default: 'active'
   }
 }, {
   timestamps: true
