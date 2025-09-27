@@ -11,13 +11,16 @@ import {
   AlertCircle,
   CheckCircle,
   GraduationCap,
+  Upload,
 } from "lucide-react";
 import {
   getProfile,
   updateProfile,
   checkPasswordChange,
 } from "../../services/generalAuthService";
+
 const backendURL = 'http://localhost:5000';
+
 const emptyProject = {
   title: "",
   techStack: [],
@@ -27,6 +30,7 @@ const emptyProject = {
   endDate: "",
   verificationStatus: "pending",
 };
+
 const emptyInternship = {
   company: "",
   role: "",
@@ -37,7 +41,9 @@ const emptyInternship = {
   endDate: "",
   verificationStatus: "pending",
 };
+
 const emptyAppreciation = { title: "", description: "", dateReceived: "", givenBy: "" };
+
 const emptyCertification = {
   name: "",
   issuer: "",
@@ -47,6 +53,7 @@ const emptyCertification = {
   imageUrl: "",
   verificationStatus: "pending",
 };
+
 const emptySocialLink = { platform: "", url: "" };
 
 const isEmptyProject = (p) =>
@@ -86,6 +93,7 @@ const StudentProfile = () => {
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -162,6 +170,51 @@ const StudentProfile = () => {
     }
   };
 
+  // Tech Stack handlers
+  const handleTechStackChange = (tech) => {
+    setFormData((prev) => {
+      const techSet = new Set(prev.techStack || []);
+      if (techSet.has(tech)) {
+        techSet.delete(tech);
+      } else {
+        techSet.add(tech);
+      }
+      return { ...prev, techStack: Array.from(techSet) };
+    });
+  };
+
+  // CRT Interest handlers
+  const handleCRTInterestChange = (e) => {
+    const interested = e.target.value === "yes";
+    setFormData((prev) => ({
+      ...prev,
+      crtInterested: interested,
+      crtBatchChoice: interested ? prev.crtBatchChoice : "",
+    }));
+  };
+
+  const handleCRTBatchChoiceChange = (e) => {
+    setFormData((prev) => ({
+      ...prev,
+      crtBatchChoice: e.target.value,
+      // Update techStack to include the selected CRT batch tech
+      techStack: prev.techStack ? [...prev.techStack.filter(t => !['Java', 'Python', 'AI/ML'].includes(t)), e.target.value] : [e.target.value]
+    }));
+  };
+
+  // Clubs handlers
+  const handleClubChange = (club) => {
+    setFormData((prev) => {
+      const clubSet = new Set(prev.otherClubs || []);
+      if (clubSet.has(club)) {
+        clubSet.delete(club);
+      } else {
+        clubSet.add(club);
+      }
+      return { ...prev, otherClubs: Array.from(clubSet) };
+    });
+  };
+
   const addItemToArray = (field, defaultValue) => {
     setFormData((prev) => ({
       ...prev,
@@ -227,6 +280,49 @@ const StudentProfile = () => {
       setUploadingImage(false);
     }
   };
+
+// Replace the resume upload function in StudentProfile.jsx
+const uploadResume = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  // Check file type
+  const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+  if (!allowedTypes.includes(file.type)) {
+    setError('Only PDF, DOC, and DOCX files are allowed');
+    return;
+  }
+  
+  const formDataUpload = new FormData();
+  formDataUpload.append("resume", file);
+  setUploadingResume(true);
+  try {
+    const res = await fetch("/api/student/resume", {
+      method: "POST",
+      body: formDataUpload,
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("userToken")}`,
+      },
+    });
+    const data = await res.json();
+    if (data.success) {
+      setFormData((prev) => ({ 
+        ...prev, 
+        resumeUrl: data.data.url,
+        resumeFileName: data.data.fileName
+      }));
+      setSuccess("Resume uploaded successfully");
+      setTimeout(() => setSuccess(""), 3000);
+    } else {
+      setError(data.message || "Resume upload failed");
+    }
+  } catch (error) {
+    setError("Resume upload failed");
+  } finally {
+    setUploadingResume(false);
+  }
+};
+
 
   const handleSave = async () => {
     try {
@@ -340,17 +436,17 @@ const StudentProfile = () => {
           {/* Profile Card */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-<div className="w-24 h-24 rounded-full overflow-hidden mx-auto mb-4 bg-gray-50 flex items-center justify-center">
-  {formData.profileImageUrl ? (
-    <img
-      src={formData.profileImageUrl}  // Use Cloudinary absolute URL directly
-      alt="Profile"
-      className="w-full h-full object-cover"
-    />
-  ) : (
-    <User className="h-12 w-12 text-purple-600" />
-  )}
-</div>
+              <div className="w-24 h-24 rounded-full overflow-hidden mx-auto mb-4 bg-gray-50 flex items-center justify-center">
+                {formData.profileImageUrl ? (
+                  <img
+                    src={formData.profileImageUrl}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="h-12 w-12 text-purple-600" />
+                )}
+              </div>
 
               {isEditing && (
                 <input
@@ -364,15 +460,76 @@ const StudentProfile = () => {
 
               <h2 className="text-xl font-semibold text-gray-900 mb-2">{profile?.name || "Student Name"}</h2>
               <p className="text-gray-600 mb-4">{profile?.rollNo || "Roll Number"}</p>
-              <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+              <div className="flex items-center justify-center space-x-2 text-sm text-gray-500 mb-2">
                 <GraduationCap className="h-4 w-4" />
                 <span>{profile?.college || "College"}</span>
               </div>
+              
+              {/* Display CRT Batch Name */}
+              {formData.crtBatchName && (
+                <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
+                  Batch: {formData.crtBatchName}
+                </div>
+              )}
             </div>
+
+            {/* Resume Section */}
+{/* Resume Section - UPDATED */}
+<div className="bg-white rounded-lg shadow-sm p-6 mt-4">
+  <h3 className="text-lg font-semibold mb-4">Resume</h3>
+  {formData.resumeUrl ? (
+    <div className="mb-4">
+      <div className="flex items-center justify-between p-3 bg-gray-50 rounded border">
+        <div className="flex items-center space-x-2">
+          <Upload className="h-4 w-4 text-blue-600" />
+          <span className="text-sm text-gray-700">
+            {formData.resumeFileName || 'Resume.pdf'}
+          </span>
+        </div>
+        <div className="flex space-x-2">
+          <a
+            href={formData.resumeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1 border border-blue-600 rounded hover:bg-blue-50"
+          >
+            View
+          </a>
+          <a
+            href={formData.resumeUrl}
+            download={formData.resumeFileName}
+            className="text-green-600 hover:text-green-800 text-sm px-3 py-1 border border-green-600 rounded hover:bg-green-50"
+          >
+            Download
+          </a>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <p className="text-gray-500 mb-4">No resume uploaded</p>
+  )}
+  
+  {isEditing && (
+    <div>
+      <input
+        type="file"
+        accept=".pdf,.doc,.docx"
+        onChange={uploadResume}
+        disabled={uploadingResume}
+        className="w-full"
+      />
+      {uploadingResume && (
+        <p className="text-sm text-blue-600 mt-2">Uploading...</p>
+      )}
+    </div>
+  )}
+</div>
+
           </div>
 
           {/* Profile Details */}
           <div className="lg:col-span-2 bg-white rounded-lg shadow-sm p-6 overflow-auto max-h-[80vh]">
+            {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               {[
                 "name",
@@ -435,93 +592,221 @@ const StudentProfile = () => {
               ))}
             </div>
 
-            {/* Education */}
+            {/* Tech Stack Section */}
             <div className="mb-6">
-              <label className="block mb-1">Education Type</label>
-              <select
-                value={selectedEducationType}
-                onChange={handleEducationTypeChange}
-                disabled={!isEditing}
-                className="border rounded p-2"
-              >
-                <option value="inter">Inter</option>
-                <option value="diploma">Diploma</option>
-              </select>
+              <h3 className="text-lg font-semibold mb-3">Technology Stack</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {['Java', 'Python', 'C/C++', 'JavaScript', 'AI/ML'].map((tech) => (
+                  <label key={tech} className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={formData.techStack?.includes(tech) || false}
+                      onChange={() => handleTechStackChange(tech)}
+                      disabled={!isEditing}
+                      className="rounded"
+                    />
+                    <span>{tech}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
-            {selectedEducationType === "inter" ? (
-              <>
-                <input
-                  type="number"
-                  placeholder="Inter Percentage"
-                  name="academics.inter.percentage"
-                  value={formData.academics?.inter?.percentage ?? ""}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className="border p-2 rounded mb-2 w-full md:w-1/3"
-                />
-                <input
-                  type="text"
-                  placeholder="Inter Board"
-                  name="academics.inter.board"
-                  value={formData.academics?.inter?.board ?? ""}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className="border p-2 rounded mb-2 w-full md:w-1/3"
-                />
-                <input
-                  type="number"
-                  placeholder="Inter Passed Year"
-                  name="academics.inter.passedYear"
-                  value={formData.academics?.inter?.passedYear ?? ""}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className="border p-2 rounded mb-2 w-full md:w-1/3"
-                />
-              </>
-            ) : (
-              <>
-                <input
-                  type="number"
-                  placeholder="Diploma Percentage"
-                  name="academics.diploma.percentage"
-                  value={formData.academics?.diploma?.percentage ?? ""}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className="border p-2 rounded mb-2 w-full md:w-1/3"
-                />
-                <input
-                  type="text"
-                  placeholder="Diploma Board"
-                  name="academics.diploma.board"
-                  value={formData.academics?.diploma?.board ?? ""}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className="border p-2 rounded mb-2 w-full md:w-1/3"
-                />
-                <input
-                  type="number"
-                  placeholder="Diploma Passed Year"
-                  name="academics.diploma.passedYear"
-                  value={formData.academics?.diploma?.passedYear ?? ""}
-                  onChange={handleInputChange}
-                  disabled={!isEditing}
-                  className="border p-2 rounded mb-2 w-full md:w-1/3"
-                />
-              </>
-            )}
+            {/* CRT Interest Section */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">CRT Training Interest</h3>
+              <div className="mb-4">
+                <label className="block mb-2">Are you interested in CRT?</label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="crtInterested"
+                      value="yes"
+                      checked={formData.crtInterested === true}
+                      onChange={handleCRTInterestChange}
+                      disabled={!isEditing}
+                    />
+                    <span>Yes</span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="crtInterested"
+                      value="no"
+                      checked={formData.crtInterested === false}
+                      onChange={handleCRTInterestChange}
+                      disabled={!isEditing}
+                    />
+                    <span>No</span>
+                  </label>
+                </div>
+              </div>
 
-            {/* Backlogs */}
-            <div className="mb-6 w-32">
-              <label>Backlogs</label>
-              <input
-                type="number"
-                name="backlogs"
-                value={formData.backlogs ?? 0}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-                className="border p-2 rounded w-full"
-              />
+              {formData.crtInterested && (
+                <div className="mb-4">
+                  <label className="block mb-2">Choose your CRT Training Batch:</label>
+                  <div className="flex flex-wrap gap-4">
+                    {['Java', 'Python', 'AI/ML'].map((batch) => (
+                      <label key={batch} className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="crtBatchChoice"
+                          value={batch}
+                          checked={formData.crtBatchChoice === batch}
+                          onChange={handleCRTBatchChoiceChange}
+                          disabled={!isEditing}
+                        />
+                        <span>{batch}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Clubs Section */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">Clubs & Activities</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {['GCC', 'k-hub', 'robotics', 'cyber crew', 'toastmasters', 'ncc', 'nss', 'google', 'smart city'].map((club) => (
+                  <label key={club} className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={formData.otherClubs?.includes(club) || false}
+                      onChange={() => handleClubChange(club)}
+                      disabled={!isEditing}
+                      className="rounded"
+                    />
+                    <span className="capitalize">{club}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Education */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">Academic Information</h3>
+              <div className="mb-4">
+                <label className="block mb-1">B.Tech CGPA</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="10"
+                  name="academics.btechCGPA"
+                  value={formData.academics?.btechCGPA || ""}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className="w-full md:w-1/3 border rounded p-2"
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="block mb-1">Education Type</label>
+                <select
+                  value={selectedEducationType}
+                  onChange={handleEducationTypeChange}
+                  disabled={!isEditing}
+                  className="border rounded p-2"
+                >
+                  <option value="inter">Inter</option>
+                  <option value="diploma">Diploma</option>
+                </select>
+              </div>
+
+              {selectedEducationType === "inter" ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block mb-1">Inter Percentage</label>
+                    <input
+                      type="number"
+                      placeholder="Inter Percentage"
+                      name="academics.inter.percentage"
+                      value={formData.academics?.inter?.percentage ?? ""}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className="border p-2 rounded w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1">Board</label>
+                    <input
+                      type="text"
+                      placeholder="Inter Board"
+                      name="academics.inter.board"
+                      value={formData.academics?.inter?.board ?? ""}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className="border p-2 rounded w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1">Passed Year</label>
+                    <input
+                      type="number"
+                      placeholder="Inter Passed Year"
+                      name="academics.inter.passedYear"
+                      value={formData.academics?.inter?.passedYear ?? ""}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className="border p-2 rounded w-full"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block mb-1">Diploma Percentage</label>
+                    <input
+                      type="number"
+                      placeholder="Diploma Percentage"
+                      name="academics.diploma.percentage"
+                      value={formData.academics?.diploma?.percentage ?? ""}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className="border p-2 rounded w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1">Board</label>
+                    <input
+                      type="text"
+                      placeholder="Diploma Board"
+                      name="academics.diploma.board"
+                      value={formData.academics?.diploma?.board ?? ""}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className="border p-2 rounded w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1">Passed Year</label>
+                    <input
+                      type="number"
+                      placeholder="Diploma Passed Year"
+                      name="academics.diploma.passedYear"
+                      value={formData.academics?.diploma?.passedYear ?? ""}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      className="border p-2 rounded w-full"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Backlogs */}
+              <div className="mt-4 w-32">
+                <label className="block mb-1">Backlogs</label>
+                <input
+                  type="number"
+                  min="0"
+                  name="backlogs"
+                  value={formData.backlogs ?? 0}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className="border p-2 rounded w-full"
+                />
+              </div>
             </div>
 
             {/* Dynamic Arrays */}

@@ -67,8 +67,7 @@ const StudentSchema = new mongoose.Schema({
   },
   batchId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Batch',
-    required: [true, 'Batch ID is required']
+    ref: 'Batch'
   },
   passedOutBatchId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -80,7 +79,7 @@ const StudentSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  profileImageUrl: {  // changed field name to profileImageUrl for clarity
+  profileImageUrl: {
     type: String,
     default: null
   },
@@ -115,11 +114,11 @@ const StudentSchema = new mongoose.Schema({
       min: 0,
       max: 10
     },
-    educationType: {                         // Added educationType to enforce inter OR diploma
+    educationType: {
       type: String,
       enum: ['inter', 'diploma'],
     },
-    inter: {       // Used only if educationType is 'inter'
+    inter: {
       percentage: {
         type: Number,
         min: 0,
@@ -128,7 +127,7 @@ const StudentSchema = new mongoose.Schema({
       board: String,
       passedYear: Number
     },
-    diploma: {    // Used only if educationType is 'diploma'
+    diploma: {
       percentage: {
         type: Number,
         min: 0,
@@ -144,7 +143,14 @@ const StudentSchema = new mongoose.Schema({
     min: 0
   },
 
-  // Projects and Experience - all default to 'pending' verification status
+  // Tech Stack and Skills - NEW FIELD
+  techStack: [{
+    type: String,
+    enum: ['Java', 'Python', 'C/C++', 'JavaScript', 'AI/ML'],
+    trim: true
+  }],
+
+  // Projects and Experience
   projects: [{
     title: {
       type: String,
@@ -246,9 +252,18 @@ const StudentSchema = new mongoose.Schema({
       ref: 'TPO'
     }
   }],
+// Add this field to your Student schema
+placementTrainingBatchId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'PlacementTrainingBatch'
+},
+
 
   // Documents and Links
   resumeUrl: String,
+  // Add this to your Student schema
+resumeFileName: String, // Add this line after resumeUrl
+
   videoResumeUrl: String,
   socialLinks: [{
     platform: {
@@ -271,6 +286,10 @@ const StudentSchema = new mongoose.Schema({
   crtBatchId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Batch'
+  },
+  crtBatchName: {  // NEW FIELD - stores assigned CRT batch name
+    type: String,
+    trim: true
   },
   status: {
     type: String,

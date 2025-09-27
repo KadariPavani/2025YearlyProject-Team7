@@ -21,7 +21,7 @@ import TPODashboard from './pages/tpo/TPODashboard';
 import TrainerDashboard from './pages/trainer/TrainerDashboard';
 import StudentDashboard from './pages/student/StudentDashboard';
 import CoordinatorDashboard from './pages/coordinator/CoordinatorDashboard';
-
+import PlacementTrainingBatches from './pages/admin/PlacementTrainingBatches';
 // Import profile components
 import TPOProfile from './pages/tpo/TPOProfile';
 import TrainerProfile from './pages/trainer/TrainerProfile';
@@ -483,6 +483,14 @@ function App() {
                   </ProtectedAdminRoute>
                 } 
               />
+              <Route
+  path="/admin/placement-training-batches"
+  element={
+    <ProtectedAdminRoute>
+      <PlacementTrainingBatches />
+    </ProtectedAdminRoute>
+  }
+/>
               
               {/* General User Login Routes */}
               <Route path="/tpo-login" element={<GeneralLogin />} />

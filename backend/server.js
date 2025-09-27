@@ -79,7 +79,7 @@ const quizRoutes = require('./routes/quizroutes');
 const referenceRoutes = require('./routes/referenceRoutes');
 const assignmentRoutes = require('./routes/AssignmentRoutes');
 const syllabusRoutes = require('./routes/syllabusRoutes');
-
+const PlacementTrainingBatches = require('./routes/placementTrainingRoutes');
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminBatchRoutes);
@@ -92,6 +92,7 @@ app.use('/api/quizzes', quizRoutes);
 app.use('/api/reference', referenceRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/syllabi', syllabusRoutes);
+app.use('/api/placement-training-batches', PlacementTrainingBatches);
 
 // Global error handler (last middleware)
 app.use((err, req, res, next) => {

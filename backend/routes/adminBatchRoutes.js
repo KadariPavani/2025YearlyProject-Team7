@@ -271,8 +271,63 @@ router.post('/crt-batch', auth, async (req, res) => {
   }
 });
 
+// GET /api/admin/batches/grouped
+router.get('/batches/grouped', auth, async (req, res) => {
+  try {
+    if (req.userType !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    // Aggregation pipeline
+    const result = await Batch.aggregate([
+      {
+        $lookup: {
+          from: 'students',
+          localField: 'students',
+          foreignField: '_id',
+          as: 'studentsInfo'
+        }
+      },
+      {
+        $addFields: {
+          yearOfStart: { $year: "$startDate" }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: "$yearOfStart",
+            college: { $arrayElemAt: ["$colleges", 0] }, // assuming one college per batch
+            isCrt: "$isCrt"
+          },
+          totalBatches: { $sum: 1 },
+          totalStudents: { $sum: { $size: "$students" } },
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          year: "$_id.year",
+          college: "$_id.college",
+          isCrt: "$_id.isCrt",
+          totalBatches: 1,
+          totalStudents: 1
+        }
+      },
+      {
+        $sort: { year: -1, college: 1 }
+      }
+    ]);
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Error in batch grouping:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+
 module.exports = router;
 
 
 
-module.exports = router;
