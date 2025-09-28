@@ -35,11 +35,6 @@ import TrainerChangePassword from './pages/trainer/TrainerChangePassword';
 import StudentChangePassword from './pages/student/StudentChangePassword';
 import CoordinatorChangePassword from './pages/coordinator/CoordinatorChangePassword';
 
-// Import auth components
-// import SuperAdminLogin from './components/auth/SuperAdminLogin';
-// import AdminResetPassword from './components/auth/AdminResetPassword';
-// import AdminForgotPassword from './components/auth/AdminForgotPassword';
-
 // Import admin components
 import BatchListPage from './pages/admin/BatchListPage';
 import BatchStudentsPage from './pages/admin/BatchStudentsPage';
@@ -47,6 +42,13 @@ import GeneralForgotPassword from './components/auth/GeneralForgotPassword';
 import GeneralResetPassword from './components/auth/GeneralResetPassword';
 import CrtManagementPage from './pages/admin/CrtManagementPage';
 import ViewStudentsPage from './pages/admin/ViewStudentsPage';
+
+// Import StudentQuiz
+import StudentQuiz from './pages/student/StudentQuiz';
+import StudentResources from './pages/student/StudentResources';
+import StudentSyllabus from './pages/student/StudentSyllabus'; // Add this import
+import StudentAssignment from './pages/student/StudentAssignment'; // Add this import
+
 // Lazy-loaded trainer components
 const TrainerRegister = React.lazy(() => import('./pages/trainer/TrainerRegister').catch(() => ({
   default: () => (
@@ -504,14 +506,14 @@ function App() {
               <Route path="/student-reset-password" element={<GeneralResetPassword />} />
               <Route path="/coordinator-reset-password" element={<GeneralResetPassword />} />
               <Route path="/reset-password" element={<GeneralResetPassword />} />
-<Route
-  path="/crt-management"
-  element={
-    <ProtectedAdminRoute>
-      <CrtManagementPage />
-    </ProtectedAdminRoute>
-  }
-/>
+              <Route
+                path="/crt-management"
+                element={
+                  <ProtectedAdminRoute>
+                    <CrtManagementPage />
+                  </ProtectedAdminRoute>
+                }
+              />
               {/* Protected Admin Routes */}
               <Route 
                 path="/admin-dashboard" 
@@ -656,6 +658,40 @@ function App() {
                 element={
                   <ProtectedUserRoute>
                     <CoordinatorChangePassword />
+                  </ProtectedUserRoute>
+                } 
+              />
+
+              {/* Student Quizzes Route */}
+              <Route 
+                path="/student/quizzes" 
+                element={
+                  <ProtectedUserRoute>
+                    <StudentQuiz />
+                  </ProtectedUserRoute>
+                } 
+              />
+              <Route 
+                path="/student/resources" 
+                element={
+                  <ProtectedUserRoute>
+                    <StudentResources />
+                  </ProtectedUserRoute>
+                } 
+              />
+              <Route 
+                path="/student/syllabus" 
+                element={
+                  <ProtectedUserRoute>
+                    <StudentSyllabus />
+                  </ProtectedUserRoute>
+                } 
+              />
+              <Route 
+                path="/student/assignments" 
+                element={
+                  <ProtectedUserRoute>
+                    <StudentAssignment />
                   </ProtectedUserRoute>
                 } 
               />

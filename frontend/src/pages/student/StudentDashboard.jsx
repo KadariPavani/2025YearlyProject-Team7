@@ -21,7 +21,7 @@ const StudentDashboard = () => {
       title: 'Profile',
       icon: User,
       description: 'View and edit your profile',
-      onClick: () => navigate('/student/profile'),
+      onClick: () => navigate('/student-profile'), // <-- use dash, not slash!
       color: 'bg-blue-500'
     },
     {
@@ -58,6 +58,13 @@ const StudentDashboard = () => {
       description: 'View study resources',
       onClick: () => navigate('/student/resources'),
       color: 'bg-teal-500'
+    },
+    {
+      title: 'Syllabus',
+      icon: Book,
+      description: 'View your syllabus',
+      onClick: () => navigate('/student/syllabus'),
+      color: 'bg-pink-500'
     }
   ];
 

@@ -50,6 +50,19 @@ router.get('/', protectTrainer, async (req, res, next) => {
   }
 });
 
+// Public endpoint for students to view all syllabi
+router.get('/public', async (req, res, next) => {
+  try {
+    const syllabi = await Syllabus.find({})
+      .populate('courseId', 'name')
+      .select('-__v');
+    res.json(syllabi);
+  } catch (error) {
+    console.error('Error fetching public syllabi:', error.message, error.stack);
+    res.status(500).json({ message: 'Failed to fetch syllabi', error: error.message });
+  }
+});
+
 router.put('/:id', protectTrainer, async (req, res, next) => {
   try {
     const syllabus = await Syllabus.findById(req.params.id);

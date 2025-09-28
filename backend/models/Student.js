@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 // File: models/Student.js
 
 const mongoose = require('mongoose');
@@ -18,6 +16,10 @@ const StudentSchema = new mongoose.Schema({
     required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters'],
     select: false
+  },
+  passwordChanged: {
+    type: Boolean,
+    default: false
   },
   name: {
     type: String,
@@ -254,17 +256,16 @@ const StudentSchema = new mongoose.Schema({
       ref: 'TPO'
     }
   }],
-// Add this field to your Student schema
-placementTrainingBatchId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: 'PlacementTrainingBatch'
-},
-
+  // Add this field to your Student schema
+  placementTrainingBatchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PlacementTrainingBatch'
+  },
 
   // Documents and Links
   resumeUrl: String,
   // Add this to your Student schema
-resumeFileName: String, // Add this line after resumeUrl
+  resumeFileName: String, // Add this line after resumeUrl
 
   videoResumeUrl: String,
   socialLinks: [{
@@ -278,7 +279,7 @@ resumeFileName: String, // Add this line after resumeUrl
       required: true,
       trim: true
     }
-  }],
+ }],
 
   // CRT and Placement Information
   crtInterested: {
@@ -316,7 +317,7 @@ resumeFileName: String, // Add this line after resumeUrl
   otherClubs: [{
     type: String,
     enum: ['GCC', 'k-hub', 'robotics', 'cyber crew', 'toastmasters', 'ncc', 'nss', 'google', 'smart city']
-  }],
+ }],
 
   // Academic Progress
   attendance: [{
@@ -380,4 +381,3 @@ StudentSchema.methods.matchPassword = async function(enteredPassword) {
 };
 
 module.exports = mongoose.model('Student', StudentSchema);
->>>>>>> 093949bd125074fd5b334727c9181e026091c45f

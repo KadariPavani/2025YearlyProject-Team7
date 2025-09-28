@@ -179,4 +179,18 @@ router.get('/batches', protectTrainer, async (req, res, next) => {
   }
 });
 
+// Public endpoint for students to view assignments
+router.get('/public', async (req, res, next) => {
+  try {
+    const assignments = await Assignment.find({})
+      .populate('trainerId', 'name')
+      .populate('assignedBatches', 'name')
+      .select('-submissions');
+    res.json(assignments);
+  } catch (error) {
+    console.error('Error fetching public assignments:', error.message, error.stack);
+    res.status(500).json({ message: 'Failed to fetch assignments' });
+  }
+});
+
 module.exports = router;

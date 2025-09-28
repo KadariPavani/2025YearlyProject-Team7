@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 // server.js
 
 const express = require('express');
@@ -10,13 +8,14 @@ const cookieParser = require('cookie-parser');
 const fileUpload = require('express-fileupload');
 const fs = require('fs');
 const path = require('path');
+
 dotenv.config();
 
 // Ensure upload directory exists
-// const uploadDir = path.join(__dirname, 'uploads/profile-images');
-// if (!fs.existsSync(uploadDir)) {
-//   fs.mkdirSync(uploadDir, { recursive: true });
-// }
+const uploadDir = path.join(__dirname, 'uploads/profile-images');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // Connect to database
 connectDB();
@@ -40,7 +39,6 @@ const app = express();
 //   abortOnLimit: true,
 // }));
 
-
 app.use(fileUpload({
   useTempFiles: true,
   tempFileDir: '/tmp/',
@@ -48,8 +46,6 @@ app.use(fileUpload({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
   abortOnLimit: true,
 }));
-
-
 
 // Body parser middleware
 app.use(express.json());
@@ -67,7 +63,7 @@ app.use(
 );
 
 // Serve uploaded profile images statically
-// app.use('/uploads/profile-images', express.static(uploadDir));
+app.use('/uploads/profile-images', express.static(uploadDir));
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -82,12 +78,13 @@ const referenceRoutes = require('./routes/referenceRoutes');
 const assignmentRoutes = require('./routes/AssignmentRoutes');
 const syllabusRoutes = require('./routes/syllabusRoutes');
 const PlacementTrainingBatches = require('./routes/placementTrainingRoutes');
+
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminBatchRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/tpo', tpoRoutes);
-app.use('/api/trainer', trainerRoutes);
+app.use('/api/trainer', require('./routes/trainerRoutes'));
 app.use('/api/student', studentRoutes);
 app.use('/api/coordinator', coordinatorRoutes);
 app.use('/api/quizzes', quizRoutes);
@@ -117,4 +114,3 @@ process.on('unhandledRejection', (err) => {
     process.exit(1);
   });
 });
->>>>>>> 093949bd125074fd5b334727c9181e026091c45f
