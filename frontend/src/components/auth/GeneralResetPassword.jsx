@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Mail, Lock, Eye, EyeOff, ArrowLeft, CheckCircle, AlertCircle,
   Users, BookOpen, GraduationCap, UserCheck
@@ -7,10 +7,9 @@ import {
 import { resetPassword } from '../../services/generalAuthService';
 
 const GeneralResetPassword = () => {
-  const { userType } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
-    email: '',
     otp: '',
     newPassword: '',
     confirmPassword: ''
@@ -56,6 +55,15 @@ const GeneralResetPassword = () => {
     }
   };
 
+  const userType = useMemo(() => {
+    const path = location.pathname;
+    if (path.includes('tpo-reset-password')) return 'tpo';
+    if (path.includes('trainer-reset-password')) return 'trainer';
+    if (path.includes('student-reset-password')) return 'student';
+    if (path.includes('coordinator-reset-password')) return 'coordinator';
+    return 'tpo';
+  }, [location.pathname]);
+
   const config = userTypeConfig[userType] || userTypeConfig.tpo;
   const IconComponent = config.icon;
 
@@ -78,8 +86,9 @@ const GeneralResetPassword = () => {
     }
 
     try {
+      const email = sessionStorage.getItem('resetEmail');
       const response = await resetPassword(userType, {
-        email: formData.email,
+        email,
         otp: formData.otp,
         newPassword: formData.newPassword
       });
@@ -152,22 +161,7 @@ const GeneralResetPassword = () => {
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter your email"
-                />
-              </div>
-            </div>
+            {/* Email is not required on this page; it is taken from session storage */}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

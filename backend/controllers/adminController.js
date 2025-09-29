@@ -10,6 +10,8 @@ const generatePassword = require('../utils/generatePassword');
 const sendEmail = require('../utils/sendEmail');
 const generateToken = require('../utils/generateToken');
 const XLSX = require('xlsx');
+const { ok, created, badRequest, unauthorized, notFound, serverError, forbidden } = require('../utils/http');
+const { createOtp, verifyOtp, consumeOtp } = require('../utils/otp');
 
 // Initialize super admin if not exists
 const initializeSuperAdmin = async () => {
@@ -68,15 +70,9 @@ const superAdminLogin = async (req, res) => {
       message: `Your OTP for admin login is: ${otp}`
     });
 
-    res.status(200).json({
-      success: true,
-      message: 'OTP sent successfully'
-    });
+    return ok(res, { success: true, message: 'OTP sent successfully' });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    return serverError(res, 'Internal server error');
   }
 };
 
@@ -87,41 +83,15 @@ const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    const otpDoc = await OTP.findOne({ 
-      email,
-      purpose: 'login'
-    }).sort({ createdAt: -1 });
-
-    if (!otpDoc) {
-      return res.status(400).json({
-        success: false,
-        message: 'OTP not found or expired'
-      });
-    }
-
-    if (Date.now() > otpDoc.expires.getTime()) {
-      await OTP.deleteOne({ _id: otpDoc._id });
-      return res.status(400).json({
-        success: false,
-        message: 'OTP has expired'
-      });
-    }
-
-    if (otpDoc.attempts >= 3) {
-      await OTP.deleteOne({ _id: otpDoc._id });
-      return res.status(400).json({
-        success: false,
-        message: 'Too many failed attempts'
-      });
-    }
-
-    if (otpDoc.otp !== otp) {
-      otpDoc.attempts += 1;
-      await otpDoc.save();
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid OTP'
-      });
+    const result = await verifyOtp(email, 'login', otp);
+    if (!result.valid) {
+      const map = {
+        not_found_or_expired: 'OTP not found or expired',
+        expired: 'OTP has expired',
+        too_many_attempts: 'Too many failed attempts',
+        invalid: 'Invalid OTP',
+      };
+      return badRequest(res, map[result.reason] || 'Invalid OTP');
     }
 
     const admin = await Admin.findOne({ email });
@@ -138,28 +108,16 @@ const verifyOTP = async (req, res) => {
       role: admin.role
     });
 
-    await OTP.deleteOne({ _id: otpDoc._id });
+    await consumeOtp(result.otpDoc);
 
     admin.lastLogin = new Date();
     await admin.save();
 
-    res.status(200).json({
-      success: true,
-      token,
-      admin: {
-        id: admin._id,
-        email: admin.email,
-        role: admin.role,
-        permissions: admin.permissions
-      }
-    });
+    return ok(res, { success: true, token, admin: { id: admin._id, email: admin.email, role: admin.role, permissions: admin.permissions } });
 
   } catch (error) {
     console.error('OTP Verification Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error during OTP verification'
-    });
+    return serverError(res, 'Internal server error during OTP verification');
   }
 };
 
@@ -174,11 +132,7 @@ const resendOTP = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Admin not found' });
     }
 
-    // Generate new OTP
-    const otp = generateOTP();
-
-    // Save OTP doc with the purpose 'login'
-    await OTP.create({ email, otp, purpose: 'login' });
+    const otp = await createOtp(email, 'login');
 
     // Send OTP to email
     await sendEmail({
@@ -187,10 +141,10 @@ const resendOTP = async (req, res) => {
       message: `Your OTP code is: ${otp}`,
     });
 
-    res.status(200).json({ success: true, message: 'OTP resent successfully' });
+    return ok(res, { success: true, message: 'OTP resent successfully' });
   } catch (error) {
     console.error('Resend OTP error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    return serverError(res, 'Server error');
   }
 };
 
@@ -234,15 +188,7 @@ const addAdmin = async (req, res) => {
       `
     });
 
-    res.status(201).json({
-      success: true,
-      data: {
-        id: newAdmin._id,
-        email: newAdmin.email,
-        role: newAdmin.role,
-        permissions: newAdmin.permissions
-      }
-    });
+    return created(res, { success: true, data: { id: newAdmin._id, email: newAdmin.email, role: newAdmin.role, permissions: newAdmin.permissions } });
 
   } catch (error) {
     console.error("Add admin error:", error);
@@ -255,7 +201,7 @@ const addAdmin = async (req, res) => {
 const getAllAdmins = async (req, res) => {
   try {
     const admins = await Admin.find().select("-password").sort({ createdAt: -1 });
-    res.status(200).json({ success: true, data: admins });
+    return ok(res, { success: true, data: admins });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to fetch admins" });
   }
@@ -271,10 +217,7 @@ const addTrainer = async (req, res) => {
 
     // Check admin permissions
     if (!req.admin.permissions.canAddTrainer) {
-      return res.status(403).json({
-        success: false,
-        message: 'You do not have permission to add trainers'
-      });
+      return forbidden(res, 'You do not have permission to add trainers');
     }
 
     // Check if trainer already exists
@@ -283,10 +226,7 @@ const addTrainer = async (req, res) => {
     });
     
     if (existingTrainer) {
-      return res.status(400).json({
-        success: false,
-        message: 'Trainer with this email or employee ID already exists'
-      });
+      return badRequest(res, 'Trainer with this email or employee ID already exists');
     }
 
     // Generate temporary password
@@ -327,16 +267,7 @@ const addTrainer = async (req, res) => {
       `
     });
 
-    res.status(201).json({
-      success: true,
-      message: 'Trainer added successfully and credentials sent via email',
-      data: {
-        id: trainer._id,
-        name: trainer.name,
-        email: trainer.email,
-        employeeId: trainer.employeeId
-      }
-    });
+    return created(res, { success: true, message: 'Trainer added successfully and credentials sent via email', data: { id: trainer._id, name: trainer.name, email: trainer.email, employeeId: trainer.employeeId } });
 
   } catch (error) {
     console.error('Add Trainer Error:', error);
@@ -407,15 +338,7 @@ const addTPO = async (req, res) => {
       `
     });
 
-    res.status(201).json({
-      success: true,
-      message: 'TPO added successfully and credentials sent via email',
-      data: {
-        id: tpo._id,
-        name: tpo.name,
-        email: tpo.email
-      }
-    });
+    return created(res, { success: true, message: 'TPO added successfully and credentials sent via email', data: { id: tpo._id, name: tpo.name, email: tpo.email } });
 
   } catch (error) {
     console.error('Add TPO Error:', error);
@@ -432,11 +355,7 @@ const addTPO = async (req, res) => {
 const getAllTrainers = async (req, res) => {
   try {
     const trainers = await Trainer.find().select('-password').sort({ createdAt: -1 });
-    res.status(200).json({
-      success: true,
-      count: trainers.length,
-      data: trainers
-    });
+    return ok(res, { success: true, count: trainers.length, data: trainers });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -448,11 +367,7 @@ const getAllTrainers = async (req, res) => {
 const getAllTPOs = async (req, res) => {
   try {
     const tpos = await TPO.find().select('-password').sort({ createdAt: -1 });
-    res.status(200).json({
-      success: true,
-      count: tpos.length,
-      data: tpos
-    });
+    return ok(res, { success: true, count: tpos.length, data: tpos });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -467,13 +382,9 @@ const forgotPassword = async (req, res) => {
     const { email } = req.body;
 
     const admin = await Admin.findOne({ email });
-    if (!admin) {
-      return res.status(404).json({ success: false, message: 'Admin not found' });
-    }
+    if (!admin) return notFound(res, 'Admin not found');
 
-    const otp = generateOTP();
-
-    await OTP.create({ email, otp, purpose: 'reset_password' });
+    const otp = await createOtp(email, 'reset_password');
 
     await sendEmail({
       email,
@@ -481,10 +392,10 @@ const forgotPassword = async (req, res) => {
       message: `Your OTP to reset the admin password is: ${otp}. It expires in 5 minutes.`
     });
 
-    res.status(200).json({ success: true, message: 'OTP sent to email' });
+    return ok(res, { success: true, message: 'OTP sent to email' });
   } catch (error) {
     console.error('Forgot Password Error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    return serverError(res, 'Server error');
   }
 };
 
@@ -495,45 +406,31 @@ const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
 
-    if (!email || !otp || !newPassword) {
-      return res.status(400).json({ success: false, message: 'Missing fields' });
-    }
+    if (!email || !otp || !newPassword) return badRequest(res, 'Missing fields');
 
-    const otpDoc = await OTP.findOne({ email, purpose: 'reset_password' }).sort({ createdAt: -1 });
-    if (!otpDoc) {
-      return res.status(400).json({ success: false, message: 'OTP not found or expired' });
-    }
-
-    if (Date.now() > otpDoc.expires.getTime()) {
-      await OTP.deleteOne({ _id: otpDoc._id });
-      return res.status(400).json({ success: false, message: 'OTP has expired' });
-    }
-
-    if (otpDoc.attempts >= 3) {
-      await OTP.deleteOne({ _id: otpDoc._id });
-      return res.status(400).json({ success: false, message: 'Too many failed attempts' });
-    }
-
-    if (otpDoc.otp !== otp) {
-      otpDoc.attempts += 1;
-      await otpDoc.save();
-      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    const result = await verifyOtp(email, 'reset_password', otp);
+    if (!result.valid) {
+      const map = {
+        not_found_or_expired: 'OTP not found or expired',
+        expired: 'OTP has expired',
+        too_many_attempts: 'Too many failed attempts',
+        invalid: 'Invalid OTP',
+      };
+      return badRequest(res, map[result.reason] || 'Invalid OTP');
     }
 
     const admin = await Admin.findOne({ email }).select('+password');
-    if (!admin) {
-      return res.status(404).json({ success: false, message: 'Admin not found' });
-    }
+    if (!admin) return notFound(res, 'Admin not found');
 
     admin.password = newPassword;
     await admin.save();
 
-    await OTP.deleteOne({ _id: otpDoc._id });
+    await consumeOtp(result.otpDoc);
 
-    res.status(200).json({ success: true, message: 'Password reset successful' });
+    return ok(res, { success: true, message: 'Password reset successful' });
   } catch (error) {
     console.error('Reset Password Error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    return serverError(res, 'Server error');
   }
 };
 
@@ -657,223 +554,144 @@ const getAdminProfile = async (req, res) => {
   }
 };
 
+
 // const createCrtBatch = async (req, res) => {
 //   try {
-//     // First validate the request body and files
+//     console.log('Batch Creation: Request received');
+
 //     if (!req.body || !req.files) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Missing request data'
-//       });
+//       console.error('Batch Creation: Missing request data');
+//       return res.status(400).json({ success: false, message: 'Missing request data' });
 //     }
 
-//     let { batchNumber, colleges, tpoId } = req.body;
-    
-//     console.log('Received request body:', req.body);
-//     console.log('Initial colleges value:', colleges);
-    
-//     // Parse colleges if it's a string
-//     if (typeof colleges === 'string') {
-//       try {
+//     let { batchNumber, colleges, tpoId, startDate, endDate } = req.body;
+
+//     try {
+//       if (typeof colleges === 'string') {
 //         colleges = JSON.parse(colleges);
-//         console.log('Parsed colleges:', colleges);
-//       } catch (err) {
-//         console.error('Error parsing colleges:', err);
-//         return res.status(400).json({
-//           success: false,
-//           message: 'Invalid colleges format'
-//         });
 //       }
+//     } catch (err) {
+//       console.error('Batch Creation: Invalid colleges format', err);
+//       return res.status(400).json({ success: false, message: 'Invalid colleges format' });
 //     }
 
-//     // Ensure colleges is an array
 //     if (!Array.isArray(colleges)) {
-//       console.error('Colleges is not an array:', colleges);
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Colleges must be an array'
-//       });
+//       console.error('Batch Creation: Colleges must be an array');
+//       return res.status(400).json({ success: false, message: 'Colleges must be an array' });
 //     }
 
-//     // Normalize college values
 //     colleges = colleges.map(c => c.trim().toUpperCase());
 
-//     // Check if all required fields are present
-//     if (!batchNumber || !colleges || !colleges.length || !tpoId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Batch number, colleges and TPO are required'
-//       });
+//     if (!batchNumber || !colleges.length || !tpoId || !startDate || !endDate) {
+//       console.error('Batch Creation: Missing required batch fields');
+//       return res.status(400).json({ success: false, message: 'Batch number, colleges, TPO, startDate, and endDate are required' });
 //     }
 
-//     // Verify TPO exists
+//     console.log('Batch Creation: Parsed batch fields:', { batchNumber, colleges, tpoId, startDate, endDate });
+
 //     const tpo = await TPO.findById(tpoId);
 //     if (!tpo) {
-//       return res.status(404).json({
-//         success: false,
-//         message: 'TPO not found'
-//       });
+//       console.error('Batch Creation: TPO not found:', tpoId);
+//       return res.status(404).json({ success: false, message: 'TPO not found' });
 //     }
+//     console.log('Batch Creation: Found TPO:', tpo._id);
 
-//     // Validate file presence and type
 //     if (!req.files.file) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Student Excel file is required'
-//       });
+//       console.error('Batch Creation: No Excel file uploaded');
+//       return res.status(400).json({ success: false, message: 'Student Excel file is required' });
 //     }
 
 //     const file = req.files.file;
 //     if (!file.name.match(/\.(xls|xlsx)$/)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Please upload an Excel file (.xls or .xlsx)'
-//       });
+//       console.error('Batch Creation: Invalid Excel file type:', file.name);
+//       return res.status(400).json({ success: false, message: 'Please upload an Excel file (.xls or .xlsx)' });
 //     }
+//     console.log('Batch Creation: Excel file received:', file.name);
 
-//     // Read Excel file
-//     const workbook = XLSX.read(file.data, { type: 'buffer' });
+//     const XLSX = require('xlsx');
+//     console.log('Batch Creation: Reading Excel file');
+
+//     const workbook = XLSX.readFile(file.tempFilePath);
 //     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
 //     const data = XLSX.utils.sheet_to_json(worksheet);
+//     console.log(`Batch Creation: Parsed ${data.length} rows from Excel`);
 
 //     if (data.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Excel file is empty'
-//       });
+//       console.error('Batch Creation: Excel file is empty');
+//       return res.status(400).json({ success: false, message: 'Excel file is empty' });
 //     }
 
-//     // Create new CRT batch
+//     const validBranches = ['AID', 'CSM', 'CAI', 'CSD', 'CSC'];
+
+//     // Validate student data row-wise
+//     for (const [index, row] of data.entries()) {
+//       const name = row.name?.trim();
+//       const email = row.email?.trim();
+//       const rollNumber = row['roll number']?.trim();
+//       const branch = row.branch?.trim();
+//       const college = row.college?.trim();
+//       const phonenumber = row.phonenumber?.toString().trim();
+
+//       if (!name || !email || !rollNumber || !branch || !college || !phonenumber) {
+//         console.error(`Batch Creation: Missing fields in row ${index + 1}:`, row);
+//         return res.status(400).json({ success: false, message: `Missing fields in student row ${index + 1}` });
+//       }
+//       if (!validBranches.includes(branch)) {
+//         console.error(`Batch Creation: Invalid branch in row ${index + 1}: ${branch}`);
+//         return res.status(400).json({ success: false, message: `Invalid branch ${branch} in student ${name}` });
+//       }
+//       if (!colleges.includes(college)) {
+//         console.error(`Batch Creation: College not in batch colleges in row ${index + 1}: ${college}`);
+//         return res.status(400).json({ success: false, message: `College ${college} not in batch colleges for student ${name}` });
+//       }
+//     }
+
+//     console.log('Batch Creation: Creating batch document');
 //     const batch = await Batch.create({
 //       batchNumber,
 //       colleges,
 //       isCrt: true,
 //       tpoId,
-//       createdBy: req.admin._id
+//       createdBy: req.admin._id,
+//       startDate: new Date(startDate),
+//       endDate: new Date(endDate),
 //     });
+//     console.log('Batch Creation: Batch created with ID:', batch._id);
 
-//     // Validate and create students
-//     const validBranches = ['AID', 'CSM', 'CAI', 'CSD', 'CSC'];
-//     console.log('Selected colleges for batch:', colleges);
-//     console.log('Valid branches:', validBranches);
-    
-//     const studentPromises = data.map(async (row) => {
-//       // Normalize the data from Excel
-//       const studentData = {
-//         name: row.name?.trim(),
-//         email: row.email?.trim(),
-//         rollNumber: row['roll number']?.trim(), // Excel column name has a space
-//         branch: row.branch?.trim(),
-//         college: row.college?.trim(),
-//         phonenumber: row.phonenumber?.toString().trim() // Convert to string if it's a number
-//       };
-      
-//       console.log('Processing student:', studentData);
+//     console.log('Batch Creation: Bulk inserting students');
+//     const studentDocs = await Student.insertMany(data.map(row => ({
+//       name: row.name.trim(),
+//       email: row.email.trim(),
+//       username: row['roll number'].trim(),
+//       rollNo: row['roll number'].trim(),
+//       branch: row.branch.trim(),
+//       college: row.college.trim(),
+//       phonenumber: row.phonenumber.toString().trim(),
+//       password: row['roll number'].trim(),
+//       batchId: batch._id,
+//       yearOfPassing: batchNumber,
+//     })));
+//     console.log('Batch Creation: Inserted students count:', studentDocs.length);
 
-//       // Validate required fields
-//       if (!studentData.name || !studentData.email || !studentData.rollNumber || 
-//           !studentData.branch || !studentData.college || !studentData.phonenumber) {
-//         console.log('Invalid student data:', studentData);
-//         throw new Error(`Missing required fields for student: ${JSON.stringify(row)}`);
-//       }
+//     batch.students = studentDocs.map(s => s._id);
+//     await batch.save();
+//     console.log('Batch Creation: Batch updated with students');
 
-//       // First validate branch
-//       if (!validBranches.includes(studentData.branch)) {
-//         throw new Error(`Invalid branch ${studentData.branch} for student ${studentData.name}. Valid branches are: ${validBranches.join(', ')}`);
-//       }
+//     res.status(201).json({ success: true, message: 'CRT batch created successfully', data: { batch, studentsCount: studentDocs.length } });
 
-//       // Then validate college
-//       if (!colleges.includes(studentData.college)) {
-//         throw new Error(`Student's college ${studentData.college} is not in the selected colleges (${colleges.join(', ')}) for this batch. Student: ${studentData.name}`);
-//       }
-
-//       // Create student with all required fields
-//       return await Student.create({
-//         name: studentData.name,
-//         email: studentData.email,
-//         username: studentData.rollNumber, // Use roll number as username
-//         rollNo: studentData.rollNumber,   // Store roll number in rollNo field
-//         branch: studentData.branch,
-//         college: studentData.college,
-//         phonenumber: studentData.phonenumber,
-//         password: studentData.rollNumber, // Will be hashed by the pre-save hook
-//         batchId: batch._id,              // Link to the batch using batchId
-//         yearOfPassing: batchNumber       // Use batch number as year of passing
-//       });
-//     });
-
-//     try {
-//       // Wait for all students to be created
-//       const students = await Promise.all(studentPromises);
-      
-//       // Update batch with student IDs
-//       batch.students = students.map(student => student._id);
-//       await batch.save();
-
-//       res.status(201).json({
-//         success: true,
-//         message: 'CRT batch created successfully',
-//         data: {
-//           batch: batch,
-//           studentsCount: students.length
-//         }
-//       });
-//     } catch (error) {
-//       // If student creation fails, delete the batch and throw error
-//       await Batch.findByIdAndDelete(batch._id);
-//       throw error;
-//     }
 //   } catch (error) {
-//     console.error('Error creating CRT batch:', error);
-//     res.status(400).json({
-//       success: false,
-//       message: error.message || 'Failed to create CRT batch'
-//     });
+//     console.error('Batch Creation Error:', error);
+//     res.status(500).json({ success: false, message: error.message || 'Failed to create CRT batch' });
 //   }
 // };
 
-// // @desc    Update student details
-// // @route   PUT /api/admin/students/:id
-// // @access  Private/Admin
-// const updateStudent = async (req, res) => {
-//   try {
-//     const studentId = req.params.id;
-//     const updates = req.body;
 
-//     // Check if student exists
-//     const student = await Student.findById(studentId);
-//     if (!student) {
-//       return res.status(404).json({
-//         success: false,
-//         message: 'Student not found'
-//       });
-//     }
 
-//     // Update student fields
-//     const updatedStudent = await Student.findByIdAndUpdate(
-//       studentId,
-//       { $set: updates },
-//       { new: true, runValidators: true }
-//     );
 
-//     res.status(200).json({
-//       success: true,
-//       message: 'Student updated successfully',
-//       data: updatedStudent
-//     });
-//   } catch (error) {
-//     console.error('Error updating student:', error);
-//     res.status(500).json({
-//       success: false,
-//       message: 'Error updating student',
-//       error: error.message
-//     });
-//   }
-// };
 
-// @desc    Delete student
-// @route   DELETE /api/admin/students/:id
-// @access  Private/Admin
+
+// Update Student details controller
+
 
 const createCrtBatch = async (req, res) => {
   try {
@@ -929,8 +747,6 @@ const createCrtBatch = async (req, res) => {
     console.log('Batch Creation: Excel file received:', file.name);
 
     const XLSX = require('xlsx');
-    console.log('Batch Creation: Reading Excel file');
-
     const workbook = XLSX.readFile(file.tempFilePath);
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const data = XLSX.utils.sheet_to_json(worksheet);
@@ -943,7 +759,6 @@ const createCrtBatch = async (req, res) => {
 
     const validBranches = ['AID', 'CSM', 'CAI', 'CSD', 'CSC'];
 
-    // Validate student data row-wise
     for (const [index, row] of data.entries()) {
       const name = row.name?.trim();
       const email = row.email?.trim();
@@ -978,19 +793,27 @@ const createCrtBatch = async (req, res) => {
     });
     console.log('Batch Creation: Batch created with ID:', batch._id);
 
+    console.log('Batch Creation: Hashing passwords and preparing student data');
+    const studentsData = [];
+    for (const row of data) {
+      const plainPassword = row['roll number'].trim();
+      const hashedPassword = await bcrypt.hash(plainPassword, 10);  // Hash password here
+      studentsData.push({
+        name: row.name.trim(),
+        email: row.email.trim(),
+        username: plainPassword,
+        rollNo: plainPassword,
+        branch: row.branch.trim(),
+        college: row.college.trim(),
+        phonenumber: row.phonenumber.toString().trim(),
+        password: hashedPassword,
+        batchId: batch._id,
+        yearOfPassing: batchNumber,
+      });
+    }
+
     console.log('Batch Creation: Bulk inserting students');
-    const studentDocs = await Student.insertMany(data.map(row => ({
-      name: row.name.trim(),
-      email: row.email.trim(),
-      username: row['roll number'].trim(),
-      rollNo: row['roll number'].trim(),
-      branch: row.branch.trim(),
-      college: row.college.trim(),
-      phonenumber: row.phonenumber.toString().trim(),
-      password: row['roll number'].trim(),
-      batchId: batch._id,
-      yearOfPassing: batchNumber,
-    })));
+    const studentDocs = await Student.insertMany(studentsData);
     console.log('Batch Creation: Inserted students count:', studentDocs.length);
 
     batch.students = studentDocs.map(s => s._id);
@@ -1006,10 +829,6 @@ const createCrtBatch = async (req, res) => {
 };
 
 
-
-
-
-// Update Student details controller
 const updateStudent = async (req, res) => {
   try {
     const studentId = req.params.id;

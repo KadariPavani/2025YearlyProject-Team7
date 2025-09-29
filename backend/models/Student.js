@@ -1,5 +1,3 @@
-// File: models/Student.js
-
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -256,6 +254,16 @@ const StudentSchema = new mongoose.Schema({
       ref: 'TPO'
     }
   }],
+  // Updated reference for crtBatchId to PlacementTrainingBatch
+  crtBatchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PlacementTrainingBatch'
+  },
+  crtBatchName: {  // NEW FIELD - stores assigned CRT batch name
+    type: String,
+    trim: true
+  },
+
   // Add this field to your Student schema
   placementTrainingBatchId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -279,21 +287,14 @@ const StudentSchema = new mongoose.Schema({
       required: true,
       trim: true
     }
- }],
+  }],
 
   // CRT and Placement Information
   crtInterested: {
     type: Boolean,
     default: false
   },
-  crtBatchId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Batch'
-  },
-  crtBatchName: {  // NEW FIELD - stores assigned CRT batch name
-    type: String,
-    trim: true
-  },
+
   status: {
     type: String,
     enum: ['pursuing', 'placed', 'completed'],
@@ -317,7 +318,7 @@ const StudentSchema = new mongoose.Schema({
   otherClubs: [{
     type: String,
     enum: ['GCC', 'k-hub', 'robotics', 'cyber crew', 'toastmasters', 'ncc', 'nss', 'google', 'smart city']
- }],
+  }],
 
   // Academic Progress
   attendance: [{
@@ -368,6 +369,7 @@ const StudentSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
 
 StudentSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();

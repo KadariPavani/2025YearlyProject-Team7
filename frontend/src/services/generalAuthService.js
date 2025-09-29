@@ -12,13 +12,11 @@ export const getDashboard = (userType) => {
 
 // TPO Profile functions
 export const getProfile = (userType) => {
-  console.log('Fetching profile for user type:', userType);
-  return api.get(`/api/${userType}/profile`);
+  return api.get(`/api/auth/profile/${userType}`);
 };
 
 export const updateProfile = (userType, profileData) => {
-  console.log('Updating profile for:', userType, 'Data:', profileData);
-  return api.put(`/api/${userType}/profile`, profileData);
+  return api.put(`/api/auth/profile/${userType}`, profileData);
 };
 
 export const changePassword = (userType, passwordData) => {
@@ -26,7 +24,7 @@ export const changePassword = (userType, passwordData) => {
 };
 
 export const checkPasswordChange = (userType) => {
-  return api.get(`/api/${userType}/check-password-change`);
+  return api.get(`/api/auth/check-password-change/${userType}`);
 };
 
 export const forgotPassword = (userType, email) => {

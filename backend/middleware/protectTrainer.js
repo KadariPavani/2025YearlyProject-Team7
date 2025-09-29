@@ -1,21 +1,17 @@
-const jwt = require('jsonwebtoken');
+const { getTokenFromRequest, verifyToken } = require('../utils/authToken');
 
 const protectTrainer = async (req, res, next) => {
   try {
-    let token;
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
-    }
-
+    const token = getTokenFromRequest(req);
     if (!token) {
       return res.status(401).json({ message: 'Not authorized, no token provided' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
+    const decoded = verifyToken(token);
     req.user = { id: decoded.id }; // Adjust based on your JWT payload
     next();
   } catch (error) {
-    console.error('ProtectTrainer error:', error.message, error.stack);
+    console.error('ProtectTrainer error:', error.message);
     res.status(401).json({ message: 'Not authorized, token invalid' });
   }
 };

@@ -68,7 +68,6 @@ app.use('/uploads/profile-images', express.static(uploadDir));
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const adminBatchRoutes = require('./routes/adminBatchRoutes');
 const tpoRoutes = require('./routes/tpoRoutes');
 const trainerRoutes = require('./routes/trainerRoutes');
 const studentRoutes = require('./routes/studentRoutes');
@@ -81,7 +80,6 @@ const PlacementTrainingBatches = require('./routes/placementTrainingRoutes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminBatchRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/tpo', tpoRoutes);
 app.use('/api/trainer', require('./routes/trainerRoutes'));

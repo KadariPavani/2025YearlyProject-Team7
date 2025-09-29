@@ -7,7 +7,6 @@ import {
   GraduationCap,
 } from 'lucide-react';
 import axios from 'axios';
-
 // Import components
 import Quiz from '../trainer/Quiz';
 import Reference from '../trainer/Reference';
@@ -24,7 +23,7 @@ const TrainerDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
-
+  
   useEffect(() => {
     const token = localStorage.getItem('trainerToken');
     const data = localStorage.getItem('trainerData');
@@ -103,7 +102,6 @@ const TrainerDashboard = () => {
 
   const menuItems = [
     { id: 'overview', label: 'Overview', icon: Activity },
-    { id: 'profile', label: 'Profile', icon: User },
     { id: 'assignments', label: 'Assignments', icon: PlusCircle },
     { id: 'quizzes', label: 'Quizzes', icon: CheckSquare },
     { id: 'syllabus', label: 'Syllabus', icon: BookOpen },
@@ -111,7 +109,6 @@ const TrainerDashboard = () => {
     { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'batches', label: 'Batches', icon: Users },
-    { id: 'daily-activity', label: 'Daily Activity', icon: Activity },
     { id: 'timetable', label: 'Time Table', icon: Clock },
   ];
 
@@ -268,74 +265,74 @@ const TrainerDashboard = () => {
     </div>
   );
 
-  const renderProfile = () => (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Trainer Profile</h2>
-      {trainerData && (
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Name</label>
-              <p className="text-lg text-gray-900">{trainerData.name}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Email</label>
-              <p className="text-lg text-gray-900">{trainerData.email}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Employee ID</label>
-              <p className="text-lg text-gray-900">{trainerData.employeeId}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Phone</label>
-              <p className="text-lg text-gray-900">{trainerData.phone || 'Not provided'}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Experience</label>
-              <p className="text-lg text-gray-900">{trainerData.experience} years</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Subject</label>
-              <p className="text-lg text-gray-900">{trainerData.subjectDealing}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Category</label>
-              <p className="text-lg text-gray-900 capitalize">{trainerData.category}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-2">Status</label>
-              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                trainerData.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              }`}>
-                {trainerData.status}
-              </span>
-            </div>
-          </div>
-          {trainerData.linkedIn && (
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-600 mb-2">LinkedIn Profile</label>
-              <a 
-                href={trainerData.linkedIn} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 underline"
-              >
-                {trainerData.linkedIn}
-              </a>
-            </div>
-          )}
-          <div className="mt-6 pt-6 border-t">
-            <button
-              onClick={() => navigate('/trainer-profile')}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
-            >
-              Edit Profile
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  // const renderProfile = () => (
+  //   <div className="p-6">
+  //     <h2 className="text-2xl font-bold text-gray-900 mb-6">Trainer Profile</h2>
+  //     {trainerData && (
+  //       <div className="bg-white rounded-xl shadow-lg p-8">
+  //         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  //           <div>
+  //             <label className="block text-sm font-medium text-gray-600 mb-2">Name</label>
+  //             <p className="text-lg text-gray-900">{trainerData.name}</p>
+  //           </div>
+  //           <div>
+  //             <label className="block text-sm font-medium text-gray-600 mb-2">Email</label>
+  //             <p className="text-lg text-gray-900">{trainerData.email}</p>
+  //           </div>
+  //           <div>
+  //             <label className="block text-sm font-medium text-gray-600 mb-2">Employee ID</label>
+  //             <p className="text-lg text-gray-900">{trainerData.employeeId}</p>
+  //           </div>
+  //           <div>
+  //             <label className="block text-sm font-medium text-gray-600 mb-2">Phone</label>
+  //             <p className="text-lg text-gray-900">{trainerData.phone || 'Not provided'}</p>
+  //           </div>
+  //           <div>
+  //             <label className="block text-sm font-medium text-gray-600 mb-2">Experience</label>
+  //             <p className="text-lg text-gray-900">{trainerData.experience} years</p>
+  //           </div>
+  //           <div>
+  //             <label className="block text-sm font-medium text-gray-600 mb-2">Subject</label>
+  //             <p className="text-lg text-gray-900">{trainerData.subjectDealing}</p>
+  //           </div>
+  //           <div>
+  //             <label className="block text-sm font-medium text-gray-600 mb-2">Category</label>
+  //             <p className="text-lg text-gray-900 capitalize">{trainerData.category}</p>
+  //           </div>
+  //           <div>
+  //             <label className="block text-sm font-medium text-gray-600 mb-2">Status</label>
+  //             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+  //               trainerData.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+  //             }`}>
+  //               {trainerData.status}
+  //             </span>
+  //           </div>
+  //         </div>
+  //         {trainerData.linkedIn && (
+  //           <div className="mt-6">
+  //             <label className="block text-sm font-medium text-gray-600 mb-2">LinkedIn Profile</label>
+  //             <a 
+  //               href={trainerData.linkedIn} 
+  //               target="_blank" 
+  //               rel="noopener noreferrer"
+  //               className="text-blue-600 hover:text-blue-800 underline"
+  //             >
+  //               {trainerData.linkedIn}
+  //             </a>
+  //           </div>
+  //         )}
+  //         <div className="mt-6 pt-6 border-t">
+  //           <button
+  //             onClick={() => navigate('/trainer-profile')}
+  //             className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+  //           >
+  //             Edit Profile
+  //           </button>
+  //         </div>
+  //       </div>
+  //     )}
+  //   </div>
+  // );
 
   const renderBatches = () => (
     <div className="p-6">
@@ -492,7 +489,6 @@ const TrainerDashboard = () => {
 
   const renderComponent = () => {
     if (activeComponent === 'overview') return renderOverview();
-    if (activeComponent === 'profile') return renderProfile();
     if (activeComponent === 'batches') return renderBatches();
     if (activeComponent === 'assignments') return <Assignment />;
     if (activeComponent === 'quizzes') return <Quiz />;
@@ -597,15 +593,17 @@ const TrainerDashboard = () => {
             </button>
             {showSettingsDropdown && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                <button
-                  onClick={() => {
-                    setActiveComponent('profile');
-                    setShowSettingsDropdown(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600"
-                >
-                  View Profile
-                </button>
+
+
+    <button
+      onClick={() => {
+        navigate("/trainer-profile");
+      }}
+      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600"
+    >
+      View Profile
+    </button>
+
                 <button
                   onClick={() => {
                     navigate('/trainer-change-password');

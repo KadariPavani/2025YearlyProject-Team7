@@ -103,7 +103,8 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
-  withCredentials: true
+  withCredentials: true,
+  timeout: 15000,
 });
 
 api.interceptors.request.use((config) => {
@@ -117,6 +118,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   response => response,
   error => {
+    if (axios.isCancel?.(error)) {
+      return Promise.reject(error);
+    }
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('userToken');
       localStorage.removeItem('userData');

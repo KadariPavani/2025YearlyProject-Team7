@@ -79,6 +79,7 @@ const OTPVerification = () => {
       if (response.data.success) {
         // First store the auth data
         localStorage.setItem('adminToken', response.data.token);
+        localStorage.setItem('userToken', response.data.token);
         localStorage.setItem('adminData', JSON.stringify(response.data.admin));
         
         // Clean up session storage
@@ -98,16 +99,15 @@ const OTPVerification = () => {
 
   const handleResendOTP = async () => {
     setLoading(true);
+    setError('');
     try {
-      await axios.post('/api/admin/super-admin-login', {
-        email: adminEmail,
-        password: 'resend' // This won't work, you'll need to store password or implement separate resend endpoint
-      });
+      await api.post('/api/admin/resend-otp', { email: adminEmail });
       setTimer(300);
       setCanResend(false);
       setOtp(['', '', '', '', '', '']);
-    } catch  {
-      setError('Failed to resend OTP');
+      inputRefs.current[0]?.focus();
+    } catch (e) {
+      setError(e.response?.data?.message || 'Failed to resend OTP');
     } finally {
       setLoading(false);
     }
