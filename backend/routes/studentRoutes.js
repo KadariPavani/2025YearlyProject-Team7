@@ -129,7 +129,7 @@ router.get('/profile', generalAuth, async (req, res) => {
         select: 'batchNumber colleges techStack startDate endDate year',
         populate: {
           path: 'tpoId',
-          select: 'name email'
+          select: 'name email phone'
         }
       })
       .populate({
@@ -288,5 +288,42 @@ router.get('/check-password-change', generalAuth, async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+
+// GET /api/student/my-batch
+router.get('/my-batch', generalAuth, async (req, res) => {
+  try {
+    // Get current student ID from auth middleware
+    const studentId = req.student._id;
+
+    // Find student and then their batch
+    const student = await Student.findById(studentId).populate({
+      path: 'batchId',
+      populate: { path: 'tpoId', select: 'name email' }
+    });
+
+    if (!student || !student.batchId) {
+      return res.status(404).json({ success: false, message: 'Batch info not found' });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        batch: {
+          _id: student.batchId._id,
+          batchNumber: student.batchId.batchNumber,
+          colleges: student.batchId.colleges,
+          startDate: student.batchId.startDate,
+          endDate: student.batchId.endDate,
+        },
+        tpo: student.batchId.tpoId,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching student batch info:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 
 module.exports = router;

@@ -53,10 +53,6 @@ router.post('/crt-batch', auth, createCrtBatch);
 router.put('/students/:id', auth, updateStudent);
 router.delete('/students/:id', auth, deleteStudent);
 
-
-
-
-
 router.get('/batches', auth, async (req, res) => {
   try {
     const batches = await Batch.find()

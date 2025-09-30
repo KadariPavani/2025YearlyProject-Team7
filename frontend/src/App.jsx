@@ -375,7 +375,8 @@ function App() {
                 } 
               />
               <Route 
-                path="/admin/batches/:batchId/students" 
+                path="/
+                s" 
                 element={
                   <ProtectedAdminRoute>
                     <BatchStudentsPage />
