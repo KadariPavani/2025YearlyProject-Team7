@@ -1,14 +1,14 @@
-// Your StudentDashboard.jsx - No changes needed, kept as is.
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap, Settings, LogOut, User, Mail, Phone, Clock,
   Calendar, BookOpen, ChevronDown, MapPin, Award, Users, Bell, 
-  FileText, Code, CheckCircle, Star, AlertCircle, Book } from 'lucide-react'; // Add Book icon
+  FileText, Code, CheckCircle, Star, AlertCircle, Book } from 'lucide-react';
 import PasswordChangeNotification from '../../components/common/PasswordChangeNotification';
 
 const StudentDashboard = () => {
   const [studentData, setStudentData] = useState(null);
+  const [batchInfo, setBatchInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -21,7 +21,7 @@ const StudentDashboard = () => {
       title: 'Profile',
       icon: User,
       description: 'View and edit your profile',
-      onClick: () => navigate('/student-profile'), // <-- use dash, not slash!
+      onClick: () => navigate('/student-profile'),
       color: 'bg-blue-500'
     },
     {
@@ -70,6 +70,7 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     fetchDashboard();
+    fetchBatchInfo();
   }, []);
 
   const fetchDashboard = async () => {
@@ -91,6 +92,23 @@ const StudentDashboard = () => {
       setError('Failed to fetch dashboard data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBatchInfo = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/student/my-batch', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const result = await response.json();
+      if (result.success) {
+        setBatchInfo(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch batch info:', err);
     }
   };
 
@@ -144,7 +162,6 @@ const StudentDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Password Change Notification */}
       <PasswordChangeNotification 
         userType="student" 
         onPasswordChange={() => navigate('/student-profile')} 
@@ -246,6 +263,108 @@ const StudentDashboard = () => {
             )}
           </div>
         </div>
+
+        {/* Batch and TPO Information Card */}
+        {batchInfo && (
+          <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+              <Users className="h-6 w-6 mr-2 text-purple-600" />
+              Batch & TPO Information
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Batch Details */}
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6">
+                <h4 className="text-lg font-semibold text-purple-900 mb-4 flex items-center">
+                  <BookOpen className="h-5 w-5 mr-2" />
+                  Your Batch
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex items-start">
+                    <Award className="h-5 w-5 text-purple-600 mr-2 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-600">Batch Number</p>
+                      <p className="font-semibold text-gray-900">{batchInfo.batch.batchNumber}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <MapPin className="h-5 w-5 text-purple-600 mr-2 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-600">Colleges</p>
+                      <p className="font-semibold text-gray-900">
+                        {batchInfo.batch.colleges.join(', ')}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <Calendar className="h-5 w-5 text-purple-600 mr-2 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-600">Duration</p>
+                      <p className="font-semibold text-gray-900">
+                        {new Date(batchInfo.batch.startDate).toLocaleDateString()} - {new Date(batchInfo.batch.endDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* TPO Contact Details */}
+              {batchInfo.tpo && (
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
+                    <User className="h-5 w-5 mr-2" />
+                    Your TPO
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex items-start">
+                      <User className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-gray-600">Name</p>
+                        <p className="font-semibold text-gray-900">{batchInfo.tpo.name}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-start">
+                      <Mail className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
+                      <div>
+                        <p className="text-sm text-gray-600">Email</p>
+                        <a 
+                          href={`mailto:${batchInfo.tpo.email}`}
+                          className="font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                        >
+                          {batchInfo.tpo.email}
+                        </a>
+                      </div>
+                    </div>
+                    
+                    {batchInfo.tpo.phone && (
+                      <div className="flex items-start">
+                        <Phone className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
+                        <div>
+                          <p className="text-sm text-gray-600">Phone</p>
+                          <a 
+                            href={`tel:${batchInfo.tpo.phone}`}
+                            className="font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                          >
+                            {batchInfo.tpo.phone}
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-4 pt-4 border-t border-blue-200">
+                      <p className="text-xs text-gray-600 italic">
+                        Contact your TPO for any queries related to placements and training
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

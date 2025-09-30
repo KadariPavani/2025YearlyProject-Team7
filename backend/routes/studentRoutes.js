@@ -289,21 +289,32 @@ router.get('/check-password-change', generalAuth, async (req, res) => {
   }
 });
 
-
-// GET /api/student/my-batch
+// GET /api/student/my-batch - FIXED
 router.get('/my-batch', generalAuth, async (req, res) => {
   try {
-    // Get current student ID from auth middleware
-    const studentId = req.student._id;
+    // Check if user is a student
+    if (req.userType !== 'student') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
 
-    // Find student and then their batch
+    // Get student ID from auth middleware (it's in req.user._id)
+    const studentId = req.user._id;
+
+    // Find student and populate their batch with TPO info
     const student = await Student.findById(studentId).populate({
       path: 'batchId',
-      populate: { path: 'tpoId', select: 'name email' }
+      populate: { path: 'tpoId', select: 'name email phone' }
     });
 
-    if (!student || !student.batchId) {
-      return res.status(404).json({ success: false, message: 'Batch info not found' });
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    if (!student.batchId) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No batch assigned yet. Please contact your administrator.' 
+      });
     }
 
     res.json({
@@ -316,14 +327,17 @@ router.get('/my-batch', generalAuth, async (req, res) => {
           startDate: student.batchId.startDate,
           endDate: student.batchId.endDate,
         },
-        tpo: student.batchId.tpoId,
+        tpo: student.batchId.tpoId || null,
       },
     });
   } catch (error) {
     console.error('Error fetching student batch info:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error fetching batch information',
+      error: error.message 
+    });
   }
 });
-
 
 module.exports = router;
