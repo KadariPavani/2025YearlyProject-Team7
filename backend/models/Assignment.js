@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const AssignmentSchema = new mongoose.Schema({
+  trainerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Trainer',
+    required: [true, 'Trainer ID is required']
+  },
   title: {
     type: String,
     required: [true, 'Assignment title is required'],
@@ -8,91 +13,56 @@ const AssignmentSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: [true, 'Assignment description is required']
+    trim: true
   },
   subject: {
     type: String,
     required: [true, 'Subject is required'],
     trim: true
   },
-  attachments: [{
-    filename: String,
-    fileUrl: String,
-    fileSize: Number,
-    uploadedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-  instructions: {
-    type: String,
-    required: true
-  },
-  assignedDate: {
-    type: Date,
-    default: Date.now
-  },
   dueDate: {
     type: Date,
     required: [true, 'Due date is required']
   },
-  maxMarks: {
+  totalMarks: {
     type: Number,
-    required: [true, 'Maximum marks is required']
-  },
-  submissionFormat: {
-    type: String,
-    enum: ['file', 'text', 'both'],
-    default: 'file'
-  },
-  allowedFileTypes: [String],
-  maxFileSize: {
-    type: Number,
-    default: 10
-  },
-  trainerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Trainer',
-    required: true
+    required: [true, 'Total marks are required'],
+    min: [0, 'Total marks cannot be negative']
   },
   assignedBatches: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Batch'
+    ref: 'Batch',
+    required: [true, 'At least one batch is required']
   }],
+  attachmentLink: {
+    type: String,
+    trim: true,
+    match: [/^https?:\/\/[^\s$.?#].[^\s]*$/, 'Please provide a valid URL for the attachment link']
+  },
   submissions: [{
     studentId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Student'
+      ref: 'Student',
+      required: true
     },
-    submissionText: String,
-    attachments: [{
-      filename: String,
-      fileUrl: String,
-      fileSize: Number
-    }],
     submittedAt: {
       type: Date,
       default: Date.now
     },
-    isLateSubmission: {
-      type: Boolean,
-      default: false
+    submissionLink: {
+      type: String,
+      trim: true,
+      match: [/^https?:\/\/[^\s$.?#].[^\s]*$/, 'Please provide a valid URL for the submission']
     },
-    grade: {
-      marks: Number,
-      feedback: String,
-      gradedAt: Date,
-      gradedBy: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Trainer'
-      }
+    score: {
+      type: Number,
+      min: [0, 'Score cannot be negative']
+    },
+    remarks: {
+      type: String,
+      trim: true
     }
   }],
-  status: {
-    type: String,
-    enum: ['draft', 'assigned', 'completed'],
-    default: 'draft'
-  }
 }, {
   timestamps: true
 });

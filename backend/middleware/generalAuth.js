@@ -1,24 +1,64 @@
+// File: backend/middleware/generalAuth.js
 const jwt = require('jsonwebtoken');
 const TPO = require('../models/TPO');
 const Trainer = require('../models/Trainer');
-// Add other models as needed
-// const Student = require('../models/Student');
-// const Coordinator = require('../models/Coordinator');
+const Student = require('../models/Student');
+const Coordinator = require('../models/Coordinator');
 
 const generalAuth = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    console.log('Auth Middleware - Headers:', {
+      authorization: req.headers.authorization ? 'Present' : 'Missing',
+      contentType: req.headers['content-type']
+    });
 
-    if (!token) {
+    const authHeader = req.headers.authorization;
+
+    // Check if Authorization header exists
+    if (!authHeader) {
       return res.status(401).json({
         success: false,
-        message: 'No token, authorization denied'
+        message: 'No authorization token provided'
       });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Check Bearer token format
+    if (!authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token format. Use: Bearer <token>'
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
     
+    if (!token || token.trim() === '') {
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided after Bearer'
+      });
+    }
+
+    console.log('Token Details:', {
+      length: token.length,
+      startsWith: token.substring(0, 5) + '...',
+      endsWith: '...' + token.substring(token.length - 5)
+    });
+
+    // Verify token
+    let decoded;
+    try {
+      decoded = jwt.verify(token.trim(), process.env.JWT_SECRET);
+      console.log('Token Decoded Successfully:', decoded);
+    } catch (jwtError) {
+      console.error('JWT Verification Error:', jwtError);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired token',
+        error: jwtError.message
+      });
+    }
+
     // Get the appropriate model based on userType
     let Model;
     switch (decoded.userType) {
@@ -28,16 +68,16 @@ const generalAuth = async (req, res, next) => {
       case 'trainer':
         Model = Trainer;
         break;
-      // case 'student':
-      //   Model = Student;
-      //   break;
-      // case 'coordinator':
-      //   Model = Coordinator;
-      //   break;
+      case 'student':
+        Model = Student;
+        break;
+      case 'coordinator':
+        Model = Coordinator;
+        break;
       default:
         return res.status(401).json({
           success: false,
-          message: 'Invalid user type'
+          message: 'Invalid user type in token'
         });
     }
 
@@ -46,19 +86,27 @@ const generalAuth = async (req, res, next) => {
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: 'Token is not valid'
+        message: 'User not found - token is invalid'
       });
     }
+
+    console.log('User Authenticated:', {
+      userType: decoded.userType,
+      userId: user._id,
+      email: user.email
+    });
 
     // Add user to request
     req.user = user;
     req.userType = decoded.userType;
     next();
+
   } catch (error) {
-    console.error('Auth Middleware Error:', error);
-    res.status(401).json({
+    console.error('Auth Middleware Unexpected Error:', error);
+    res.status(500).json({
       success: false,
-      message: 'Token is not valid'
+      message: 'Authentication server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

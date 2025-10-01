@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  User, Mail, Phone, Calendar, MapPin, BookOpen, 
-  Edit3, Save, X, Eye, EyeOff, Lock, AlertCircle, CheckCircle,
-  Briefcase, Linkedin, Award, Code, FileText
+  User, Mail, Phone, Briefcase, Linkedin, Edit3, Save, X, 
+  AlertCircle, CheckCircle, BookOpen
 } from 'lucide-react';
-import { getProfile, updateProfile, changePassword, checkPasswordChange } from '../../services/generalAuthService';
+import { getProfile, updateProfile } from '../../services/generalAuthService';
+
 
 const TrainerProfile = () => {
   const navigate = useNavigate();
@@ -14,26 +14,12 @@ const TrainerProfile = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
-  const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({});
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
-  const [showPasswords, setShowPasswords] = useState({
-    current: false,
-    new: false,
-    confirm: false
-  });
 
   useEffect(() => {
     fetchProfile();
-    checkPasswordStatus();
   }, []);
 
   const fetchProfile = async () => {
@@ -43,24 +29,10 @@ const TrainerProfile = () => {
         setProfile(response.data.data);
         setFormData(response.data.data);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch profile');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const checkPasswordStatus = async () => {
-    try {
-      const response = await checkPasswordChange('trainer');
-      if (response.data.success) {
-        setNeedsPasswordChange(response.data.needsPasswordChange);
-        if (response.data.needsPasswordChange) {
-          setShowPasswordChangeModal(true);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to check password status:', err);
     }
   };
 
@@ -69,30 +41,6 @@ const TrainerProfile = () => {
     setFormData(prev => ({
       ...prev,
       [name]: value
-    }));
-  };
-
-  const handleSubjectChange = (index, field, value) => {
-    const newSubjects = [...(formData.subjects || [])];
-    newSubjects[index] = { ...newSubjects[index], [field]: value };
-    setFormData(prev => ({
-      ...prev,
-      subjects: newSubjects
-    }));
-  };
-
-  const addSubject = () => {
-    setFormData(prev => ({
-      ...prev,
-      subjects: [...(prev.subjects || []), { name: '', type: 'technical' }]
-    }));
-  };
-
-  const removeSubject = (index) => {
-    const newSubjects = formData.subjects.filter((_, i) => i !== index);
-    setFormData(prev => ({
-      ...prev,
-      subjects: newSubjects
     }));
   };
 
@@ -112,7 +60,6 @@ const TrainerProfile = () => {
       setLoading(false);
     }
   };
-
 
   const handleCancel = () => {
     setFormData(profile);
@@ -144,7 +91,6 @@ const TrainerProfile = () => {
               <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
             </div>
             <div className="flex space-x-3">
-
               {!isEditing ? (
                 <button
                   onClick={() => setIsEditing(true)}
@@ -221,12 +167,6 @@ const TrainerProfile = () => {
             <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Stats</h3>
               <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Subjects</span>
-                  <span className="font-semibold text-green-600">
-                    {profile?.subjects?.length || 0}
-                  </span>
-                </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600">Assigned Batches</span>
                   <span className="font-semibold text-green-600">
@@ -339,67 +279,40 @@ const TrainerProfile = () => {
                 </div>
               </div>
 
-              {/* Subjects Section */}
-              <div className="mt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-md font-medium text-gray-900">Subjects</h4>
-                  {isEditing && (
-                    <button
-                      onClick={addSubject}
-                      className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center space-x-1"
-                    >
-                      <Award className="h-4 w-4" />
-                      <span>Add Subject</span>
-                    </button>
-                  )}
+              {/* Subject Dealing Section */}
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject Dealing</label>
+                  <input
+                    type="text"
+                    name="subjectDealing"
+                    value={formData.subjectDealing || ''}
+                    onChange={handleInputChange}
+                    disabled={!isEditing}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-50"
+                    placeholder="e.g. Python"
+                  />
                 </div>
-                
-                <div className="space-y-3">
-                  {(formData.subjects || []).map((subject, index) => (
-                    <div key={index} className="flex space-x-3">
-                      <div className="flex-1">
-                        <input
-                          type="text"
-                          value={subject.name || ''}
-                          onChange={(e) => handleSubjectChange(index, 'name', e.target.value)}
-                          disabled={!isEditing}
-                          placeholder="Subject name"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-50"
-                        />
-                      </div>
-                      <div className="w-40">
-                        <select
-                          value={subject.type || 'technical'}
-                          onChange={(e) => handleSubjectChange(index, 'type', e.target.value)}
-                          disabled={!isEditing}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-50"
-                        >
-                          <option value="technical">Technical</option>
-                          <option value="non-technical">Non-Technical</option>
-                        </select>
-                      </div>
-                      {isEditing && (
-                        <button
-                          onClick={() => removeSubject(index)}
-                          className="text-red-600 hover:text-red-800 p-2"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  
-                  {(!formData.subjects || formData.subjects.length === 0) && !isEditing && (
-                    <p className="text-gray-500 text-sm">No subjects assigned</p>
-                  )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                  <select
+                    name="category"
+                    value={formData.category || ''}
+                    onChange={handleInputChange}
+                    disabled={!isEditing}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 disabled:bg-gray-50"
+                  >
+                    <option value="">Select category</option>
+                    <option value="technical">Technical</option>
+                    <option value="non-technical">Non-Technical</option>
+                  </select>
                 </div>
               </div>
+
             </div>
           </div>
         </div>
       </div>
-
-
     </div>
   );
 };

@@ -3,6 +3,9 @@ const express = require('express');
 const {
   superAdminLogin,
   verifyOTP,
+  resendOTP,
+  addAdmin,
+  getAllAdmins,
   addTrainer,
   addTPO,
   getAllTrainers,
@@ -12,7 +15,10 @@ const {
   forgotPassword,
   resetPassword,
   changePassword,
-  getAdminProfile
+  getAdminProfile,
+  createCrtBatch,
+  updateStudent,
+  deleteStudent
 } = require('../controllers/adminController');
 const auth = require('../middleware/auth');
 
@@ -21,6 +27,7 @@ const router = express.Router();
 // Public routes
 router.post('/super-admin-login', superAdminLogin);
 router.post('/verify-otp', verifyOTP);
+router.post('/resend-otp', resendOTP);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 
@@ -35,5 +42,10 @@ router.post('/add-trainer', auth, addTrainer);
 router.post('/add-tpo', auth, addTPO);
 router.get('/trainers', auth, getAllTrainers);
 router.get('/tpos', auth, getAllTPOs);
+router.post('/add-admin', auth, addAdmin);
+router.get('/admins', auth, getAllAdmins);
+router.post('/crt-batch', auth, createCrtBatch);
+router.put('/students/:id', auth, updateStudent);
+router.delete('/students/:id', auth, deleteStudent);
 
 module.exports = router;

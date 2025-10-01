@@ -35,19 +35,11 @@ const AdminSchema = new mongoose.Schema({
     enum: ['active', 'inactive'],
     default: 'active'
   },
-  lastLogin: {
-    type: Date
-  }
-}, {
-  timestamps: true
-});
+  lastLogin: { type: Date }
+}, { timestamps: true });
 
-// Hash password if modified
 AdminSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) {
-    return next();
-  }
-
+  if (!this.isModified('password')) return next();
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
@@ -57,7 +49,7 @@ AdminSchema.pre('save', async function(next) {
   }
 });
 
-// Set permissions based on role
+// Set permissions for role
 AdminSchema.pre('save', function(next) {
   if (this.isModified('role')) {
     switch (this.role) {
@@ -98,7 +90,6 @@ AdminSchema.pre('save', function(next) {
   next();
 });
 
-// Compare password method
 AdminSchema.methods.matchPassword = async function(enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };

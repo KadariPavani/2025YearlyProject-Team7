@@ -1,8 +1,10 @@
+// File: models/Student.js
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const StudentSchema = new mongoose.Schema({
+  // Basic Information
   username: {
     type: String,
     required: [true, 'Username is required'],
@@ -26,38 +28,64 @@ const StudentSchema = new mongoose.Schema({
     unique: true,
     trim: true
   },
-  college: {
-    type: String,
-    required: [true, 'College is required'],
-    enum: ['KIET', 'KIEK', 'KIEW']
-  },
-  branch: {
-    type: String,
-    required: [true, 'Branch is required'],
-    trim: true
-  },
-  profileImage: {
-    type: String,
-    default: null
-  },
   email: {
     type: String,
+    required: [true, 'Email is required'],
+    unique: true,
     lowercase: true,
     trim: true,
     validate: {
       validator: function(email) {
-        return !email || /^\S+@\S+\.\S+$/.test(email);
+        return /^\S+@\S+\.\S+$/.test(email);
       },
       message: 'Invalid email format'
     }
   },
+  phonenumber: {
+    type: String,
+    required: [true, 'Phone number is required'],
+    match: [/^[0-9]{10}$/, 'Phone number must be 10 digits'],
+    trim: true
+  },
+
+  // College Information
+  college: {
+    type: String,
+    enum: ['KIET', 'KIEK', 'KIEW'],
+    required: [true, 'College is required']
+  },
+  branch: {
+    type: String,
+    required: [true, 'Branch is required'],
+    enum: ['AID', 'CSM', 'CAI', 'CSD', 'CSC'],
+    trim: true
+  },
+  yearOfPassing: {
+    type: String,
+    required: [true, 'Year of passing is required'],
+    trim: true
+  },
+  batchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Batch'
+  },
+  passedOutBatchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Batch'
+  },
+
+  // Profile Information
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  profileImageUrl: {
+    type: String,
+    default: null
+  },
   emailVerified: {
     type: Boolean,
     default: false
-  },
-  phone: {
-    type: String,
-    match: [/^[0-9]{10}$/, 'Phone number must be 10 digits']
   },
   gender: {
     type: String,
@@ -74,13 +102,23 @@ const StudentSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  bio: {
+    type: String,
+    maxlength: [500, 'Bio cannot exceed 500 characters']
+  },
+
+  // Academic Information
   academics: {
     btechCGPA: {
       type: Number,
       min: 0,
       max: 10
     },
-    interDetails: {
+    educationType: {
+      type: String,
+      enum: ['inter', 'diploma'],
+    },
+    inter: {
       percentage: {
         type: Number,
         min: 0,
@@ -89,7 +127,7 @@ const StudentSchema = new mongoose.Schema({
       board: String,
       passedYear: Number
     },
-    diplomaDetails: {
+    diploma: {
       percentage: {
         type: Number,
         min: 0,
@@ -99,19 +137,20 @@ const StudentSchema = new mongoose.Schema({
       passedYear: Number
     }
   },
-  yearOfPassing: {
-    type: Number,
-    required: [true, 'Year of passing is required']
-  },
   backlogs: {
     type: Number,
     default: 0,
     min: 0
   },
-  bio: {
+
+  // Tech Stack and Skills - NEW FIELD
+  techStack: [{
     type: String,
-    maxlength: [500, 'Bio cannot exceed 500 characters']
-  },
+    enum: ['Java', 'Python', 'C/C++', 'JavaScript', 'AI/ML'],
+    trim: true
+  }],
+
+  // Projects and Experience
   projects: [{
     title: {
       type: String,
@@ -213,7 +252,18 @@ const StudentSchema = new mongoose.Schema({
       ref: 'TPO'
     }
   }],
+// Add this field to your Student schema
+placementTrainingBatchId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'PlacementTrainingBatch'
+},
+
+
+  // Documents and Links
   resumeUrl: String,
+  // Add this to your Student schema
+resumeFileName: String, // Add this line after resumeUrl
+
   videoResumeUrl: String,
   socialLinks: [{
     platform: {
@@ -227,6 +277,8 @@ const StudentSchema = new mongoose.Schema({
       trim: true
     }
   }],
+
+  // CRT and Placement Information
   crtInterested: {
     type: Boolean,
     default: false
@@ -234,6 +286,10 @@ const StudentSchema = new mongoose.Schema({
   crtBatchId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Batch'
+  },
+  crtBatchName: {  // NEW FIELD - stores assigned CRT batch name
+    type: String,
+    trim: true
   },
   status: {
     type: String,
@@ -251,21 +307,16 @@ const StudentSchema = new mongoose.Schema({
     package: Number,
     placedDate: Date
   },
+
+  // Additional Information
   panCard: String,
   abcId: String,
   otherClubs: [{
     type: String,
     enum: ['GCC', 'k-hub', 'robotics', 'cyber crew', 'toastmasters', 'ncc', 'nss', 'google', 'smart city']
   }],
-  batchId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Batch',
-    required: true
-  },
-  passedOutBatchId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Batch'
-  },
+
+  // Academic Progress
   attendance: [{
     date: {
       type: Date,
@@ -308,6 +359,8 @@ const StudentSchema = new mongoose.Schema({
     completedAt: Date,
     submissionCode: String
   }],
+
+  // System Information
   lastLogin: Date
 }, {
   timestamps: true
@@ -315,18 +368,13 @@ const StudentSchema = new mongoose.Schema({
 
 StudentSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (err) {
-    next(err);
-  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
 });
 
 StudentSchema.methods.matchPassword = async function(enteredPassword) {
-  return bcrypt.compare(enteredPassword, this.password);
+  return await bcrypt.compare(enteredPassword, this.password);
 };
 
 module.exports = mongoose.model('Student', StudentSchema);

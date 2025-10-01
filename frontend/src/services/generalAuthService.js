@@ -1,5 +1,5 @@
-// frontend/src/services/generalAuthService.js
-import api from './api';
+// File: src/services/generalAuthService.js
+import api from "./api.js";
 
 // General authentication functions
 export const generalLogin = (credentials) => {
@@ -10,12 +10,15 @@ export const getDashboard = (userType) => {
   return api.get(`/api/auth/dashboard/${userType}`);
 };
 
+// TPO Profile functions
 export const getProfile = (userType) => {
-  return api.get(`/api/auth/profile/${userType}`);
+  console.log('Fetching profile for user type:', userType);
+  return api.get(`/api/${userType}/profile`);
 };
 
 export const updateProfile = (userType, profileData) => {
-  return api.put(`/api/auth/profile/${userType}`, profileData);
+  console.log('Updating profile for:', userType, 'Data:', profileData);
+  return api.put(`/api/${userType}/profile`, profileData);
 };
 
 export const changePassword = (userType, passwordData) => {
@@ -23,7 +26,7 @@ export const changePassword = (userType, passwordData) => {
 };
 
 export const checkPasswordChange = (userType) => {
-  return api.get(`/api/auth/check-password-change/${userType}`);
+  return api.get(`/api/${userType}/check-password-change`);
 };
 
 export const forgotPassword = (userType, email) => {
@@ -37,4 +40,3 @@ export const resetPassword = (userType, resetData) => {
 export const logout = () => {
   return api.post('/api/auth/logout');
 };
-
