@@ -6,7 +6,107 @@ const OTP = require('../models/OTP');
 const generateOTP = require('../utils/generateOTP');
 const sendEmail = require('../utils/sendEmail');
 const generateToken = require('../utils/generateToken');
+const { ok, badRequest, notFound, serverError, unauthorized } = require('../utils/http');
+const { USER_TYPES, getModelByUserType, isValidUserType } = require('../utils/userType');
 const jwt = require('jsonwebtoken');
+
+// Added imports for placement training assignment
+const Admin = require('../models/Admin');
+const Batch = require('../models/Batch');
+const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
+
+// Get TPO for a student (prefer TPO from student's existing batch)
+async function getTPOForStudent(student) {
+  let assignedTPO = null;
+
+  // Prefer TPO from the student's academic batch if present
+  if (student.batchId) {
+    const existingBatch = await Batch.findById(student.batchId).populate('tpoId');
+    if (existingBatch && existingBatch.tpoId) {
+      assignedTPO = existingBatch.tpoId;
+    }
+  }
+
+  // Fallback: first active TPO
+  if (!assignedTPO) {
+    assignedTPO = await TPO.findOne({ status: 'active' }).sort({ createdAt: 1 });
+  }
+
+  return assignedTPO;
+}
+
+// Assign student to a placement training batch and update crtBatchName
+async function assignStudentToPlacementTrainingBatch(student) {
+  if (!student.college) throw new Error('Student college is required');
+
+  // Remove student from prior placement training batch if exists
+  if (student.placementTrainingBatchId) {
+    await PlacementTrainingBatch.findByIdAndUpdate(student.placementTrainingBatchId, {
+      $pull: { students: student._id }
+    });
+  }
+
+  const tpo = await getTPOForStudent(student);
+  const admin = await Admin.findOne({ status: 'active' }).sort({ createdAt: 1 });
+
+  if (!tpo) throw new Error('No TPO found for student. Please contact administrator.');
+  if (!admin) throw new Error('No active Admin found in system. Please contact administrator.');
+
+  const maxStudents = 80;
+  const year = student.yearOfPassing;
+
+  // Determine tech stack (default NonCRT)
+  let techStack = 'NonCRT';
+  if (student.crtInterested && student.techStack && student.techStack.length > 0) {
+    const validTechs = ['Java', 'Python', 'AI/ML'];
+    const selectedTech = student.techStack.find(t => validTechs.includes(t));
+    if (selectedTech) techStack = selectedTech;
+  }
+
+  // Find existing batch with capacity
+  let placementBatch = await PlacementTrainingBatch.findOne({
+    colleges: student.college,
+    techStack: techStack,
+    year: year,
+    $expr: { $lt: [{ $size: "$students" }, maxStudents] }
+  }).sort({ createdAt: 1 });
+
+  // Or create a new one
+  if (!placementBatch) {
+    const existingBatches = await PlacementTrainingBatch.countDocuments({
+      colleges: student.college,
+      techStack: techStack,
+      year: year
+    });
+
+    const batchNumber = `PT_${year}_${student.college}_${techStack}_${existingBatches + 1}`;
+
+    placementBatch = new PlacementTrainingBatch({
+      batchNumber,
+      colleges: [student.college],
+      techStack,
+      year,
+      tpoId: tpo._id,
+      createdBy: admin._id,
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 180 * 24 * 3600 * 1000),
+      students: []
+    });
+    await placementBatch.save();
+  }
+
+  // Add student to batch if not present
+  if (!placementBatch.students.includes(student._id)) {
+    placementBatch.students.push(student._id);
+    await placementBatch.save();
+  }
+
+  // Update student references and crt batch name
+  student.placementTrainingBatchId = placementBatch._id;
+  student.crtBatchId = placementBatch._id; // compatibility
+  student.crtBatchName = placementBatch.batchNumber;
+  await student.save();
+}
 
 // @desc    Validate session token
 // @route   GET /api/auth/validate-session
@@ -14,54 +114,28 @@ const jwt = require('jsonwebtoken');
 const validateSession = async (req, res) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) return ok(res, { valid: false });
 
-    if (!token) {
-      return res.json({ valid: false });
-    }
-
-    // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Check if user still exists
-    const userTypes = ['tpo', 'trainer', 'student', 'coordinator'];
-    for (const userType of userTypes) {
-      const { Model } = getModelAndType(userType);
+
+    for (const userType of USER_TYPES) {
+      const Model = getModelByUserType(userType);
       const user = await Model.findById(decoded.id);
       if (user) {
-        return res.json({ 
+        return ok(res, {
           valid: true,
-          user: {
-            id: user._id,
-            name: user.name,
-            email: user.email,
-            userType
-          }
+          user: { id: user._id, name: user.name, email: user.email, userType },
         });
       }
     }
-
-    return res.json({ valid: false });
+    return ok(res, { valid: false });
   } catch (error) {
     console.error('Session validation error:', error);
-    return res.json({ valid: false });
+    return ok(res, { valid: false });
   }
 };
 
-// Helper function to get model and type based on userType
-const getModelAndType = (userType) => {
-  switch (userType) {
-    case 'tpo':
-      return { Model: TPO, type: 'TPO' };
-    case 'trainer':
-      return { Model: Trainer, type: 'Trainer' };
-    case 'student':
-      return { Model: Student, type: 'Student' };
-    case 'coordinator':
-      return { Model: Coordinator, type: 'Coordinator' };
-    default:
-      throw new Error('Invalid user type');
-  }
-};
+// Deprecated: logic moved to utils/userType.js
 
 // @desc    General Login for TPO, Trainer, Student, Coordinator
 // @route   POST /api/auth/login
@@ -69,64 +143,31 @@ const getModelAndType = (userType) => {
 const generalLogin = async (req, res) => {
   try {
     const { email, password, userType } = req.body;
-
-    if (!userType || !['tpo', 'trainer', 'student', 'coordinator'].includes(userType)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user type'
-      });
+    if (!userType || !isValidUserType(userType)) {
+      return badRequest(res, 'Invalid userType');
     }
+    const Model = getModelByUserType(userType);
 
-    const { Model } = getModelAndType(userType);
-
-    // Find user
     const user = await Model.findOne({ email }).select('+password');
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
+    if (!user) return unauthorized(res, 'Invalid credentials');
 
-    // Check password
     const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
+    if (!isMatch) return unauthorized(res, 'Invalid credentials');
 
-    // Update last login
     user.lastLogin = new Date();
     await user.save();
 
-    // Generate token
-    const token = generateToken({
-      id: user._id,
-      email: user.email,
-      role: user.role,
-      userType
-    });
+    // Ensure token carries canonical userType for downstream middleware
+    const token = generateToken({ id: user._id, email: user.email, role: userType, userType });
 
-    res.status(200).json({
+    return ok(res, {
       success: true,
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        userType
-      }
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, userType },
     });
-
   } catch (error) {
     console.error('General Login Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Login failed'
-    });
+    return serverError(res, 'Login failed');
   }
 };
 
@@ -138,15 +179,9 @@ const getDashboard = async (req, res) => {
     const { userType } = req.params;
     const userId = req.user.id;
 
-    const { Model } = getModelAndType(userType);
-
+    const Model = getModelByUserType(userType);
     const user = await Model.findById(userId).select('-password');
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
+    if (!user) return notFound(res, 'User not found');
 
     // Customize dashboard data based on user type
     let dashboardData = {
@@ -181,17 +216,11 @@ const getDashboard = async (req, res) => {
         break;
     }
 
-    res.status(200).json({
-      success: true,
-      data: dashboardData
-    });
+    return ok(res, { success: true, data: dashboardData });
 
   } catch (error) {
     console.error('Dashboard Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch dashboard data'
-    });
+    return serverError(res, 'Failed to fetch dashboard data');
   }
 };
 
@@ -201,38 +230,15 @@ const getDashboard = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const { userType } = req.params;
-    
-    // Check if user exists in request
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not authenticated'
-      });
-    }
-    
+    if (!req.user || !req.user.id) return unauthorized(res, 'User not authenticated');
+    if (!userType || !isValidUserType(userType)) return badRequest(res, 'Invalid user type');
+
     const userId = req.user.id;
+    const Model = getModelByUserType(userType);
 
-    // Validate user type
-    if (!userType || !['tpo', 'trainer', 'student', 'coordinator'].includes(userType)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user type'
-      });
-    }
-
-    const { Model } = getModelAndType(userType);
-
-    // Find user without populate first
     const user = await Model.findById(userId).select('-password');
+    if (!user) return notFound(res, 'User not found');
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Only populate if createdBy exists
     let populatedUser = user;
     if (user.createdBy) {
       populatedUser = await Model.findById(userId)
@@ -240,20 +246,12 @@ const getProfile = async (req, res) => {
         .populate('createdBy', 'email role');
     }
 
-    res.status(200).json({
-      success: true,
-      data: populatedUser
-    });
+    return ok(res, { success: true, data: populatedUser });
 
   } catch (error) {
     console.error('Get Profile Error:', error);
-    // Send more specific error message if possible
     const errorMessage = error.name === 'CastError' ? 'Invalid user ID format' : 'Failed to fetch profile';
-    res.status(500).json({
-      success: false,
-      message: errorMessage,
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    return serverError(res, errorMessage, { error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
 
@@ -265,59 +263,35 @@ const changePassword = async (req, res) => {
     const { userType } = req.params;
     const { currentPassword, newPassword } = req.body;
 
-    // Validate input
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'Current password and new password are required'
-      });
+      return badRequest(res, 'Current password and new password are required');
     }
 
-    // Validate password requirements
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[@$.!%*?&])[a-z\d@$.!%*?&]{8,}$/;
     if (!passwordRegex.test(newPassword)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number and one special character'
-      });
+      return badRequest(
+        res,
+        'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number and one special character'
+      );
     }
 
     const userId = req.user.id;
-    const { Model } = getModelAndType(userType);
+    const Model = getModelByUserType(userType);
 
-    // Find user
     const user = await Model.findById(userId).select('+password');
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
+    if (!user) return notFound(res, 'User not found');
 
-    // Check current password
     const isMatch = await user.matchPassword(currentPassword);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Current password is incorrect'
-      });
-    }
+    if (!isMatch) return unauthorized(res, 'Current password is incorrect');
 
-    // Update password
     user.password = newPassword;
     await user.save();
 
-    res.status(200).json({
-      success: true,
-      message: 'Password updated successfully'
-    });
+    return ok(res, { success: true, message: 'Password updated successfully' });
 
   } catch (error) {
     console.error('Change Password Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to change password'
-    });
+    return serverError(res, 'Failed to change password');
   }
 };
 
@@ -329,41 +303,24 @@ const forgotPassword = async (req, res) => {
     const { userType } = req.params;
     const { email } = req.body;
 
-    const { Model, type } = getModelAndType(userType);
-
+    const Model = getModelByUserType(userType);
     const user = await Model.findOne({ email });
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: `${type} not found`
-      });
-    }
+    if (!user) return notFound(res, `${userType} not found`);
 
     const otp = generateOTP();
-
-    await OTP.create({ 
-      email, 
-      otp, 
-      purpose: 'reset_password' 
-    });
+    await OTP.create({ email, otp, purpose: 'reset_password' });
 
     await sendEmail({
       email,
-      subject: `Reset your ${type} password`,
-      message: `Your OTP to reset your ${type} password is: ${otp}. It expires in 5 minutes.`
+      subject: `Reset your ${userType} password`,
+      message: `Your OTP to reset your ${userType} password is: ${otp}. It expires in 5 minutes.`
     });
 
-    res.status(200).json({
-      success: true,
-      message: 'OTP sent to email'
-    });
+    return ok(res, { success: true, message: 'OTP sent to email' });
 
   } catch (error) {
     console.error('Forgot Password Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to send OTP'
-    });
+    return serverError(res, 'Failed to send OTP');
   }
 };
 
@@ -375,76 +332,42 @@ const resetPassword = async (req, res) => {
     const { userType } = req.params;
     const { email, otp, newPassword } = req.body;
 
-    if (!email || !otp || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing required fields'
-      });
-    }
+    if (!email || !otp || !newPassword) return badRequest(res, 'Missing required fields');
 
-    const { Model, type } = getModelAndType(userType);
+    const Model = getModelByUserType(userType);
 
-    const otpDoc = await OTP.findOne({ 
-      email, 
-      purpose: 'reset_password' 
-    }).sort({ createdAt: -1 });
-
-    if (!otpDoc) {
-      return res.status(400).json({
-        success: false,
-        message: 'OTP not found or expired'
-      });
-    }
+    const otpDoc = await OTP.findOne({ email, purpose: 'reset_password' }).sort({ createdAt: -1 });
+    if (!otpDoc) return badRequest(res, 'OTP not found or expired');
 
     if (Date.now() > otpDoc.expires.getTime()) {
       await OTP.deleteOne({ _id: otpDoc._id });
-      return res.status(400).json({
-        success: false,
-        message: 'OTP has expired'
-      });
+      return badRequest(res, 'OTP has expired');
     }
 
     if (otpDoc.attempts >= 3) {
       await OTP.deleteOne({ _id: otpDoc._id });
-      return res.status(400).json({
-        success: false,
-        message: 'Too many failed attempts'
-      });
+      return badRequest(res, 'Too many failed attempts');
     }
 
     if (otpDoc.otp !== otp) {
       otpDoc.attempts += 1;
       await otpDoc.save();
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid OTP'
-      });
+      return badRequest(res, 'Invalid OTP');
     }
 
     const user = await Model.findOne({ email }).select('+password');
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: `${type} not found`
-      });
-    }
+    if (!user) return notFound(res, `${userType} not found`);
 
     user.password = newPassword;
     await user.save();
 
     await OTP.deleteOne({ _id: otpDoc._id });
 
-    res.status(200).json({
-      success: true,
-      message: 'Password reset successful'
-    });
+    return ok(res, { success: true, message: 'Password reset successful' });
 
   } catch (error) {
     console.error('Reset Password Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to reset password'
-    });
+    return serverError(res, 'Failed to reset password');
   }
 };
 
@@ -456,7 +379,7 @@ const checkPasswordChange = async (req, res) => {
     const { userType } = req.params;
     const userId = req.user.id;
 
-    const { Model } = getModelAndType(userType);
+    const Model = getModelByUserType(userType);
 
     const user = await Model.findById(userId).select('lastLogin createdAt');
     if (!user) {
@@ -469,7 +392,7 @@ const checkPasswordChange = async (req, res) => {
     // Check if user is logging in for the first time or hasn't changed password in 90 days
     const now = new Date();
     const daysSinceCreation = Math.floor((now - user.createdAt) / (1000 * 60 * 60 * 24));
-    const daysSinceLastLogin = user.lastLogin ? 
+    const daysSinceLastLogin = user.lastLogin ?
       Math.floor((now - user.lastLogin) / (1000 * 60 * 60 * 24)) : 0;
 
     const needsPasswordChange = daysSinceCreation > 90 || daysSinceLastLogin > 90;
@@ -497,41 +420,46 @@ const updateProfile = async (req, res) => {
   try {
     const { userType } = req.params;
     const userId = req.user.id;
-    const updateData = req.body;
+    const updateData = req.body || {};
 
-    const { Model } = getModelAndType(userType);
+    const Model = getModelByUserType(userType);
 
-    // Remove sensitive fields that shouldn't be updated via this endpoint
+    // Disallow sensitive fields
     delete updateData.password;
     delete updateData.role;
     delete updateData.createdBy;
     delete updateData.status;
 
-    const user = await Model.findByIdAndUpdate(
+    // Update basic profile fields first
+    let user = await Model.findByIdAndUpdate(
       userId,
       updateData,
       { new: true, runValidators: true }
     ).select('-password');
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+    if (!user) return notFound(res, 'User not found');
+
+    // If student, ensure placement training batch assignment based on updated profile
+    if (userType === 'student') {
+      await assignStudentToPlacementTrainingBatch(user);
+
+      // Re-fetch with placement training batch populated for UI
+      user = await Student.findById(userId)
+        .select('-password')
+        .populate({
+          path: 'placementTrainingBatchId',
+          model: 'PlacementTrainingBatch',
+          select: 'batchNumber colleges techStack startDate endDate year',
+          populate: { path: 'tpoId', select: 'name email' }
+        })
+        .populate({ path: 'batchId', model: 'Batch', select: 'batchNumber colleges' });
     }
 
-    res.status(200).json({
-      success: true,
-      message: 'Profile updated successfully',
-      data: user
-    });
+    return ok(res, { success: true, message: 'Profile updated successfully', data: user });
 
   } catch (error) {
     console.error('Update Profile Error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update profile'
-    });
+    return serverError(res, 'Failed to update profile');
   }
 };
 
@@ -540,15 +468,9 @@ const updateProfile = async (req, res) => {
 // @access  Private
 const logout = async (req, res) => {
   try {
-    res.status(200).json({
-      success: true,
-      message: 'Logged out successfully'
-    });
+    return ok(res, { success: true, message: 'Logged out successfully' });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Logout failed'
-    });
+    return serverError(res, 'Logout failed');
   }
 };
 

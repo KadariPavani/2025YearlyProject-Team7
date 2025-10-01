@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Mail, ArrowLeft, Send, AlertCircle, CheckCircle,
   Users, BookOpen, GraduationCap, UserCheck
@@ -7,8 +7,8 @@ import {
 import { forgotPassword } from '../../services/generalAuthService';
 
 const GeneralForgotPassword = () => {
-  const { userType } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -49,6 +49,15 @@ const GeneralForgotPassword = () => {
     }
   };
 
+  const userType = useMemo(() => {
+    const path = location.pathname;
+    if (path.includes('tpo-forgot-password')) return 'tpo';
+    if (path.includes('trainer-forgot-password')) return 'trainer';
+    if (path.includes('student-forgot-password')) return 'student';
+    if (path.includes('coordinator-forgot-password')) return 'coordinator';
+    return 'tpo';
+  }, [location.pathname]);
+
   const config = userTypeConfig[userType] || userTypeConfig.tpo;
   const IconComponent = config.icon;
 
@@ -61,6 +70,8 @@ const GeneralForgotPassword = () => {
       const response = await forgotPassword(userType, email);
       
       if (response.data.success) {
+        sessionStorage.setItem('resetEmail', email);
+        sessionStorage.setItem('resetUserType', userType);
         setSuccess(true);
       } else {
         setError(response.data.message || 'Failed to send OTP');

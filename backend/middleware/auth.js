@@ -1,19 +1,19 @@
-const jwt = require('jsonwebtoken');
+const { getTokenFromRequest, verifyToken } = require('../utils/authToken');
 const Admin = require('../models/Admin');
 
 const auth = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const token = getTokenFromRequest(req);
 
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: 'No token, authorization denied'
+        message: 'No token provided'
       });
     }
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = verifyToken(token);
     
     // Find admin
     const admin = await Admin.findById(decoded.id);
@@ -28,7 +28,7 @@ const auth = async (req, res, next) => {
     req.admin = admin;
     next();
   } catch (error) {
-    console.error('Auth Middleware Error:', error);
+    console.error('Auth Middleware Error:', error.message);
     res.status(401).json({
       success: false,
       message: 'Token is not valid'

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Mail, Lock, Eye, EyeOff, ArrowLeft, LogIn, Users, BookOpen, 
   GraduationCap, UserCheck
@@ -7,8 +7,8 @@ import {
 
 // General Login Component
 const GeneralLogin = () => {
-  const { userType } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -52,6 +52,15 @@ const GeneralLogin = () => {
     }
   };
 
+  const userType = useMemo(() => {
+    const path = location.pathname;
+    if (path.includes('tpo-login')) return 'tpo';
+    if (path.includes('trainer-login')) return 'trainer';
+    if (path.includes('student-login')) return 'student';
+    if (path.includes('coordinator-login')) return 'coordinator';
+    return 'tpo';
+  }, [location.pathname]);
+
   const config = userTypeConfig[userType] || userTypeConfig.tpo;
   const IconComponent = config.icon;
 
@@ -77,6 +86,10 @@ const GeneralLogin = () => {
       if (result.success) {
         localStorage.setItem('userToken', result.token);
         localStorage.setItem('userData', JSON.stringify(result.user));
+        if (userType === 'trainer') {
+          localStorage.setItem('trainerToken', result.token);
+          localStorage.setItem('trainerData', JSON.stringify(result.user));
+        }
         navigate(config.dashboard);
       } else {
         setError(result.message);

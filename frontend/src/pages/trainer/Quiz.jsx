@@ -1,4 +1,4 @@
-// src/components/trainer/Quiz.jsx
+// Your Trainer Quiz.jsx - No changes needed, kept as is.
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { PlusCircle, Users, BarChart, Trash2, CheckSquare } from 'lucide-react';

@@ -13,6 +13,7 @@ const {
   logout
 } = require('../controllers/generalAuthController');
 const generalAuth = require('../middleware/generalAuth');
+const User = require('../models/User'); // <-- Add this line
 
 const router = express.Router();
 
@@ -29,5 +30,16 @@ router.put('/profile/:userType', generalAuth, updateProfile);
 router.post('/change-password/:userType', generalAuth, changePassword);
 router.get('/check-password-change/:userType', generalAuth, checkPasswordChange);
 router.post('/logout', generalAuth, logout);
+router.get('/password-status', generalAuth, async (req, res) => {
+  try {
+    // Example: return password status for logged-in user
+    const userId = req.user._id;
+    // Find user and return password status (customize as needed)
+    const user = await User.findById(userId);
+    res.json({ passwordChanged: user.passwordChanged || false });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to check password status' });
+  }
+});
 
 module.exports = router;

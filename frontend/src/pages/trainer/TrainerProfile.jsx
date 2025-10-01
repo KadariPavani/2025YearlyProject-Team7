@@ -23,14 +23,22 @@ const TrainerProfile = () => {
   }, []);
 
   const fetchProfile = async () => {
+    setLoading(true);
+    setError("");
     try {
-      const response = await getProfile('trainer');
-      if (response.data.success) {
-        setProfile(response.data.data);
-        setFormData(response.data.data);
+      const token = localStorage.getItem("trainerToken");
+      const res = await fetch("/api/trainer/profile", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProfile(data.data);
+        setFormData(data.data);
+      } else {
+        setError(data.message || "Failed to fetch profile");
       }
     } catch {
-      setError('Failed to fetch profile');
+      setError("Failed to fetch profile");
     } finally {
       setLoading(false);
     }

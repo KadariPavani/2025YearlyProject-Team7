@@ -23,7 +23,7 @@ const Reference = () => {
       setLoading(true);
       const token = localStorage.getItem('trainerToken');
       if (!token) throw new Error('No trainer token found');
-      const response = await axios.get('/api/references', {
+      const response = await axios.get('/api/reference', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setReferences(Array.isArray(response.data) ? response.data : []);
@@ -49,14 +49,14 @@ const Reference = () => {
 
       if (editingId) {
         // Update existing reference
-        const response = await axios.put(`/api/references/${editingId}`, formData, {
+        const response = await axios.put(`/api/reference/${editingId}`, formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setReferences(references.map(ref => (ref._id === editingId ? response.data : ref)));
         setEditingId(null);
       } else {
         // Create new reference
-        const response = await axios.post('/api/references', formData, {
+        const response = await axios.post('/api/reference', formData, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setReferences([...references, response.data]);
@@ -90,7 +90,7 @@ const Reference = () => {
       setLoading(true);
       const token = localStorage.getItem('trainerToken');
       if (!token) throw new Error('No trainer token found');
-      await axios.delete(`/api/references/${id}`, {
+      await axios.delete(`/api/reference/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setReferences(references.filter(ref => ref._id !== id));

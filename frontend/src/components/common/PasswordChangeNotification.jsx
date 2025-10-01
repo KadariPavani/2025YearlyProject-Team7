@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, X, Lock } from 'lucide-react';
 import { checkPasswordChange } from '../../services/generalAuthService';
+import axios from 'axios';
 
 const PasswordChangeNotification = ({ userType, onPasswordChange }) => {
   const [showNotification, setShowNotification] = useState(false);
@@ -13,7 +14,11 @@ const PasswordChangeNotification = ({ userType, onPasswordChange }) => {
 
   const checkPasswordStatus = async () => {
     try {
-      const response = await checkPasswordChange(userType);
+      const token = localStorage.getItem('userToken'); // or trainerToken/adminToken as needed
+      const response = await axios.get('/api/auth/password-status', {
+        params: { userType },
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (response.data.success) {
         setNeedsPasswordChange(response.data.needsPasswordChange);
         setShowNotification(response.data.needsPasswordChange);

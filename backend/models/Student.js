@@ -1,5 +1,3 @@
-// File: models/Student.js
-
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -16,6 +14,10 @@ const StudentSchema = new mongoose.Schema({
     required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters'],
     select: false
+  },
+  passwordChanged: {
+    type: Boolean,
+    default: false
   },
   name: {
     type: String,
@@ -252,17 +254,26 @@ const StudentSchema = new mongoose.Schema({
       ref: 'TPO'
     }
   }],
-// Add this field to your Student schema
-placementTrainingBatchId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: 'PlacementTrainingBatch'
-},
+  // Updated reference for crtBatchId to PlacementTrainingBatch
+  crtBatchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PlacementTrainingBatch'
+  },
+  crtBatchName: {  // NEW FIELD - stores assigned CRT batch name
+    type: String,
+    trim: true
+  },
 
+  // Add this field to your Student schema
+  placementTrainingBatchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PlacementTrainingBatch'
+  },
 
   // Documents and Links
   resumeUrl: String,
   // Add this to your Student schema
-resumeFileName: String, // Add this line after resumeUrl
+  resumeFileName: String, // Add this line after resumeUrl
 
   videoResumeUrl: String,
   socialLinks: [{
@@ -283,14 +294,7 @@ resumeFileName: String, // Add this line after resumeUrl
     type: Boolean,
     default: false
   },
-  crtBatchId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Batch'
-  },
-  crtBatchName: {  // NEW FIELD - stores assigned CRT batch name
-    type: String,
-    trim: true
-  },
+
   status: {
     type: String,
     enum: ['pursuing', 'placed', 'completed'],
@@ -365,6 +369,7 @@ resumeFileName: String, // Add this line after resumeUrl
 }, {
   timestamps: true
 });
+
 
 StudentSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();

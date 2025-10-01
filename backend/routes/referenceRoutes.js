@@ -4,7 +4,7 @@ const Reference = require('../models/Reference');
 const protectTrainer = require('../middleware/protectTrainer');
 const mongoose = require('mongoose');
 
-// Create a new reference
+// Create a new reference (trainer only)
 router.post('/', protectTrainer, async (req, res, next) => {
   try {
     const { topicName, referenceVideoLink, referenceNotesLink } = req.body;
@@ -69,6 +69,17 @@ router.delete('/:id', protectTrainer, async (req, res, next) => {
   } catch (error) {
     console.error('Error deleting reference:', error.message, error.stack);
     res.status(500).json({ message: 'Failed to delete reference' });
+  }
+});
+
+// Get all references for students (public)
+router.get('/all', async (req, res, next) => {
+  try {
+    const references = await Reference.find().select('topicName referenceVideoLink referenceNotesLink createdAt');
+    res.json(references);
+  } catch (error) {
+    console.error('Error fetching references for students:', error.message, error.stack);
+    res.status(500).json({ message: 'Failed to fetch references' });
   }
 });
 

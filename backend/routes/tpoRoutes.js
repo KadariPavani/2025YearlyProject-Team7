@@ -1,7 +1,10 @@
-// File: backend/routes/tpoRoutes.js
 const express = require('express');
 const router = express.Router();
 const generalAuth = require('../middleware/generalAuth');
+const Batch = require('../models/Batch');
+const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
+const Trainer = require('../models/Trainer');
+const TPO = require('../models/TPO');
 
 // GET TPO Profile
 router.get('/profile', generalAuth, async (req, res) => {
@@ -32,129 +35,651 @@ router.get('/profile', generalAuth, async (req, res) => {
       assignedTrainers: req.user.assignedTrainers || [],
       assignedBatches: req.user.assignedBatches || [],
       managedCompanies: req.user.managedCompanies || [],
-      status: req.user.status,
-      lastLogin: req.user.lastLogin,
       createdAt: req.user.createdAt,
-      updatedAt: req.user.updatedAt
+      lastLogin: req.user.lastLogin
     };
+
+    console.log('TPO Profile Response:', userProfile);
 
     res.json({
       success: true,
-      message: 'TPO profile fetched successfully',
-      data: userProfile,
-      userType: req.userType
+      message: 'Profile fetched successfully',
+      data: { user: userProfile }
     });
 
   } catch (error) {
-    console.error('TPO Profile Error Details:', error);
+    console.error('Error fetching TPO profile:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error while fetching TPO profile'
+      message: 'Server error while fetching profile',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
-// UPDATE TPO Profile
-router.put('/profile', generalAuth, async (req, res) => {
+// GET TPO Batches
+router.get('/batches', generalAuth, async (req, res) => {
   try {
-    console.log('TPO Profile Update Request:', {
-      userId: req.user._id,
-      updateData: req.body
-    });
-
     if (req.userType !== 'tpo') {
       return res.status(403).json({
         success: false,
-        message: 'Access denied'
+        message: 'Access denied. TPO route only.'
       });
     }
 
-    // Only allow updates to these specific fields from your schema
-    const allowedUpdates = ['name', 'phone', 'experience', 'linkedIn'];
-    const requestedUpdates = Object.keys(req.body);
-    
-    // Validate updates
-    const isValidOperation = requestedUpdates.every(field => allowedUpdates.includes(field));
-    
-    if (!isValidOperation) {
-      return res.status(400).json({
+    const tpoId = req.user._id;
+    const batches = await Batch.find({ tpoId })
+      .populate('students', 'name email rollNo college branch')
+      .populate('createdBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      message: 'Batches fetched successfully',
+      data: batches
+    });
+
+  } catch (error) {
+    console.error('Error fetching batches:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching batches'
+    });
+  }
+});
+
+// GET Placement Training Batches for TPO
+router.get('/placement-training-batches', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
         success: false,
-        message: 'Invalid fields for update',
-        allowedFields: allowedUpdates
+        message: 'Access denied. TPO route only.'
       });
     }
 
-    // Apply updates
-    requestedUpdates.forEach(field => {
-      if (req.body[field] !== undefined) {
-        req.user[field] = req.body[field];
+    const tpoId = req.user._id;
+    
+    const batches = await PlacementTrainingBatch.find({ tpoId })
+      .populate('students', 'name rollNo email college branch techStack crtInterested yearOfPassing')
+      .populate('tpoId', 'name email')
+      .populate('createdBy', 'name email')
+      .populate({
+        path: 'assignedTrainers.trainer',
+        select: 'name email subjectDealing category experience'
+      })
+      .sort({ year: -1, college: 1, techStack: 1 });
+
+    // Group batches by year → college → techStack
+    const organized = {};
+    let totalBatches = 0;
+    let totalStudents = 0;
+
+    batches.forEach(batch => {
+      const year = batch.year;
+      batch.colleges.forEach(college => {
+        const techStack = batch.techStack;
+
+        // Initialize nested structure
+        if (!organized[year]) organized[year] = {};
+        if (!organized[year][college]) organized[year][college] = {};
+        if (!organized[year][college][techStack]) {
+          organized[year][college][techStack] = {
+            totalBatches: 0,
+            totalStudents: 0,
+            batches: []
+          };
+        }
+
+        // Add batch to structure
+        organized[year][college][techStack].batches.push({
+          _id: batch._id,
+          batchNumber: batch.batchNumber,
+          colleges: batch.colleges,
+          techStack: batch.techStack,
+          year: batch.year,
+          studentCount: batch.students.length,
+          startDate: batch.startDate,
+          endDate: batch.endDate,
+          status: batch.status,
+          isActive: batch.isActive,
+          createdAt: batch.createdAt,
+          tpoId: batch.tpoId,
+          students: batch.students,
+          assignedTrainers: batch.assignedTrainers
+        });
+
+        organized[year][college][techStack].totalBatches += 1;
+        organized[year][college][techStack].totalStudents += batch.students.length;
+
+        totalBatches += 1;
+        totalStudents += batch.students.length;
+      });
+    });
+
+    const stats = {
+      totalBatches,
+      totalStudents,
+      totalYears: Object.keys(organized).length,
+      totalColleges: [...new Set(batches.flatMap(b => b.colleges))].length,
+      techStackDistribution: {
+        Java: batches.filter(b => b.techStack === 'Java').length,
+        Python: batches.filter(b => b.techStack === 'Python').length,
+        'AI/ML': batches.filter(b => b.techStack === 'AI/ML').length,
+        NonCRT: batches.filter(b => b.techStack === 'NonCRT').length
+      }
+    };
+
+    res.json({
+      success: true,
+      message: 'Placement training batches fetched successfully',
+      data: {
+        organized,
+        stats,
+        totalBatches,
+        totalStudents
       }
     });
 
-    await req.user.save();
-
-    // Return updated profile with only schema fields
-    const updatedProfile = {
-      _id: req.user._id,
-      name: req.user.name,
-      email: req.user.email, // Email can be viewed but not updated
-      phone: req.user.phone,
-      experience: req.user.experience || 0,
-      linkedIn: req.user.linkedIn || '',
-      role: req.user.role,
-      assignedTrainers: req.user.assignedTrainers || [],
-      assignedBatches: req.user.assignedBatches || [],
-      managedCompanies: req.user.managedCompanies || [],
-      status: req.user.status,
-      updatedAt: req.user.updatedAt
-    };
-
-    res.json({
-      success: true,
-      message: 'TPO profile updated successfully',
-      data: updatedProfile
-    });
-
   } catch (error) {
-    console.error('TPO Profile Update Error:', error);
-    
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email already exists'
-      });
-    }
-
+    console.error('Error fetching placement training batches:', error);
     res.status(500).json({
       success: false,
-      message: 'Error updating TPO profile'
+      message: 'Server error while fetching placement training batches',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
 
-// Check if password change is required
-router.get('/check-password-change', generalAuth, async (req, res) => {
+// GET Available Trainers for assignment
+router.get('/available-trainers', generalAuth, async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
       return res.status(403).json({
         success: false,
-        message: 'Access denied'
+        message: 'Access denied. TPO route only.'
       });
     }
 
-    // Simple logic - you can enhance this based on your requirements
-    const needsChange = false; // Change this logic as needed
-    
+    // Get all trainers - you might want to add filters for availability
+    const trainers = await Trainer.find({ role: 'trainer' })
+      .select('name email subjectDealing category experience phone linkedIn')
+      .sort({ name: 1 });
+
     res.json({
       success: true,
-      needsPasswordChange: needsChange
+      message: 'Available trainers fetched successfully',
+      data: trainers
     });
 
   } catch (error) {
-    console.error('Password change check error:', error);
+    console.error('Error fetching available trainers:', error);
     res.status(500).json({
       success: false,
-      message: 'Error checking password change status'
+      message: 'Server error while fetching available trainers'
+    });
+  }
+});
+
+// POST Assign Trainers to Batch
+router.post('/assign-trainers/:batchId', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. TPO route only.'
+      });
+    }
+
+    const { batchId } = req.params;
+    const { trainerAssignments } = req.body;
+    const tpoId = req.user._id;
+
+    // Validate the batch belongs to this TPO
+    const batch = await PlacementTrainingBatch.findOne({ _id: batchId, tpoId });
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found or access denied'
+      });
+    }
+
+    // Validate trainer assignments
+    if (!trainerAssignments || !Array.isArray(trainerAssignments) || trainerAssignments.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid trainer assignments are required'
+      });
+    }
+
+    // Validate each assignment
+    for (const assignment of trainerAssignments) {
+      if (!assignment.trainerId || !assignment.timeSlot || !assignment.subject) {
+        return res.status(400).json({
+          success: false,
+          message: 'Each assignment must have trainerId, timeSlot, and subject'
+        });
+      }
+
+      // Verify trainer exists
+      const trainer = await Trainer.findById(assignment.trainerId);
+      if (!trainer) {
+        return res.status(404).json({
+          success: false,
+          message: `Trainer with ID ${assignment.trainerId} not found`
+        });
+      }
+
+      // Validate schedule if provided
+      if (assignment.schedule && Array.isArray(assignment.schedule)) {
+        for (const scheduleSlot of assignment.schedule) {
+          if (!scheduleSlot.day || !scheduleSlot.startTime || !scheduleSlot.endTime) {
+            return res.status(400).json({
+              success: false,
+              message: 'Each schedule slot must have day, startTime, and endTime'
+            });
+          }
+        }
+      }
+    }
+
+    // Update the batch with trainer assignments
+    const assignedTrainers = trainerAssignments.map(assignment => ({
+      trainer: assignment.trainerId,
+      timeSlot: assignment.timeSlot,
+      subject: assignment.subject,
+      schedule: assignment.schedule || [],
+      assignedAt: new Date()
+    }));
+
+    batch.assignedTrainers = assignedTrainers;
+    await batch.save();
+
+    // Populate the response
+    await batch.populate([
+      {
+        path: 'assignedTrainers.trainer',
+        select: 'name email subjectDealing category experience'
+      }
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Trainers assigned successfully',
+      data: {
+        batchId: batch._id,
+        batchNumber: batch.batchNumber,
+        assignedTrainers: batch.assignedTrainers,
+        updatedAt: new Date()
+      }
+    });
+
+  } catch (error) {
+    console.error('Error assigning trainers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while assigning trainers',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// GET Batch Trainer Assignments
+router.get('/batch-trainer-assignments/:batchId', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. TPO route only.'
+      });
+    }
+
+    const { batchId } = req.params;
+    const tpoId = req.user._id;
+
+    const batch = await PlacementTrainingBatch.findOne({ _id: batchId, tpoId })
+      .populate('students', 'name email rollNo college branch techStack')
+      .populate({
+        path: 'assignedTrainers.trainer',
+        select: 'name email subjectDealing category experience phone'
+      });
+
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found or access denied'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Batch trainer assignments fetched successfully',
+      data: {
+        batchInfo: {
+          _id: batch._id,
+          batchNumber: batch.batchNumber,
+          colleges: batch.colleges,
+          techStack: batch.techStack,
+          year: batch.year,
+          studentCount: batch.students.length,
+          startDate: batch.startDate,
+          endDate: batch.endDate,
+          status: batch.status,
+          isActive: batch.isActive
+        },
+        assignedTrainers: batch.assignedTrainers || [],
+        students: batch.students
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching batch trainer assignments:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching batch trainer assignments'
+    });
+  }
+});
+
+// GET Overall Schedule Timetable
+router.get('/schedule-timetable', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. TPO route only.'
+      });
+    }
+
+    const tpoId = req.user._id;
+
+    // Fetch all placement training batches assigned to this TPO with detailed trainer assignments
+    const batches = await PlacementTrainingBatch.find({ tpoId })
+      .populate('tpoId', 'name email')
+      .populate('students', 'name email rollNo college branch techStack')
+      .populate('createdBy', 'name email')
+      .populate({
+        path: 'assignedTrainers.trainer',
+        select: 'name email subjectDealing category experience'
+      })
+      .sort({ year: -1, createdAt: -1 });
+
+    // Transform the data to include complete schedule information
+    const scheduleData = batches.map(batch => {
+      return {
+        _id: batch._id,
+        batchNumber: batch.batchNumber,
+        colleges: batch.colleges,
+        techStack: batch.techStack,
+        year: batch.year,
+        studentCount: batch.students.length,
+        startDate: batch.startDate,
+        endDate: batch.endDate,
+        status: batch.status,
+        isActive: batch.isActive,
+        createdAt: batch.createdAt,
+        tpoId: batch.tpoId,
+        students: batch.students,
+        assignedTrainers: batch.assignedTrainers.map(assignment => ({
+          trainer: assignment.trainer,
+          timeSlot: assignment.timeSlot,
+          subject: assignment.subject,
+          schedule: assignment.schedule || [],
+          assignedAt: assignment.assignedAt
+        }))
+      };
+    });
+
+    // Calculate summary statistics
+    const stats = {
+      totalBatches: batches.length,
+      totalStudents: batches.reduce((acc, batch) => acc + batch.students.length, 0),
+      totalClasses: batches.reduce((acc, batch) => {
+        return acc + (batch.assignedTrainers?.reduce((trainerAcc, trainer) => {
+          return trainerAcc + (trainer.schedule?.length || 0);
+        }, 0) || 0);
+      }, 0),
+      assignedTrainers: [...new Set(batches.flatMap(batch => 
+        batch.assignedTrainers?.map(t => t.trainer?._id.toString()) || []
+      ))].length,
+      batchesByTechStack: {
+        Java: batches.filter(b => b.techStack === 'Java').length,
+        Python: batches.filter(b => b.techStack === 'Python').length,
+        'AI/ML': batches.filter(b => b.techStack === 'AI/ML').length,
+        NonCRT: batches.filter(b => b.techStack === 'NonCRT').length
+      },
+      batchesByCollege: {
+        KIET: batches.filter(b => b.colleges.includes('KIET')).length,
+        KIEK: batches.filter(b => b.colleges.includes('KIEK')).length,
+        KIEW: batches.filter(b => b.colleges.includes('KIEW')).length
+      },
+      timeSlotDistribution: {
+        morning: batches.reduce((acc, batch) => {
+          return acc + (batch.assignedTrainers?.filter(t => t.timeSlot === 'morning').length || 0);
+        }, 0),
+        afternoon: batches.reduce((acc, batch) => {
+          return acc + (batch.assignedTrainers?.filter(t => t.timeSlot === 'afternoon').length || 0);
+        }, 0),
+        evening: batches.reduce((acc, batch) => {
+          return acc + (batch.assignedTrainers?.filter(t => t.timeSlot === 'evening').length || 0);
+        }, 0)
+      }
+    };
+
+    res.json({
+      success: true,
+      message: 'Schedule timetable fetched successfully',
+      data: scheduleData,
+      stats,
+      generatedAt: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error fetching schedule timetable:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching schedule timetable',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// GET Detailed Schedule for a specific batch
+router.get('/batch-schedule/:batchId', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. TPO route only.'
+      });
+    }
+
+    const { batchId } = req.params;
+    const tpoId = req.user._id;
+
+    const batch = await PlacementTrainingBatch.findOne({ _id: batchId, tpoId })
+      .populate('tpoId', 'name email')
+      .populate('students', 'name email rollNo college branch techStack')
+      .populate({
+        path: 'assignedTrainers.trainer',
+        select: 'name email subjectDealing category experience'
+      });
+
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found or access denied'
+      });
+    }
+
+    // Generate a weekly schedule view
+    const weeklySchedule = {
+      Monday: { morning: [], afternoon: [], evening: [] },
+      Tuesday: { morning: [], afternoon: [], evening: [] },
+      Wednesday: { morning: [], afternoon: [], evening: [] },
+      Thursday: { morning: [], afternoon: [], evening: [] },
+      Friday: { morning: [], afternoon: [], evening: [] },
+      Saturday: { morning: [], afternoon: [], evening: [] },
+      Sunday: { morning: [], afternoon: [], evening: [] }
+    };
+
+    batch.assignedTrainers.forEach(assignment => {
+      if (assignment.schedule && assignment.schedule.length > 0) {
+        assignment.schedule.forEach(scheduleItem => {
+          const day = scheduleItem.day;
+          const timeSlot = assignment.timeSlot;
+          
+          if (weeklySchedule[day] && weeklySchedule[day][timeSlot]) {
+            weeklySchedule[day][timeSlot].push({
+              trainer: assignment.trainer,
+              subject: assignment.subject,
+              startTime: scheduleItem.startTime,
+              endTime: scheduleItem.endTime,
+              assignedAt: assignment.assignedAt
+            });
+          }
+        });
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        batch: {
+          _id: batch._id,
+          batchNumber: batch.batchNumber,
+          colleges: batch.colleges,
+          techStack: batch.techStack,
+          year: batch.year,
+          studentCount: batch.students.length,
+          startDate: batch.startDate,
+          endDate: batch.endDate,
+          status: batch.status,
+          isActive: batch.isActive
+        },
+        weeklySchedule,
+        assignedTrainers: batch.assignedTrainers,
+        students: batch.students
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching batch schedule:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching batch schedule'
+    });
+  }
+});
+
+// Export schedule data for Excel download
+router.get('/export-schedule', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. TPO route only.'
+      });
+    }
+
+    const tpoId = req.user._id;
+    const { format = 'json' } = req.query; // json, csv options
+
+    const batches = await PlacementTrainingBatch.find({ tpoId })
+      .populate('assignedTrainers.trainer', 'name email subjectDealing category experience')
+      .sort({ year: -1, createdAt: -1 });
+
+    // Flatten the data for export
+    const exportData = [];
+    
+    batches.forEach(batch => {
+      if (batch.assignedTrainers && batch.assignedTrainers.length > 0) {
+        batch.assignedTrainers.forEach(assignment => {
+          if (assignment.schedule && assignment.schedule.length > 0) {
+            assignment.schedule.forEach(scheduleItem => {
+              exportData.push({
+                batchNumber: batch.batchNumber,
+                batchId: batch._id,
+                year: batch.year,
+                colleges: batch.colleges.join(', '),
+                techStack: batch.techStack,
+                studentCount: batch.students.length,
+                day: scheduleItem.day,
+                timeSlot: assignment.timeSlot,
+                startTime: scheduleItem.startTime,
+                endTime: scheduleItem.endTime,
+                trainerName: assignment.trainer?.name || 'Not Assigned',
+                trainerEmail: assignment.trainer?.email || '',
+                subject: assignment.subject,
+                trainerCategory: assignment.trainer?.category || '',
+                trainerExperience: assignment.trainer?.experience || 0,
+                assignedAt: assignment.assignedAt,
+                batchStatus: batch.status,
+                batchStartDate: batch.startDate,
+                batchEndDate: batch.endDate
+              });
+            });
+          }
+        });
+      } else {
+        // Include batches without assignments
+        exportData.push({
+          batchNumber: batch.batchNumber,
+          batchId: batch._id,
+          year: batch.year,
+          colleges: batch.colleges.join(', '),
+          techStack: batch.techStack,
+          studentCount: batch.students.length,
+          day: '',
+          timeSlot: '',
+          startTime: '',
+          endTime: '',
+          trainerName: 'Not Assigned',
+          trainerEmail: '',
+          subject: '',
+          trainerCategory: '',
+          trainerExperience: 0,
+          assignedAt: null,
+          batchStatus: batch.status,
+          batchStartDate: batch.startDate,
+          batchEndDate: batch.endDate
+        });
+      }
+    });
+
+    if (format === 'csv') {
+      // Set CSV headers
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="TPO_Schedule_${new Date().toISOString().split('T')[0]}.csv"`);
+      
+      // Create CSV content
+      const csvHeaders = Object.keys(exportData[0] || {}).join(',');
+      const csvRows = exportData.map(row => 
+        Object.values(row).map(value => 
+          typeof value === 'string' && value.includes(',') ? `"${value}"` : value
+        ).join(',')
+      );
+      
+      const csvContent = [csvHeaders, ...csvRows].join('\n');
+      res.send(csvContent);
+    } else {
+      // Return JSON format
+      res.json({
+        success: true,
+        data: exportData,
+        summary: {
+          totalRecords: exportData.length,
+          totalBatches: batches.length,
+          exportedAt: new Date().toISOString()
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Error exporting schedule:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while exporting schedule'
     });
   }
 });

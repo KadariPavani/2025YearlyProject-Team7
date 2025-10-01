@@ -1,9 +1,6 @@
 // File: backend/middleware/generalAuth.js
-const jwt = require('jsonwebtoken');
-const TPO = require('../models/TPO');
-const Trainer = require('../models/Trainer');
-const Student = require('../models/Student');
-const Coordinator = require('../models/Coordinator');
+const { getModelByUserType, isValidUserType } = require('../utils/userType');
+const { getTokenFromRequest, verifyToken } = require('../utils/authToken');
 
 const generalAuth = async (req, res, next) => {
   try {
@@ -12,73 +9,31 @@ const generalAuth = async (req, res, next) => {
       contentType: req.headers['content-type']
     });
 
-    const authHeader = req.headers.authorization;
-
-    // Check if Authorization header exists
-    if (!authHeader) {
+    const token = getTokenFromRequest(req);
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: 'No authorization token provided'
       });
     }
 
-    // Check Bearer token format
-    if (!authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid token format. Use: Bearer <token>'
-      });
-    }
-
-    const token = authHeader.split(' ')[1];
-    
-    if (!token || token.trim() === '') {
-      return res.status(401).json({
-        success: false,
-        message: 'No token provided after Bearer'
-      });
-    }
-
-    console.log('Token Details:', {
-      length: token.length,
-      startsWith: token.substring(0, 5) + '...',
-      endsWith: '...' + token.substring(token.length - 5)
-    });
-
-    // Verify token
     let decoded;
     try {
-      decoded = jwt.verify(token.trim(), process.env.JWT_SECRET);
-      console.log('Token Decoded Successfully:', decoded);
+      decoded = verifyToken(token);
     } catch (jwtError) {
-      console.error('JWT Verification Error:', jwtError);
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid or expired token',
-        error: jwtError.message
-      });
+      return res.status(401).json({ success: false, message: 'Invalid or expired token' });
     }
 
-    // Get the appropriate model based on userType
-    let Model;
-    switch (decoded.userType) {
-      case 'tpo':
-        Model = TPO;
-        break;
-      case 'trainer':
-        Model = Trainer;
-        break;
-      case 'student':
-        Model = Student;
-        break;
-      case 'coordinator':
-        Model = Coordinator;
-        break;
-      default:
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid user type in token'
-        });
+    // Support tokens that carry either userType or role (e.g., trainer login)
+    const effectiveUserType = decoded.userType || decoded.role;
+    if (!effectiveUserType || !isValidUserType(effectiveUserType)) {
+      return res.status(401).json({ success: false, message: 'Invalid user type in token' });
+    }
+
+    // Get the appropriate model based on userType/role
+    const Model = getModelByUserType(effectiveUserType);
+    if (!Model) {
+      return res.status(401).json({ success: false, message: 'Invalid user type in token' });
     }
 
     // Find user
@@ -91,14 +46,14 @@ const generalAuth = async (req, res, next) => {
     }
 
     console.log('User Authenticated:', {
-      userType: decoded.userType,
+      userType: effectiveUserType,
       userId: user._id,
       email: user.email
     });
 
     // Add user to request
     req.user = user;
-    req.userType = decoded.userType;
+    req.userType = effectiveUserType;
     next();
 
   } catch (error) {

@@ -56,8 +56,9 @@ const TrainerLogin = () => {
         // Log response to debug
         console.log('Login response:', response.data);
         
-        // Store token and trainer data
+        // Store token and trainer data (also set shared userToken for axios)
         localStorage.setItem('trainerToken', response.data.token);
+        localStorage.setItem('userToken', response.data.token);
         localStorage.setItem('trainerData', JSON.stringify(response.data.data));
         
         // Wait for localStorage to update before navigating
