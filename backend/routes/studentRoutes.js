@@ -340,4 +340,216 @@ router.get('/my-batch', generalAuth, async (req, res) => {
   }
 });
 
+
+router.get('/placement-training-batch-info', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'student') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const studentId = req.user._id;
+    
+    // Find student with placement training batch info
+    const student = await Student.findById(studentId)
+      .populate({
+        path: 'placementTrainingBatchId',
+        model: 'PlacementTrainingBatch',
+        select: 'batchNumber colleges techStack year startDate endDate isActive assignedTrainers',
+        populate: [
+          {
+            path: 'tpoId',
+            select: 'name email phone'
+          },
+          {
+            path: 'assignedTrainers.trainer',
+            select: 'name email phone subjectDealing category experience'
+          }
+        ]
+      });
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    if (!student.placementTrainingBatchId) {
+      return res.status(404).json({
+        success: false,
+        message: 'No placement training batch assigned yet. Please complete your profile to get assigned to a batch.'
+      });
+    }
+
+    const placementBatch = student.placementTrainingBatchId;
+    
+    // Organize trainer information by time slots
+    const trainerSchedule = {
+      morning: [],
+      afternoon: [],
+      evening: []
+    };
+
+    if (placementBatch.assignedTrainers && placementBatch.assignedTrainers.length > 0) {
+      placementBatch.assignedTrainers.forEach(assignment => {
+        const timeSlot = assignment.timeSlot;
+        trainerSchedule[timeSlot].push({
+          trainer: {
+            _id: assignment.trainer._id,
+            name: assignment.trainer.name,
+            email: assignment.trainer.email,
+            phone: assignment.trainer.phone,
+            subjectDealing: assignment.trainer.subjectDealing,
+            category: assignment.trainer.category,
+            experience: assignment.trainer.experience
+          },
+          subject: assignment.subject,
+          schedule: assignment.schedule,
+          assignedAt: assignment.assignedAt
+        });
+      });
+    }
+
+    // Get weekly schedule organized by days
+    const weeklySchedule = {};
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    
+    days.forEach(day => {
+      weeklySchedule[day] = [];
+    });
+
+    if (placementBatch.assignedTrainers && placementBatch.assignedTrainers.length > 0) {
+      placementBatch.assignedTrainers.forEach(assignment => {
+        if (assignment.schedule && assignment.schedule.length > 0) {
+          assignment.schedule.forEach(slot => {
+            weeklySchedule[slot.day].push({
+              trainer: assignment.trainer,
+              subject: assignment.subject,
+              timeSlot: assignment.timeSlot,
+              startTime: slot.startTime,
+              endTime: slot.endTime
+            });
+          });
+        }
+      });
+    }
+
+    // Sort each day's schedule by start time
+    Object.keys(weeklySchedule).forEach(day => {
+      weeklySchedule[day].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    });
+
+    res.json({
+      success: true,
+      data: {
+        student: {
+          _id: student._id,
+          name: student.name,
+          email: student.email,
+          college: student.college,
+          branch: student.branch,
+          yearOfPassing: student.yearOfPassing
+        },
+        placementBatch: {
+          _id: placementBatch._id,
+          batchNumber: placementBatch.batchNumber,
+          colleges: placementBatch.colleges,
+          techStack: placementBatch.techStack,
+          year: placementBatch.year,
+          startDate: placementBatch.startDate,
+          endDate: placementBatch.endDate,
+          isActive: placementBatch.isActive,
+          tpoId: placementBatch.tpoId
+        },
+        trainerSchedule: trainerSchedule,
+        weeklySchedule: weeklySchedule,
+        totalTrainers: placementBatch.assignedTrainers ? placementBatch.assignedTrainers.length : 0
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching placement training batch info:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching placement training batch information',
+      error: error.message
+    });
+  }
+});
+
+// NEW ROUTE: GET /api/student/my-trainers-schedule
+router.get('/my-trainers-schedule', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'student') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const studentId = req.user._id;
+    
+    // Find student's placement training batch
+    const student = await Student.findById(studentId);
+    
+    if (!student || !student.placementTrainingBatchId) {
+      return res.status(404).json({
+        success: false,
+        message: 'No placement training batch found'
+      });
+    }
+
+    const placementBatch = await PlacementTrainingBatch.findById(student.placementTrainingBatchId)
+      .populate('assignedTrainers.trainer', 'name email phone subjectDealing category');
+
+    if (!placementBatch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Placement training batch not found'
+      });
+    }
+
+    // Create today's schedule
+    const today = new Date();
+    const todayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+    
+    const todaySchedule = [];
+    
+    if (placementBatch.assignedTrainers && placementBatch.assignedTrainers.length > 0) {
+      placementBatch.assignedTrainers.forEach(assignment => {
+        if (assignment.schedule && assignment.schedule.length > 0) {
+          assignment.schedule.forEach(slot => {
+            if (slot.day === todayName) {
+              todaySchedule.push({
+                trainer: assignment.trainer,
+                subject: assignment.subject,
+                timeSlot: assignment.timeSlot,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                day: slot.day
+              });
+            }
+          });
+        }
+      });
+    }
+
+    // Sort by start time
+    todaySchedule.sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+    res.json({
+      success: true,
+      data: {
+        today: todayName,
+        todaySchedule: todaySchedule,
+        batchInfo: {
+          batchNumber: placementBatch.batchNumber,
+          techStack: placementBatch.techStack
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching trainer schedule:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error fetching trainer schedule'
+    });
+  }
+});
+
 module.exports = router;
