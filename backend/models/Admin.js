@@ -21,11 +21,26 @@ const AdminSchema = new mongoose.Schema({
     default: 'admin_level_3'
   },
   permissions: {
-    canAddAdmin: { type: Boolean, default: false },
-    canAddTPO: { type: Boolean, default: false },
-    canAddTrainer: { type: Boolean, default: false },
+    adminControls: {       // For admin-related controls: add/edit/delete admin
+      add: { type: Boolean, default: false },
+      edit: { type: Boolean, default: false },
+      delete: { type: Boolean, default: false },
+    },
+    trainerControls: {     // For trainer-related controls: add/edit/delete/suspend trainer
+      add: { type: Boolean, default: false },
+      edit: { type: Boolean, default: false },
+      delete: { type: Boolean, default: false },
+      suspend: { type: Boolean, default: false },
+    },
+    tpoControls: {         // For TPO-related controls: add/edit/delete/suspend TPO
+      add: { type: Boolean, default: false },
+      edit: { type: Boolean, default: false },
+      delete: { type: Boolean, default: false },
+      suspend: { type: Boolean, default: false },
+    },
     canViewActivity: { type: Boolean, default: true }
   },
+
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin'
@@ -55,36 +70,44 @@ AdminSchema.pre('save', function(next) {
     switch (this.role) {
       case 'super_admin':
         this.permissions = {
-          canAddAdmin: true,
-          canAddTPO: true,
-          canAddTrainer: true,
-          canViewActivity: true
+          adminControls: { add: true, edit: true, delete: true },
+          trainerControls: { add: true, edit: true, delete: true, suspend: true },
+          tpoControls: { add: true, edit: true, delete: true, suspend: true },
+          canViewActivity: true,
         };
         break;
       case 'admin_level_1':
         this.permissions = {
-          canAddAdmin: false,
-          canAddTPO: true,
-          canAddTrainer: true,
-          canViewActivity: true
+          adminControls: { add: false, edit: false, delete: false },
+          trainerControls: { add: true, edit: true, delete: true, suspend: true },
+          tpoControls: { add: true, edit: true, delete: true, suspend: true },
+          canViewActivity: true,
         };
         break;
       case 'admin_level_2':
         this.permissions = {
-          canAddAdmin: false,
-          canAddTPO: false,
-          canAddTrainer: true,
-          canViewActivity: true
+          adminControls: { add: false, edit: false, delete: false },
+          trainerControls: { add: true, edit: true, delete: true, suspend: true },
+          tpoControls: { add: false, edit: false, delete: false, suspend: false },
+          canViewActivity: true,
         };
         break;
       case 'admin_level_3':
         this.permissions = {
-          canAddAdmin: false,
-          canAddTPO: false,
-          canAddTrainer: false,
-          canViewActivity: true
+          adminControls: { add: false, edit: false, delete: false },
+          trainerControls: { add: false, edit: false, delete: false, suspend: false },
+          tpoControls: { add: false, edit: false, delete: false, suspend: false },
+          canViewActivity: true,
         };
         break;
+      default:
+        // Defaults
+        this.permissions = {
+          adminControls: { add: false, edit: false, delete: false },
+          trainerControls: { add: false, edit: false, delete: false, suspend: false },
+          tpoControls: { add: false, edit: false, delete: false, suspend: false },
+          canViewActivity: true,
+        };
     }
   }
   next();

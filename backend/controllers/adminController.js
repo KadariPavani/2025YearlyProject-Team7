@@ -13,6 +13,7 @@ const XLSX = require('xlsx');
 const { ok, created, badRequest, unauthorized, notFound, serverError, forbidden } = require('../utils/http');
 const { createOtp, verifyOtp, consumeOtp } = require('../utils/otp');
 
+
 // Initialize super admin if not exists
 const initializeSuperAdmin = async () => {
   try {
@@ -30,12 +31,11 @@ const initializeSuperAdmin = async () => {
     console.error('Super admin initialization failed:', error);
   }
 };
-
 initializeSuperAdmin();
 
-// @desc    Super Admin Login
-// @route   POST /api/admin/super-admin-login
-// @access  Public
+// @desc     Super Admin Login
+// @route    POST /api/admin/super-admin-login
+// @access   Public
 const superAdminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -57,7 +57,10 @@ const superAdminLogin = async (req, res) => {
     }
 
     const otp = generateOTP();
-    
+
+    // ✅ Log OTP to terminal for testing/debugging
+    console.log(`🔐 OTP for ${email}: ${otp}`);
+
     await OTP.create({
       email,
       otp,
@@ -72,13 +75,14 @@ const superAdminLogin = async (req, res) => {
 
     return ok(res, { success: true, message: 'OTP sent successfully' });
   } catch (error) {
+    console.error('❌ Error in superAdminLogin:', error);
     return serverError(res, 'Internal server error');
   }
 };
 
-// @desc    Verify OTP and Login
-// @route   POST /api/admin/verify-otp
-// @access  Public
+// @desc     Verify OTP and Login
+// @route    POST /api/admin/verify-otp
+// @access   Public
 const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -153,7 +157,7 @@ const addAdmin = async (req, res) => {
   try {
     const { email, role } = req.body;
 
-    if (!req.admin.permissions?.canAddAdmin) {
+    if (!req.admin.permissions?.adminControls?.add) {
       return res.status(403).json({ success: false, message: "No permission to add admin" });
     }
     if (!email || !role) {
@@ -196,7 +200,6 @@ const addAdmin = async (req, res) => {
   }
 };
 
-
 // GET all admins (GET /api/admin/admins)
 const getAllAdmins = async (req, res) => {
   try {
@@ -207,24 +210,82 @@ const getAllAdmins = async (req, res) => {
   }
 };
 
+// Edit Admin
+const editAdmin = async (req, res) => {
+  try {
+    // Must have permission
+    if (!req.admin.permissions?.adminControls?.edit) {
+      return res.status(403).json({ success: false, message: "No permission to edit admin" });
+    }
 
-// @desc    Add Trainer
-// @route   POST /api/admin/add-trainer
-// @access  Private (Admin with canAddTrainer permission)
+    const { email, role, permissions, status } = req.body;
+    const adminToUpdate = await Admin.findById(req.params.id);
+    
+    if (!adminToUpdate) {
+      return res.status(404).json({ success: false, message: "Admin not found" });
+    }
+
+    // Update fields if provided
+    if (email) adminToUpdate.email = email.trim().toLowerCase();
+    if (role) adminToUpdate.role = role;
+    if (permissions) adminToUpdate.permissions = permissions;
+    if (status) adminToUpdate.status = status;
+
+    await adminToUpdate.save();
+    
+    // Return updated admin without password
+    const updatedAdmin = await Admin.findById(adminToUpdate._id).select('-password');
+    res.json({ success: true, data: updatedAdmin });
+  } catch (error) {
+    console.error("Edit Admin Error:", error);
+    res.status(500).json({ success: false, message: "Server error editing admin" });
+  }
+};
+
+// Delete Admin  
+const deleteAdmin = async (req, res) => {
+  try {
+    // Must have permission
+    if (!req.admin.permissions?.adminControls?.delete) {
+      return res.status(403).json({ success: false, message: "No permission to delete admin" });
+    }
+
+    // Prevent self-deletion
+    if (req.admin._id.toString() === req.params.id) {
+      return res.status(400).json({ success: false, message: "Admins cannot delete themselves" });
+    }
+
+    const adminToDelete = await Admin.findById(req.params.id);
+    if (!adminToDelete) {
+      return res.status(404).json({ success: false, message: "Admin not found" });
+    }
+
+    await Admin.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "Admin deleted successfully" });
+  } catch (error) {
+    console.error("Delete Admin Error:", error);
+    res.status(500).json({ success: false, message: "Server error deleting admin" });
+  }
+};
+
+
+// @desc     Add Trainer
+// @route    POST /api/admin/add-trainer
+// @access   Private (Admin with trainerControls.add)
 const addTrainer = async (req, res) => {
   try {
     const { name, email, phone, employeeId, experience, subjectDealing, category, linkedIn } = req.body;
 
     // Check admin permissions
-    if (!req.admin.permissions.canAddTrainer) {
+    if (!req.admin.permissions?.trainerControls?.add) {
       return forbidden(res, 'You do not have permission to add trainers');
     }
 
     // Check if trainer already exists
-    const existingTrainer = await Trainer.findOne({ 
-      $or: [{ email }, { employeeId }] 
+    const existingTrainer = await Trainer.findOne({
+      $or: [{ email }, { employeeId }]
     });
-    
+
     if (existingTrainer) {
       return badRequest(res, 'Trainer with this email or employee ID already exists');
     }
@@ -278,15 +339,15 @@ const addTrainer = async (req, res) => {
   }
 };
 
-// @desc    Add TPO
-// @route   POST /api/admin/add-tpo
-// @access  Private (Admin with canAddTPO permission)
+// @desc     Add TPO
+// @route    POST /api/admin/add-tpo
+// @access   Private (Admin with tpoControls.add)
 const addTPO = async (req, res) => {
   try {
     const { name, email, phone, experience, linkedIn } = req.body;
 
     // Check admin permissions
-    if (!req.admin.permissions.canAddTPO) {
+    if (!req.admin.permissions?.tpoControls?.add) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to add TPOs'
@@ -295,7 +356,7 @@ const addTPO = async (req, res) => {
 
     // Check if TPO already exists
     const existingTPO = await TPO.findOne({ email });
-    
+
     if (existingTPO) {
       return res.status(400).json({
         success: false,
@@ -373,6 +434,121 @@ const getAllTPOs = async (req, res) => {
   }
 };
 
+// Edit Trainer
+// const editTrainer = async (req, res) => {
+//   try {
+//     if (!req.admin.permissions?.trainerControls?.edit) {
+//       return res.status(403).json({ success: false, message: "No permission to edit trainer" });
+//     }
+//     const { id } = req.params;
+//     const updateData = req.body;
+//     delete updateData.password; // Password update separately
+
+//     const updatedTrainer = await Trainer.findByIdAndUpdate(id, updateData, { new: true, runValidators: true }).select('-password');
+//     if (!updatedTrainer) {
+//       return res.status(404).json({ success: false, message: "Trainer not found" });
+//     }
+//     res.json({ success: true, data: updatedTrainer });
+//   } catch (error) {
+//     console.error("Edit Trainer Error:", error);
+//     res.status(500).json({ success: false, message: "Failed to edit trainer" });
+//   }
+// };
+
+// Suspend/Activate Trainer
+const toggleTrainerStatus = async (req, res) => {
+  try {
+    if (!req.admin.permissions?.trainerControls?.suspend) {
+      return res.status(403).json({ success: false, message: "No permission to change trainer status" });
+    }
+    const { id } = req.params;
+    const trainer = await Trainer.findById(id);
+    if (!trainer) return res.status(404).json({ success: false, message: "Trainer not found" });
+
+    trainer.status = trainer.status === 'active' ? 'inactive' : 'active';
+    await trainer.save();
+
+    res.json({ success: true, message: `Trainer ${trainer.status === 'active' ? 'activated' : 'suspended'}`, data: { id: trainer._id, status: trainer.status } });
+  } catch (error) {
+    console.error("Toggle Trainer Status Error:", error);
+    res.status(500).json({ success: false, message: "Failed to update trainer status" });
+  }
+};
+
+// Delete Trainer
+const deleteTrainer = async (req, res) => {
+  try {
+    if (!req.admin.permissions?.trainerControls?.delete) {
+      return res.status(403).json({ success: false, message: "No permission to delete trainer" });
+    }
+    const { id } = req.params;
+    const deleted = await Trainer.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ success: false, message: "Trainer not found" });
+
+    res.json({ success: true, message: "Trainer deleted successfully" });
+  } catch (error) {
+    console.error("Delete Trainer Error:", error);
+    res.status(500).json({ success: false, message: "Failed to delete trainer" });
+  }
+};
+
+// Edit TPO
+// const editTPO = async (req, res) => {
+//   try {
+//     if (!req.admin.permissions?.tpoControls?.edit) {
+//       return res.status(403).json({ success: false, message: "No permission to edit TPO" });
+//     }
+//     const { id } = req.params;
+//     const updateData = req.body;
+//     delete updateData.password;
+
+//     const updatedTPO = await TPO.findByIdAndUpdate(id, updateData, { new: true, runValidators: true }).select('-password');
+//     if (!updatedTPO) {
+//       return res.status(404).json({ success: false, message: "TPO not found" });
+//     }
+//     res.json({ success: true, data: updatedTPO });
+//   } catch (error) {
+//     console.error("Edit TPO Error:", error);
+//     res.status(500).json({ success: false, message: "Failed to edit TPO" });
+//   }
+// };
+
+// Suspend/Activate TPO
+const toggleTPOStatus = async (req, res) => {
+  try {
+    if (!req.admin.permissions?.tpoControls?.suspend) {
+      return res.status(403).json({ success: false, message: "No permission to change TPO status" });
+    }
+    const { id } = req.params;
+    const tpo = await TPO.findById(id);
+    if (!tpo) return res.status(404).json({ success: false, message: "TPO not found" });
+
+    tpo.status = tpo.status === 'active' ? 'inactive' : 'active';
+    await tpo.save();
+
+    res.json({ success: true, message: `TPO ${tpo.status === 'active' ? 'activated' : 'suspended'}`, data: { id: tpo._id, status: tpo.status } });
+  } catch (error) {
+    console.error("Toggle TPO Status Error:", error);
+    res.status(500).json({ success: false, message: "Failed to update TPO status" });
+  }
+};
+
+// Delete TPO
+const deleteTPO = async (req, res) => {
+  try {
+    if (!req.admin.permissions?.tpoControls?.delete) {
+      return res.status(403).json({ success: false, message: "No permission to delete TPO" });
+    }
+    const { id } = req.params;
+    const deleted = await TPO.findByIdAndDelete(id);
+    if (!deleted) return res.status(404).json({ success: false, message: "TPO not found" });
+
+    res.json({ success: true, message: "TPO deleted successfully" });
+  } catch (error) {
+    console.error("Delete TPO Error:", error);
+    res.status(500).json({ success: false, message: "Failed to delete TPO" });
+  }
+};
 
 // @desc    Forgot Password (send OTP)
 // @route   POST /api/admin/forgot-password
@@ -913,6 +1089,14 @@ module.exports = {
   addTPO,
   getAllTrainers,
   getAllTPOs,
+  // editTrainer,
+  toggleTrainerStatus,
+  editAdmin,
+  deleteAdmin,
+  deleteTrainer,
+  // editTPO,
+  toggleTPOStatus,
+  deleteTPO,
   getAdminDashboard,
   logoutAdmin,
   forgotPassword,

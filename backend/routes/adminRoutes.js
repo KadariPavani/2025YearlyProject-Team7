@@ -5,11 +5,19 @@ const {
   verifyOTP,
   resendOTP,
   addAdmin,
+  editAdmin,
+  deleteAdmin,
   getAllAdmins,
   addTrainer,
   addTPO,
   getAllTrainers,
   getAllTPOs,
+  // editTrainer,
+  toggleTrainerStatus,
+  deleteTrainer,
+  // editTPO,
+  toggleTPOStatus,
+  deleteTPO,
   getAdminDashboard,
   logoutAdmin,
   forgotPassword,
@@ -49,9 +57,27 @@ router.get('/trainers', auth, getAllTrainers);
 router.get('/tpos', auth, getAllTPOs);
 router.post('/add-admin', auth, addAdmin);
 router.get('/admins', auth, getAllAdmins);
+router.put('/admins/:id', auth, editAdmin);
+router.delete('/admins/:id', auth, deleteAdmin);
+
+// Trainer action routes (edit, suspend/reactivate, delete)
+// router.put('/trainers/:id', auth, editTrainer);
+router.patch('/trainers/:id/toggle-status', auth, toggleTrainerStatus);
+router.delete('/trainers/:id', auth, deleteTrainer);
+
+// TPO action routes (edit, suspend/reactivate, delete)
+// router.put('/tpos/:id', auth, editTPO);
+router.patch('/tpos/:id/toggle-status', auth, toggleTPOStatus);
+router.delete('/tpos/:id', auth, deleteTPO);
+
+
 router.post('/crt-batch', auth, createCrtBatch);
 router.put('/students/:id', auth, updateStudent);
 router.delete('/students/:id', auth, deleteStudent);
+
+
+
+
 
 router.get('/batches', auth, async (req, res) => {
   try {

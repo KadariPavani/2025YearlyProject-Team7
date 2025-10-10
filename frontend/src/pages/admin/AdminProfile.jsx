@@ -12,8 +12,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import { getAdminProfile } from "../../services/adminService";
 
-
-
 const AdminProfile = () => {
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,17 +21,20 @@ const AdminProfile = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
+        // fetch admin profile with proper auth token
         const token = localStorage.getItem("adminToken");
         if (!token) throw new Error("No authentication token found");
-
+        // assuming getAdminProfile handles auth token, or pass it explicitly
         const response = await getAdminProfile();
-        if (response.data.success) {
+        if (response && response.data && response.data.success) {
           setProfileData(response.data.data);
           setError("");
+        } else {
+          throw new Error("Failed to fetch profile");
         }
       } catch (err) {
         console.error("Profile fetch error:", err);
-        setError(err.response?.data?.message || "Failed to fetch profile");
+        setError(err.response?.data?.message || err.message || "Failed to fetch profile");
         if (err.response?.status === 401) {
           localStorage.removeItem("adminToken");
           localStorage.removeItem("adminData");
@@ -55,9 +56,38 @@ const AdminProfile = () => {
     );
   }
 
+  const permissions = profileData?.permissions || {};
+  const adminControls = permissions.adminControls || {};
+  const trainerControls = permissions.trainerControls || {};
+  const tpoControls = permissions.tpoControls || {};
+  const canViewActivity = permissions.canViewActivity;
+
+  const renderPermissionsSection = (title, permissionsObj) => (
+    <div className="col-span-1">
+      <h3 className="mb-2 text-lg font-semibold text-gray-800">{title}</h3>
+      <div className="space-y-1">
+        {Object.entries(permissionsObj).map(([key, value]) => (
+          <div
+            key={key}
+            className="flex justify-between p-2 bg-gray-50 rounded-md"
+          >
+            <span className="capitalize">{key}</span>
+            <span
+              className={`font-semibold px-2 rounded-md ${
+                value ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+              }`}
+            >
+              {value ? "Enabled" : "Disabled"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-100 p-6">
-      <Navbar/>
+      <Navbar />
       {/* Back Button */}
       <button
         onClick={() => navigate("/admin-dashboard")}
@@ -94,7 +124,7 @@ const AdminProfile = () => {
                     Admin Profile
                   </h2>
                 </div>
-                <button className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
+                <button className="flex items-center gap-1 text-sm text-blue-600 hover:underline cursor-not-allowed" disabled>
                   <Edit className="h-4 w-4" /> Edit
                 </button>
               </div>
@@ -103,9 +133,7 @@ const AdminProfile = () => {
                 {/* Email */}
                 <div>
                   <p className="text-sm text-gray-600">Email Address</p>
-                  <p className="text-gray-900 font-medium">
-                    {profileData?.email}
-                  </p>
+                  <p className="text-gray-900 font-medium">{profileData?.email}</p>
                 </div>
 
                 {/* Role */}
@@ -138,34 +166,21 @@ const AdminProfile = () => {
             </div>
 
             {/* Permissions */}
-            <div className="bg-white rounded-md shadow-sm border border-gray-200">
-              <div className="border-b border-gray-200 p-4">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Permissions
-                </h2>
-              </div>
-              <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Object.entries(profileData?.permissions || {}).map(
-                  ([key, value]) => (
-                    <div
-                      key={key}
-                      className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md p-3"
-                    >
-                      <span className="text-sm font-medium text-gray-700 capitalize">
-                        {key.replace(/([A-Z])/g, " $1").trim()}
-                      </span>
-                      <span
-                        className={`px-2 py-1 text-xs rounded font-medium ${
-                          value
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {value ? "Enabled" : "Disabled"}
-                      </span>
-                    </div>
-                  )
-                )}
+            <div className="bg-white rounded-md shadow-sm border border-gray-200 p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              {renderPermissionsSection("Admin Controls", adminControls)}
+              {renderPermissionsSection("Trainer Controls", trainerControls)}
+              {renderPermissionsSection("TPO Controls", tpoControls)}
+              <div className="col-span-full mt-4">
+                <div className="flex justify-between p-3 bg-gray-50 rounded-md">
+                  <span>View Activity Access</span>
+                  <span
+                    className={`font-semibold px-2 rounded-md ${
+                      canViewActivity ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {canViewActivity ? "Enabled" : "Disabled"}
+                  </span>
+                </div>
               </div>
             </div>
           </>
@@ -174,6 +189,5 @@ const AdminProfile = () => {
     </div>
   );
 };
-
 
 export default AdminProfile;
