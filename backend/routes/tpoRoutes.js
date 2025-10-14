@@ -88,6 +88,111 @@ router.get('/batches', generalAuth, async (req, res) => {
   }
 });
 
+
+// GET Students by Batches (Regular Batches - not placement training) for TPO
+router.get('/students-by-batch', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. TPO route only.'
+      });
+    }
+
+    const tpoId = req.user._id;
+
+    // Get all regular batches assigned to this TPO
+    const batches = await Batch.find({ tpoId })
+      .populate({
+        path: 'students',
+        select: 'name rollNo email phonenumber college branch yearOfPassing batchId crtInterested crtBatchName profileImageUrl resumeUrl resumeFileName gender dob currentLocation hometown bio academics techStack projects internships certifications placementDetails status createdAt lastLogin'
+      })
+      .populate('createdBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    // Organize students by batch with enhanced information
+    const batchesWithStudents = batches.map(batch => {
+      const studentsWithBatchInfo = batch.students.map(student => ({
+        ...student.toObject(),
+        batchNumber: batch.batchNumber,
+        batchStartDate: batch.startDate,
+        batchEndDate: batch.endDate,
+        batchStatus: batch.status,
+        isCrt: batch.isCrt,
+        crtStatus: student.crtInterested ? 'CRT' : 'Non-CRT'
+      }));
+
+      return {
+        _id: batch._id,
+        batchNumber: batch.batchNumber,
+        colleges: batch.colleges,
+        isCrt: batch.isCrt,
+        startDate: batch.startDate,
+        endDate: batch.endDate,
+        status: batch.status,
+        studentCount: batch.students.length,
+        createdBy: batch.createdBy,
+        createdAt: batch.createdAt,
+        students: studentsWithBatchInfo
+      };
+    });
+
+    // Calculate summary statistics
+    const totalStudents = batches.reduce((acc, batch) => acc + batch.students.length, 0);
+    const crtStudents = batches.reduce((acc, batch) => 
+      acc + batch.students.filter(student => student.crtInterested).length, 0
+    );
+    const nonCrtStudents = totalStudents - crtStudents;
+    
+    const collegeDistribution = {};
+    batches.forEach(batch => {
+      batch.colleges.forEach(college => {
+        collegeDistribution[college] = (collegeDistribution[college] || 0) + batch.students.length;
+      });
+    });
+
+    const branchDistribution = {};
+    batches.forEach(batch => {
+      batch.students.forEach(student => {
+        branchDistribution[student.branch] = (branchDistribution[student.branch] || 0) + 1;
+      });
+    });
+
+    const stats = {
+      totalBatches: batches.length,
+      totalStudents,
+      crtStudents,
+      nonCrtStudents,
+      collegeDistribution,
+      branchDistribution,
+      yearWiseDistribution: batches.reduce((acc, batch) => {
+        batch.students.forEach(student => {
+          acc[student.yearOfPassing] = (acc[student.yearOfPassing] || 0) + 1;
+        });
+        return acc;
+      }, {})
+    };
+
+    res.json({
+      success: true,
+      message: 'Students by batch fetched successfully',
+      data: {
+        batches: batchesWithStudents,
+        stats
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching students by batch:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching students by batch',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+
 // GET Placement Training Batches for TPO
 router.get('/placement-training-batches', generalAuth, async (req, res) => {
   try {

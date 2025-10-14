@@ -151,13 +151,13 @@ const generalLogin = async (req, res) => {
     const user = await Model.findOne({ email }).select('+password status');
     if (!user) return unauthorized(res, 'Invalid credentials');
 
-    // 1. Check suspended/inactive status before password check
-    if (user.status !== 'active') {
-      return res.status(403).json({
-        success: false,
-        message: 'Your account has been suspended. Please contact the administrator.',
-      });
-    }
+    // // 1. Check suspended/inactive status before password check
+    // if (user.status !== 'active') {
+    //   return res.status(403).json({
+    //     success: false,
+    //     message: 'Your account has been suspended. Please contact the administrator.',
+    //   });
+    // }
 
     const isMatch = await user.matchPassword(password);
     if (!isMatch) return unauthorized(res, 'Invalid credentials');

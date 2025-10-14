@@ -52,15 +52,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
-// Enable CORS with config
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: [
+      process.env.FRONTEND_URL, // environment variable, if set
+      'http://localhost:5173',
+      'http://localhost:5174'
+    ].filter(Boolean), // removes undefined/null values
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
+
 
 // Serve uploaded profile images statically
 app.use('/uploads/profile-images', express.static(uploadDir));

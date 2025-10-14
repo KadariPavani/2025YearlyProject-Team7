@@ -1,0 +1,1512 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Users, Settings, LogOut, Bell, ChevronDown, Building, Calendar, Eye, ChevronRight,
+  Building2, Code2, GraduationCap, X, TrendingUp, Clock, MapPin, Award, Filter,
+  Search, UserPlus, UserCheck, Download, CalendarDays, BookOpen, FileText,
+  User, Phone, Mail, MapPin as Location, GraduationCap as Education, Briefcase,
+  ExternalLink, Image as ImageIcon, Star
+} from 'lucide-react';
+import TrainerAssignment from './TrainerAssignment';
+import ScheduleTimetable from './ScheduleTimetable';
+
+const TPODashboard = () => {
+  const [tpoData, setTpoData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
+  const [message, setMessage] = useState('');
+
+  // Assigned Batches state
+  const [assignedBatches, setAssignedBatches] = useState([]);
+  const [loadingBatches, setLoadingBatches] = useState(false);
+  const [errorBatches, setErrorBatches] = useState('');
+
+  // Placement Training Batches state
+  const [placementBatchData, setPlacementBatchData] = useState({});
+  const [placementStats, setPlacementStats] = useState({});
+  const [loadingPlacementBatches, setLoadingPlacementBatches] = useState(false);
+  const [selectedBatch, setSelectedBatch] = useState(null);
+
+  // Student Details Batch-wise state
+  const [studentBatchData, setStudentBatchData] = useState([]);
+  const [studentStats, setStudentStats] = useState({});
+  const [loadingStudentDetails, setLoadingStudentDetails] = useState(false);
+  const [selectedStudentForProfile, setSelectedStudentForProfile] = useState(null);
+
+  // Trainer Assignment state
+  const [showTrainerAssignment, setShowTrainerAssignment] = useState(false);
+  const [selectedBatchForAssignment, setSelectedBatchForAssignment] = useState(null);
+
+  // New state for tab navigation and filters
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [selectedYear, setSelectedYear] = useState('all');
+  const [selectedCollege, setSelectedCollege] = useState('all');
+  const [selectedTechStack, setSelectedTechStack] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Student Details filters
+  const [studentSearchTerm, setStudentSearchTerm] = useState('');
+  const [selectedBatchFilter, setSelectedBatchFilter] = useState('all');
+  const [selectedCrtFilter, setSelectedCrtFilter] = useState('all');
+  const [selectedCollegeFilter, setSelectedCollegeFilter] = useState('all');
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState('all');
+
+  // Schedule data state
+  const [scheduleData, setScheduleData] = useState([]);
+  const [loadingSchedule, setLoadingSchedule] = useState(false);
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchDashboard();
+    fetchAssignedBatches();
+    fetchPlacementTrainingBatches();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'schedule') {
+      fetchScheduleData();
+    } else if (activeTab === 'student-details') {
+      fetchStudentDetailsByBatch();
+    }
+  }, [activeTab]);
+
+  const fetchDashboard = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/auth/dashboard/tpo', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const result = await response.json();
+      if (result.success) {
+        setTpoData(result.data);
+      } else {
+        setError('Failed to fetch dashboard data');
+      }
+    } catch {
+      setError('Failed to fetch dashboard data');
+    }
+  };
+
+  const fetchAssignedBatches = async () => {
+    setLoadingBatches(true);
+    setErrorBatches('');
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/tpo/batches', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const result = await response.json();
+      if (result.success) {
+        setAssignedBatches(result.data);
+      } else {
+        setErrorBatches(result.message || 'Failed to fetch assigned batches');
+      }
+    } catch (err) {
+      setErrorBatches('Failed to fetch assigned batches');
+    }
+    setLoadingBatches(false);
+  };
+
+  const fetchStudentDetailsByBatch = async () => {
+    setLoadingStudentDetails(true);
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/tpo/students-by-batch', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setStudentBatchData(data.data.batches);
+        setStudentStats(data.data.stats);
+      } else {
+        console.error('Failed to fetch student details:', data.message);
+      }
+    } catch (err) {
+      console.error('Failed to fetch student details:', err);
+    } finally {
+      setLoadingStudentDetails(false);
+    }
+  };
+
+  const fetchPlacementTrainingBatches = async () => {
+    setLoadingPlacementBatches(true);
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/tpo/placement-training-batches', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setPlacementBatchData(data.data.organized);
+        setPlacementStats(data.data.stats);
+        const years = Object.keys(data.data.organized).sort().reverse();
+        if (years.length > 0) setSelectedYear(years[0]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch placement training batches:', err);
+    } finally {
+      setLoadingPlacementBatches(false);
+    }
+  };
+
+  const fetchScheduleData = async () => {
+    setLoadingSchedule(true);
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/tpo/schedule-timetable', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setScheduleData(data.data);
+      } else {
+        console.error('Failed to fetch schedule data:', data.message);
+      }
+    } catch (err) {
+      console.error('Failed to fetch schedule data:', err);
+    } finally {
+      setLoadingSchedule(false);
+    }
+  };
+
+  const getFilteredStudents = () => {
+    const allStudents = [];
+    
+    studentBatchData.forEach(batch => {
+      if (selectedBatchFilter !== 'all' && batch.batchNumber !== selectedBatchFilter) return;
+      
+      batch.students.forEach(student => {
+        if (selectedCrtFilter !== 'all' && student.crtStatus !== selectedCrtFilter) return;
+        if (selectedCollegeFilter !== 'all' && student.college !== selectedCollegeFilter) return;
+        if (selectedBranchFilter !== 'all' && student.branch !== selectedBranchFilter) return;
+        
+        if (studentSearchTerm && !student.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) &&
+            !student.rollNo.toLowerCase().includes(studentSearchTerm.toLowerCase()) &&
+            !student.email.toLowerCase().includes(studentSearchTerm.toLowerCase())) return;
+        
+        allStudents.push(student);
+      });
+    });
+    
+    return allStudents;
+  };
+
+  const handleProfileImageView = (imageUrl) => {
+    if (imageUrl) {
+      window.open(imageUrl, '_blank');
+    }
+  };
+
+  const handleResumeDownload = (resumeUrl, fileName) => {
+    if (resumeUrl) {
+      const link = document.createElement('a');
+      link.href = resumeUrl;
+      link.download = fileName || 'resume';
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const StudentProfileModal = ({ student, onClose }) => {
+    if (!student) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-800">
+              Student Profile - {student.name}
+            </h3>
+            <button 
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="flex flex-col items-center">
+                <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center overflow-hidden border border-blue-200">
+                  {student.profileImageUrl ? (
+                    <img 
+                      src={student.profileImageUrl} 
+                      alt={student.name}
+                      className="w-full h-full object-cover cursor-pointer"
+                      onClick={() => handleProfileImageView(student.profileImageUrl)}
+                    />
+                  ) : (
+                    <User className="h-12 w-12 text-blue-500" />
+                  )}
+                </div>
+                {student.profileImageUrl && (
+                  <button 
+                    onClick={() => handleProfileImageView(student.profileImageUrl)}
+                    className="text-blue-500 text-sm mt-2 flex items-center gap-1 hover:text-blue-600"
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                    View Image
+                  </button>
+                )}
+              </div>
+
+              <div className="lg:col-span-2 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-gray-600">Name</label>
+                    <p className="text-gray-800 font-medium">{student.name}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600">Roll Number</label>
+                    <p className="text-gray-800">{student.rollNo}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600">Email</label>
+                    <p className="text-gray-800 flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-blue-500" />
+                      {student.email}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600">Phone</label>
+                    <p className="text-gray-800 flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-blue-500" />
+                      {student.phonenumber}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm text-gray-600">College</label>
+                    <p className="text-gray-800 flex items-center gap-2">
+                      <Building className="h-4 w-4 text-blue-500" />
+                      {student.college}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600">Branch</label>
+                    <p className="text-gray-800">{student.branch}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600">Year of Passing</label>
+                    <p className="text-gray-800">{student.yearOfPassing}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm text-gray-600">Batch</label>
+                    <p className="text-gray-800 font-medium">{student.batchNumber}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600">CRT Status</label>
+                    <span className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
+                      student.crtStatus === 'CRT' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {student.crtStatus}
+                    </span>
+                  </div>
+                  <div>
+                    <label className="text-sm text-gray-600">Status</label>
+                    <span className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
+                      student.status === 'placed' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {student.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {student.resumeUrl && (
+              <div className="mt-6 p-4 bg-blue-50 rounded border border-blue-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-6 w-6 text-blue-500" />
+                    <div>
+                      <h4 className="text-gray-800 font-medium">Resume</h4>
+                      <p className="text-sm text-gray-600">{student.resumeFileName || 'Resume'}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => window.open(student.resumeUrl, '_blank')}
+                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm flex items-center gap-1"
+                    >
+                      <Eye className="h-4 w-4" />
+                      View
+                    </button>
+                    <button
+                      onClick={() => handleResumeDownload(student.resumeUrl, student.resumeFileName)}
+                      className="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm flex items-center gap-1"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {(student.gender || student.dob || student.currentLocation || student.hometown) && (
+              <div className="mt-6">
+                <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+                  <User className="h-4 w-4 text-blue-500" />
+                  Personal Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {student.gender && (
+                    <div>
+                      <label className="text-sm text-gray-600">Gender</label>
+                      <p className="text-gray-800">{student.gender}</p>
+                    </div>
+                  )}
+                  {student.dob && (
+                    <div>
+                      <label className="text-sm text-gray-600">Date of Birth</label>
+                      <p className="text-gray-800">{new Date(student.dob).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                  {student.currentLocation && (
+                    <div>
+                      <label className="text-sm text-gray-600">Current Location</label>
+                      <p className="text-gray-800 flex items-center gap-2">
+                        <Location className="h-4 w-4 text-blue-500" />
+                        {student.currentLocation}
+                      </p>
+                    </div>
+                  )}
+                  {student.hometown && (
+                    <div>
+                      <label className="text-sm text-gray-600">Hometown</label>
+                      <p className="text-gray-800">{student.hometown}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {student.bio && (
+              <div className="mt-6">
+                <h4 className="font-medium text-gray-800 mb-3">Bio</h4>
+                <p className="text-gray-700 bg-gray-50 p-3 rounded border border-gray-200">{student.bio}</p>
+              </div>
+            )}
+
+            {student.academics && (
+              <div className="mt-6">
+                <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+                  <Education className="h-4 w-4 text-blue-500" />
+                  Academic Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {student.academics.btechCGPA && (
+                    <div>
+                      <label className="text-sm text-gray-600">B.Tech CGPA</label>
+                      <p className="text-gray-800 font-medium">{student.academics.btechCGPA}/10</p>
+                    </div>
+                  )}
+                  {student.academics.inter?.percentage && (
+                    <div>
+                      <label className="text-sm text-gray-600">Intermediate</label>
+                      <p className="text-gray-800">{student.academics.inter.percentage}%</p>
+                      {student.academics.inter.board && (
+                        <p className="text-sm text-gray-600">{student.academics.inter.board}</p>
+                      )}
+                    </div>
+                  )}
+                  {student.academics.diploma?.percentage && (
+                    <div>
+                      <label className="text-sm text-gray-600">Diploma</label>
+                      <p className="text-gray-800">{student.academics.diploma.percentage}%</p>
+                      {student.academics.diploma.board && (
+                        <p className="text-sm text-gray-600">{student.academics.diploma.board}</p>
+                      )}
+                    </div>
+                  )}
+                  {student.academics.backlogs !== undefined && (
+                    <div>
+                      <label className="text-sm text-gray-600">Backlogs</label>
+                      <p className={`font-medium ${student.academics.backlogs === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {student.academics.backlogs}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {student.techStack && student.techStack.length > 0 && (
+              <div className="mt-6">
+                <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+                  <Code2 className="h-4 w-4 text-blue-500" />
+                  Tech Stack
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {student.techStack.map((tech, index) => (
+                    <span key={index} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
+                      {tech}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {student.projects && student.projects.length > 0 && (
+              <div className="mt-6">
+                <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-blue-500" />
+                  Projects ({student.projects.length})
+                </h4>
+                <div className="space-y-3">
+                  {student.projects.slice(0, 3).map((project, index) => (
+                    <div key={index} className="border border-gray-200 rounded p-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h5 className="font-medium text-gray-800">{project.title}</h5>
+                          {project.description && (
+                            <p className="text-sm text-gray-600 mt-1">{project.description}</p>
+                          )}
+                          {project.techStack && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {project.techStack.map((tech, techIndex) => (
+                                <span key={techIndex} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                                  {tech}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {project.links?.github && (
+                            <button
+                              onClick={() => window.open(project.links.github, '_blank')}
+                              className="text-gray-500 hover:text-gray-700"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </button>
+                          )}
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            project.verificationStatus === 'tpo_approved' ? 'bg-green-100 text-green-800' :
+                            project.verificationStatus === 'coordinator_approved' ? 'bg-blue-100 text-blue-800' :
+                            project.verificationStatus === 'rejected' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {project.verificationStatus}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {student.projects.length > 3 && (
+                    <p className="text-sm text-gray-500 text-center">
+                      +{student.projects.length - 3} more projects
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {student.internships && student.internships.length > 0 && (
+              <div className="mt-6">
+                <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-blue-500" />
+                  Internships ({student.internships.length})
+                </h4>
+                <div className="space-y-3">
+                  {student.internships.map((internship, index) => (
+                    <div key={index} className="border border-gray-200 rounded p-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h5 className="font-medium text-gray-800">{internship.role}</h5>
+                          <p className="text-sm text-gray-600">{internship.company}</p>
+                          {internship.location && (
+                            <p className="text-sm text-gray-500 flex items-center gap-1 mt-1">
+                              <Location className="h-3 w-3" />
+                              {internship.location}
+                            </p>
+                          )}
+                          {(internship.startDate || internship.endDate) && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {internship.startDate && new Date(internship.startDate).toLocaleDateString()} - {internship.endDate && new Date(internship.endDate).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          internship.verificationStatus === 'tpo_approved' ? 'bg-green-100 text-green-800' :
+                          internship.verificationStatus === 'coordinator_approved' ? 'bg-blue-100 text-blue-800' :
+                          internship.verificationStatus === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {internship.verificationStatus}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {student.certifications && student.certifications.length > 0 && (
+              <div className="mt-6">
+                <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+                  <Award className="h-4 w-4 text-blue-500" />
+                  Certifications ({student.certifications.length})
+                </h4>
+                <div className="space-y-3">
+                  {student.certifications.map((cert, index) => (
+                    <div key={index} className="border border-gray-200 rounded p-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h5 className="font-medium text-gray-800">{cert.name}</h5>
+                          <p className="text-sm text-gray-600">{cert.issuer}</p>
+                          {cert.credentialId && (
+                            <p className="text-xs text-gray-500 mt-1">ID: {cert.credentialId}</p>
+                          )}
+                          {cert.dateIssued && (
+                            <p className="text-xs text-gray-500">
+                              Issued: {new Date(cert.dateIssued).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          cert.verificationStatus === 'tpo_approved' ? 'bg-green-100 text-green-800' :
+                          cert.verificationStatus === 'coordinator_approved' ? 'bg-blue-100 text-blue-800' :
+                          cert.verificationStatus === 'rejected' ? 'bg-red-100 text-red-800' :
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {cert.verificationStatus}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {student.placementDetails && student.status === 'placed' && (
+              <div className="mt-6">
+                <h4 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+                  <Star className="h-4 w-4 text-blue-500" />
+                  Placement Details
+                </h4>
+                <div className="bg-green-50 border border-green-200 rounded p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-gray-600">Company</label>
+                      <p className="font-medium text-gray-800">{student.placementDetails.company}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-600">Role</label>
+                      <p className="text-gray-800">{student.placementDetails.role}</p>
+                    </div>
+                    {student.placementDetails.package && (
+                      <div>
+                        <label className="text-sm text-gray-600">Package (LPA)</label>
+                        <p className="font-medium text-green-600">{student.placementDetails.package}</p>
+                      </div>
+                    )}
+                    {student.placementDetails.location && (
+                      <div>
+                        <label className="text-sm text-gray-600">Location</label>
+                        <p className="text-gray-800">{student.placementDetails.location}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-gray-200 pt-4 mt-6">
+              <h4 className="font-medium text-gray-800 mb-3">Account Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                <div>
+                  <label className="font-medium text-gray-600">Created</label>
+                  <p>{student.createdAt ? new Date(student.createdAt).toLocaleDateString() : 'N/A'}</p>
+                </div>
+                <div>
+                  <label className="font-medium text-gray-600">Last Login</label>
+                  <p>{student.lastLogin ? new Date(student.lastLogin).toLocaleDateString() : 'Never'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const handleTrainerAssignment = (batchId) => {
+    setSelectedBatchForAssignment(batchId);
+    setShowTrainerAssignment(true);
+  };
+
+  const handleAssignmentUpdate = () => {
+    fetchPlacementTrainingBatches();
+    fetchScheduleData();
+    setShowTrainerAssignment(false);
+    setSelectedBatchForAssignment(null);
+  };
+
+  const getTechStackColor = (techStack) => {
+    const colors = {
+      Java: 'bg-blue-50 border-blue-200 text-blue-700',
+      Python: 'bg-green-50 border-green-200 text-green-700',
+      'AI/ML': 'bg-blue-50 border-blue-200 text-blue-700',
+      NonCRT: 'bg-gray-50 border-gray-200 text-gray-700',
+    };
+    return colors[techStack] || 'bg-blue-50 border-blue-200 text-blue-700';
+  };
+
+  const getTechStackBadgeColor = (techStack) => {
+    const colors = {
+      Java: 'bg-blue-500',
+      Python: 'bg-green-500',
+      'AI/ML': 'bg-blue-500',
+      NonCRT: 'bg-gray-500',
+    };
+    return colors[techStack] || 'bg-blue-500';
+  };
+
+  const getTrainerAssignmentStatus = (batch) => {
+    const trainerCount = batch.assignedTrainers ? batch.assignedTrainers.length : 0;
+    if (trainerCount === 0) {
+      return { status: 'No Trainers', color: 'bg-red-100 text-red-800 border-red-200', icon: '❌' };
+    } else if (trainerCount < 3) {
+      return { status: `${trainerCount} Trainer${trainerCount > 1 ? 's' : ''}`, color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: '⚠️' };
+    } else {
+      return { status: `${trainerCount} Trainers`, color: 'bg-green-100 text-green-800 border-green-200', icon: '✅' };
+    }
+  };
+
+  const years = Object.keys(placementBatchData).sort().reverse();
+  const colleges = selectedYear !== 'all' && placementBatchData[selectedYear] ? Object.keys(placementBatchData[selectedYear]) : [];
+  const techStacks = selectedYear !== 'all' && selectedCollege !== 'all' && placementBatchData[selectedYear]?.[selectedCollege] ? Object.keys(placementBatchData[selectedYear][selectedCollege]) : [];
+
+  const getFilteredBatches = () => {
+    const allBatches = [];
+    Object.keys(placementBatchData).forEach(year => {
+      if (selectedYear !== 'all' && year !== selectedYear) return;
+      Object.keys(placementBatchData[year]).forEach(college => {
+        if (selectedCollege !== 'all' && college !== selectedCollege) return;
+        Object.keys(placementBatchData[year][college]).forEach(techStack => {
+          if (selectedTechStack !== 'all' && techStack !== selectedTechStack) return;
+          placementBatchData[year][college][techStack].batches.forEach(batch => {
+            allBatches.push({ ...batch, year, college, techStack });
+          });
+        });
+      });
+    });
+
+    if (searchTerm) {
+      return allBatches.filter(batch =>
+        batch.batchNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        batch.college.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        batch.techStack.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    return allBatches;
+  };
+
+  const filteredBatches = getFilteredBatches();
+
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('userToken');
+      localStorage.removeItem('userData');
+      navigate('/tpo-login');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mx-auto mb-2"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="bg-white p-6 rounded border border-gray-200 max-w-md w-full">
+          <div className="text-red-600 text-center">
+            <p className="text-lg font-medium mb-2">Error</p>
+            <p>{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <div className="bg-white border-b border-gray-200">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <GraduationCap className="h-6 w-6 text-blue-500" />
+              <div>
+                <h1 className="text-lg font-semibold text-gray-800">TPO Dashboard</h1>
+                <p className="text-sm text-gray-600">
+                  Welcome, {tpoData?.user?.name}! - {tpoData?.message}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <div className="text-right text-sm text-gray-600">
+                <p>Last Login</p>
+                <p className="text-xs">
+                  {tpoData?.lastLogin ? new Date(tpoData.lastLogin).toLocaleDateString() : 'N/A'}
+                </p>
+              </div>
+              
+              <div className="relative">
+                <button
+                  onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+                  className="flex items-center space-x-1 px-3 py-1 border border-gray-200 rounded hover:bg-gray-50"
+                >
+                  <Settings className="h-4 w-4 text-gray-600" />
+                  <ChevronDown className="h-4 w-4 text-gray-600" />
+                </button>
+
+                {showSettingsDropdown && (
+                  <div className="absolute right-0 mt-2 w-40 bg-white rounded border border-gray-200 shadow-sm">
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-gray-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200">
+          <nav className="flex space-x-4 px-4">
+            {[
+              { id: 'dashboard', name: 'Dashboard', icon: TrendingUp },
+              { id: 'batches', name: 'Placement Training', icon: GraduationCap },
+              { id: 'student-details', name: 'Student Details', icon: Users },
+              { id: 'schedule', name: 'Schedule', icon: Calendar }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-1 py-3 px-2 border-b-2 text-sm ${
+                  activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-blue-600'
+                }`}
+              >
+                <tab.icon className="h-4 w-4" />
+                <span>{tab.name}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      <div className="p-4">
+        {message && (
+          <div className="mb-4 bg-green-50 border border-green-200 text-green-800 px-3 py-2 rounded">
+            {message}
+          </div>
+        )}
+
+        {activeTab === 'dashboard' && (
+          <div>
+            <div className="bg-white rounded border border-gray-200 p-4 mb-4">
+              <h2 className="text-lg font-semibold text-gray-800 mb-3">Welcome Back!</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-blue-600">Assigned Trainers</p>
+                      <p className="text-xl font-semibold text-blue-700">{tpoData?.assignedTrainers || 0}</p>
+                    </div>
+                    <Users className="h-6 w-6 text-blue-500" />
+                  </div>
+                </div>
+
+                <div className="bg-green-50 p-4 rounded border border-green-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-green-600">Companies</p>
+                      <p className="text-xl font-semibold text-green-700">{tpoData?.managedCompanies || 0}</p>
+                    </div>
+                    <Building2 className="h-6 w-6 text-green-500" />
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-blue-600">Total Batches</p>
+                      <p className="text-xl font-semibold text-blue-700">{tpoData?.assignedBatches || 0}</p>
+                    </div>
+                    <GraduationCap className="h-6 w-6 text-blue-500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded border border-gray-200">
+              <div className="p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-800">Regular Batches</h2>
+              </div>
+              <div className="p-4">
+                {loadingBatches ? (
+                  <div className="text-center py-6">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent mx-auto mb-2"></div>
+                    <p className="text-gray-600">Loading batches...</p>
+                  </div>
+                ) : errorBatches ? (
+                  <div className="text-center py-6 text-red-600">
+                    <Building className="h-8 w-8 mx-auto mb-2" />
+                    <p>{errorBatches}</p>
+                  </div>
+                ) : assignedBatches.length === 0 ? (
+                  <div className="text-center py-6 text-gray-600">
+                    <GraduationCap className="h-8 w-8 mx-auto mb-2" />
+                    <p>No batches found</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {assignedBatches.map((batch) => (
+                      <div key={batch._id} className="bg-blue-50 p-4 rounded border border-blue-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="font-medium text-gray-800">{batch.batchNumber}</h3>
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            batch.status === 'Ongoing' ? 'bg-green-100 text-green-800' :
+                            batch.status === 'Completed' ? 'bg-gray-100 text-gray-800' :
+                            'bg-blue-100 text-blue-800'
+                          }`}>
+                            {batch.status}
+                          </span>
+                        </div>
+                        <div className="space-y-2 text-sm text-gray-600">
+                          <div className="flex justify-between">
+                            <span>Students:</span>
+                            <span className="font-medium">{batch.students.length}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Colleges:</span>
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                              {batch.college}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Type:</span>
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              batch.isCrt ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {batch.isCrt ? 'CRT' : 'Regular'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'student-details' && (
+          <div>
+            <div className="bg-white rounded border border-gray-200 mb-4">
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-800">Student Details by Batch</h2>
+                    <p className="text-sm text-gray-600">View all student profiles</p>
+                  </div>
+                  {studentStats.totalStudents && (
+                    <div className="text-right">
+                      <p className="text-xl font-semibold text-blue-600">{studentStats.totalStudents}</p>
+                      <p className="text-sm text-gray-600">Total Students</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {studentStats && Object.keys(studentStats).length > 0 && (
+                <div className="p-4 border-b border-gray-200">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-blue-50 p-3 rounded border border-blue-200 text-center">
+                      <p className="text-lg font-semibold text-blue-600">{studentStats.totalBatches}</p>
+                      <p className="text-sm text-blue-700">Batches</p>
+                    </div>
+                    <div className="bg-green-50 p-3 rounded border border-green-200 text-center">
+                      <p className="text-lg font-semibold text-green-600">{studentStats.crtStudents}</p>
+                      <p className="text-sm text-green-700">CRT Students</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded border border-gray-200 text-center">
+                      <p className="text-lg font-semibold text-gray-600">{studentStats.nonCrtStudents}</p>
+                      <p className="text-sm text-gray-700">Non-CRT Students</p>
+                    </div>
+                    <div className="bg-blue-50 p-3 rounded border border-blue-200 text-center">
+                      <p className="text-lg font-semibold text-blue-600">
+                        {studentStats.collegeDistribution ? Object.keys(studentStats.collegeDistribution).length : 0}
+                      </p>
+                      <p className="text-sm text-blue-700">Colleges</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-4 border-b border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <input
+                      type="text"
+                      placeholder="Search students..."
+                      value={studentSearchTerm}
+                      onChange={(e) => setStudentSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                  <select
+                    value={selectedBatchFilter}
+                    onChange={(e) => setSelectedBatchFilter(e.target.value)}
+                    className="px-3 py-2 border border-gray-200 rounded focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="all">All Batches</option>
+                    {studentBatchData.map((batch) => (
+                      <option key={batch._id} value={batch.batchNumber}>
+                        {batch.batchNumber}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedCrtFilter}
+                    onChange={(e) => setSelectedCrtFilter(e.target.value)}
+                    className="px-3 py-2 border border-gray-200 rounded focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="CRT">CRT</option>
+                    <option value="Non-CRT">Non-CRT</option>
+                  </select>
+                  <select
+                    value={selectedCollegeFilter}
+                    onChange={(e) => setSelectedCollegeFilter(e.target.value)}
+                    className="px-3 py-2 border border-gray-200 rounded focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="all">All Colleges</option>
+                    {studentStats.collegeDistribution && Object.keys(studentStats.collegeDistribution).map((college) => (
+                      <option key={college} value={college}>{college}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                {loadingStudentDetails ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent mx-auto mb-2"></div>
+                    <p className="text-gray-600">Loading student details...</p>
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Student</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Roll No</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">College & Branch</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Contact</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">CRT Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Batch Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Resume</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-600">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {getFilteredStudents().map((student) => (
+                        <tr key={student._id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center space-x-2">
+                              <div className="h-8 w-8 bg-blue-50 rounded-full flex items-center justify-center overflow-hidden">
+                                {student.profileImageUrl ? (
+                                  <img 
+                                    src={student.profileImageUrl} 
+                                    alt={student.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <User className="h-4 w-4 text-blue-500" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-800">{student.name}</p>
+                                <p className="text-xs text-gray-600">Year: {student.yearOfPassing}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-800">{student.rollNo}</td>
+                          <td className="px-4 py-3">
+                            <p className="text-sm text-gray-800">{student.college}</p>
+                            <p className="text-xs text-gray-600">{student.branch}</p>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="space-y-1 text-sm text-gray-800">
+                              <p className="flex items-center gap-1">
+                                <Mail className="h-3 w-3 text-blue-500" />
+                                {student.email}
+                              </p>
+                              <p className="flex items-center gap-1">
+                                <Phone className="h-3 w-3 text-blue-500" />
+                                {student.phonenumber}
+                              </p>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              student.crtStatus === 'CRT' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {student.crtStatus}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <p className="text-sm text-gray-800">{student.batchNumber}</p>
+                            <p className="text-xs text-gray-600">
+                              Status: <span className={`font-medium ${
+                                student.batchStatus === 'Ongoing' ? 'text-green-600' :
+                                student.batchStatus === 'Completed' ? 'text-gray-600' :
+                                'text-blue-600'
+                              }`}>
+                                {student.batchStatus}
+                              </span>
+                            </p>
+                          </td>
+                          <td className="px-4 py-3">
+                            {student.resumeUrl ? (
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => window.open(student.resumeUrl, '_blank')}
+                                  className="text-blue-500 hover:text-blue-600"
+                                  title="View Resume"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleResumeDownload(student.resumeUrl, student.resumeFileName)}
+                                  className="text-green-500 hover:text-green-600"
+                                  title="Download Resume"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-gray-500">No resume</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => setSelectedStudentForProfile(student)}
+                              className="text-blue-500 hover:text-blue-600 text-sm flex items-center gap-1"
+                            >
+                              <Eye className="h-4 w-4" />
+                              View Profile
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {getFilteredStudents().length === 0 && (
+                        <tr>
+                          <td colSpan="8" className="px-4 py-8 text-center text-gray-600">
+                            No students found matching your filters.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'batches' && (
+          <div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+              <div className="bg-white p-4 rounded border border-gray-200">
+                <div className="flex items-center">
+                  <GraduationCap className="h-5 w-5 text-blue-500 mr-2" />
+                  <div>
+                    <p className="text-sm text-gray-600">Total Batches</p>
+                    <p className="text-lg font-semibold text-gray-800">{placementStats.totalBatches || 0}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded border border-gray-200">
+                <div className="flex items-center">
+                  <Users className="h-5 w-5 text-blue-500 mr-2" />
+                  <div>
+                    <p className="text-sm text-gray-600">Total Students</p>
+                    <p className="text-lg font-semibold text-gray-800">{placementStats.totalStudents || 0}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded border border-gray-200">
+                <div className="flex items-center">
+                  <Calendar className="h-5 w-5 text-blue-500 mr-2" />
+                  <div>
+                    <p className="text-sm text-gray-600">Active Years</p>
+                    <p className="text-lg font-semibold text-gray-800">{placementStats.totalYears || 0}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white p-4 rounded border border-gray-200">
+                <div className="flex items-center">
+                  <Building2 className="h-5 w-5 text-blue-500 mr-2" />
+                  <div>
+                    <p className="text-sm text-gray-600">Colleges</p>
+                    <p className="text-lg font-semibold text-gray-800">{placementStats.totalColleges || 0}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {loadingPlacementBatches ? (
+              <div className="bg-white rounded border border-gray-200 p-6">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent mx-auto mb-2"></div>
+                  <p className="text-gray-600">Loading placement training batches...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded border border-gray-200">
+                <div className="p-4 border-b border-gray-200">
+                  <div className="flex flex-wrap gap-3 items-center justify-between">
+                    <div className="flex flex-wrap gap-3 items-center">
+                      <Filter className="h-4 w-4 text-gray-600" />
+                      <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(e.target.value)}
+                        className="border border-gray-200 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="all">All Years</option>
+                        {years.map(year => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={selectedCollege}
+                        onChange={(e) => setSelectedCollege(e.target.value)}
+                        className="border border-gray-200 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="all">All Colleges</option>
+                        {colleges.map(college => (
+                          <option key={college} value={college}>{college}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={selectedTechStack}
+                        onChange={(e) => setSelectedTechStack(e.target.value)}
+                        className="border border-gray-200 rounded px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="all">All Tech Stacks</option>
+                        {techStacks.map(techStack => (
+                          <option key={techStack} value={techStack}>{techStack}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <input
+                        type="text"
+                        placeholder="Search batches..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 pr-3 py-2 border border-gray-200 rounded focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4">
+                  {filteredBatches.length === 0 ? (
+                    <div className="text-center py-6 text-gray-600">
+                      <GraduationCap className="h-8 w-8 mx-auto mb-2" />
+                      <p>No batches found</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredBatches.map((batch) => {
+                        const assignmentStatus = getTrainerAssignmentStatus(batch);
+                        return (
+                          <div 
+                            key={batch._id} 
+                            className={`${getTechStackColor(batch.techStack)} p-4 rounded border hover:bg-blue-100/50`}
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h3 className="font-medium text-gray-800">{batch.batchNumber}</h3>
+                                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                                  <span className={`${getTechStackBadgeColor(batch.techStack)} text-white px-2 py-1 rounded text-xs`}>
+                                    {batch.techStack}
+                                  </span>
+                                  <span>{batch.year}</span>
+                                </div>
+                              </div>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                batch.status === 'Ongoing' ? 'bg-green-100 text-green-800' :
+                                batch.status === 'Completed' ? 'bg-gray-100 text-gray-800' :
+                                'bg-blue-100 text-blue-800'
+                              }`}>
+                                {batch.status}
+                              </span>
+                            </div>
+
+                            <div className="space-y-2 text-sm text-gray-600 mb-3">
+                              <div className="flex justify-between">
+                                <span>Students</span>
+                                <span className="font-medium">{batch.studentCount}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>College</span>
+                                <span>{batch.colleges.join(', ')}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Duration</span>
+                                <span>
+                                  {new Date(batch.startDate).toLocaleDateString()} - {new Date(batch.endDate).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className={`p-3 rounded border ${assignmentStatus.color}`}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <span>{assignmentStatus.icon}</span>
+                                  <span className="text-sm">{assignmentStatus.status}</span>
+                                </div>
+                                <button
+                                  onClick={() => handleTrainerAssignment(batch._id)}
+                                  className="text-xs px-2 py-1 border border-gray-200 rounded hover:bg-gray-50"
+                                >
+                                  {batch.assignedTrainers?.length ? 'Modify' : 'Assign'}
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="flex space-x-2 mt-3">
+                              <button
+                                onClick={() => setSelectedBatch(batch)}
+                                className="flex-1 px-3 py-2 border border-gray-200 rounded text-sm hover:bg-gray-50"
+                              >
+                                View Details
+                              </button>
+                              <button
+                                onClick={() => handleTrainerAssignment(batch._id)}
+                                className="flex-1 px-3 py-2 border border-gray-200 rounded text-sm hover:bg-gray-50"
+                              >
+                                Trainers
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'schedule' && (
+          <div>
+            {loadingSchedule ? (
+              <div className="bg-white rounded border border-gray-200 p-6">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent mx-auto mb-2"></div>
+                  <p className="text-gray-600">Loading schedule data...</p>
+                </div>
+              </div>
+            ) : (
+              <ScheduleTimetable scheduleData={scheduleData} />
+            )}
+          </div>
+        )}
+      </div>
+
+      {selectedBatch && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded border border-gray-200 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Batch Details - {selectedBatch.batchNumber}
+              </h3>
+              <button 
+                onClick={() => setSelectedBatch(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <h4 className="font-medium text-gray-800 mb-2">Batch Information</h4>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Building className="h-4 w-4 text-blue-500" />
+                      <span>{selectedBatch.college} • Year {selectedBatch.year}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Code2 className="h-4 w-4 text-blue-500" />
+                      <span>
+                        Tech Stack
+                        <span className={`ml-2 px-2 py-1 rounded text-xs text-white ${getTechStackBadgeColor(selectedBatch.techStack)}`}>
+                          {selectedBatch.techStack}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-blue-500" />
+                      <span>Total Students: {selectedBatch.studentCount}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-blue-500" />
+                      <span>TPO: {selectedBatch.tpoId?.name || 'Not assigned'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium text-gray-800 mb-2">Schedule Information</h4>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4 text-blue-500" />
+                      <span>Start Date: {new Date(selectedBatch.startDate).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-blue-500" />
+                      <span>End Date: {new Date(selectedBatch.endDate).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-blue-500" />
+                      <span>
+                        Status: 
+                        <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                          selectedBatch.status === 'Ongoing' ? 'bg-green-100 text-green-800' :
+                          selectedBatch.status === 'Completed' ? 'bg-gray-100 text-gray-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {selectedBatch.status}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-gray-800 mb-3">
+                  Students ({selectedBatch.students?.length || 0})
+                </h4>
+                {selectedBatch.students && selectedBatch.students.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-medium text-gray-600">Name</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-600">Roll No</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-600">College</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-600">Branch</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-600">Tech Stack</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {selectedBatch.students.map((student, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-4 py-2">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-6 h-6 bg-blue-50 rounded-full flex items-center justify-center">
+                                  <span className="text-blue-500 text-xs">{student.name.charAt(0)}</span>
+                                </div>
+                                <span className="text-gray-800">{student.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2 text-gray-800">{student.rollNo}</td>
+                            <td className="px-4 py-2 text-gray-800">{student.college}</td>
+                            <td className="px-4 py-2 text-gray-800">{student.branch}</td>
+                            <td className="px-4 py-2">
+                              <div className="flex flex-wrap gap-1">
+                                {student.techStack?.map((tech, techIndex) => (
+                                  <span key={techIndex} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                                    {tech}
+                                  </span>
+                                )) || (
+                                  <span className="text-gray-500 text-xs">Not specified</span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-gray-600">
+                    No students assigned to this batch yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedStudentForProfile && (
+        <StudentProfileModal 
+          student={selectedStudentForProfile} 
+          onClose={() => setSelectedStudentForProfile(null)} 
+        />
+      )}
+
+      {showTrainerAssignment && (
+        <TrainerAssignment
+          batchId={selectedBatchForAssignment}
+          onClose={() => setShowTrainerAssignment(false)}
+          onUpdate={handleAssignmentUpdate}
+        />
+      )}
+    </div>
+  );
+};
+
+export default TPODashboard;
