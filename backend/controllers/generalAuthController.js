@@ -143,24 +143,39 @@ const validateSession = async (req, res) => {
 const generalLogin = async (req, res) => {
   try {
     const { email, password, userType } = req.body;
+    console.log('Login attempt:', { email, userType });
+
     if (!userType || !isValidUserType(userType)) {
+      console.log('Invalid userType:', userType);
       return badRequest(res, 'Invalid userType');
     }
 
     const Model = getModelByUserType(userType);
-    const user = await Model.findOne({ email }).select('+password status');
-    if (!user) return unauthorized(res, 'Invalid credentials');
+    const user = await Model.findOne({ email }).select('+password isActive status');
+    if (!user) {
+      console.log('User not found:', email);
+      return unauthorized(res, 'Invalid credentials');
+    }
 
-    // // 1. Check suspended/inactive status before password check
-    // if (user.status !== 'active') {
-    //   return res.status(403).json({
-    //     success: false,
-    //     message: 'Your account has been suspended. Please contact the administrator.',
-    //   });
-    // }
+    // Apply status check only for 'student'
+    if (userType === 'student') {
+      if (user.isActive === false || (user.status && !['pursuing', 'placed', 'completed'].includes(user.status))) {
+        console.log('Student user inactive or suspended:', { isActive: user.isActive, status: user.status });
+        return unauthorized(res, 'Your account is inactive or suspended. Please contact administrator.');
+      }
+    } else {
+      // For other userTypes apply previous status check if needed or just check isActive
+      if (user.isActive === false || (user.status && user.status !== 'active')) {
+        console.log(`User inactive or suspended for userType ${userType}:`, { isActive: user.isActive, status: user.status });
+        return unauthorized(res, 'Your account is inactive or suspended. Please contact administrator.');
+      }
+    }
 
     const isMatch = await user.matchPassword(password);
-    if (!isMatch) return unauthorized(res, 'Invalid credentials');
+    if (!isMatch) {
+      console.log('Password mismatch:', email);
+      return unauthorized(res, 'Invalid credentials');
+    }
 
     user.lastLogin = new Date();
     await user.save();
@@ -172,6 +187,8 @@ const generalLogin = async (req, res) => {
       userType,
     });
 
+    console.log('Login successful:', email);
+
     return ok(res, {
       success: true,
       token,
@@ -182,6 +199,8 @@ const generalLogin = async (req, res) => {
     return serverError(res, 'Login failed');
   }
 };
+
+
 
 
 // @desc    General Dashboard

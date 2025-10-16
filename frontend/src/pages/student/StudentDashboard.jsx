@@ -8,50 +8,12 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-// Import student components (these would be the original student components for quizzes/assignments)
-// You'll need to create/import these components similar to trainer components
-const StudentQuiz = () => (
-  <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-    <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-      <CheckSquare className="h-6 w-6 text-blue-600" />
-      Available Quizzes
-    </h3>
-    <div className="text-center py-12 bg-gray-50 rounded-xl">
-      <CheckSquare className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-      <p className="text-gray-500 font-medium">No quizzes available</p>
-      <p className="text-gray-400 text-sm">Quizzes assigned by trainers will appear here</p>
-    </div>
-  </div>
-);
+// Import enhanced student components from the second code
+import StudentQuiz from './StudentQuiz';
+import StudentAssignment from './StudentAssignment';
+import StudentResources from './StudentResources';
 
-const StudentAssignment = () => (
-  <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-    <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-      <PlusCircle className="h-6 w-6 text-blue-600" />
-      My Assignments
-    </h3>
-    <div className="text-center py-12 bg-gray-50 rounded-xl">
-      <PlusCircle className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-      <p className="text-gray-500 font-medium">No assignments available</p>
-      <p className="text-gray-400 text-sm">Assignments from trainers will appear here</p>
-    </div>
-  </div>
-);
-
-const StudentResources = () => (
-  <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-    <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-      <FileText className="h-6 w-6 text-blue-600" />
-      Learning Resources
-    </h3>
-    <div className="text-center py-12 bg-gray-50 rounded-xl">
-      <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-      <p className="text-gray-500 font-medium">No resources available</p>
-      <p className="text-gray-400 text-sm">Learning materials and resources will appear here</p>
-    </div>
-  </div>
-);
-
+// Keep placeholder components for the rest as in the first code
 const StudentSyllabus = () => (
   <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
     <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
@@ -155,6 +117,15 @@ const StudentDashboard = () => {
   const [todaySchedule, setTodaySchedule] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
+  const [resources, setResources] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState({
+    quizzes: { total: 0, completed: 0, upcoming: 0, average: 0 },
+    assignments: { total: 0, completed: 0, pending: 0, overdue: 0 },
+    resources: { total: 0, viewed: 0 },
+    performance: { totalQuizzes: 0, averageScore: 0, passRate: 0 }
+  });
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [upcomingDeadlines, setUpcomingDeadlines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -170,7 +141,14 @@ const StudentDashboard = () => {
     fetchTodaySchedule();
     fetchAssignments();
     fetchQuizzes();
+    fetchResources();
   }, []);
+
+  useEffect(() => {
+    if (assignments.length > 0 || quizzes.length > 0 || resources.length > 0) {
+      calculateDashboardStats();
+    }
+  }, [assignments, quizzes, resources]);
 
   const fetchStudentData = async () => {
     try {
@@ -247,7 +225,7 @@ const StudentDashboard = () => {
   const fetchAssignments = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await axios.get('/api/student/assignments', {
+      const response = await axios.get('/api/assignments/student/list', {  // Using path from second code for functionality
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -262,7 +240,7 @@ const StudentDashboard = () => {
   const fetchQuizzes = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await axios.get('/api/student/quizzes', {
+      const response = await axios.get('/api/quizzes/student/list', {  // Using path from second code for functionality
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -272,6 +250,107 @@ const StudentDashboard = () => {
       console.error('Failed to fetch quizzes:', err);
       setQuizzes([]);
     }
+  };
+
+  const fetchResources = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await axios.get('/api/references/student/list', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setResources(response.data.references || []);
+    } catch (err) {
+      console.error('Failed to fetch resources:', err);
+      setResources([]);
+    }
+  };
+
+  const calculateDashboardStats = () => {
+    // Calculations from the second code
+    const completedQuizzes = quizzes.filter(q => q.hasSubmitted);
+    const upcomingQuizzes = quizzes.filter(q => {
+      const now = new Date();
+      const startTime = new Date(`${q.scheduledDate} ${q.startTime}`);
+      const endTime = new Date(`${q.scheduledDate} ${q.endTime}`);
+      return now < endTime && !q.hasSubmitted;
+    });
+    const averageQuizScore = completedQuizzes.length > 0 
+      ? completedQuizzes.reduce((acc, q) => acc + (q.percentage || 0), 0) / completedQuizzes.length
+      : 0;
+
+    const completedAssignments = assignments.filter(a => a.hasSubmitted);
+    const pendingAssignments = assignments.filter(a => !a.hasSubmitted && !a.isOverdue);
+    const overdueAssignments = assignments.filter(a => a.isOverdue && !a.hasSubmitted);
+
+    const totalQuizzesTaken = completedQuizzes.length;
+    const passedQuizzes = completedQuizzes.filter(q => q.percentage >= 60).length;
+    const passRate = totalQuizzesTaken > 0 ? (passedQuizzes / totalQuizzesTaken) * 100 : 0;
+
+    setDashboardStats({
+      quizzes: {
+        total: quizzes.length,
+        completed: completedQuizzes.length,
+        upcoming: upcomingQuizzes.length,
+        average: averageQuizScore
+      },
+      assignments: {
+        total: assignments.length,
+        completed: completedAssignments.length,
+        pending: pendingAssignments.length,
+        overdue: overdueAssignments.length
+      },
+      resources: {
+        total: resources.length,
+        viewed: resources.filter(r => r.hasViewed).length || 0
+      },
+      performance: {
+        totalQuizzes: totalQuizzesTaken,
+        averageScore: averageQuizScore,
+        passRate: passRate
+      }
+    });
+
+    // Upcoming deadlines from second code
+    const deadlines = [
+      ...assignments.filter(a => !a.hasSubmitted && !a.isOverdue).map(a => ({
+        type: 'assignment',
+        title: a.title,
+        dueDate: a.dueDate,
+        subject: a.subject,
+        trainer: a.trainer
+      })),
+      ...upcomingQuizzes.map(q => ({
+        type: 'quiz',
+        title: q.title,
+        dueDate: `${q.scheduledDate} ${q.endTime}`,
+        subject: q.subject,
+        trainer: q.trainer
+      }))
+    ].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate)).slice(0, 5);
+
+    setUpcomingDeadlines(deadlines);
+
+    // Recent activity from second code
+    const activities = [
+      ...completedQuizzes.slice(-3).map(q => ({
+        type: 'quiz',
+        title: `Completed quiz: ${q.title}`,
+        date: q.submittedAt,
+        score: q.percentage,
+        subject: q.subject
+      })),
+      ...completedAssignments.slice(-3).map(a => ({
+        type: 'assignment',
+        title: `Submitted assignment: ${a.title}`,
+        date: a.lastSubmission?.submittedAt,
+        score: a.lastSubmission?.percentage,
+        subject: a.subject
+      }))
+    ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+
+    setRecentActivity(activities);
   };
 
   const getTimeSlotColor = (timeSlot) => {
@@ -428,7 +507,7 @@ const StudentDashboard = () => {
             </div>
           </div>
 
-          {/* Info Cards Row */}
+          {/* Info Cards Row - Merged with stats from second code */}
           <div className="px-8 pb-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-green-50 rounded-2xl p-5 border border-green-200">
@@ -451,8 +530,8 @@ const StudentDashboard = () => {
                   </div>
                   <div className="flex-1">
                     <p className="text-xs font-semibold text-pink-600 uppercase tracking-wide mb-1">Assignments</p>
-                    <p className="text-lg font-bold text-pink-900">{assignments.length || 0}</p>
-                    <p className="text-xs text-pink-700 mt-1">Available</p>
+                    <p className="text-lg font-bold text-pink-900">{dashboardStats.assignments.completed}/{dashboardStats.assignments.total}</p>
+                    <p className="text-xs text-pink-700 mt-1">Completed</p>
                   </div>
                 </div>
               </div>
@@ -464,8 +543,8 @@ const StudentDashboard = () => {
                   </div>
                   <div className="flex-1">
                     <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Quizzes</p>
-                    <p className="text-lg font-bold text-blue-900">{quizzes.length || 0}</p>
-                    <p className="text-xs text-blue-700 mt-1">Available</p>
+                    <p className="text-lg font-bold text-blue-900">{dashboardStats.quizzes.completed}/{dashboardStats.quizzes.total}</p>
+                    <p className="text-xs text-blue-700 mt-1">Completed</p>
                   </div>
                 </div>
               </div>
@@ -476,9 +555,9 @@ const StudentDashboard = () => {
                     <Award className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Certificates</p>
-                    <p className="text-lg font-bold text-amber-900">0</p>
-                    <p className="text-xs text-amber-700 mt-1">Earned</p>
+                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Average Score</p>
+                    <p className="text-lg font-bold text-amber-900">{dashboardStats.quizzes.average.toFixed(1)}%</p>
+                    <p className="text-xs text-amber-700 mt-1">Quiz Performance</p>
                   </div>
                 </div>
               </div>
@@ -590,10 +669,27 @@ const StudentDashboard = () => {
 
         {/* Content Area */}
         <div className="p-8">
-          {/* Overview Tab */}
+          {/* Overview Tab - Merged with content from both codes */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* Batch & TPO Information */}
+              {/* Overdue Alert from second code */}
+              {dashboardStats.assignments.overdue > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <AlertCircle className="w-6 h-6 text-red-600 mr-3" />
+                    <div>
+                      <p className="font-medium text-red-800">
+                        You have {dashboardStats.assignments.overdue} overdue assignment{dashboardStats.assignments.overdue !== 1 ? 's' : ''}
+                      </p>
+                      <p className="text-sm text-red-600">
+                        Please contact your trainer if you need assistance.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Batch & TPO Information from first code */}
               <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
                 <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
                   <GraduationCap className="h-6 w-6 text-blue-600" />
@@ -680,7 +776,7 @@ const StudentDashboard = () => {
                 )}
               </div>
 
-              {/* Today's Classes */}
+              {/* Today's Classes from first code */}
               {todaySchedule.length > 0 && (
                 <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
                   <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
@@ -721,7 +817,102 @@ const StudentDashboard = () => {
                 </div>
               )}
 
-              {/* Quick Actions */}
+              {/* Recent Activity from second code */}
+              <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
+                <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                  <Activity className="h-6 w-6 text-blue-600" />
+                  Recent Activity
+                </h3>
+                {recentActivity.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-xl">
+                    <Activity className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 font-medium">No recent activity</p>
+                    <p className="text-gray-400 text-sm">Your learning progress will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {recentActivity.map((activity, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          {activity.type === 'quiz' ? (
+                            <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full">
+                              <CheckSquare className="w-4 h-4 text-blue-600" />
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-full">
+                              <FileText className="w-4 h-4 text-green-600" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-gray-900">{activity.title}</p>
+                            <p className="text-sm text-gray-500">{activity.subject}</p>
+                          </div>
+                        </div>
+                        {activity.score !== undefined && (
+                          <div className={`text-sm font-medium ${
+                            activity.score >= 80 ? 'text-green-600' : 
+                            activity.score >= 60 ? 'text-yellow-600' : 'text-red-600'
+                          }`}>
+                            {activity.score.toFixed(1)}%
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Upcoming Deadlines from second code */}
+              <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
+                <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+                  <Calendar className="h-6 w-6 text-blue-600" />
+                  Upcoming Deadlines
+                </h3>
+                {upcomingDeadlines.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-xl">
+                    <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500 font-medium">No upcoming deadlines</p>
+                    <p className="text-gray-400 text-sm">Assignments and quizzes will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {upcomingDeadlines.map((deadline, index) => {
+                      const isUrgent = new Date(deadline.dueDate) - new Date() < 24 * 60 * 60 * 1000;
+                      return (
+                        <div key={index} className={`p-3 rounded-lg ${isUrgent ? 'bg-red-50 border border-red-200' : 'bg-gray-50'}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              {deadline.type === 'quiz' ? (
+                                <div className={`flex items-center justify-center w-8 h-8 rounded-full ${isUrgent ? 'bg-red-100' : 'bg-blue-100'}`}>
+                                  <CheckSquare className={`w-4 h-4 ${isUrgent ? 'text-red-600' : 'text-blue-600'}`} />
+                                </div>
+                              ) : (
+                                <div className={`flex items-center justify-center w-8 h-8 rounded-full ${isUrgent ? 'bg-red-100' : 'bg-green-100'}`}>
+                                  <FileText className={`w-4 h-4 ${isUrgent ? 'text-red-600' : 'text-green-600'}`} />
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-medium text-gray-900">{deadline.title}</p>
+                                <p className="text-sm text-gray-500">{deadline.subject}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className={`text-sm font-medium ${isUrgent ? 'text-red-600' : 'text-gray-700'}`}>
+                                {new Date(deadline.dueDate).toLocaleDateString()}
+                              </p>
+                              <p className={`text-xs ${isUrgent ? 'text-red-500' : 'text-gray-500'}`}>
+                                {new Date(deadline.dueDate).toLocaleTimeString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Actions from first code */}
               <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
                 <h3 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -761,7 +952,7 @@ const StudentDashboard = () => {
             </div>
           )}
 
-          {/* Trainers Tab */}
+          {/* Trainers Tab from first code */}
           {activeTab === 'trainers' && (
             <div className="space-y-6">
               {placementBatchInfo ? (
@@ -771,7 +962,6 @@ const StudentDashboard = () => {
                     Your Training Team ({placementBatchInfo.totalTrainers} Trainers)
                   </h3>
                   
-                  {/* Time Slot Based Trainer Display */}
                   {Object.entries(placementBatchInfo.trainerSchedule).map(([timeSlot, trainers]) => (
                     trainers.length > 0 && (
                       <div key={timeSlot} className="mb-8">
@@ -844,7 +1034,7 @@ const StudentDashboard = () => {
             </div>
           )}
 
-          {/* Schedule Tab */}
+          {/* Schedule Tab from first code */}
           {activeTab === 'schedule' && (
             <div className="space-y-6">
               {placementBatchInfo ? (
@@ -896,7 +1086,7 @@ const StudentDashboard = () => {
             </div>
           )}
 
-          {/* Student Component Tabs */}
+          {/* Use enhanced components from second code for these tabs */}
           {activeTab === 'assignments' && <StudentAssignment />}
           {activeTab === 'quizzes' && <StudentQuiz />}
           {activeTab === 'resources' && <StudentResources />}
@@ -906,7 +1096,7 @@ const StudentDashboard = () => {
         </div>
       </div>
 
-      {/* Trainer Detail Modal */}
+      {/* Trainer Detail Modal from first code */}
       {selectedTrainer && (
         <div className="fixed inset-0 bg-black/10 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
           <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl">

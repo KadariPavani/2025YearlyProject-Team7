@@ -1,4 +1,4 @@
-// This is your Quiz.js schema - No changes needed, kept as is.
+// Updated Quiz.js - Supports both regular batches and placement training batches
 const mongoose = require('mongoose');
 
 const QuizSchema = new mongoose.Schema({
@@ -78,10 +78,24 @@ const QuizSchema = new mongoose.Schema({
     ref: 'Trainer',
     required: true
   },
+  
+  // UPDATED: Support both batch types
   assignedBatches: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Batch'
+    ref: 'Batch'  // For regular batches
   }],
+  assignedPlacementBatches: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PlacementTrainingBatch'  // For CRT placement training batches
+  }],
+  
+  // NEW: Batch type indicator
+  batchType: {
+    type: String,
+    enum: ['regular', 'placement', 'both'],
+    default: 'regular'
+  },
+  
   shuffleQuestions: {
     type: Boolean,
     default: false
@@ -115,6 +129,11 @@ const QuizSchema = new mongoose.Schema({
     attemptNumber: {
       type: Number,
       default: 1
+    },
+    performanceCategory: {
+      type: String,
+      enum: ['green', 'yellow', 'red'],
+      default: 'red'
     }
   }],
   status: {
@@ -125,5 +144,29 @@ const QuizSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Virtual to get all assigned batches (both regular and placement)
+QuizSchema.virtual('allAssignedBatches').get(function() {
+  return [...(this.assignedBatches || []), ...(this.assignedPlacementBatches || [])];
+});
+
+// Method to check if a student can access this quiz
+QuizSchema.methods.canStudentAccess = function(student) {
+  // Check if student's batch is in assigned batches
+  if (this.assignedBatches.some(batchId => 
+    student.batchId && student.batchId.toString() === batchId.toString())) {
+    return true;
+  }
+  
+  // Check if student's placement batch is in assigned placement batches
+  if (this.assignedPlacementBatches.some(batchId => 
+    student.placementTrainingBatchId && student.placementTrainingBatchId.toString() === batchId.toString())) {
+    return true;
+  }
+  
+  return false;
+};
+
+QuizSchema.set('toJSON', { virtuals: true });
 
 module.exports = mongoose.model('Quiz', QuizSchema);
