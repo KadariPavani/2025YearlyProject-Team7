@@ -1,118 +1,34 @@
-// Updated Quiz.js - Supports both regular batches and placement training batches
 const mongoose = require('mongoose');
 
-const QuizSchema = new mongoose.Schema({
-  title: {
-    type: String,
-    required: [true, 'Quiz title is required'],
-    trim: true
-  },
-  description: {
-    type: String,
-    maxlength: 1000
-  },
-  subject: {
-    type: String,
-    required: [true, 'Subject is required'],
-    trim: true
-  },
-  scheduledDate: {
-    type: Date,
-    required: [true, 'Scheduled date is required']
-  },
-  startTime: {
-    type: String,
-    required: [true, 'Start time is required']
-  },
-  endTime: {
-    type: String,
-    required: [true, 'End time is required']
-  },
-  duration: {
-    type: Number,
-    required: [true, 'Duration is required']
-  },
+const quizSchema = new mongoose.Schema({
+  title: { type: String, required: true, trim: true },
+  description: { type: String, trim: true },
+  subject: { type: String, required: true, trim: true },
+  scheduledDate: { type: Date, required: true },
+  startTime: { type: String, required: true }, // e.g., "14:30"
+  endTime: { type: String, required: true }, // e.g., "16:30"
+  duration: { type: Number, required: true, min: 1 },
   questions: [{
-    questionText: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    questionType: {
-      type: String,
-      enum: ['mcq', 'true-false', 'fill-blank'],
-      default: 'mcq'
-    },
-    options: [{
-      text: {
-        type: String,
-        // required: true
-      },
-      isCorrect: {
-        type: Boolean,
-        default: false
-      }
-    }],
+    questionText: { type: String, required: true },
+    questionType: { type: String, enum: ['mcq', 'true-false', 'fill-blank'], required: true },
+    options: [{ text: String, isCorrect: Boolean }],
     correctAnswer: String,
-    marks: {
-      type: Number,
-      default: 1
-    },
-    difficulty: {
-      type: String,
-      enum: ['easy', 'medium', 'hard'],
-      default: 'medium'
-    },
+    marks: { type: Number, default: 1 },
+    difficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'medium' },
     explanation: String
   }],
-  totalMarks: {
-    type: Number,
-    required: true
-  },
-  passingMarks: {
-    type: Number,
-    required: true
-  },
-  trainerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Trainer',
-    required: true
-  },
-  
-  // UPDATED: Support both batch types
-  assignedBatches: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Batch'  // For regular batches
-  }],
-  assignedPlacementBatches: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'PlacementTrainingBatch'  // For CRT placement training batches
-  }],
-  
-  // NEW: Batch type indicator
-  batchType: {
-    type: String,
-    enum: ['regular', 'placement', 'both'],
-    default: 'regular'
-  },
-  
-  shuffleQuestions: {
-    type: Boolean,
-    default: false
-  },
-  showResultsImmediately: {
-    type: Boolean,
-    default: true
-  },
-  allowRetake: {
-    type: Boolean,
-    default: false
-  },
+  totalMarks: { type: Number, required: true },
+  passingMarks: { type: Number, required: true },
+  trainerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Trainer', required: true },
+  assignedBatches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],
+  assignedPlacementBatches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PlacementTrainingBatch' }],
+  batchType: { type: String, enum: ['regular', 'placement', 'both'], default: 'regular' },
+  shuffleQuestions: { type: Boolean, default: false },
+  showResultsImmediately: { type: Boolean, default: true },
+  allowRetake: { type: Boolean, default: false },
+  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   submissions: [{
-    studentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Student'
-    },
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
     answers: [{
       questionIndex: Number,
       selectedOption: String,
@@ -122,51 +38,40 @@ const QuizSchema = new mongoose.Schema({
     score: Number,
     percentage: Number,
     timeSpent: Number,
-    submittedAt: {
-      type: Date,
-      default: Date.now
-    },
-    attemptNumber: {
-      type: Number,
-      default: 1
-    },
-    performanceCategory: {
-      type: String,
-      enum: ['green', 'yellow', 'red'],
-      default: 'red'
-    }
+    performanceCategory: String,
+    attemptNumber: Number,
+    submittedAt: Date
   }],
-  status: {
-    type: String,
-    enum: ['active', 'inactive'],
-    default: 'active'
-  }
-}, {
-  timestamps: true
+  createdAt: { type: Date, default: Date.now }
 });
 
-// Virtual to get all assigned batches (both regular and placement)
-QuizSchema.virtual('allAssignedBatches').get(function() {
-  return [...(this.assignedBatches || []), ...(this.assignedPlacementBatches || [])];
-});
-
-// Method to check if a student can access this quiz
-QuizSchema.methods.canStudentAccess = function(student) {
-  // Check if student's batch is in assigned batches
-  if (this.assignedBatches.some(batchId => 
-    student.batchId && student.batchId.toString() === batchId.toString())) {
-    return true;
-  }
+// Method to check if a student can access the quiz
+quizSchema.methods.canStudentAccess = function(student) {
+  const now = new Date();
   
-  // Check if student's placement batch is in assigned placement batches
-  if (this.assignedPlacementBatches.some(batchId => 
-    student.placementTrainingBatchId && student.placementTrainingBatchId.toString() === batchId.toString())) {
-    return true;
-  }
+  // Combine scheduledDate and startTime/endTime for comparison
+  const [startHours, startMinutes] = this.startTime.split(':').map(Number);
+  const [endHours, endMinutes] = this.endTime.split(':').map(Number);
   
-  return false;
+  const quizStart = new Date(this.scheduledDate);
+  quizStart.setHours(startHours, startMinutes, 0, 0);
+  
+  const quizEnd = new Date(this.scheduledDate);
+  quizEnd.setHours(endHours, endMinutes, 0, 0);
+  
+  // Ensure quiz is active and within time window
+  const isWithinTimeWindow = this.status === 'active' && now >= quizStart && now <= quizEnd;
+  
+  // Check batch assignment
+  const isInRegularBatch = this.batchType !== 'placement' && 
+    student.batchId && 
+    this.assignedBatches.map(id => id.toString()).includes(student.batchId.toString());
+  
+  const isInPlacementBatch = this.batchType !== 'regular' && 
+    student.placementTrainingBatchId && 
+    this.assignedPlacementBatches.map(id => id.toString()).includes(student.placementTrainingBatchId.toString());
+  
+  return isWithinTimeWindow && (isInRegularBatch || isInPlacementBatch);
 };
 
-QuizSchema.set('toJSON', { virtuals: true });
-
-module.exports = mongoose.model('Quiz', QuizSchema);
+module.exports = mongoose.model('Quiz', quizSchema);

@@ -1,10 +1,10 @@
-// Updated quizroutes.js - Enhanced with placement training batch support
 const express = require('express');
 const router = express.Router();
 const Quiz = require('../models/Quiz');
 const Batch = require('../models/Batch');
 const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const Student = require('../models/Student');
+const Trainer = require('../models/Trainer');
 const generalAuth = require('../middleware/generalAuth');
 const mongoose = require('mongoose');
 
@@ -48,6 +48,17 @@ const getTrainerRegularBatches = async (trainerId) => {
   }
 };
 
+// Modified: Helper function to get trainer's subject (singular)
+const getTrainerSubject = async (trainerId) => {
+  try {
+    const trainer = await Trainer.findById(trainerId).select('subjectDealing');
+    return trainer?.subjectDealing ? [trainer.subjectDealing] : []; // Return as array for consistency
+  } catch (error) {
+    console.error('Error fetching trainer subject:', error);
+    return [];
+  }
+};
+
 // Get all batches for trainer (both regular and placement)
 router.get('/batches', generalAuth, async (req, res) => {
   try {
@@ -68,6 +79,18 @@ router.get('/batches', generalAuth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching batches:', error);
     res.status(500).json({ message: 'Failed to fetch batches' });
+  }
+});
+
+// Modified: Get trainer's subject
+router.get('/subjects', generalAuth, async (req, res) => {
+  try {
+    const trainerId = req.user.id;
+    const subject = await getTrainerSubject(trainerId);
+    res.json(subject); // Returns array with single subject
+  } catch (error) {
+    console.error('Error fetching subject:', error);
+    res.status(500).json({ message: 'Failed to fetch subject' });
   }
 });
 
@@ -95,6 +118,12 @@ router.post('/', generalAuth, async (req, res) => {
     } = req.body;
 
     const trainerId = req.user.id;
+
+    // Validate subject
+    const trainerSubject = await getTrainerSubject(trainerId);
+    if (!trainerSubject.includes(subject)) {
+      return res.status(400).json({ message: 'Invalid subject for this trainer' });
+    }
 
     // Validate batch assignments based on type
     let validatedRegularBatches = [];
@@ -438,6 +467,14 @@ router.put('/:id', generalAuth, async (req, res) => {
     const quiz = await Quiz.findById(quizId);
     if (!quiz || quiz.trainerId.toString() !== req.user.id) {
       return res.status(404).json({ message: 'Quiz not found or not authorized' });
+    }
+
+    // Validate subject if updated
+    if (updateData.subject) {
+      const trainerSubject = await getTrainerSubject(req.user.id);
+      if (!trainerSubject.includes(updateData.subject)) {
+        return res.status(400).json({ message: 'Invalid subject for this trainer' });
+      }
     }
 
     // Update the quiz

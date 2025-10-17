@@ -1,4 +1,3 @@
-// Updated Trainer Quiz.jsx - Enhanced with placement training batch support
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { PlusCircle, Users, BarChart, Trash2, CheckSquare, BookOpen, Calendar } from 'lucide-react';
@@ -10,10 +9,11 @@ const Quiz = () => {
     placement: [],
     all: []
   });
+  const [subject, setSubject] = useState(''); // Modified: Single subject string
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    subject: '',
+    subject: '', // Will be set to subjectDealing
     scheduledDate: '',
     startTime: '',
     endTime: '',
@@ -45,6 +45,7 @@ const Quiz = () => {
   useEffect(() => {
     fetchQuizzes();
     fetchBatches();
+    fetchSubject(); // Modified: Fetch single subject
   }, []);
 
   const fetchQuizzes = async () => {
@@ -82,6 +83,25 @@ const Quiz = () => {
     }
   };
 
+  // Modified: Fetch single subject
+  const fetchSubject = async () => {
+    try {
+      const token = localStorage.getItem('trainerToken') || localStorage.getItem('userToken');
+      if (!token) throw new Error('No trainer token found');
+
+      const response = await axios.get('/api/quizzes/subjects', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const fetchedSubject = Array.isArray(response.data) && response.data.length > 0 ? response.data[0] : '';
+      setSubject(fetchedSubject);
+      setFormData(prev => ({ ...prev, subject: fetchedSubject }));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch subject');
+      console.error('Error fetching subject:', err);
+    }
+  };
+
   const handleInputChange = (e, index, optionIndex) => {
     const { name, value, type, checked } = e.target;
 
@@ -96,7 +116,7 @@ const Quiz = () => {
         const newQuestions = [...formData.questions];
         newQuestions[index][name] = type === 'checkbox' ? checked : value;
         setFormData({ ...formData, questions: newQuestions });
-      } else {
+      } else if (name !== 'subject') { // Prevent manual subject changes
         // Form-level changes
         setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
       }
@@ -124,7 +144,6 @@ const Quiz = () => {
     } else if (formData.batchType === 'placement') {
       setFormData({ ...formData, assignedPlacementBatches: selectedBatches });
     } else if (formData.batchType === 'both') {
-      // Handle both case - you might want different UI for this
       setFormData({ ...formData, assignedBatches: selectedBatches });
     }
   };
@@ -185,7 +204,7 @@ const Quiz = () => {
       setFormData({
         title: '',
         description: '',
-        subject: '',
+        subject: subject, // Keep subject as fetched
         scheduledDate: '',
         startTime: '',
         endTime: '',
@@ -314,10 +333,9 @@ const Quiz = () => {
               type="text"
               name="subject"
               value={formData.subject}
-              onChange={handleInputChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter subject"
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+              placeholder="Subject (auto-filled)"
             />
           </div>
         </div>
@@ -711,7 +729,7 @@ const Quiz = () => {
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !subject}
             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
             {loading ? 'Creating...' : 'Create Quiz'}
