@@ -5,7 +5,6 @@ const Quiz = require('../models/Quiz');
 const Batch = require('../models/Batch');
 const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const Student = require('../models/Student');
-const protectTrainer = require('../middleware/protectTrainer');
 const generalAuth = require('../middleware/generalAuth');
 const mongoose = require('mongoose');
 
@@ -50,7 +49,7 @@ const getTrainerRegularBatches = async (trainerId) => {
 };
 
 // Get all batches for trainer (both regular and placement)
-router.get('/batches', protectTrainer, async (req, res) => {
+router.get('/batches', generalAuth, async (req, res) => {
   try {
     const trainerId = req.user.id;
     
@@ -73,7 +72,7 @@ router.get('/batches', protectTrainer, async (req, res) => {
 });
 
 // Create a new quiz
-router.post('/', protectTrainer, async (req, res) => {
+router.post('/', generalAuth, async (req, res) => {
   try {
     const {
       title,
@@ -154,7 +153,7 @@ router.post('/', protectTrainer, async (req, res) => {
 });
 
 // Get all quizzes for the trainer
-router.get('/', protectTrainer, async (req, res) => {
+router.get('/', generalAuth, async (req, res) => {
   try {
     const quizzes = await Quiz.find({ trainerId: req.user.id })
       .populate([
@@ -172,7 +171,7 @@ router.get('/', protectTrainer, async (req, res) => {
 });
 
 // Get a single quiz by ID for trainer
-router.get('/:id', protectTrainer, async (req, res) => {
+router.get('/:id', generalAuth, async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id)
       .populate([
@@ -426,7 +425,7 @@ router.post('/:id/submit', generalAuth, async (req, res) => {
 });
 
 // Update a quiz
-router.put('/:id', protectTrainer, async (req, res) => {
+router.put('/:id', generalAuth, async (req, res) => {
   try {
     const quizId = req.params.id;
     const updateData = req.body;
@@ -459,7 +458,7 @@ router.put('/:id', protectTrainer, async (req, res) => {
 });
 
 // Delete a quiz
-router.delete('/:id', protectTrainer, async (req, res) => {
+router.delete('/:id', generalAuth, async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id);
 
@@ -476,7 +475,7 @@ router.delete('/:id', protectTrainer, async (req, res) => {
 });
 
 // Get batch progress for a quiz (trainer)
-router.get('/:id/batch-progress', protectTrainer, async (req, res) => {
+router.get('/:id/batch-progress', generalAuth, async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id)
       .populate([

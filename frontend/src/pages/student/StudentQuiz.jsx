@@ -160,9 +160,17 @@ export default function StudentQuiz() {
 
   const getQuizStatus = (quiz) => {
     const now = new Date();
-    const scheduledDate = new Date(quiz.scheduledDate);
-    const startTime = new Date(`${quiz.scheduledDate} ${quiz.startTime}`);
-    const endTime = new Date(`${quiz.scheduledDate} ${quiz.endTime}`);
+
+    // Properly format scheduledDate to YYYY-MM-DD
+    const scheduled = new Date(quiz.scheduledDate);
+    const year = scheduled.getFullYear();
+    const month = String(scheduled.getMonth() + 1).padStart(2, '0');
+    const day = String(scheduled.getDate()).padStart(2, '0');
+    const scheduledDateStr = `${year}-${month}-${day}`;
+
+    // Assume startTime and endTime are in 'HH:MM' format, add :00 for seconds
+    const startTime = new Date(`${scheduledDateStr}T${quiz.startTime}:00`);
+    const endTime = new Date(`${scheduledDateStr}T${quiz.endTime}:00`);
 
     if (quiz.hasSubmitted) {
       return { status: 'completed', color: 'bg-green-100 text-green-800', text: 'Completed' };

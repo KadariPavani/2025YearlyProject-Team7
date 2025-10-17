@@ -1,6 +1,6 @@
 const { getTokenFromRequest, verifyToken } = require('../utils/authToken');
 
-const protectTrainer = async (req, res, next) => {
+const generalAuth = async (req, res, next) => {
   try {
     const token = getTokenFromRequest(req);
     if (!token) {
@@ -11,9 +11,9 @@ const protectTrainer = async (req, res, next) => {
     req.user = { id: decoded.id }; // Adjust based on your JWT payload
     next();
   } catch (error) {
-    console.error('ProtectTrainer error:', error.message);
+    console.error('generalAuth error:', error.message);
     res.status(401).json({ message: 'Not authorized, token invalid' });
   }
 };
 
-module.exports = protectTrainer;
+module.exports = generalAuth;

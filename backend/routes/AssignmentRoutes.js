@@ -5,7 +5,6 @@ const Assignment = require('../models/Assignment');
 const Batch = require('../models/Batch');
 const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const Student = require('../models/Student');
-const protectTrainer = require('../middleware/protectTrainer');
 const generalAuth = require('../middleware/generalAuth');
 const mongoose = require('mongoose');
 const multer = require('multer');
@@ -82,7 +81,7 @@ const getTrainerRegularBatches = async (trainerId) => {
 };
 
 // Get batches for trainer (both regular and placement)
-router.get('/batches', protectTrainer, async (req, res) => {
+router.get('/batches', generalAuth, async (req, res) => {
   try {
     const trainerId = req.user.id;
     
@@ -105,7 +104,7 @@ router.get('/batches', protectTrainer, async (req, res) => {
 });
 
 // Create a new assignment with file upload support
-router.post('/', protectTrainer, upload.array('attachments', 5), async (req, res) => {
+router.post('/', generalAuth, upload.array('attachments', 5), async (req, res) => {
   try {
     const {
       title,
@@ -200,7 +199,7 @@ router.post('/', protectTrainer, upload.array('attachments', 5), async (req, res
 });
 
 // Get all assignments for the trainer
-router.get('/', protectTrainer, async (req, res) => {
+router.get('/', generalAuth, async (req, res) => {
   try {
     const assignments = await Assignment.find({ trainerId: req.user.id })
       .populate([
@@ -218,7 +217,7 @@ router.get('/', protectTrainer, async (req, res) => {
 });
 
 // Get a single assignment by ID for trainer
-router.get('/:id', protectTrainer, async (req, res) => {
+router.get('/:id', generalAuth, async (req, res) => {
   try {
     const assignment = await Assignment.findById(req.params.id)
       .populate([
@@ -239,7 +238,7 @@ router.get('/:id', protectTrainer, async (req, res) => {
 });
 
 // Update an assignment
-router.put('/:id', protectTrainer, upload.array('newAttachments', 5), async (req, res) => {
+router.put('/:id', generalAuth, upload.array('newAttachments', 5), async (req, res) => {
   try {
     const assignment = await Assignment.findById(req.params.id);
 
@@ -321,7 +320,7 @@ router.put('/:id', protectTrainer, upload.array('newAttachments', 5), async (req
 });
 
 // Delete an assignment
-router.delete('/:id', protectTrainer, async (req, res) => {
+router.delete('/:id', generalAuth, async (req, res) => {
   try {
     const assignment = await Assignment.findById(req.params.id);
 
@@ -559,7 +558,7 @@ router.post('/:id/submit', generalAuth, upload.array('submissionFiles', 5), asyn
 });
 
 // Grade assignment submission (for trainers)
-router.put('/:assignmentId/submissions/:submissionId/grade', protectTrainer, async (req, res) => {
+router.put('/:assignmentId/submissions/:submissionId/grade', generalAuth, async (req, res) => {
   try {
     const { assignmentId, submissionId } = req.params;
     const { score, remarks, feedback } = req.body;
@@ -596,7 +595,7 @@ router.put('/:assignmentId/submissions/:submissionId/grade', protectTrainer, asy
 });
 
 // Get assignment submissions for trainer
-router.get('/:id/submissions', protectTrainer, async (req, res) => {
+router.get('/:id/submissions', generalAuth, async (req, res) => {
   try {
     const assignment = await Assignment.findById(req.params.id)
       .populate([

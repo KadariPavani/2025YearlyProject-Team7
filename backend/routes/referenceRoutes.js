@@ -5,7 +5,6 @@ const Reference = require('../models/Reference');
 const Batch = require('../models/Batch');
 const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const Student = require('../models/Student');
-const protectTrainer = require('../middleware/protectTrainer');
 const generalAuth = require('../middleware/generalAuth');
 const mongoose = require('mongoose');
 
@@ -50,7 +49,7 @@ const getTrainerRegularBatches = async (trainerId) => {
 };
 
 // Get batches for trainer (both regular and placement)
-router.get('/batches', protectTrainer, async (req, res) => {
+router.get('/batches', generalAuth, async (req, res) => {
   try {
     const trainerId = req.user.id;
     
@@ -73,7 +72,7 @@ router.get('/batches', protectTrainer, async (req, res) => {
 });
 
 // Create a new reference (trainer only)
-router.post('/', protectTrainer, async (req, res) => {
+router.post('/', generalAuth, async (req, res) => {
   try {
     const {
       topicName,
@@ -179,7 +178,7 @@ router.post('/', protectTrainer, async (req, res) => {
 });
 
 // Get all references for the trainer
-router.get('/', protectTrainer, async (req, res) => {
+router.get('/', generalAuth, async (req, res) => {
   try {
     const { search, subject, difficulty, batchType, page = 1, limit = 10 } = req.query;
     
@@ -227,7 +226,7 @@ router.get('/', protectTrainer, async (req, res) => {
 });
 
 // Get a single reference by ID for trainer
-router.get('/:id', protectTrainer, async (req, res) => {
+router.get('/:id', generalAuth, async (req, res) => {
   try {
     const reference = await Reference.findById(req.params.id)
       .populate([
@@ -249,7 +248,7 @@ router.get('/:id', protectTrainer, async (req, res) => {
 });
 
 // Update a reference
-router.put('/:id', protectTrainer, async (req, res) => {
+router.put('/:id', generalAuth, async (req, res) => {
   try {
     const reference = await Reference.findById(req.params.id);
 
@@ -314,7 +313,7 @@ router.put('/:id', protectTrainer, async (req, res) => {
 });
 
 // Delete a reference
-router.delete('/:id', protectTrainer, async (req, res) => {
+router.delete('/:id', generalAuth, async (req, res) => {
   try {
     const reference = await Reference.findById(req.params.id);
 
@@ -531,7 +530,7 @@ router.post('/:id/rate', generalAuth, async (req, res) => {
 });
 
 // Get reference analytics for trainer
-router.get('/:id/analytics', protectTrainer, async (req, res) => {
+router.get('/:id/analytics', generalAuth, async (req, res) => {
   try {
     const reference = await Reference.findById(req.params.id)
       .populate([
