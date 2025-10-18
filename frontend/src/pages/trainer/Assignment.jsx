@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FileText, Upload, Trash2 } from 'lucide-react';
+import { FileText, Upload, Trash2, Users, Eye, Download, X } from 'lucide-react';
 
 const Assignment = () => {
   const [assignments, setAssignments] = useState([]);
@@ -26,6 +26,10 @@ const Assignment = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [gradingSubmission, setGradingSubmission] = useState(null);
+  const [gradeForm, setGradeForm] = useState({ score: '', feedback: '' });
 
   useEffect(() => {
     fetchAssignments();
@@ -60,7 +64,6 @@ const Assignment = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBatches(response.data || { regular: [], placement: [], all: [] });
-      console.log('Fetched batches:', response.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch batches');
       console.error('Error fetching batches:', err);
@@ -84,6 +87,43 @@ const Assignment = () => {
     }
   };
 
+  const fetchSubmissions = async (assignmentId) => {
+    try {
+      const token = localStorage.getItem('trainerToken');
+      const response = await axios.get(`/api/assignments/${assignmentId}/submissions`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSubmissions(response.data.submissions || []);
+      setSelectedAssignment(assignmentId);
+      setActiveTab('submissions');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch submissions');
+    }
+  };
+
+  const handleGradeSubmit = async () => {
+    if (!gradingSubmission || !gradeForm.score) {
+      setError('Please enter a score');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('trainerToken');
+      await axios.put(
+        `/api/assignments/${selectedAssignment}/submissions/${gradingSubmission._id}/grade`,
+        gradeForm,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      setGradingSubmission(null);
+      setGradeForm({ score: '', feedback: '' });
+      await fetchSubmissions(selectedAssignment);
+      alert('Submission graded successfully!');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to grade submission');
+    }
+  };
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -104,13 +144,12 @@ const Assignment = () => {
         'application/zip',
         'application/x-rar-compressed'
       ].includes(file.type);
-      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB
+      const isValidSize = file.size <= 10 * 1024 * 1024;
       if (!isValidType) setError(`Invalid file type for ${file.name}`);
       if (!isValidSize) setError(`File ${file.name} exceeds 10MB limit`);
       return isValidType && isValidSize;
     });
     setFormData(prev => ({ ...prev, files }));
-    console.log('Selected files:', files.map(f => ({ name: f.name, size: f.size, type: f.type })));
   };
 
   const handleBatchTypeChange = (e) => {
@@ -150,7 +189,6 @@ const Assignment = () => {
       let response;
 
       if (hasFiles) {
-        // Send multipart/form-data request with files
         const formDataToSend = new FormData();
         formDataToSend.append('title', formData.title);
         formDataToSend.append('description', formData.description);
@@ -170,11 +208,6 @@ const Assignment = () => {
           formDataToSend.append('files', file);
         });
 
-        console.log('Submitting formData for assignment creation:');
-        for (let [key, value] of formDataToSend.entries()) {
-          console.log(`FormData entry: ${key}=${value.name || value}`);
-        }
-
         response = await axios.post('/api/assignments', formDataToSend, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -182,7 +215,6 @@ const Assignment = () => {
           }
         });
       } else {
-        // Send JSON request without files
         const data = {
           title: formData.title,
           description: formData.description,
@@ -198,8 +230,6 @@ const Assignment = () => {
           maxAttempts: formData.maxAttempts,
           rubric: formData.rubric
         };
-
-        console.log('Submitting JSON for assignment creation:', data);
 
         response = await axios.post('/api/assignments', data, {
           headers: {
@@ -227,7 +257,6 @@ const Assignment = () => {
       });
       setActiveTab('list');
       await fetchAssignments();
-      console.log('Assignment created:', response.data);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create assignment');
       console.error('Error creating assignment:', err);
@@ -268,6 +297,224 @@ const Assignment = () => {
       default:
         return [];
     }
+  };
+
+  // Enhanced file icon function
+  const getFileIcon = (fileName, mimeType = '') => {
+    const ext = fileName.split('.').pop().toLowerCase();
+    
+    if (mimeType) {
+      if (mimeType.startsWith('image/')) return '🖼️';
+      if (mimeType === 'application/pdf') return '📄';
+      if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
+      if (mimeType.includes('zip') || mimeType.includes('rar')) return '🗜️';
+      if (mimeType.startsWith('text/')) return '📃';
+    }
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) return '🖼️';
+    if (['pdf'].includes(ext)) return '📄';
+    if (['doc', 'docx'].includes(ext)) return '📝';
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '🗜️';
+    if (['txt', 'csv', 'json', 'xml', 'js', 'html', 'css'].includes(ext)) return '📃';
+    
+    return '📎';
+  };
+
+  // Enhanced file view handler
+  const handleFileView = (e, file) => {
+    if (file.mimeType === 'application/pdf' || file.mimeType?.startsWith('image/')) {
+      e.preventDefault();
+      const viewUrl = file.url || file.downloadUrl;
+      if (viewUrl) {
+        window.open(viewUrl, '_blank', 'noopener,noreferrer');
+      }
+    }
+  };
+
+  // Enhanced file download URL
+  const getFileDownloadUrl = (file) => {
+    return file.downloadUrl || file.url || '#';
+  };
+
+  const renderSubmissionsView = () => {
+    const assignment = assignments.find(a => a._id === selectedAssignment);
+    
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold flex items-center">
+            <Users className="w-6 h-6 mr-2 text-blue-600" />
+            Submissions: {assignment?.title}
+          </h2>
+          <button
+            onClick={() => { setActiveTab('list'); setSelectedAssignment(null); }}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+          >
+            Back to Assignments
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            {error}
+            <button onClick={() => setError('')} className="float-right font-bold">×</button>
+          </div>
+        )}
+
+        <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+          <p><strong>Total Submissions:</strong> {submissions.length}</p>
+          <p><strong>Due Date:</strong> {assignment && new Date(assignment.dueDate).toLocaleString()}</p>
+          <p><strong>Total Marks:</strong> {assignment?.totalMarks}</p>
+        </div>
+
+        {submissions.length === 0 ? (
+          <div className="text-center py-8">
+            <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 text-lg">No submissions yet</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {submissions.map((submission) => (
+              <div key={submission._id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h3 className="font-semibold text-lg">{submission.studentId?.name || 'Unknown Student'}</h3>
+                    <p className="text-sm text-gray-600">Roll No: {submission.studentId?.rollNo || 'N/A'}</p>
+                    <p className="text-sm text-gray-600">
+                      Submitted: {new Date(submission.submittedAt).toLocaleString()}
+                      {submission.isLate && <span className="ml-2 text-red-600 font-medium">(Late)</span>}
+                    </p>
+                  </div>
+                  <div>
+                    {submission.score !== undefined && submission.score !== null ? (
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-green-600">{submission.score}/{assignment?.totalMarks}</p>
+                        <p className="text-xs text-gray-500">Graded</p>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setGradingSubmission(submission);
+                          setGradeForm({ score: '', feedback: submission.feedback || '' });
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                      >
+                        Grade
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-2">Submitted Files:</h4>
+                  <div className="space-y-2">
+                    {submission.files.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                        <div className="flex items-center">
+                          <span className="text-xl mr-2">{getFileIcon(file.originalName, file.mimeType)}</span>
+                          <span className="text-sm">{file.originalName}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={(e) => handleFileView(e, file)}
+                            className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                          >
+                            <Eye className="w-4 h-4 mr-1" />
+                            View
+                          </button>
+                          <a
+                            href={getFileDownloadUrl(file)}
+                            download={file.originalName}
+                            className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                          >
+                            <Download className="w-4 h-4 mr-1" />
+                            Download
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {submission.feedback && (
+                  <div className="mt-3 p-3 bg-yellow-50 rounded">
+                    <p className="text-sm font-medium text-gray-700">Feedback:</p>
+                    <p className="text-sm text-gray-600">{submission.feedback}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Grading Modal */}
+        {gradingSubmission && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold">Grade Submission</h3>
+                <button
+                  onClick={() => setGradingSubmission(null)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-600">Student: {gradingSubmission.studentId?.name}</p>
+                  <p className="text-sm text-gray-600">Roll No: {gradingSubmission.studentId?.rollNo}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Score * (out of {assignment?.totalMarks})
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={assignment?.totalMarks}
+                    value={gradeForm.score}
+                    onChange={(e) => setGradeForm({ ...gradeForm, score: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Feedback (Optional)
+                  </label>
+                  <textarea
+                    value={gradeForm.feedback}
+                    onChange={(e) => setGradeForm({ ...gradeForm, feedback: e.target.value })}
+                    rows="4"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Provide feedback to the student..."
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setGradingSubmission(null)}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleGradeSubmit}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Submit Grade
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const renderAssignmentForm = () => (
@@ -313,6 +560,17 @@ const Assignment = () => {
             onChange={handleInputChange}
             rows="3"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Instructions</label>
+          <textarea
+            name="instructions"
+            value={formData.instructions}
+            onChange={handleInputChange}
+            rows="3"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Provide detailed instructions for students..."
           />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -381,7 +639,9 @@ const Assignment = () => {
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Attachments (Optional)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Attachments (Optional) - Files for students
+          </label>
           <input
             type="file"
             multiple
@@ -389,6 +649,14 @@ const Assignment = () => {
             onChange={handleFileChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-md"
           />
+          <p className="text-xs text-gray-500 mt-1">
+            Upload reference materials, instructions, or resources for students (Max 10MB per file)
+          </p>
+          {formData.files.length > 0 && (
+            <div className="mt-2 text-sm text-gray-600">
+              Selected: {formData.files.map(f => f.name).join(', ')}
+            </div>
+          )}
         </div>
         <div className="flex justify-end gap-4">
           <button
@@ -450,6 +718,7 @@ const Assignment = () => {
                 <p><strong>Subject:</strong> {assignment.subject}</p>
                 <p><strong>Due:</strong> {new Date(assignment.dueDate).toLocaleDateString()}</p>
                 <p><strong>Marks:</strong> {assignment.totalMarks}</p>
+                <p><strong>Submissions:</strong> {assignment.submissions?.length || 0}</p>
                 <p><strong>Assigned to:</strong></p>
                 <div className="mt-1">
                   {assignment.assignedBatches?.length > 0 && (
@@ -464,6 +733,13 @@ const Assignment = () => {
                   )}
                 </div>
               </div>
+              <button
+                onClick={() => fetchSubmissions(assignment._id)}
+                className="mt-4 w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                View Submissions ({assignment.submissions?.length || 0})
+              </button>
             </div>
           ))}
         </div>
@@ -488,6 +764,7 @@ const Assignment = () => {
       </div>
       {activeTab === 'list' && renderAssignmentList()}
       {activeTab === 'create' && renderAssignmentForm()}
+      {activeTab === 'submissions' && renderSubmissionsView()}
     </div>
   );
 };

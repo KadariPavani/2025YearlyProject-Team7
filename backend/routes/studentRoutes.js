@@ -9,6 +9,7 @@ const generalAuth = require('../middleware/generalAuth');
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('../config/cloudinary');
+const path = require('path'); // Add this at the top with other requires
 
 const router = express.Router();
 
@@ -27,19 +28,58 @@ const profileUpload = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 }).single('profileImage');
 
-// Configure Multer with Cloudinary storage for resume
 const resumeStorage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'resumes',
-    allowed_formats: ['pdf', 'doc', 'docx'],
-    resource_type: 'raw'
+  params: async (req, file) => {
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 8);
+    
+    // Extract file extension
+    const fileExt = path.extname(file.originalname).toLowerCase();
+    
+    // Clean filename without extension
+    const cleanName = path.basename(file.originalname, fileExt)
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '');
+    
+    // Map extensions
+    const extensionMap = {
+      '.pdf': 'pdf',
+      '.doc': 'doc',
+      '.docx': 'docx'
+    };
+    
+    const format = extensionMap[fileExt] || fileExt.replace('.', '');
+    
+    // CRITICAL FIX: Include extension in public_id!
+    const publicIdWithExtension = `resume_${timestamp}_${randomString}_${cleanName}.${format}`;
+    
+    return {
+      folder: 'resumes',
+      resource_type: 'raw',
+      public_id: publicIdWithExtension,  // ← Now includes .pdf extension
+      use_filename: false,
+      unique_filename: false
+    };
   }
 });
 
 const resumeUpload = multer({
   storage: resumeStorage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only PDF, DOC, and DOCX are allowed.'), false);
+    }
+  }
 }).single('resume');
 
 // Function to get TPO based on student's assigned batch

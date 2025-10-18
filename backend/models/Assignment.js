@@ -1,4 +1,6 @@
+// FIXED Assignment Model with Extension Field
 // models/Assignment.js
+
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
@@ -16,7 +18,10 @@ const assignmentSchema = new Schema({
     url: String,
     publicId: String,
     originalName: String,
-    uploadedAt: Date
+    uploadedAt: Date,
+    size: Number,
+    mimeType: String,
+    extension: String // ADDED: Store file extension separately
   }],
   submissions: [{
     studentId: { type: Schema.Types.ObjectId, ref: 'Student' },
@@ -24,7 +29,10 @@ const assignmentSchema = new Schema({
       url: String,
       publicId: String,
       originalName: String,
-      uploadedAt: Date
+      uploadedAt: Date,
+      size: Number,
+      mimeType: String,
+      extension: String // ADDED: Store file extension separately
     }],
     submittedAt: Date,
     isLate: Boolean,
@@ -52,5 +60,19 @@ assignmentSchema.methods.canStudentAccess = function(student) {
     ))
   );
 };
+
+// Virtual to get submission count
+assignmentSchema.virtual('submissionCount').get(function() {
+  return this.submissions ? this.submissions.length : 0;
+});
+
+// Virtual to get graded submission count
+assignmentSchema.virtual('gradedCount').get(function() {
+  return this.submissions ? this.submissions.filter(s => s.score !== undefined && s.score !== null).length : 0;
+});
+
+// Ensure virtuals are included in JSON
+assignmentSchema.set('toJSON', { virtuals: true });
+assignmentSchema.set('toObject', { virtuals: true });
 
 module.exports = mongoose.model('Assignment', assignmentSchema);
