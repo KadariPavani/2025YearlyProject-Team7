@@ -6,9 +6,41 @@ const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const TPO = require('../models/TPO');
 const Admin = require('../models/Admin');
 const generalAuth = require('../middleware/generalAuth');
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('../config/cloudinary');
 
 const router = express.Router();
+
+// Configure Multer with Cloudinary storage for profile image
+const profileStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'profile-images',
+    allowed_formats: ['jpg', 'png', 'jpeg'],
+    resource_type: 'image'
+  }
+});
+
+const profileUpload = multer({
+  storage: profileStorage,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+}).single('profileImage');
+
+// Configure Multer with Cloudinary storage for resume
+const resumeStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'resumes',
+    allowed_formats: ['pdf', 'doc', 'docx'],
+    resource_type: 'raw'
+  }
+});
+
+const resumeUpload = multer({
+  storage: resumeStorage,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+}).single('resume');
 
 // Function to get TPO based on student's assigned batch
 async function getTPOForStudent(student) {
@@ -191,21 +223,14 @@ router.put('/profile', generalAuth, async (req, res) => {
 });
 
 // POST /api/student/profile-image
-router.post('/profile-image', generalAuth, async (req, res) => {
+router.post('/profile-image', generalAuth, profileUpload, async (req, res) => {
   try {
     if (req.userType !== 'student') return res.status(403).json({ success: false, message: 'Access denied' });
-    if (!req.files || !req.files.profileImage) return res.status(400).json({ success: false, message: 'No file uploaded' });
-
-    const profileImage = req.files.profileImage;
-
-    const result = await cloudinary.uploader.upload(profileImage.tempFilePath, {
-      folder: 'profile-images',
-      public_id: `student_${req.user._id}_${Date.now()}`,
-    });
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
     const updatedStudent = await Student.findByIdAndUpdate(
       req.user._id,
-      { profileImageUrl: result.secure_url },
+      { profileImageUrl: req.file.path },
       { new: true }
     );
 
@@ -217,37 +242,20 @@ router.post('/profile-image', generalAuth, async (req, res) => {
 });
 
 // POST /api/student/resume
-router.post('/resume', generalAuth, async (req, res) => {
+router.post('/resume', generalAuth, resumeUpload, async (req, res) => {
   try {
     if (req.userType !== 'student') {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
-    if (!req.files || !req.files.resume) {
+    if (!req.file) {
       return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
-
-    const resumeFile = req.files.resume;
-
-    // Check file type
-    const allowedTypes = ['.pdf', '.doc', '.docx'];
-    const fileExtension = resumeFile.name.toLowerCase().substring(resumeFile.name.lastIndexOf('.'));
-
-    if (!allowedTypes.includes(fileExtension)) {
-      return res.status(400).json({ success: false, message: 'Only PDF, DOC, and DOCX files are allowed' });
-    }
-
-    const result = await cloudinary.uploader.upload(resumeFile.tempFilePath, {
-      folder: 'resumes',
-      resource_type: 'auto',
-      public_id: `student_resume_${req.user._id}_${Date.now()}`,
-      format: fileExtension.substring(1)
-    });
 
     const updatedStudent = await Student.findByIdAndUpdate(
       req.user._id,
       {
-        resumeUrl: result.secure_url,
-        resumeFileName: resumeFile.name
+        resumeUrl: req.file.path,
+        resumeFileName: req.file.originalname
       },
       { new: true }
     );
@@ -256,7 +264,7 @@ router.post('/resume', generalAuth, async (req, res) => {
       success: true,
       data: {
         url: updatedStudent.resumeUrl,
-        fileName: resumeFile.name
+        fileName: req.file.originalname
       }
     });
   } catch (error) {
@@ -289,18 +297,15 @@ router.get('/check-password-change', generalAuth, async (req, res) => {
   }
 });
 
-// GET /api/student/my-batch - FIXED
+// GET /api/student/my-batch
 router.get('/my-batch', generalAuth, async (req, res) => {
   try {
-    // Check if user is a student
     if (req.userType !== 'student') {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    // Get student ID from auth middleware (it's in req.user._id)
     const studentId = req.user._id;
 
-    // Find student and populate their batch with TPO info
     const student = await Student.findById(studentId).populate({
       path: 'batchId',
       populate: { path: 'tpoId', select: 'name email phone' }
@@ -340,7 +345,7 @@ router.get('/my-batch', generalAuth, async (req, res) => {
   }
 });
 
-
+// GET /api/student/placement-training-batch-info
 router.get('/placement-training-batch-info', generalAuth, async (req, res) => {
   try {
     if (req.userType !== 'student') {
@@ -474,7 +479,7 @@ router.get('/placement-training-batch-info', generalAuth, async (req, res) => {
   }
 });
 
-// NEW ROUTE: GET /api/student/my-trainers-schedule
+// GET /api/student/my-trainers-schedule
 router.get('/my-trainers-schedule', generalAuth, async (req, res) => {
   try {
     if (req.userType !== 'student') {
