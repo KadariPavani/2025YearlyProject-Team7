@@ -6,81 +6,9 @@ const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const TPO = require('../models/TPO');
 const Admin = require('../models/Admin');
 const generalAuth = require('../middleware/generalAuth');
-const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('../config/cloudinary');
-const path = require('path'); // Add this at the top with other requires
+const { profileUpload, resumeUpload } = require('../middleware/fileUpload');
 
 const router = express.Router();
-
-// Configure Multer with Cloudinary storage for profile image
-const profileStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: 'profile-images',
-    allowed_formats: ['jpg', 'png', 'jpeg'],
-    resource_type: 'image'
-  }
-});
-
-const profileUpload = multer({
-  storage: profileStorage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
-}).single('profileImage');
-
-const resumeStorage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: async (req, file) => {
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(2, 8);
-    
-    // Extract file extension
-    const fileExt = path.extname(file.originalname).toLowerCase();
-    
-    // Clean filename without extension
-    const cleanName = path.basename(file.originalname, fileExt)
-      .replace(/\s+/g, '_')
-      .replace(/[^a-zA-Z0-9_-]/g, '');
-    
-    // Map extensions
-    const extensionMap = {
-      '.pdf': 'pdf',
-      '.doc': 'doc',
-      '.docx': 'docx'
-    };
-    
-    const format = extensionMap[fileExt] || fileExt.replace('.', '');
-    
-    // CRITICAL FIX: Include extension in public_id!
-    const publicIdWithExtension = `resume_${timestamp}_${randomString}_${cleanName}.${format}`;
-    
-    return {
-      folder: 'resumes',
-      resource_type: 'raw',
-      public_id: publicIdWithExtension,  // ← Now includes .pdf extension
-      use_filename: false,
-      unique_filename: false
-    };
-  }
-});
-
-const resumeUpload = multer({
-  storage: resumeStorage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-    
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only PDF, DOC, and DOCX are allowed.'), false);
-    }
-  }
-}).single('resume');
 
 // Function to get TPO based on student's assigned batch
 async function getTPOForStudent(student) {
@@ -263,54 +191,108 @@ router.put('/profile', generalAuth, async (req, res) => {
 });
 
 // POST /api/student/profile-image
-router.post('/profile-image', generalAuth, profileUpload, async (req, res) => {
-  try {
-    if (req.userType !== 'student') return res.status(403).json({ success: false, message: 'Access denied' });
-    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+router.post('/profile-image', generalAuth, (req, res) => {
+  profileUpload(req, res, async (err) => {
+    if (err) {
+      console.error('Profile upload error:', err);
+      return res.status(400).json({ 
+        success: false, 
+        message: err.message 
+      });
+    }
 
-    const updatedStudent = await Student.findByIdAndUpdate(
-      req.user._id,
-      { profileImageUrl: req.file.path },
-      { new: true }
-    );
+    try {
+      if (req.userType !== 'student') {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
 
-    res.json({ success: true, data: updatedStudent.profileImageUrl });
-  } catch (error) {
-    console.error('Error uploading profile image:', error);
-    res.status(500).json({ success: false, message: 'Failed to upload profile image' });
-  }
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
+      }
+
+      const updatedStudent = await Student.findByIdAndUpdate(
+        req.user._id,
+        { profileImageUrl: req.file.path },
+        { new: true }
+      );
+
+      if (!updatedStudent) {
+        return res.status(404).json({ success: false, message: 'Student not found' });
+      }
+
+      res.json({ 
+        success: true, 
+        data: updatedStudent.profileImageUrl,
+        message: 'Profile image uploaded successfully'
+      });
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to upload profile image' 
+      });
+    }
+  });
 });
 
 // POST /api/student/resume
-router.post('/resume', generalAuth, resumeUpload, async (req, res) => {
-  try {
-    if (req.userType !== 'student') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
-    if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+router.post('/resume', generalAuth, (req, res) => {
+  resumeUpload(req, res, async (err) => {
+    if (err) {
+      console.error('Resume upload error:', err);
+      return res.status(400).json({ 
+        success: false, 
+        message: err.message 
+      });
     }
 
-    const updatedStudent = await Student.findByIdAndUpdate(
-      req.user._id,
-      {
-        resumeUrl: req.file.path,
-        resumeFileName: req.file.originalname
-      },
-      { new: true }
-    );
-
-    return res.json({
-      success: true,
-      data: {
-        url: updatedStudent.resumeUrl,
-        fileName: req.file.originalname
+    try {
+      if (req.userType !== 'student') {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'Access denied' 
+        });
       }
-    });
-  } catch (error) {
-    console.error('Error uploading resume:', error);
-    res.status(500).json({ success: false, message: 'Failed to upload resume' });
-  }
+
+      if (!req.file) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'No file uploaded' 
+        });
+      }
+
+      const updatedStudent = await Student.findByIdAndUpdate(
+        req.user._id,
+        {
+          resumeUrl: req.file.path,
+          resumeFileName: req.file.originalname
+        },
+        { new: true }
+      );
+
+      if (!updatedStudent) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Student not found' 
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          url: updatedStudent.resumeUrl,
+          fileName: req.file.originalname
+        },
+        message: 'Resume uploaded successfully'
+      });
+    } catch (error) {
+      console.error('Error uploading resume:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to upload resume' 
+      });
+    }
+  });
 });
 
 // GET /api/student/check-password-change

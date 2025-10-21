@@ -869,140 +869,140 @@ const getAdminProfile = async (req, res) => {
 // Update Student details controller
 
 
-const createCrtBatch = async (req, res) => {
-  try {
-    console.log('Batch Creation: Request received');
+// const createCrtBatch = async (req, res) => {
+//   try {
+//     console.log('Batch Creation: Request received');
 
-    if (!req.body || !req.files) {
-      console.error('Batch Creation: Missing request data');
-      return res.status(400).json({ success: false, message: 'Missing request data' });
-    }
+//     if (!req.body || !req.files) {
+//       console.error('Batch Creation: Missing request data');
+//       return res.status(400).json({ success: false, message: 'Missing request data' });
+//     }
 
-    let { batchNumber, colleges, tpoId, startDate, endDate } = req.body;
+//     let { batchNumber, colleges, tpoId, startDate, endDate } = req.body;
 
-    try {
-      if (typeof colleges === 'string') {
-        colleges = JSON.parse(colleges);
-      }
-    } catch (err) {
-      console.error('Batch Creation: Invalid colleges format', err);
-      return res.status(400).json({ success: false, message: 'Invalid colleges format' });
-    }
+//     try {
+//       if (typeof colleges === 'string') {
+//         colleges = JSON.parse(colleges);
+//       }
+//     } catch (err) {
+//       console.error('Batch Creation: Invalid colleges format', err);
+//       return res.status(400).json({ success: false, message: 'Invalid colleges format' });
+//     }
 
-    if (!Array.isArray(colleges)) {
-      console.error('Batch Creation: Colleges must be an array');
-      return res.status(400).json({ success: false, message: 'Colleges must be an array' });
-    }
+//     if (!Array.isArray(colleges)) {
+//       console.error('Batch Creation: Colleges must be an array');
+//       return res.status(400).json({ success: false, message: 'Colleges must be an array' });
+//     }
 
-    colleges = colleges.map(c => c.trim().toUpperCase());
+//     colleges = colleges.map(c => c.trim().toUpperCase());
 
-    if (!batchNumber || !colleges.length || !tpoId || !startDate || !endDate) {
-      console.error('Batch Creation: Missing required batch fields');
-      return res.status(400).json({ success: false, message: 'Batch number, colleges, TPO, startDate, and endDate are required' });
-    }
+//     if (!batchNumber || !colleges.length || !tpoId || !startDate || !endDate) {
+//       console.error('Batch Creation: Missing required batch fields');
+//       return res.status(400).json({ success: false, message: 'Batch number, colleges, TPO, startDate, and endDate are required' });
+//     }
 
-    console.log('Batch Creation: Parsed batch fields:', { batchNumber, colleges, tpoId, startDate, endDate });
+//     console.log('Batch Creation: Parsed batch fields:', { batchNumber, colleges, tpoId, startDate, endDate });
 
-    const tpo = await TPO.findById(tpoId);
-    if (!tpo) {
-      console.error('Batch Creation: TPO not found:', tpoId);
-      return res.status(404).json({ success: false, message: 'TPO not found' });
-    }
-    console.log('Batch Creation: Found TPO:', tpo._id);
+//     const tpo = await TPO.findById(tpoId);
+//     if (!tpo) {
+//       console.error('Batch Creation: TPO not found:', tpoId);
+//       return res.status(404).json({ success: false, message: 'TPO not found' });
+//     }
+//     console.log('Batch Creation: Found TPO:', tpo._id);
 
-    if (!req.files.file) {
-      console.error('Batch Creation: No Excel file uploaded');
-      return res.status(400).json({ success: false, message: 'Student Excel file is required' });
-    }
+//     if (!req.files.file) {
+//       console.error('Batch Creation: No Excel file uploaded');
+//       return res.status(400).json({ success: false, message: 'Student Excel file is required' });
+//     }
 
-    const file = req.files.file;
-    if (!file.name.match(/\.(xls|xlsx)$/)) {
-      console.error('Batch Creation: Invalid Excel file type:', file.name);
-      return res.status(400).json({ success: false, message: 'Please upload an Excel file (.xls or .xlsx)' });
-    }
-    console.log('Batch Creation: Excel file received:', file.name);
+//     const file = req.files.file;
+//     if (!file.name.match(/\.(xls|xlsx)$/)) {
+//       console.error('Batch Creation: Invalid Excel file type:', file.name);
+//       return res.status(400).json({ success: false, message: 'Please upload an Excel file (.xls or .xlsx)' });
+//     }
+//     console.log('Batch Creation: Excel file received:', file.name);
 
-    const XLSX = require('xlsx');
-    const workbook = XLSX.readFile(file.tempFilePath);
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const data = XLSX.utils.sheet_to_json(worksheet);
-    console.log(`Batch Creation: Parsed ${data.length} rows from Excel`);
+//     const XLSX = require('xlsx');
+//     const workbook = XLSX.readFile(file.tempFilePath);
+//     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+//     const data = XLSX.utils.sheet_to_json(worksheet);
+//     console.log(`Batch Creation: Parsed ${data.length} rows from Excel`);
 
-    if (data.length === 0) {
-      console.error('Batch Creation: Excel file is empty');
-      return res.status(400).json({ success: false, message: 'Excel file is empty' });
-    }
+//     if (data.length === 0) {
+//       console.error('Batch Creation: Excel file is empty');
+//       return res.status(400).json({ success: false, message: 'Excel file is empty' });
+//     }
 
-    const validBranches = ['AID', 'CSM', 'CAI', 'CSD', 'CSC'];
+//     const validBranches = ['AID', 'CSM', 'CAI', 'CSD', 'CSC'];
 
-    for (const [index, row] of data.entries()) {
-      const name = row.name?.trim();
-      const email = row.email?.trim();
-      const rollNumber = row['roll number']?.trim();
-      const branch = row.branch?.trim();
-      const college = row.college?.trim();
-      const phonenumber = row.phonenumber?.toString().trim();
+//     for (const [index, row] of data.entries()) {
+//       const name = row.name?.trim();
+//       const email = row.email?.trim();
+//       const rollNumber = row['roll number']?.trim();
+//       const branch = row.branch?.trim();
+//       const college = row.college?.trim();
+//       const phonenumber = row.phonenumber?.toString().trim();
 
-      if (!name || !email || !rollNumber || !branch || !college || !phonenumber) {
-        console.error(`Batch Creation: Missing fields in row ${index + 1}:`, row);
-        return res.status(400).json({ success: false, message: `Missing fields in student row ${index + 1}` });
-      }
-      if (!validBranches.includes(branch)) {
-        console.error(`Batch Creation: Invalid branch in row ${index + 1}: ${branch}`);
-        return res.status(400).json({ success: false, message: `Invalid branch ${branch} in student ${name}` });
-      }
-      if (!colleges.includes(college)) {
-        console.error(`Batch Creation: College not in batch colleges in row ${index + 1}: ${college}`);
-        return res.status(400).json({ success: false, message: `College ${college} not in batch colleges for student ${name}` });
-      }
-    }
+//       if (!name || !email || !rollNumber || !branch || !college || !phonenumber) {
+//         console.error(`Batch Creation: Missing fields in row ${index + 1}:`, row);
+//         return res.status(400).json({ success: false, message: `Missing fields in student row ${index + 1}` });
+//       }
+//       if (!validBranches.includes(branch)) {
+//         console.error(`Batch Creation: Invalid branch in row ${index + 1}: ${branch}`);
+//         return res.status(400).json({ success: false, message: `Invalid branch ${branch} in student ${name}` });
+//       }
+//       if (!colleges.includes(college)) {
+//         console.error(`Batch Creation: College not in batch colleges in row ${index + 1}: ${college}`);
+//         return res.status(400).json({ success: false, message: `College ${college} not in batch colleges for student ${name}` });
+//       }
+//     }
 
-    console.log('Batch Creation: Creating batch document');
-    const batch = await Batch.create({
-      batchNumber,
-      colleges,
-      isCrt: true,
-      tpoId,
-      createdBy: req.admin._id,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
-    });
-    console.log('Batch Creation: Batch created with ID:', batch._id);
+//     console.log('Batch Creation: Creating batch document');
+//     const batch = await Batch.create({
+//       batchNumber,
+//       colleges,
+//       isCrt: true,
+//       tpoId,
+//       createdBy: req.admin._id,
+//       startDate: new Date(startDate),
+//       endDate: new Date(endDate),
+//     });
+//     console.log('Batch Creation: Batch created with ID:', batch._id);
 
-    console.log('Batch Creation: Hashing passwords and preparing student data');
-    const studentsData = [];
-    for (const row of data) {
-      const plainPassword = row['roll number'].trim();
-      const hashedPassword = await bcrypt.hash(plainPassword, 10);  // Hash password here
-      studentsData.push({
-        name: row.name.trim(),
-        email: row.email.trim(),
-        username: plainPassword,
-        rollNo: plainPassword,
-        branch: row.branch.trim(),
-        college: row.college.trim(),
-        phonenumber: row.phonenumber.toString().trim(),
-        password: hashedPassword,
-        batchId: batch._id,
-        yearOfPassing: batchNumber,
-      });
-    }
+//     console.log('Batch Creation: Hashing passwords and preparing student data');
+//     const studentsData = [];
+//     for (const row of data) {
+//       const plainPassword = row['roll number'].trim();
+//       const hashedPassword = await bcrypt.hash(plainPassword, 10);  // Hash password here
+//       studentsData.push({
+//         name: row.name.trim(),
+//         email: row.email.trim(),
+//         username: plainPassword,
+//         rollNo: plainPassword,
+//         branch: row.branch.trim(),
+//         college: row.college.trim(),
+//         phonenumber: row.phonenumber.toString().trim(),
+//         password: hashedPassword,
+//         batchId: batch._id,
+//         yearOfPassing: batchNumber,
+//       });
+//     }
 
-    console.log('Batch Creation: Bulk inserting students');
-    const studentDocs = await Student.insertMany(studentsData);
-    console.log('Batch Creation: Inserted students count:', studentDocs.length);
+//     console.log('Batch Creation: Bulk inserting students');
+//     const studentDocs = await Student.insertMany(studentsData);
+//     console.log('Batch Creation: Inserted students count:', studentDocs.length);
 
-    batch.students = studentDocs.map(s => s._id);
-    await batch.save();
-    console.log('Batch Creation: Batch updated with students');
+//     batch.students = studentDocs.map(s => s._id);
+//     await batch.save();
+//     console.log('Batch Creation: Batch updated with students');
 
-    res.status(201).json({ success: true, message: 'CRT batch created successfully', data: { batch, studentsCount: studentDocs.length } });
+//     res.status(201).json({ success: true, message: 'CRT batch created successfully', data: { batch, studentsCount: studentDocs.length } });
 
-  } catch (error) {
-    console.error('Batch Creation Error:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to create CRT batch' });
-  }
-};
+//   } catch (error) {
+//     console.error('Batch Creation Error:', error);
+//     res.status(500).json({ success: false, message: error.message || 'Failed to create CRT batch' });
+//   }
+// };
 
 
 const updateStudent = async (req, res) => {
@@ -1103,7 +1103,7 @@ module.exports = {
   resetPassword,
   changePassword,
   getAdminProfile,
-  createCrtBatch,
+  // createCrtBatch,
   updateStudent,
   deleteStudent
 };

@@ -395,6 +395,30 @@ const handleDeleteAdmin = async (id) => {
 };
 
 
+const handleDelete = async (entityType, id) => {
+  const entityName = entityType.slice(0, -1); // e.g., "trainer" or "tpo"
+  const permissionGroup = entityType === 'trainers' ? 'trainerControls' : 'tpoControls';
+
+  // Check permission
+  if (!adminData?.permissions?.[permissionGroup]?.delete) {
+    showToast("error", `You don't have permission to delete ${entityType}`);
+    return;
+  }
+
+  if (!window.confirm(`Are you sure you want to delete this ${entityName}? This cannot be undone.`)) return;
+
+  const res = await apiCall(`/api/admin/${entityType}/${id}`, "DELETE");
+  if (res) {
+    showToast("success", `${entityName.charAt(0).toUpperCase() + entityName.slice(1)} deleted successfully.`);
+    if (entityType === 'trainers') {
+      setTrainers(trainers.filter(t => t._id !== id));
+    } else if (entityType === 'tpos') {
+      setTpos(tpos.filter(t => t._id !== id));
+    }
+    refreshData(); // Optional: refresh analytics if needed
+  }
+};
+
   const refreshData = () => {
     fetchTrainers();
     fetchTpos();

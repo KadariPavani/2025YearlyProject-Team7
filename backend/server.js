@@ -30,10 +30,6 @@ app.use(
   })
 );
 
-// Serve static files for profile images (if needed)
-const uploadDir = path.join(__dirname, 'Uploads/profile-images');
-app.use('/uploads/profile-images', express.static(uploadDir));
-
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
