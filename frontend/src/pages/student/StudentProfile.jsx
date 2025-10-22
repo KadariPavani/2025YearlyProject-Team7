@@ -118,29 +118,55 @@ const [showApprovalStatus, setShowApprovalStatus] = useState(false);
 
   }, []);
 
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const response = await getProfile("student");
-      if (response.data.success) {
-        setProfile(response.data.data);
-        setFormData(response.data.data);
-        setSelectedEducationType(response.data.data.academics?.educationType || "inter");
-      } else {
-        setError(response.data.message || "Failed to fetch profile");
+// Replace the existing fetchProfile function in StudentProfile.jsx with this:
+
+const fetchProfile = async () => {
+  try {
+    setLoading(true);
+    setError("");
+    const token = localStorage.getItem('userToken');
+    
+    const response = await fetch('/api/student/profile', {
+      headers: {
+        'Authorization': `Bearer ${token}`
       }
-    } catch (err) {
-      setError(err?.response?.data?.message || "Failed to fetch profile");
-      if (err?.response?.status === 401) {
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      setProfile(result.data);
+      setFormData(result.data);
+      setSelectedEducationType(result.data.academics?.educationType || "inter");
+      
+      // Update localStorage with fresh data
+      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+      localStorage.setItem('userData', JSON.stringify({
+        ...userData,
+        ...result.data
+      }));
+    } else {
+      setError(result.message || "Failed to fetch profile");
+      
+      // If unauthorized, redirect to login
+      if (response.status === 401) {
         localStorage.removeItem("userToken");
         localStorage.removeItem("userData");
         navigate("/student-login");
       }
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err) {
+    console.error('Fetch profile error:', err);
+    setError(err?.message || "Failed to fetch profile");
+    
+    // Check for network errors
+    if (!err.response) {
+      setError("Network error. Please check your connection.");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 const fetchPendingApprovals = async () => {
   try {
     const token = localStorage.getItem('userToken');
@@ -376,50 +402,72 @@ const fetchPendingApprovals = async () => {
     }));
   };
 
-  const handleSave = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('userToken');
+// Replace the existing handleSave function in StudentProfile.jsx with this:
+
+const handleSave = async () => {
+  try {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+    
+    const token = localStorage.getItem('userToken');
+    
+    // Clean up the form data before sending
+    const dataToSend = {
+      ...formData,
+      crtInterested: formData.crtInterested,
+      crtBatchChoice: formData.crtBatchChoice || null,
+      techStack: formData.techStack || [],
+      // Remove any undefined or empty values
+      projects: formData.projects?.filter(p => !isEmptyProject(p)) || [],
+      internships: formData.internships?.filter(i => !isEmptyInternship(i)) || [],
+      appreciations: formData.appreciations?.filter(a => !isEmptyAppreciation(a)) || [],
+      certifications: formData.certifications?.filter(c => !isEmptyCertification(c)) || [],
+      socialLinks: formData.socialLinks?.filter(s => !isEmptySocialLink(s)) || []
+    };
+
+    const response = await fetch('/api/student/profile', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(dataToSend)
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      // Update both profile and formData with the response
+      setProfile(result.data);
+      setFormData(result.data);
+      setIsEditing(false);
       
-      // Clean up the form data before sending
-      const dataToSend = {
-        ...formData,
-        crtInterested: formData.crtInterested,
-        crtBatchChoice: formData.crtBatchChoice || null,
-        techStack: formData.techStack || []
-      };
-
-      const response = await fetch('/api/student/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(dataToSend)
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setSuccess(result.message);
-        setError('');
-        if (result.requiresApproval) {
-          setShowApprovalStatus(true);
-        }
+      if (result.requiresApproval) {
+        setSuccess('Profile updated. Changes requiring approval have been sent to TPO for review.');
+        setShowApprovalStatus(true);
+        // Refresh pending approvals
+        await fetchPendingApprovals();
       } else {
-        if (result.hasPendingApproval) {
-          setError('You already have a pending approval request. Please wait for TPO review.');
-        } else {
-          setError(result.message || 'Failed to update profile');
-        }
+        setSuccess('Profile updated successfully!');
       }
-    } catch (err) {
-      setError('An error occurred while saving the profile');
-      console.error('Save error:', err);
-    } finally {
-      setLoading(false);
+      
+      // Scroll to top to show success message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      if (result.hasPendingApproval) {
+        setError('You already have a pending approval request. Please wait for TPO review.');
+      } else {
+        setError(result.message || 'Failed to update profile');
+      }
     }
-  };
+  } catch (err) {
+    console.error('Save error:', err);
+    setError('An error occurred while saving the profile. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Add this component to show approval status
   const ApprovalStatusBanner = () => {

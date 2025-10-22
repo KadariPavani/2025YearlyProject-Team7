@@ -860,6 +860,8 @@ router.get('/pending-approvals', generalAuth, async (req, res) => {
 
 // tpoRoutes.js
 
+// Replace the POST /approve-request route in tpoRoutes.js with this:
+
 router.post('/approve-request', generalAuth, async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
@@ -907,15 +909,6 @@ router.post('/approve-request', generalAuth, async (req, res) => {
       });
     }
 
-    // Log current state for debugging
-    console.log('Processing approval request:', {
-      tpoId: tpo._id,
-      studentId: student._id,
-      batchId: student.batchId?._id,
-      placementBatchId: student.placementTrainingBatchId?._id,
-      tpoAssignedBatches: tpo.assignedBatches.map(b => b.toString())
-    });
-
     // Check permission
     const hasPermission = await tpo.canApproveRequest(student);
     if (!hasPermission) {
@@ -925,21 +918,109 @@ router.post('/approve-request', generalAuth, async (req, res) => {
       });
     }
 
-    // Process the approval
+    // Process the approval/rejection
     if (action === 'approve') {
       approval.status = 'approved';
       approval.reviewedBy = tpo._id;
       approval.reviewedAt = new Date();
 
-      // Handle the changes based on request type
+      // Apply the approved changes
       if (approval.requestType === 'crt_status_change') {
         student.crtInterested = approval.requestedChanges.crtInterested;
         if (approval.requestedChanges.crtBatchChoice) {
-          student.techStack = [approval.requestedChanges.crtBatchChoice];
+          // Update tech stack to include the CRT batch choice
+          const validCrtTechs = ['Java', 'Python', 'AI/ML'];
+          student.techStack = student.techStack?.filter(t => !validCrtTechs.includes(t)) || [];
+          student.techStack.push(approval.requestedChanges.crtBatchChoice);
+        } else if (!approval.requestedChanges.crtInterested) {
+          // If changing to non-CRT, remove CRT techs
+          const validCrtTechs = ['Java', 'Python', 'AI/ML'];
+          student.techStack = student.techStack?.filter(t => !validCrtTechs.includes(t)) || [];
         }
       } else if (approval.requestType === 'batch_change') {
         student.techStack = approval.requestedChanges.techStack;
       }
+
+      // Save the student first
+      await student.save();
+
+      // Reassign to appropriate placement training batch based on new settings
+      try {
+        const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
+        const Admin = require('../models/Admin');
+        
+        // Remove from old batch
+        if (student.placementTrainingBatchId) {
+          await PlacementTrainingBatch.findByIdAndUpdate(
+            student.placementTrainingBatchId,
+            { $pull: { students: student._id } }
+          );
+        }
+
+        // Determine new tech stack
+        let techStack = 'NonCRT';
+        if (student.crtInterested && student.techStack && student.techStack.length > 0) {
+          const validTechs = ['Java', 'Python', 'AI/ML'];
+          const selectedTech = student.techStack.find(t => validTechs.includes(t));
+          if (selectedTech) {
+            techStack = selectedTech;
+          }
+        }
+
+        // Find or create appropriate batch
+        const maxStudents = 80;
+        const year = student.yearOfPassing;
+
+        let placementBatch = await PlacementTrainingBatch.findOne({
+          colleges: student.college,
+          techStack: techStack,
+          year: year,
+          $expr: { $lt: [{ $size: "$students" }, maxStudents] }
+        }).sort({ createdAt: 1 });
+
+        if (!placementBatch) {
+          const admin = await Admin.findOne({ status: 'active' }).sort({ createdAt: 1 });
+          const existingBatches = await PlacementTrainingBatch.countDocuments({
+            colleges: student.college,
+            techStack: techStack,
+            year: year
+          });
+
+          const batchNumber = `PT${year}${student.college}${techStack}${existingBatches + 1}`;
+
+          placementBatch = new PlacementTrainingBatch({
+            batchNumber,
+            colleges: [student.college],
+            techStack,
+            year,
+            tpoId: tpo._id,
+            createdBy: admin._id,
+            startDate: new Date(),
+            endDate: new Date(Date.now() + 180 * 24 * 3600 * 1000),
+            students: []
+          });
+          await placementBatch.save();
+        }
+
+        // Add student to new batch
+        if (!placementBatch.students.includes(student._id)) {
+          placementBatch.students.push(student._id);
+          await placementBatch.save();
+        }
+
+        // Update student with new batch info
+        await Student.findByIdAndUpdate(student._id, {
+          placementTrainingBatchId: placementBatch._id,
+          crtBatchId: placementBatch._id,
+          crtBatchName: placementBatch.batchNumber
+        });
+
+        console.log(`Student ${student.name} reassigned to batch ${placementBatch.batchNumber}`);
+      } catch (batchError) {
+        console.error('Error reassigning batch after approval:', batchError);
+        // Don't fail the whole approval if batch reassignment fails
+      }
+
     } else if (action === 'reject') {
       if (!rejectionReason) {
         return res.status(400).json({
@@ -951,17 +1032,23 @@ router.post('/approve-request', generalAuth, async (req, res) => {
       approval.reviewedBy = tpo._id;
       approval.reviewedAt = new Date();
       approval.rejectionReason = rejectionReason;
+      
+      await student.save();
     }
 
-    await student.save();
+    // Get updated student data
+    const updatedStudent = await Student.findById(student._id)
+      .populate('placementTrainingBatchId', 'batchNumber techStack')
+      .select('-password');
 
     res.json({
       success: true,
       message: `Request ${action}ed successfully`,
       data: {
-        studentId: student._id,
+        studentId: updatedStudent._id,
         approvalId: approval._id,
-        status: approval.status
+        status: approval.status,
+        updatedStudent: updatedStudent
       }
     });
 

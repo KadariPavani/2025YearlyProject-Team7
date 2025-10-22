@@ -29,89 +29,115 @@ async function getTPOForStudent(student) {
   return assignedTPO;
 }
 
-// Placement training batch assignment function
+// Add this improved helper function in studentRoutes.js
+// Replace the existing assignStudentToPlacementTrainingBatch function
+
 async function assignStudentToPlacementTrainingBatch(student) {
-  if (!student.college) {
-    throw new Error('Student college is required');
-  }
-
-  // Remove student from any existing placement training batch
-  if (student.placementTrainingBatchId) {
-    await PlacementTrainingBatch.findByIdAndUpdate(
-      student.placementTrainingBatchId,
-      { $pull: { students: student._id } }
-    );
-  }
-
-  const tpo = await getTPOForStudent(student);
-  const admin = await Admin.findOne({ status: 'active' }).sort({ createdAt: 1 });
-
-  if (!tpo) {
-    throw new Error('No TPO found for student. Please contact administrator.');
-  }
-  if (!admin) {
-    throw new Error('No active Admin found in system. Please contact administrator.');
-  }
-
-  const maxStudents = 80;
-  const year = student.yearOfPassing;
-
-  // Determine tech stack for placement training
-  let techStack = 'NonCRT';
-  if (student.crtInterested && student.techStack && student.techStack.length > 0) {
-    const validTechs = ['Java', 'Python', 'AI/ML'];
-    const selectedTech = student.techStack.find(t => validTechs.includes(t));
-    if (selectedTech) {
-      techStack = selectedTech;
+  try {
+    if (!student.college) {
+      throw new Error('Student college is required');
     }
-  }
 
-  // Find existing placement training batch with room
-  let placementBatch = await PlacementTrainingBatch.findOne({
-    colleges: student.college,
-    techStack: techStack,
-    year: year,
-    $expr: { $lt: [{ $size: "$students" }, maxStudents] }
-  }).sort({ createdAt: 1 });
+    console.log(`Reassigning placement batch for student: ${student.name} (${student._id})`);
 
-  if (!placementBatch) {
-    // Count existing placement training batches to create new batch number
-    const existingBatches = await PlacementTrainingBatch.countDocuments({
+    // Remove student from any existing placement training batch
+    if (student.placementTrainingBatchId) {
+      await PlacementTrainingBatch.findByIdAndUpdate(
+        student.placementTrainingBatchId,
+        { $pull: { students: student._id } }
+      );
+      console.log(`Removed student from old batch: ${student.placementTrainingBatchId}`);
+    }
+
+    // Get TPO and Admin
+    const tpo = await getTPOForStudent(student);
+    const admin = await Admin.findOne({ status: 'active' }).sort({ createdAt: 1 });
+
+    if (!tpo) {
+      throw new Error('No TPO found for student. Please contact administrator.');
+    }
+    if (!admin) {
+      throw new Error('No active Admin found in system. Please contact administrator.');
+    }
+
+    const maxStudents = 80;
+    const year = student.yearOfPassing;
+
+    // Determine tech stack for placement training
+    let techStack = 'NonCRT';
+    if (student.crtInterested && student.techStack && student.techStack.length > 0) {
+      const validTechs = ['Java', 'Python', 'AI/ML'];
+      const selectedTech = student.techStack.find(t => validTechs.includes(t));
+      if (selectedTech) {
+        techStack = selectedTech;
+      }
+    }
+
+    console.log(`Looking for batch with: College=${student.college}, TechStack=${techStack}, Year=${year}`);
+
+    // Find existing placement training batch with room
+    let placementBatch = await PlacementTrainingBatch.findOne({
       colleges: student.college,
       techStack: techStack,
-      year: year
-    });
+      year: year,
+      $expr: { $lt: [{ $size: "$students" }, maxStudents] }
+    }).sort({ createdAt: 1 });
 
-    const batchNumber = `PT${year}${student.college}${techStack}${existingBatches + 1}`;
+    if (!placementBatch) {
+      // Count existing placement training batches to create new batch number
+      const existingBatches = await PlacementTrainingBatch.countDocuments({
+        colleges: student.college,
+        techStack: techStack,
+        year: year
+      });
 
-    placementBatch = new PlacementTrainingBatch({
-      batchNumber,
-      colleges: [student.college],
-      techStack,
-      year,
-      tpoId: tpo._id,
-      createdBy: admin._id,
-      startDate: new Date(),
-      endDate: new Date(Date.now() + 180 * 24 * 3600 * 1000), // 180 days
-      students: []
-    });
-    await placementBatch.save();
-    console.log(`Created new placement training batch: ${batchNumber}`);
+      const batchNumber = `PT${year}${student.college}${techStack}${existingBatches + 1}`;
+
+      placementBatch = new PlacementTrainingBatch({
+        batchNumber,
+        colleges: [student.college],
+        techStack,
+        year,
+        tpoId: tpo._id,
+        createdBy: admin._id,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 180 * 24 * 3600 * 1000), // 180 days
+        students: []
+      });
+      await placementBatch.save();
+      console.log(`Created new placement training batch: ${batchNumber}`);
+    }
+
+    // Add student to placement training batch if not already present
+    if (!placementBatch.students.includes(student._id)) {
+      placementBatch.students.push(student._id);
+      await placementBatch.save();
+      console.log(`Added student to batch ${placementBatch.batchNumber}`);
+    }
+
+    // Update student with placement training batch reference
+    student.placementTrainingBatchId = placementBatch._id;
+    student.crtBatchId = placementBatch._id;
+    student.crtBatchName = placementBatch.batchNumber;
+    
+    // Save student - use findByIdAndUpdate to avoid version conflicts
+    await Student.findByIdAndUpdate(
+      student._id,
+      {
+        placementTrainingBatchId: placementBatch._id,
+        crtBatchId: placementBatch._id,
+        crtBatchName: placementBatch.batchNumber
+      },
+      { new: true }
+    );
+
+    console.log(`Successfully assigned student ${student.name} to placement training batch ${placementBatch.batchNumber}`);
+    
+    return placementBatch;
+  } catch (error) {
+    console.error('Error in assignStudentToPlacementTrainingBatch:', error);
+    throw error;
   }
-
-  // Add student to placement training batch if not already present
-  if (!placementBatch.students.includes(student._id)) {
-    placementBatch.students.push(student._id);
-    await placementBatch.save();
-  }
-
-  // Update student with placement training batch reference
-  student.placementTrainingBatchId = placementBatch._id;
-  student.crtBatchId = placementBatch._id;
-  student.crtBatchName = placementBatch.batchNumber;
-  await student.save();
-
-  console.log(`Assigned student ${student.name} to placement training batch ${placementBatch.batchNumber} with TPO ${tpo.name}`);
 }
 
 // GET Student Profile
@@ -150,7 +176,8 @@ router.get('/profile', generalAuth, async (req, res) => {
   }
 });
 
-// PUT Update Student Profile with Approval Logic
+// Replace the existing PUT /profile route in studentRoutes.js with this:
+
 router.put('/profile', generalAuth, async (req, res) => {
   try {
     if (req.userType !== 'student') {
@@ -163,10 +190,14 @@ router.put('/profile', generalAuth, async (req, res) => {
     const studentId = req.user._id;
     const updateData = req.body;
 
-    // Use findOneAndUpdate with optimistic concurrency control
-    const update = async (retries = 3) => {
+    // Retry mechanism for version conflicts
+    const updateWithRetry = async (retries = 3) => {
       try {
-        const student = await Student.findById(studentId);
+        // Get fresh student data
+        const student = await Student.findById(studentId)
+          .populate('batchId')
+          .populate('placementTrainingBatchId');
+
         if (!student) {
           return res.status(404).json({
             success: false,
@@ -174,34 +205,32 @@ router.put('/profile', generalAuth, async (req, res) => {
           });
         }
 
-        // Identify changes that require approval
-        const changes = {
-          crtStatus: {
-            changed: updateData.crtInterested !== undefined && 
-                    updateData.crtInterested !== student.crtInterested,
-            from: student.crtInterested,
-            to: updateData.crtInterested
-          },
-          crtBatch: {
-            changed: updateData.crtBatchChoice !== undefined && 
-                    updateData.crtBatchChoice !== student.crtBatchChoice,
-            from: student.crtBatchChoice,
-            to: updateData.crtBatchChoice
-          },
-          techStack: {
-            changed: updateData.techStack && 
-                    JSON.stringify(updateData.techStack.sort()) !== 
-                    JSON.stringify((student.techStack || []).sort()),
-            from: student.techStack || [],
-            to: updateData.techStack || []
-          }
+        // Track changes that require approval
+        const requiresApproval = {
+          crtStatus: false,
+          batchChange: false
         };
 
+        // Check for CRT status or batch choice changes
+        const crtStatusChanged = updateData.crtInterested !== undefined && 
+                                updateData.crtInterested !== student.crtInterested;
+        const crtBatchChanged = updateData.crtBatchChoice !== undefined && 
+                               updateData.crtBatchChoice !== student.crtBatchChoice;
+
+        // Check for tech stack changes that affect batch assignment
+        let techStackChanged = false;
+        if (updateData.techStack) {
+          const oldTechStack = (student.techStack || []).sort().join(',');
+          const newTechStack = (updateData.techStack || []).sort().join(',');
+          techStackChanged = oldTechStack !== newTechStack;
+        }
+
+        // Check for existing pending approvals
         const hasPendingApproval = student.pendingApprovals.some(
           approval => approval.status === 'pending'
         );
 
-        if (hasPendingApproval && (changes.crtStatus.changed || changes.crtBatch.changed || changes.techStack.changed)) {
+        if (hasPendingApproval && (crtStatusChanged || crtBatchChanged || techStackChanged)) {
           return res.status(400).json({
             success: false,
             message: 'You already have a pending approval request. Please wait for TPO to review it.',
@@ -209,22 +238,25 @@ router.put('/profile', generalAuth, async (req, res) => {
           });
         }
 
-        let requiresApproval = false;
-
-        // Handle changes that require approval
-        if (changes.crtStatus.changed || changes.crtBatch.changed) {
+        // Handle CRT status/batch changes (requires approval)
+        if (crtStatusChanged || crtBatchChanged) {
           await student.createApprovalRequest('crt_status_change', {
             crtInterested: updateData.crtInterested,
             crtBatchChoice: updateData.crtBatchChoice,
             originalCrtInterested: student.crtInterested,
             originalCrtBatchChoice: student.crtBatchChoice
           });
-          requiresApproval = true;
+          requiresApproval.crtStatus = true;
+          
+          // Don't apply these changes directly
           delete updateData.crtInterested;
           delete updateData.crtBatchChoice;
-        } else if (changes.techStack.changed) {
+        }
+
+        // Handle tech stack changes that affect batch
+        if (techStackChanged && !crtStatusChanged && !crtBatchChanged) {
           const validCrtTechs = ['Java', 'Python', 'AI/ML'];
-          const newCrtTech = updateData.techStack.find(tech => validCrtTechs.includes(tech));
+          const newCrtTech = updateData.techStack?.find(tech => validCrtTechs.includes(tech));
           const oldCrtTech = student.techStack?.find(tech => validCrtTechs.includes(tech));
 
           if (newCrtTech !== oldCrtTech) {
@@ -232,44 +264,67 @@ router.put('/profile', generalAuth, async (req, res) => {
               techStack: updateData.techStack,
               originalTechStack: student.techStack || []
             });
-            requiresApproval = true;
+            requiresApproval.batchChange = true;
             delete updateData.techStack;
           }
         }
 
-        // Apply non-restricted updates
-        Object.keys(updateData).forEach(key => {
-          if (updateData[key] !== undefined) {
-            student[key] = updateData[key];
+        // Apply all other updates directly
+        const allowedFields = [
+          'name', 'email', 'phonenumber', 'college', 'branch', 'yearOfPassing',
+          'gender', 'dob', 'currentLocation', 'hometown', 'bio',
+          'academics', 'backlogs', 'techStack', 'projects', 'internships',
+          'appreciations', 'certifications', 'socialLinks', 'otherClubs',
+          'profileImageUrl', 'resumeUrl', 'resumeFileName'
+        ];
+
+        allowedFields.forEach(field => {
+          if (updateData[field] !== undefined) {
+            student[field] = updateData[field];
           }
         });
 
-        const updatedStudent = await student.save();
+        // Save the student with updated data
+        const savedStudent = await student.save();
 
-        // Get updated student data with populated fields
-        const populatedStudent = await Student.findById(updatedStudent._id)
+        // If tech stack was updated directly (non-CRT change), reassign batch
+        if (updateData.techStack && !requiresApproval.batchChange) {
+          try {
+            await assignStudentToPlacementTrainingBatch(savedStudent);
+          } catch (batchError) {
+            console.error('Error reassigning batch:', batchError);
+            // Don't fail the whole update if batch assignment fails
+          }
+        }
+
+        // Get updated student with populated fields
+        const updatedStudent = await Student.findById(savedStudent._id)
+          .populate('batchId', 'batchNumber colleges')
           .populate('placementTrainingBatchId', 'batchNumber techStack')
           .select('-password');
 
         return res.json({
           success: true,
-          message: requiresApproval
+          message: (requiresApproval.crtStatus || requiresApproval.batchChange)
             ? 'Profile updated. Changes requiring approval have been sent to TPO.'
             : 'Profile updated successfully',
-          data: populatedStudent,
-          requiresApproval
+          data: updatedStudent,
+          requiresApproval: requiresApproval.crtStatus || requiresApproval.batchChange
         });
 
       } catch (err) {
+        // Handle version conflicts with retry
         if (err.name === 'VersionError' && retries > 0) {
-          // If version conflict, retry the operation
-          return await update(retries - 1);
+          console.log(`Version conflict detected, retrying... (${retries} attempts left)`);
+          await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
+          return await updateWithRetry(retries - 1);
         }
         throw err;
       }
     };
 
-    await update();
+    // Execute the update with retry mechanism
+    await updateWithRetry();
 
   } catch (error) {
     console.error('Error updating student profile:', error);
