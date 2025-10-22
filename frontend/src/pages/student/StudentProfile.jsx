@@ -12,6 +12,15 @@ import {
   CheckCircle,
   GraduationCap,
   Upload,
+  Code2,
+  Briefcase,
+  Award,
+  Building2,
+  MapPin,
+  Star,
+  ExternalLink,
+  Download,
+  Eye,
 } from "lucide-react";
 import {
   getProfile,
@@ -99,10 +108,14 @@ const StudentProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
   const [selectedEducationType, setSelectedEducationType] = useState("inter");
+const [pendingApprovals, setPendingApprovals] = useState([]);
+const [showApprovalStatus, setShowApprovalStatus] = useState(false);
 
   useEffect(() => {
     fetchProfile();
     checkPasswordStatus();
+      fetchPendingApprovals();
+
   }, []);
 
   const fetchProfile = async () => {
@@ -128,7 +141,22 @@ const StudentProfile = () => {
       setLoading(false);
     }
   };
-
+const fetchPendingApprovals = async () => {
+  try {
+    const token = localStorage.getItem('userToken');
+    const response = await fetch('/api/student/pending-approvals', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const data = await response.json();
+    if (data.success) {
+      setPendingApprovals(data.data);
+    }
+  } catch (error) {
+    console.error('Error fetching approvals:', error);
+  }
+};
   const checkPasswordStatus = async () => {
     try {
       const response = await checkPasswordChange("student");
@@ -170,49 +198,277 @@ const StudentProfile = () => {
     }
   };
 
+  // Add these upload functions
+  const uploadProfileImage = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Check file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB');
+      return;
+    }
+
+    // Check file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a valid image file (JPEG, PNG, or GIF)');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('profileImage', file);
+    setUploadingImage(true);
+
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch(`${backendURL}/api/student/profile-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setFormData(prev => ({
+          ...prev,
+          profileImageUrl: data.data
+        }));
+        setSuccess('Profile image uploaded successfully');
+      } else {
+        throw new Error(data.message || 'Failed to upload image');
+      }
+    } catch (err) {
+      setError(err.message || 'Error uploading profile image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const uploadResume = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+  
+    // Check file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size must be less than 10MB');
+      return;
+    }
+  
+    // Check file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a PDF or Word document');
+      return;
+    }
+  
+    const formData = new FormData();
+    formData.append('resume', file);
+    setUploadingResume(true);
+
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch(`${backendURL}/api/student/resume`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setFormData(prev => ({
+          ...prev,
+          resumeUrl: data.data.url,
+          resumeFileName: data.data.fileName
+        }));
+        setSuccess('Resume uploaded successfully');
+      } else {
+        throw new Error(data.message || 'Failed to upload resume');
+      }
+    } catch (err) {
+      setError(err.message || 'Error uploading resume');
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
   // Tech Stack handlers
   const handleTechStackChange = (tech) => {
     setFormData((prev) => {
-      const techSet = new Set(prev.techStack || []);
-      if (techSet.has(tech)) {
-        techSet.delete(tech);
+      const currentTechStack = prev.techStack || [];
+      let newTechStack;
+
+      if (currentTechStack.includes(tech)) {
+        // Remove tech if it exists
+        newTechStack = currentTechStack.filter(t => t !== tech);
       } else {
-        techSet.add(tech);
+        // Add tech if it doesn't exist
+        const validCrtTechs = ['Java', 'Python', 'AI/ML'];
+        
+        // If adding a CRT tech, remove any existing CRT tech first
+        if (validCrtTechs.includes(tech)) {
+          newTechStack = [
+            ...currentTechStack.filter(t => !validCrtTechs.includes(t)),
+            tech
+          ];
+        } else {
+          newTechStack = [...currentTechStack, tech];
+        }
       }
-      return { ...prev, techStack: Array.from(techSet) };
+
+      // Update CRT interest based on tech stack
+      const hasCrtTech = newTechStack.some(t => ['Java', 'Python', 'AI/ML'].includes(t));
+      
+      return {
+        ...prev,
+        techStack: newTechStack,
+        crtInterested: hasCrtTech ? true : prev.crtInterested,
+        crtBatchChoice: hasCrtTech ? newTechStack.find(t => ['Java', 'Python', 'AI/ML'].includes(t)) : prev.crtBatchChoice
+      };
     });
   };
 
   // CRT Interest handlers
   const handleCRTInterestChange = (e) => {
     const interested = e.target.value === "yes";
+    
+    // Detect if this is a status change
+    if (interested !== formData.crtInterested) {
+      const confirmChange = window.confirm(
+        'Changing CRT status requires TPO approval. Do you want to continue?'
+      );
+      if (!confirmChange) return;
+    }
+    
     setFormData((prev) => ({
       ...prev,
       crtInterested: interested,
       crtBatchChoice: interested ? prev.crtBatchChoice : "",
+      techStack: interested ? prev.techStack : prev.techStack.filter(t => !['Java', 'Python', 'AI/ML'].includes(t))
     }));
   };
 
   const handleCRTBatchChoiceChange = (e) => {
+    const newBatch = e.target.value;
+    
+    // Detect if this is a batch change
+    if (newBatch !== formData.crtBatchChoice) {
+      const confirmChange = window.confirm(
+        'Changing CRT batch requires TPO approval. Do you want to continue?'
+      );
+      if (!confirmChange) return;
+    }
+    
     setFormData((prev) => ({
       ...prev,
-      crtBatchChoice: e.target.value,
-      // Update techStack to include the selected CRT batch tech
-      techStack: prev.techStack ? [...prev.techStack.filter(t => !['Java', 'Python', 'AI/ML'].includes(t)), e.target.value] : [e.target.value]
+      crtBatchChoice: newBatch,
+      techStack: [...prev.techStack.filter(t => !['Java', 'Python', 'AI/ML'].includes(t)), newBatch]
     }));
   };
 
-  // Clubs handlers
-  const handleClubChange = (club) => {
-    setFormData((prev) => {
-      const clubSet = new Set(prev.otherClubs || []);
-      if (clubSet.has(club)) {
-        clubSet.delete(club);
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('userToken');
+      
+      // Clean up the form data before sending
+      const dataToSend = {
+        ...formData,
+        crtInterested: formData.crtInterested,
+        crtBatchChoice: formData.crtBatchChoice || null,
+        techStack: formData.techStack || []
+      };
+
+      const response = await fetch('/api/student/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(dataToSend)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setSuccess(result.message);
+        setError('');
+        if (result.requiresApproval) {
+          setShowApprovalStatus(true);
+        }
       } else {
-        clubSet.add(club);
+        if (result.hasPendingApproval) {
+          setError('You already have a pending approval request. Please wait for TPO review.');
+        } else {
+          setError(result.message || 'Failed to update profile');
+        }
       }
-      return { ...prev, otherClubs: Array.from(clubSet) };
-    });
+    } catch (err) {
+      setError('An error occurred while saving the profile');
+      console.error('Save error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add this component to show approval status
+  const ApprovalStatusBanner = () => {
+    if (!pendingApprovals || pendingApprovals.totalPending === 0) return null;
+
+    return (
+      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <AlertCircle className="h-5 w-5 text-yellow-400" />
+          </div>
+          <div className="ml-3">
+            <p className="text-sm text-yellow-700">
+              You have {pendingApprovals.totalPending} pending approval request{pendingApprovals.totalPending !== 1 ? 's' : ''}.
+              Your changes will be reviewed by the TPO.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Add this component for rejected approvals
+  const RejectedApprovalsBanner = () => {
+    const rejectedApprovals = pendingApprovals?.rejected || [];
+    if (rejectedApprovals.length === 0) return null;
+
+    return (
+      <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <X className="h-5 w-5 text-red-400" />
+          </div>
+          <div className="ml-3">
+            {rejectedApprovals.map((approval, index) => (
+              <p key={index} className="text-sm text-red-700">
+                Your request was rejected: {approval.rejectionReason}
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const handleCancel = () => {
+    setFormData(profile);
+    setIsEditing(false);
+    setError("");
   };
 
   const addItemToArray = (field, defaultValue) => {
@@ -223,132 +479,44 @@ const StudentProfile = () => {
   };
 
   const removeItemFromArray = (field, idx) => {
-    setFormData((prev) => {
-      const arr = prev[field] ? [...prev[field]] : [];
-      arr.splice(idx, 1);
-      return { ...prev, [field]: arr };
-    });
+    setFormData((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== idx),
+    }));
   };
 
   const updateItemInArray = (field, idx, key, val) => {
-    setFormData((prev) => {
-      const arr = prev[field] ? [...prev[field]] : [];
-      const item = { ...arr[idx] };
-      item[key] = val;
-      arr[idx] = item;
-      return { ...prev, [field]: arr };
-    });
+    setFormData((prev) => ({
+      ...prev,
+      [field]: prev[field].map((item, i) =>
+        i === idx ? { ...item, [key]: val } : item
+      ),
+    }));
   };
 
   const updateLinkInArray = (field, idx, linkKey, val) => {
-    setFormData((prev) => {
-      const arr = prev[field] ? [...prev[field]] : [];
-      const item = { ...arr[idx] };
-      item.links = { ...(item.links || {}), [linkKey]: val };
-      arr[idx] = item;
-      return { ...prev, [field]: arr };
-    });
+    setFormData((prev) => ({
+      ...prev,
+      [field]: prev[field].map((item, i) =>
+        i === idx
+          ? {
+              ...item,
+              links: { ...(item.links || {}), [linkKey]: val },
+            }
+          : item
+      ),
+    }));
   };
 
-  const hasEmptyItem = (field, checker) => (formData[field] || []).some(checker);
-
-  const uploadProfileImage = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const formDataUpload = new FormData();
-    formDataUpload.append("profileImage", file);
-    setUploadingImage(true);
-    try {
-      const res = await fetch("/api/student/profile-image", {
-        method: "POST",
-        body: formDataUpload,
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("userToken")}`,
-        },
-      });
-      const data = await res.json();
-      if (data.success) {
-        setFormData((prev) => ({ ...prev, profileImageUrl: data.data }));
-        setSuccess("Profile image uploaded successfully");
-        setTimeout(() => setSuccess(""), 3000);
-      } else {
-        setError("Image upload failed");
-      }
-    } catch (error) {
-      setError("Image upload failed");
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-// Replace the resume upload function in StudentProfile.jsx
-const uploadResume = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  // Check file type
-  const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-  if (!allowedTypes.includes(file.type)) {
-    setError('Only PDF, DOC, and DOCX files are allowed');
-    return;
-  }
-  
-  const formDataUpload = new FormData();
-  formDataUpload.append("resume", file);
-  setUploadingResume(true);
-  try {
-    const res = await fetch("/api/student/resume", {
-      method: "POST",
-      body: formDataUpload,
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("userToken")}`,
-      },
-    });
-    const data = await res.json();
-    if (data.success) {
-      setFormData((prev) => ({ 
-        ...prev, 
-        resumeUrl: data.data.url,
-        resumeFileName: data.data.fileName
-      }));
-      setSuccess("Resume uploaded successfully");
-      setTimeout(() => setSuccess(""), 3000);
-    } else {
-      setError(data.message || "Resume upload failed");
-    }
-  } catch (error) {
-    setError("Resume upload failed");
-  } finally {
-    setUploadingResume(false);
-  }
-};
-
-
-  const handleSave = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const response = await updateProfile("student", formData);
-      if (response.data.success) {
-        setProfile(response.data.data);
-        setFormData(response.data.data);
-        setSuccess("Profile updated successfully");
-        setTimeout(() => setSuccess(""), 3000);
-        setIsEditing(false);
-      } else {
-        setError(response.data.message || "Failed to update profile");
-      }
-    } catch {
-      setError("Failed to update profile");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setFormData(profile);
-    setIsEditing(false);
-    setError("");
+  const handleClubChange = (club) => {
+    setFormData((prev) => ({
+      ...prev,
+      otherClubs: prev.otherClubs
+        ? prev.otherClubs.includes(club)
+          ? prev.otherClubs.filter((c) => c !== club)
+          : [...prev.otherClubs, club]
+        : [club],
+    }));
   };
 
   if (loading && !profile)
@@ -372,6 +540,8 @@ const uploadResume = async (e) => {
               </button>
               <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
             </div>
+                <ApprovalStatusBanner />
+    <RejectedApprovalsBanner />
             <div className="flex space-x-3">
               <button
                 onClick={() => navigate("/student-change-password")}

@@ -363,6 +363,42 @@ const StudentSchema = new mongoose.Schema({
     completedAt: Date,
     submissionCode: String
   }],
+  pendingApprovals: [{
+    requestType: {
+      type: String,
+      enum: ['crt_status_change', 'batch_change'],
+      required: true
+    },
+    requestedChanges: {
+      // For CRT status change
+      crtInterested: Boolean,
+      crtBatchChoice: String,
+      
+      // For batch/tech stack change
+      techStack: [String],
+      placementTrainingBatchId: mongoose.Schema.Types.ObjectId,
+      
+      // Original values (for reference)
+      originalCrtInterested: Boolean,
+      originalTechStack: [String]
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    requestedAt: {
+      type: Date,
+      default: Date.now
+    },
+    reviewedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TPO'
+    },
+    reviewedAt: Date,
+    rejectionReason: String
+  }],
+  
 
   // System Information
   lastLogin: Date
@@ -380,6 +416,72 @@ StudentSchema.pre('save', async function(next) {
 
 StudentSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Add method to create approval request
+StudentSchema.methods.createApprovalRequest = async function(type, changes) {
+  try {
+    const request = {
+      requestType: type,
+      requestedChanges: changes,
+      status: 'pending',
+      requestedAt: new Date()
+    };
+
+    this.pendingApprovals = this.pendingApprovals || [];
+    this.pendingApprovals.push(request);
+
+    // Save with retry mechanism
+    const save = async (retries = 3) => {
+      try {
+        await this.save();
+      } catch (err) {
+        if (err.name === 'VersionError' && retries > 0) {
+          const refreshedStudent = await this.constructor.findById(this._id);
+          this.pendingApprovals = refreshedStudent.pendingApprovals;
+          this.pendingApprovals.push(request);
+          return await save(retries - 1);
+        }
+        throw err;
+      }
+    };
+
+    await save();
+    return request;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Add method to check for pending approvals
+StudentSchema.methods.hasPendingApprovals = function() {
+  return this.pendingApprovals.some(approval => approval.status === 'pending');
+};
+
+// Add method to handle approval response
+StudentSchema.methods.handleApprovalResponse = async function(approvalId, isApproved, tpoId, reason) {
+  const approval = this.pendingApprovals.id(approvalId);
+  if (!approval) throw new Error('Approval request not found');
+
+  approval.status = isApproved ? 'approved' : 'rejected';
+  approval.reviewedBy = tpoId;
+  approval.reviewedAt = new Date();
+  if (!isApproved) approval.rejectionReason = reason;
+
+  if (isApproved) {
+    // Apply the approved changes
+    if (approval.requestType === 'crt_status_change') {
+      this.crtInterested = approval.requestedChanges.crtInterested;
+      if (approval.requestedChanges.crtBatchChoice) {
+        this.crtBatchChoice = approval.requestedChanges.crtBatchChoice;
+      }
+    } else if (approval.requestType === 'batch_change') {
+      this.techStack = approval.requestedChanges.techStack;
+    }
+  }
+
+  await this.save();
+  return approval;
 };
 
 module.exports = mongoose.model('Student', StudentSchema);

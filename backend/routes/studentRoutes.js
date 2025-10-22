@@ -7,13 +7,12 @@ const TPO = require('../models/TPO');
 const Admin = require('../models/Admin');
 const generalAuth = require('../middleware/generalAuth');
 const { profileUpload, resumeUpload } = require('../middleware/fileUpload');
-
 const router = express.Router();
 
 // Function to get TPO based on student's assigned batch
 async function getTPOForStudent(student) {
   let assignedTPO = null;
-
+  
   // First, try to get TPO from student's existing batch
   if (student.batchId) {
     const existingBatch = await Batch.findById(student.batchId).populate('tpoId');
@@ -21,41 +20,42 @@ async function getTPOForStudent(student) {
       assignedTPO = existingBatch.tpoId;
     }
   }
-
+  
   // If no TPO found from existing batch, get first active TPO
   if (!assignedTPO) {
     assignedTPO = await TPO.findOne({ status: 'active' }).sort({ createdAt: 1 });
   }
-
+  
   return assignedTPO;
 }
 
 // Placement training batch assignment function
 async function assignStudentToPlacementTrainingBatch(student) {
-  if (!student.college) throw new Error('Student college is required');
+  if (!student.college) {
+    throw new Error('Student college is required');
+  }
 
   // Remove student from any existing placement training batch
   if (student.placementTrainingBatchId) {
-    await PlacementTrainingBatch.findByIdAndUpdate(student.placementTrainingBatchId, {
-      $pull: { students: student._id }
-    });
+    await PlacementTrainingBatch.findByIdAndUpdate(
+      student.placementTrainingBatchId,
+      { $pull: { students: student._id } }
+    );
   }
 
-  // Get TPO based on student's batch assignment and Admin
   const tpo = await getTPOForStudent(student);
   const admin = await Admin.findOne({ status: 'active' }).sort({ createdAt: 1 });
 
   if (!tpo) {
     throw new Error('No TPO found for student. Please contact administrator.');
   }
-  
   if (!admin) {
     throw new Error('No active Admin found in system. Please contact administrator.');
   }
 
   const maxStudents = 80;
   const year = student.yearOfPassing;
-  
+
   // Determine tech stack for placement training
   let techStack = 'NonCRT';
   if (student.crtInterested && student.techStack && student.techStack.length > 0) {
@@ -82,7 +82,7 @@ async function assignStudentToPlacementTrainingBatch(student) {
       year: year
     });
 
-    const batchNumber = `PT_${year}_${student.college}_${techStack}_${existingBatches + 1}`;
+    const batchNumber = `PT${year}${student.college}${techStack}${existingBatches + 1}`;
 
     placementBatch = new PlacementTrainingBatch({
       batchNumber,
@@ -96,7 +96,7 @@ async function assignStudentToPlacementTrainingBatch(student) {
       students: []
     });
     await placementBatch.save();
-    console.log('Created new placement training batch:', batchNumber);
+    console.log(`Created new placement training batch: ${batchNumber}`);
   }
 
   // Add student to placement training batch if not already present
@@ -107,7 +107,6 @@ async function assignStudentToPlacementTrainingBatch(student) {
 
   // Update student with placement training batch reference
   student.placementTrainingBatchId = placementBatch._id;
-  // Keep crtBatchId for compatibility, but now it points to placement training batch
   student.crtBatchId = placementBatch._id;
   student.crtBatchName = placementBatch.batchNumber;
   await student.save();
@@ -115,90 +114,224 @@ async function assignStudentToPlacementTrainingBatch(student) {
   console.log(`Assigned student ${student.name} to placement training batch ${placementBatch.batchNumber} with TPO ${tpo.name}`);
 }
 
-// GET /api/student/profile
+// GET Student Profile
 router.get('/profile', generalAuth, async (req, res) => {
   try {
     if (req.userType !== 'student') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
-    
-    const student = await Student.findById(req.user._id)
-      .populate({
-        path: 'placementTrainingBatchId',
-        model: 'PlacementTrainingBatch',
-        select: 'batchNumber colleges techStack startDate endDate year',
-        populate: {
-          path: 'tpoId',
-          select: 'name email phone'
-        }
-      })
-      .populate({
-        path: 'batchId',
-        model: 'Batch',
-        select: 'batchNumber colleges'
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Student route only.'
       });
-      
-    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
-    
-    res.json({ success: true, data: student });
-  } catch (err) {
-    console.error('Get profile error:', err);
-    res.status(500).json({ success: false, message: 'Server error fetching profile' });
+    }
+
+    const student = await Student.findById(req.user._id)
+      .populate('placementTrainingBatchId', 'batchNumber techStack')
+      .select('-password');
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile fetched successfully',
+      data: student
+    });
+  } catch (error) {
+    console.error('Error fetching student profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching profile',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// PUT /api/student/profile
+// PUT Update Student Profile with Approval Logic
 router.put('/profile', generalAuth, async (req, res) => {
   try {
     if (req.userType !== 'student') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
-
-    const updatedStudent = await Student.findByIdAndUpdate(req.user._id, req.body, {
-      new: true,
-      runValidators: true
-    });
-
-    if (!updatedStudent) {
-      return res.status(404).json({ success: false, message: 'Student not found' });
-    }
-
-    // Assign student to placement training batch (separate from regular batches)
-    await assignStudentToPlacementTrainingBatch(updatedStudent);
-
-    // Fetch the updated student with placement training batch info
-    const finalStudent = await Student.findById(req.user._id)
-      .populate({
-        path: 'placementTrainingBatchId',
-        model: 'PlacementTrainingBatch',
-        select: 'batchNumber colleges techStack startDate endDate year',
-        populate: {
-          path: 'tpoId',
-          select: 'name email'
-        }
-      })
-      .populate({
-        path: 'batchId',
-        model: 'Batch',
-        select: 'batchNumber colleges'
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Student route only.'
       });
+    }
 
-    res.json({ success: true, data: finalStudent });
-  } catch (err) {
-    console.error('Update profile error:', err);
-    res.status(400).json({ success: false, message: err.message || 'Failed to update profile' });
+    const studentId = req.user._id;
+    const updateData = req.body;
+
+    // Use findOneAndUpdate with optimistic concurrency control
+    const update = async (retries = 3) => {
+      try {
+        const student = await Student.findById(studentId);
+        if (!student) {
+          return res.status(404).json({
+            success: false,
+            message: 'Student not found'
+          });
+        }
+
+        // Identify changes that require approval
+        const changes = {
+          crtStatus: {
+            changed: updateData.crtInterested !== undefined && 
+                    updateData.crtInterested !== student.crtInterested,
+            from: student.crtInterested,
+            to: updateData.crtInterested
+          },
+          crtBatch: {
+            changed: updateData.crtBatchChoice !== undefined && 
+                    updateData.crtBatchChoice !== student.crtBatchChoice,
+            from: student.crtBatchChoice,
+            to: updateData.crtBatchChoice
+          },
+          techStack: {
+            changed: updateData.techStack && 
+                    JSON.stringify(updateData.techStack.sort()) !== 
+                    JSON.stringify((student.techStack || []).sort()),
+            from: student.techStack || [],
+            to: updateData.techStack || []
+          }
+        };
+
+        const hasPendingApproval = student.pendingApprovals.some(
+          approval => approval.status === 'pending'
+        );
+
+        if (hasPendingApproval && (changes.crtStatus.changed || changes.crtBatch.changed || changes.techStack.changed)) {
+          return res.status(400).json({
+            success: false,
+            message: 'You already have a pending approval request. Please wait for TPO to review it.',
+            hasPendingApproval: true
+          });
+        }
+
+        let requiresApproval = false;
+
+        // Handle changes that require approval
+        if (changes.crtStatus.changed || changes.crtBatch.changed) {
+          await student.createApprovalRequest('crt_status_change', {
+            crtInterested: updateData.crtInterested,
+            crtBatchChoice: updateData.crtBatchChoice,
+            originalCrtInterested: student.crtInterested,
+            originalCrtBatchChoice: student.crtBatchChoice
+          });
+          requiresApproval = true;
+          delete updateData.crtInterested;
+          delete updateData.crtBatchChoice;
+        } else if (changes.techStack.changed) {
+          const validCrtTechs = ['Java', 'Python', 'AI/ML'];
+          const newCrtTech = updateData.techStack.find(tech => validCrtTechs.includes(tech));
+          const oldCrtTech = student.techStack?.find(tech => validCrtTechs.includes(tech));
+
+          if (newCrtTech !== oldCrtTech) {
+            await student.createApprovalRequest('batch_change', {
+              techStack: updateData.techStack,
+              originalTechStack: student.techStack || []
+            });
+            requiresApproval = true;
+            delete updateData.techStack;
+          }
+        }
+
+        // Apply non-restricted updates
+        Object.keys(updateData).forEach(key => {
+          if (updateData[key] !== undefined) {
+            student[key] = updateData[key];
+          }
+        });
+
+        const updatedStudent = await student.save();
+
+        // Get updated student data with populated fields
+        const populatedStudent = await Student.findById(updatedStudent._id)
+          .populate('placementTrainingBatchId', 'batchNumber techStack')
+          .select('-password');
+
+        return res.json({
+          success: true,
+          message: requiresApproval
+            ? 'Profile updated. Changes requiring approval have been sent to TPO.'
+            : 'Profile updated successfully',
+          data: populatedStudent,
+          requiresApproval
+        });
+
+      } catch (err) {
+        if (err.name === 'VersionError' && retries > 0) {
+          // If version conflict, retry the operation
+          return await update(retries - 1);
+        }
+        throw err;
+      }
+    };
+
+    await update();
+
+  } catch (error) {
+    console.error('Error updating student profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while updating profile',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
+
+// GET Pending Approvals for Student
+router.get('/pending-approvals', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'student') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Student route only.'
+      });
+    }
+
+    const student = await Student.findById(req.user._id)
+      .select('pendingApprovals')
+      .populate('pendingApprovals.reviewedBy', 'name email');
+
+    const pendingApprovals = student.pendingApprovals.filter(
+      approval => approval.status === 'pending'
+    );
+
+    const approvedApprovals = student.pendingApprovals.filter(
+      approval => approval.status === 'approved'
+    );
+
+    const rejectedApprovals = student.pendingApprovals.filter(
+      approval => approval.status === 'rejected'
+    );
+
+    res.json({
+      success: true,
+      data: {
+        pending: pendingApprovals,
+        approved: approvedApprovals,
+        rejected: rejectedApprovals,
+        totalPending: pendingApprovals.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching pending approvals:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching approvals'
+    });
+  }
+});
+
 
 // POST /api/student/profile-image
 router.post('/profile-image', generalAuth, (req, res) => {
   profileUpload(req, res, async (err) => {
     if (err) {
       console.error('Profile upload error:', err);
-      return res.status(400).json({ 
-        success: false, 
-        message: err.message 
-      });
+      return res.status(400).json({ success: false, message: err.message });
     }
 
     try {
@@ -211,7 +344,7 @@ router.post('/profile-image', generalAuth, (req, res) => {
       }
 
       const updatedStudent = await Student.findByIdAndUpdate(
-        req.user._id,
+        req.user.id,
         { profileImageUrl: req.file.path },
         { new: true }
       );
@@ -220,17 +353,14 @@ router.post('/profile-image', generalAuth, (req, res) => {
         return res.status(404).json({ success: false, message: 'Student not found' });
       }
 
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         data: updatedStudent.profileImageUrl,
         message: 'Profile image uploaded successfully'
       });
     } catch (error) {
       console.error('Error uploading profile image:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Failed to upload profile image' 
-      });
+      res.status(500).json({ success: false, message: 'Failed to upload profile image' });
     }
   });
 });
@@ -240,57 +370,42 @@ router.post('/resume', generalAuth, (req, res) => {
   resumeUpload(req, res, async (err) => {
     if (err) {
       console.error('Resume upload error:', err);
-      return res.status(400).json({ 
-        success: false, 
-        message: err.message 
-      });
+      return res.status(400).json({ success: false, message: err.message });
     }
 
     try {
       if (req.userType !== 'student') {
-        return res.status(403).json({ 
-          success: false, 
-          message: 'Access denied' 
-        });
+        return res.status(403).json({ success: false, message: 'Access denied' });
       }
 
       if (!req.file) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'No file uploaded' 
-        });
+        return res.status(400).json({ success: false, message: 'No file uploaded' });
       }
 
       const updatedStudent = await Student.findByIdAndUpdate(
-        req.user._id,
-        {
+        req.user.id,
+        { 
           resumeUrl: req.file.path,
-          resumeFileName: req.file.originalname
+          resumeFileName: req.file.originalname 
         },
         { new: true }
       );
 
       if (!updatedStudent) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'Student not found' 
-        });
+        return res.status(404).json({ success: false, message: 'Student not found' });
       }
 
       return res.json({
         success: true,
-        data: {
-          url: updatedStudent.resumeUrl,
-          fileName: req.file.originalname
+        data: { 
+          url: updatedStudent.resumeUrl, 
+          fileName: req.file.originalname 
         },
         message: 'Resume uploaded successfully'
       });
     } catch (error) {
       console.error('Error uploading resume:', error);
-      res.status(500).json({ 
-        success: false, 
-        message: 'Failed to upload resume' 
-      });
+      res.status(500).json({ success: false, message: 'Failed to upload resume' });
     }
   });
 });
@@ -302,12 +417,12 @@ router.get('/check-password-change', generalAuth, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const student = await Student.findById(req.user._id);
+    const student = await Student.findById(req.user.id);
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
 
-    const needsPasswordChange = !student.lastLogin || student.password === student.username;
+    const needsPasswordChange = !student.lastLogin && student.password === student.username;
 
     res.json({
       success: true,
@@ -326,11 +441,13 @@ router.get('/my-batch', generalAuth, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const studentId = req.user._id;
-
+    const studentId = req.user.id;
     const student = await Student.findById(studentId).populate({
       path: 'batchId',
-      populate: { path: 'tpoId', select: 'name email phone' }
+      populate: {
+        path: 'tpoId',
+        select: 'name email phone'
+      }
     });
 
     if (!student) {
@@ -348,14 +465,14 @@ router.get('/my-batch', generalAuth, async (req, res) => {
       success: true,
       data: {
         batch: {
-          _id: student.batchId._id,
+          id: student.batchId._id,
           batchNumber: student.batchId.batchNumber,
           colleges: student.batchId.colleges,
           startDate: student.batchId.startDate,
           endDate: student.batchId.endDate,
         },
         tpo: student.batchId.tpoId || null,
-      },
+      }
     });
   } catch (error) {
     console.error('Error fetching student batch info:', error);
@@ -374,9 +491,8 @@ router.get('/placement-training-batch-info', generalAuth, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const studentId = req.user._id;
-    
-    // Find student with placement training batch info
+    const studentId = req.user.id;
+
     const student = await Student.findById(studentId)
       .populate({
         path: 'placementTrainingBatchId',
@@ -399,14 +515,14 @@ router.get('/placement-training-batch-info', generalAuth, async (req, res) => {
     }
 
     if (!student.placementTrainingBatchId) {
-      return res.status(404).json({
-        success: false,
-        message: 'No placement training batch assigned yet. Please complete your profile to get assigned to a batch.'
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No placement training batch assigned yet. Please complete your profile to get assigned to a batch.' 
       });
     }
 
     const placementBatch = student.placementTrainingBatchId;
-    
+
     // Organize trainer information by time slots
     const trainerSchedule = {
       morning: [],
@@ -419,7 +535,7 @@ router.get('/placement-training-batch-info', generalAuth, async (req, res) => {
         const timeSlot = assignment.timeSlot;
         trainerSchedule[timeSlot].push({
           trainer: {
-            _id: assignment.trainer._id,
+            id: assignment.trainer._id,
             name: assignment.trainer.name,
             email: assignment.trainer.email,
             phone: assignment.trainer.phone,
@@ -467,7 +583,7 @@ router.get('/placement-training-batch-info', generalAuth, async (req, res) => {
       success: true,
       data: {
         student: {
-          _id: student._id,
+          id: student._id,
           name: student.name,
           email: student.email,
           college: student.college,
@@ -475,7 +591,7 @@ router.get('/placement-training-batch-info', generalAuth, async (req, res) => {
           yearOfPassing: student.yearOfPassing
         },
         placementBatch: {
-          _id: placementBatch._id,
+          id: placementBatch._id,
           batchNumber: placementBatch.batchNumber,
           colleges: placementBatch.colleges,
           techStack: placementBatch.techStack,
@@ -490,13 +606,12 @@ router.get('/placement-training-batch-info', generalAuth, async (req, res) => {
         totalTrainers: placementBatch.assignedTrainers ? placementBatch.assignedTrainers.length : 0
       }
     });
-
   } catch (error) {
     console.error('Error fetching placement training batch info:', error);
-    res.status(500).json({
-      success: false,
+    res.status(500).json({ 
+      success: false, 
       message: 'Server error fetching placement training batch information',
-      error: error.message
+      error: error.message 
     });
   }
 });
@@ -508,34 +623,26 @@ router.get('/my-trainers-schedule', generalAuth, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    const studentId = req.user._id;
-    
+    const studentId = req.user.id;
+
     // Find student's placement training batch
     const student = await Student.findById(studentId);
-    
     if (!student || !student.placementTrainingBatchId) {
-      return res.status(404).json({
-        success: false,
-        message: 'No placement training batch found'
-      });
+      return res.status(404).json({ success: false, message: 'No placement training batch found' });
     }
 
     const placementBatch = await PlacementTrainingBatch.findById(student.placementTrainingBatchId)
       .populate('assignedTrainers.trainer', 'name email phone subjectDealing category');
 
     if (!placementBatch) {
-      return res.status(404).json({
-        success: false,
-        message: 'Placement training batch not found'
-      });
+      return res.status(404).json({ success: false, message: 'Placement training batch not found' });
     }
 
     // Create today's schedule
     const today = new Date();
     const todayName = today.toLocaleDateString('en-US', { weekday: 'long' });
-    
     const todaySchedule = [];
-    
+
     if (placementBatch.assignedTrainers && placementBatch.assignedTrainers.length > 0) {
       placementBatch.assignedTrainers.forEach(assignment => {
         if (assignment.schedule && assignment.schedule.length > 0) {
@@ -569,13 +676,9 @@ router.get('/my-trainers-schedule', generalAuth, async (req, res) => {
         }
       }
     });
-
   } catch (error) {
     console.error('Error fetching trainer schedule:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error fetching trainer schedule'
-    });
+    res.status(500).json({ success: false, message: 'Server error fetching trainer schedule' });
   }
 });
 

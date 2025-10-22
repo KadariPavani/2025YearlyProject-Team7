@@ -5,7 +5,8 @@ import {
   Building2, Code2, GraduationCap, X, TrendingUp, Clock, MapPin, Award, Filter,
   Search, UserPlus, UserCheck, Download, CalendarDays, BookOpen, FileText,
   User, Phone, Mail, MapPin as Location, GraduationCap as Education, Briefcase,
-  ExternalLink, Image as ImageIcon, Star
+  ExternalLink, Image as ImageIcon, Star,
+  CheckCircle, AlertCircle,
 } from 'lucide-react';
 import TrainerAssignment from './TrainerAssignment';
 import ScheduleTimetable from './ScheduleTimetable';
@@ -56,6 +57,15 @@ const TPODashboard = () => {
   const [scheduleData, setScheduleData] = useState([]);
   const [loadingSchedule, setLoadingSchedule] = useState(false);
 
+  // Approval System state
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [loadingApprovals, setLoadingApprovals] = useState(false);
+  const [selectedApproval, setSelectedApproval] = useState(null);
+  const [showApprovalDetail, setShowApprovalDetail] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [approvalToReject, setApprovalToReject] = useState(null);
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -63,6 +73,7 @@ const TPODashboard = () => {
     fetchAssignedBatches();
     fetchPlacementTrainingBatches();
     fetchStudentDetailsByBatch();
+    fetchPendingApprovals();
   }, []);
 
   useEffect(() => {
@@ -70,6 +81,12 @@ const TPODashboard = () => {
       fetchScheduleData();
     } else if (activeTab === 'student-details') {
       fetchStudentDetailsByBatch();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'approvals') {
+      fetchPendingApprovals();
     }
   }, [activeTab]);
 
@@ -171,6 +188,124 @@ const TPODashboard = () => {
       setLoadingSchedule(false);
     }
   };
+
+  // Fetch pending approvals
+  const fetchPendingApprovals = async () => {
+    try {
+      setLoadingApprovals(true);
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/tpo/pending-approvals', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setPendingApprovals(data.data.requests || []);
+      }
+    } catch (error) {
+      console.error('Error fetching approvals:', error);
+      setError('Failed to fetch pending approvals');
+    } finally {
+      setLoadingApprovals(false);
+    }
+  };
+
+  // Handle approval
+  const handleApproveRequest = async (studentId, approvalId) => {
+    try {
+      setLoading(true);
+      setError('');
+      setMessage('');
+      
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/tpo/approve-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          studentId,
+          approvalId,
+          action: 'approve'
+        }),
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage('Request approved successfully');
+        await fetchPendingApprovals();
+        setShowApprovalDetail(false);
+        setSelectedApproval(null);
+      } else {
+        setError(data.message || 'Failed to approve request');
+        console.error('Server response:', data);
+      }
+    } catch (error) {
+      console.error('Error approving request:', error);
+      setError('Failed to process approval. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle rejection
+  const handleRejectRequest = async () => {
+    if (!approvalToReject || !rejectionReason) {
+      setError('Please provide a reason for rejection');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/tpo/approve-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          studentId: approvalToReject.student.id,
+          approvalId: approvalToReject.approvalId,
+          action: 'reject',
+          rejectionReason
+        }),
+        credentials: 'include' // Add this to include cookies
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setMessage('Request rejected successfully');
+        fetchPendingApprovals(); // Refresh the approvals list
+        closeRejectModal();
+      } else {
+        setError(data.message || 'Failed to reject request');
+        console.error('Server response:', data);
+      }
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      setError('Failed to process rejection');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openRejectModal = (approval) => {
+    setApprovalToReject(approval);
+    setShowRejectModal(true);
+  };
+
+  const closeRejectModal = () => {
+    setShowRejectModal(false);
+    setRejectionReason('');
+    setApprovalToReject(null);
+  };
+
 
   const getFilteredStudents = () => {
     const allStudents = [];
@@ -815,6 +950,243 @@ const TPODashboard = () => {
     );
   }
 
+
+  // Approval Detail Modal Component
+  const ApprovalDetailModal = ({ approval, onClose, onApprove, onReject }) => {
+    if (!approval) return null;
+
+    const getRequestTypeLabel = (type) => {
+      return type === 'crt_status_change' ? 'CRT Status Change' : 'Batch Change';
+    };
+
+    const getRequestTypeColor = (type) => {
+      return type === 'crt_status_change' 
+        ? 'from-purple-500 to-purple-600' 
+        : 'from-blue-500 to-blue-600';
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+        <div className="relative w-full max-w-3xl bg-white rounded-lg shadow-2xl">
+          <div className={`bg-gradient-to-r ${getRequestTypeColor(approval.requestType)} px-6 py-4 rounded-t-lg flex justify-between items-center`}>
+            <div>
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <AlertCircle className="h-6 w-6" />
+                Approval Request Details
+              </h3>
+              <p className="text-white/90 text-sm mt-1">{getRequestTypeLabel(approval.requestType)}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="p-6 space-y-6">
+            {/* Student Information */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <User className="h-5 w-5 text-blue-600" />
+                Student Information
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-gray-600 mb-1">Name</p>
+                  <p className="font-semibold text-gray-900">{approval.student.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600 mb-1">Roll Number</p>
+                  <p className="font-semibold text-gray-900 font-mono">{approval.student.rollNo}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600 mb-1">College</p>
+                  <p className="font-semibold text-gray-900">{approval.student.college}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600 mb-1">Branch</p>
+                  <p className="font-semibold text-gray-900">{approval.student.branch}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600 mb-1">Year of Passing</p>
+                  <p className="font-semibold text-gray-900">{approval.student.yearOfPassing}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600 mb-1">Current Batch</p>
+                  <p className="font-semibold text-gray-900">
+                    {approval.student.currentBatch ? approval.student.currentBatch.batchNumber : 'Not Assigned'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Request Details */}
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <h4 className="text-base font-semibold text-gray-900 mb-3">Requested Changes</h4>
+
+              {approval.requestType === 'crt_status_change' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-white rounded border border-blue-200">
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-600 mb-1">Current CRT Status</p>
+                      <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${
+                        approval.requestedChanges.originalCrtInterested
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {approval.requestedChanges.originalCrtInterested ? 'CRT' : 'Non-CRT'}
+                      </span>
+                    </div>
+                    <div className="px-4">
+                      <ChevronRight className="h-6 w-6 text-gray-400" />
+                    </div>
+                    <div className="flex-1 text-right">
+                      <p className="text-sm text-gray-600 mb-1">Requested CRT Status</p>
+                      <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${
+                        approval.requestedChanges.crtInterested
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {approval.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {approval.requestedChanges.crtBatchChoice && (
+                    <div className="p-3 bg-white rounded border border-blue-200">
+                      <p className="text-sm text-gray-600 mb-1">Requested CRT Batch</p>
+                      <span className="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-purple-100 text-purple-800 border border-purple-200">
+                        {approval.requestedChanges.crtBatchChoice}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {approval.requestType === 'batch_change' && (
+                <div className="flex items-center justify-between p-3 bg-white rounded border border-blue-200">
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600 mb-2">Current Tech Stack</p>
+                    <div className="flex flex-wrap gap-2">
+                      {approval.requestedChanges.originalTechStack?.map((tech, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-semibold border border-gray-200"
+                        >
+                          {tech}
+                        </span>
+                      )) || <span className="text-gray-500 text-sm">None</span>}
+                    </div>
+                  </div>
+                  <div className="px-4">
+                    <ChevronRight className="h-6 w-6 text-gray-400" />
+                  </div>
+                  <div className="flex-1 text-right">
+                    <p className="text-sm text-gray-600 mb-2">Requested Tech Stack</p>
+                    <div className="flex flex-wrap gap-2 justify-end">
+                      {approval.requestedChanges.techStack?.map((tech, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold border border-blue-200"
+                        >
+                          {tech}
+                        </span>
+                      )) || <span className="text-gray-500 text-sm">None</span>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Request Metadata */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">Requested At</span>
+                <span className="font-semibold text-gray-900">
+                  {new Date(approval.requestedAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => onApprove(approval.student.id, approval.approvalId)}
+                className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
+              >
+                <CheckCircle className="h-5 w-5" />
+                Approve Request
+              </button>
+              <button
+                onClick={() => onReject(approval)}
+                className="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
+              >
+                <X className="h-5 w-5" />
+                Reject Request
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Reject Modal Component
+  const RejectModal = ({ approval, onClose, onConfirm, reason, setReason }) => {
+    if (!approval) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+        <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
+          <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4 rounded-t-lg">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <AlertCircle className="h-6 w-6" />
+              Reject Request
+            </h3>
+          </div>
+
+          <div className="p-6">
+            <p className="text-gray-700 mb-4">
+              You are about to reject the request from <strong>{approval.student.name}</strong>.
+              Please provide a reason for rejection:
+            </p>
+
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Enter rejection reason..."
+              className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+              rows={4}
+            />
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={onClose}
+                className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onConfirm}
+                disabled={!reason.trim()}
+                className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Confirm Rejection
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -1006,6 +1378,26 @@ const TPODashboard = () => {
                 <CalendarDays className="h-4 w-4 inline mr-2" />
                 Overall Schedule
               </button>
+
+            {/* Approval Requests Tab */}
+            <button
+              onClick={() => setActiveTab('approvals')}
+              className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 relative ${
+                activeTab === 'approvals'
+                  ? 'border-orange-600 text-orange-700 bg-orange-50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                Approval Requests
+                {pendingApprovals.length > 0 && (
+                  <span className="bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+                    {pendingApprovals.length}
+                  </span>
+                )}
+              </div>
+            </button>
             </div>
           </div>
         </div>
@@ -1164,7 +1556,7 @@ const TPODashboard = () => {
                                 <h3 className="text-lg font-bold text-gray-900">{batch.batchNumber}</h3>
                                 <p className="text-sm text-gray-600 mt-0.5">{batch.college}</p>
                               </div>
-                              <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${getTechStackColor(batch.techStack)} border`}>
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getTechStackColor(batch.techStack)} border`}>
                                 {batch.techStack}
                               </span>
                             </div>
@@ -1321,7 +1713,7 @@ const TPODashboard = () => {
           {activeTab === 'statistics' && (
             <div className="space-y-5">
               <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-5">Detailed Statistics</h2>
+                <h2 className="text-lg font-semibold mb-5">Detailed Statistics</h2>
                 {Object.keys(placementBatchData).sort().reverse().map(year => (
                   <div key={year} className="mb-5">
                     <h3 className="font-semibold text-gray-800 mb-3 border-b border-gray-300 pb-2">Academic Year {year}</h3>
@@ -1358,6 +1750,147 @@ const TPODashboard = () => {
               onRefresh={fetchScheduleData}
             />
           )}
+
+        {/* Approvals Tab */}
+        {activeTab === 'approvals' && (
+          <div className="space-y-5">
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <AlertCircle className="h-6 w-6 text-orange-600" />
+                    Pending Approval Requests
+                  </h3>
+                  <p className="text-gray-600 text-sm mt-1">
+                    Review and approve student requests for CRT status and batch changes
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchPendingApprovals}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+
+              {/* Display error messages for approvals */}
+              {error && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
+                  <p className="text-red-700">{error}</p>
+                </div>
+              )}
+
+              {message && (
+                <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
+                  <p className="text-green-700">{message}</p>
+                </div>
+              )}
+
+              {loadingApprovals ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Loading approval requests...</p>
+                </div>
+              ) : pendingApprovals.length === 0 ? (
+                <div className="text-center py-12">
+                  <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                  <p className="text-gray-600 font-medium">No pending approval requests</p>
+                  <p className="text-gray-500 text-sm mt-2">All requests have been processed</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pendingApprovals.map((approval, idx) => (
+                    <div
+                      key={idx}
+                      className="border border-orange-200 rounded-lg p-4 bg-gradient-to-r from-orange-50 to-white hover:shadow-md transition-shadow"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                              {approval.student.name.charAt(0)}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-gray-900 text-base">
+                                {approval.student.name}
+                              </h4>
+                              <p className="text-sm text-gray-600">
+                                {approval.student.rollNo} • {approval.student.college} • {approval.student.branch}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 mt-3">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              approval.requestType === 'crt_status_change'
+                                ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                : 'bg-blue-100 text-blue-800 border border-blue-200'
+                            }`}>
+                              {approval.requestType === 'crt_status_change' 
+                                ? 'CRT Status Change' 
+                                : 'Batch Change'}
+                            </span>
+
+                            <span className="text-xs text-gray-500">
+                              {new Date(approval.requestedAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          </div>
+
+                          {/* Quick preview of changes */}
+                          <div className="mt-3 p-2 bg-white rounded border border-gray-200 text-sm">
+                            {approval.requestType === 'crt_status_change' ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-600">Status:</span>
+                                <span className="font-semibold text-gray-800">
+                                  {approval.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}
+                                </span>
+                                <ChevronRight className="h-4 w-4 text-gray-400" />
+                                <span className="font-semibold text-orange-700">
+                                  {approval.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-600">Tech Stack:</span>
+                                <span className="font-semibold text-gray-800">
+                                  {approval.requestedChanges.techStack?.join(', ') || 'None'}
+                                </span>
+                                <ChevronRight className="h-4 w-4 text-gray-400" />
+                                <span className="font-semibold text-orange-700">
+                                  {approval.requestedChanges.techStack?.join(', ') || 'None'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setSelectedApproval(approval);
+                            setShowApprovalDetail(true);
+                          }}
+                          className="ml-4 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors font-medium text-sm flex items-center gap-2"
+                        >
+                          <Eye className="h-4 w-4" />
+                          Review
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         </div>
       </div>
 
@@ -1413,7 +1946,7 @@ const TPODashboard = () => {
                           </div>
                           <div>
                             <h5 className="font-semibold text-gray-900 text-sm">{assignment.trainer?.name || 'Unknown'}</h5>
-                            <p className="text-xs text-gray-600">{assignment.subject}</p>
+                            <p className="text-gray-700 text-xs">{assignment.subject}</p>
                           </div>
                         </div>
                         <div className="flex justify-between text-xs">
@@ -1493,6 +2026,29 @@ const TPODashboard = () => {
         <StudentProfileModal
           student={selectedStudentForProfile}
           onClose={() => setSelectedStudentForProfile(null)}
+        />
+      )}
+      {/* Approval Detail Modal */}
+      {showApprovalDetail && selectedApproval && (
+        <ApprovalDetailModal
+          approval={selectedApproval}
+          onClose={() => {
+            setShowApprovalDetail(false);
+            setSelectedApproval(null);
+          }}
+          onApprove={handleApproveRequest}
+          onReject={openRejectModal}
+        />
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <RejectModal
+          approval={approvalToReject}
+          onClose={closeRejectModal}
+          onConfirm={handleRejectRequest}
+          reason={rejectionReason}
+          setReason={setRejectionReason}
         />
       )}
     </div>

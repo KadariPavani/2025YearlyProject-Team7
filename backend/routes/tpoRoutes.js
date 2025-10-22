@@ -5,7 +5,7 @@ const Batch = require('../models/Batch');
 const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const Trainer = require('../models/Trainer');
 const TPO = require('../models/TPO');
-
+const Student = require('../models/Student');
 // GET TPO Profile
 router.get('/profile', generalAuth, async (req, res) => {
   try {
@@ -785,6 +785,322 @@ router.get('/export-schedule', generalAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while exporting schedule'
+    });
+  }
+});
+
+// GET /api/tpo/pending-approvals - Get all pending approval requests
+router.get('/pending-approvals', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({ success: false, message: 'Access denied. TPO route only.' });
+    }
+
+    const tpoId = req.user.id;
+
+    // Find all students with pending approvals
+    const studentsWithPendingApprovals = await Student.find({
+      'pendingApprovals.status': 'pending'
+    })
+      .select('name rollNo email college branch yearOfPassing crtInterested techStack pendingApprovals placementTrainingBatchId')
+      .populate('placementTrainingBatchId', 'batchNumber techStack');
+
+    // Filter and format approval requests
+    const approvalRequests = [];
+    
+    studentsWithPendingApprovals.forEach(student => {
+      const pendingApprovals = student.pendingApprovals.filter(
+        approval => approval.status === 'pending'
+      );
+
+      pendingApprovals.forEach(approval => {
+        approvalRequests.push({
+          approvalId: approval._id,
+          student: {
+            id: student._id,
+            name: student.name,
+            rollNo: student.rollNo,
+            email: student.email,
+            college: student.college,
+            branch: student.branch,
+            yearOfPassing: student.yearOfPassing,
+            currentBatch: student.placementTrainingBatchId ? {
+              batchNumber: student.placementTrainingBatchId.batchNumber,
+              techStack: student.placementTrainingBatchId.techStack
+            } : null
+          },
+          requestType: approval.requestType,
+          requestedChanges: approval.requestedChanges,
+          requestedAt: approval.requestedAt,
+          status: approval.status
+        });
+      });
+    });
+
+    // Sort by requested date (newest first)
+    approvalRequests.sort((a, b) => new Date(b.requestedAt) - new Date(a.requestedAt));
+
+    res.json({
+      success: true,
+      message: 'Pending approvals fetched successfully',
+      data: {
+        totalPending: approvalRequests.length,
+        requests: approvalRequests
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching pending approvals:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching pending approvals',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// tpoRoutes.js
+
+router.post('/approve-request', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. TPO route only.'
+      });
+    }
+
+    const { studentId, approvalId, action, rejectionReason } = req.body;
+    const tpo = await TPO.findById(req.user._id);
+
+    if (!tpo) {
+      return res.status(404).json({
+        success: false,
+        message: 'TPO account not found'
+      });
+    }
+
+    // Get student with populated batch references
+    const student = await Student.findById(studentId)
+      .populate('batchId')
+      .populate('placementTrainingBatchId');
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    // Find the specific approval request
+    const approval = student.pendingApprovals.id(approvalId);
+    if (!approval) {
+      return res.status(404).json({
+        success: false,
+        message: 'Approval request not found'
+      });
+    }
+
+    if (approval.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: `This request has already been ${approval.status}`
+      });
+    }
+
+    // Log current state for debugging
+    console.log('Processing approval request:', {
+      tpoId: tpo._id,
+      studentId: student._id,
+      batchId: student.batchId?._id,
+      placementBatchId: student.placementTrainingBatchId?._id,
+      tpoAssignedBatches: tpo.assignedBatches.map(b => b.toString())
+    });
+
+    // Check permission
+    const hasPermission = await tpo.canApproveRequest(student);
+    if (!hasPermission) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to approve this request'
+      });
+    }
+
+    // Process the approval
+    if (action === 'approve') {
+      approval.status = 'approved';
+      approval.reviewedBy = tpo._id;
+      approval.reviewedAt = new Date();
+
+      // Handle the changes based on request type
+      if (approval.requestType === 'crt_status_change') {
+        student.crtInterested = approval.requestedChanges.crtInterested;
+        if (approval.requestedChanges.crtBatchChoice) {
+          student.techStack = [approval.requestedChanges.crtBatchChoice];
+        }
+      } else if (approval.requestType === 'batch_change') {
+        student.techStack = approval.requestedChanges.techStack;
+      }
+    } else if (action === 'reject') {
+      if (!rejectionReason) {
+        return res.status(400).json({
+          success: false,
+          message: 'Rejection reason is required'
+        });
+      }
+      approval.status = 'rejected';
+      approval.reviewedBy = tpo._id;
+      approval.reviewedAt = new Date();
+      approval.rejectionReason = rejectionReason;
+    }
+
+    await student.save();
+
+    res.json({
+      success: true,
+      message: `Request ${action}ed successfully`,
+      data: {
+        studentId: student._id,
+        approvalId: approval._id,
+        status: approval.status
+      }
+    });
+
+  } catch (error) {
+    console.error('Error processing approval request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while processing approval request',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// POST /api/tpo/reject-request - Reject a change request
+router.post('/reject-request', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({ success: false, message: 'Access denied. TPO route only.' });
+    }
+
+    const { studentId, approvalId, rejectionReason } = req.body;
+    const tpoId = req.user.id;
+
+    if (!studentId || !approvalId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student ID and Approval ID are required'
+      });
+    }
+
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    // Find the specific approval request
+    const approval = student.pendingApprovals.id(approvalId);
+    if (!approval) {
+      return res.status(404).json({ success: false, message: 'Approval request not found' });
+    }
+
+    if (approval.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: `This request has already been ${approval.status}`
+      });
+    }
+
+    // Update approval status
+    approval.status = 'rejected';
+    approval.reviewedBy = tpoId;
+    approval.reviewedAt = new Date();
+    approval.rejectionReason = rejectionReason || 'No reason provided';
+
+    await student.save();
+
+    res.json({
+      success: true,
+      message: 'Approval request rejected successfully',
+      data: {
+        studentId: student._id,
+        studentName: student.name,
+        approvalId: approval._id,
+        status: approval.status
+      }
+    });
+  } catch (error) {
+    console.error('Error rejecting request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while rejecting request',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// GET /api/tpo/approval-history - Get approval history (approved/rejected requests)
+router.get('/approval-history', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({ success: false, message: 'Access denied. TPO route only.' });
+    }
+
+    const tpoId = req.user.id;
+
+    // Find all students with approvals reviewed by this TPO
+    const studentsWithApprovals = await Student.find({
+      'pendingApprovals.reviewedBy': tpoId
+    })
+      .select('name rollNo email college branch pendingApprovals')
+      .populate('pendingApprovals.reviewedBy', 'name email');
+
+    const approvalHistory = [];
+
+    studentsWithApprovals.forEach(student => {
+      const reviewedApprovals = student.pendingApprovals.filter(
+        approval => approval.reviewedBy && approval.reviewedBy._id.toString() === tpoId.toString()
+      );
+
+      reviewedApprovals.forEach(approval => {
+        approvalHistory.push({
+          approvalId: approval._id,
+          student: {
+            id: student._id,
+            name: student.name,
+            rollNo: student.rollNo,
+            email: student.email,
+            college: student.college,
+            branch: student.branch
+          },
+          requestType: approval.requestType,
+          requestedChanges: approval.requestedChanges,
+          status: approval.status,
+          requestedAt: approval.requestedAt,
+          reviewedAt: approval.reviewedAt,
+          rejectionReason: approval.rejectionReason
+        });
+      });
+    });
+
+    // Sort by review date (newest first)
+    approvalHistory.sort((a, b) => new Date(b.reviewedAt) - new Date(a.reviewedAt));
+
+    res.json({
+      success: true,
+      message: 'Approval history fetched successfully',
+      data: {
+        totalRecords: approvalHistory.length,
+        approvedCount: approvalHistory.filter(a => a.status === 'approved').length,
+        rejectedCount: approvalHistory.filter(a => a.status === 'rejected').length,
+        history: approvalHistory
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching approval history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching approval history',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
