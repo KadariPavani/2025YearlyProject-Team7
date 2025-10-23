@@ -1,7 +1,3 @@
-// ============================================
-// FRONTEND FIX for 404 Error - StudentAssignment.jsx
-// Remove fl_attachment transformations for raw files
-// ============================================
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
