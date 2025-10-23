@@ -662,7 +662,7 @@ const TPODashboard = () => {
     const colors = {
       Java: 'bg-blue-50 border-blue-200 text-blue-700',
       Python: 'bg-green-50 border-green-200 text-green-700',
-      'AI/ML': 'bg-blue-50 border-blue-200 text-blue-700',
+      'AIML': 'bg-blue-50 border-blue-200 text-blue-700',
       NonCRT: 'bg-gray-50 border-gray-200 text-gray-700',
     };
     return colors[techStack] || 'bg-blue-50 border-blue-200 text-blue-700';
@@ -672,7 +672,7 @@ const TPODashboard = () => {
     const colors = {
       Java: 'bg-blue-500',
       Python: 'bg-green-500',
-      'AI/ML': 'bg-blue-500',
+      'AIML': 'bg-blue-500',
       NonCRT: 'bg-gray-500',
     };
     return colors[techStack] || 'bg-blue-500';

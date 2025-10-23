@@ -131,6 +131,14 @@ const StudentDashboard = () => {
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState('overview'); 
   const [selectedTrainer, setSelectedTrainer] = useState(null);
+  const [pendingApprovals, setPendingApprovals] = useState(null);
+  const [formData, setFormData] = useState({
+    crtInterested: false,
+    crtBatchChoice: '',
+    // other profile fields...
+  });
+  const [isEditing, setIsEditing] = useState(false);
+  const [message, setMessage] = useState('');
 
   const navigate = useNavigate();
 
@@ -142,6 +150,7 @@ const StudentDashboard = () => {
     fetchAssignments();
     fetchQuizzes();
     fetchResources();
+    fetchPendingApprovals();
   }, []);
 
   useEffect(() => {
@@ -161,6 +170,11 @@ const StudentDashboard = () => {
       const result = await response.json();
       if (result.success) {
         setStudentData(result.data);
+        setFormData(prev => ({
+          ...prev,
+          crtInterested: result.data.crtInterested || false,
+          crtBatchChoice: result.data.crtBatchChoice || ''
+        }));
       } else {
         setError('Failed to fetch student data');
       }
@@ -262,8 +276,31 @@ const StudentDashboard = () => {
       });
       setResources(response.data.references || []);
     } catch (err) {
-      console.error('Failed to fetch resources:', err);
-      setResources([]);
+      // Handle 404 gracefully
+      if (err.response?.status === 404) {
+        setResources([]);
+      } else {
+        console.error('Failed to fetch resources:', err);
+        setResources([]);
+      }
+    }
+  };
+
+  // Add this new function
+  const fetchPendingApprovals = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/student/pending-approvals', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setPendingApprovals(data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching approvals:', err);
     }
   };
 
@@ -399,6 +436,52 @@ const StudentDashboard = () => {
       localStorage.removeItem('userToken');
       localStorage.removeItem('userData');
       navigate('/student-login');
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    // Special handling for CRT-related changes
+    if (name === 'crtInterested' || name === 'crtBatchChoice') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        requiresApproval: true
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  // Update the save function to handle approvals
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const token = localStorage.getItem('userToken');
+      const response = await axios.put('/api/student/profile', formData, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      if (response.data.requiresApproval) {
+        setMessage('Profile updated. CRT-related changes have been sent for TPO approval.');
+      } else {
+        setMessage('Profile updated successfully');
+      }
+
+      setProfile(response.data.data);
+      setIsEditing(false);
+    } catch (error) {
+      setError(error.response?.data?.message || 'Error updating profile');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -563,6 +646,54 @@ const StudentDashboard = () => {
               </div>
             </div>
           </div>
+          {/* Approval Status Banner */}
+          {pendingApprovals && pendingApprovals.totalPending > 0 && (
+            <div className="px-8 pb-4">
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm">
+                <div className="flex items-start">
+                  <AlertCircle className="h-5 w-5 text-yellow-400 mt-0.5" />
+                  <div className="ml-3 flex-1">
+                    <p className="text-sm font-medium text-yellow-800">
+                      You have {pendingApprovals.totalPending} pending approval request{pendingApprovals.totalPending !== 1 ? 's' : ''} awaiting TPO review
+                    </p>
+                    <button
+                      onClick={() => setActiveTab('approvals')}
+                      className="mt-2 text-sm text-yellow-700 hover:text-yellow-900 font-semibold underline"
+                    >
+                      View Details →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Rejected Approvals Banner */}
+          {pendingApprovals && pendingApprovals.rejected && pendingApprovals.rejected.length > 0 && (
+            <div className="px-8 pb-4">
+              <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg shadow-sm">
+                <div className="flex items-start">
+                  <X className="h-5 w-5 text-red-400 mt-0.5" />
+                  <div className="ml-3 flex-1">
+                    <p className="text-sm font-medium text-red-800">
+                      Some of your requests were rejected
+                    </p>
+                    {pendingApprovals.rejected.slice(0, 2).map((approval, index) => (
+                      <p key={index} className="text-sm text-red-700 mt-1">
+                        • {approval.rejectionReason}
+                      </p>
+                    ))}
+                    <button
+                      onClick={() => setActiveTab('approvals')}
+                      className="mt-2 text-sm text-red-700 hover:text-red-900 font-semibold underline"
+                    >
+                      View All →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Tab Navigation */}
           <div className="px-8">
@@ -663,6 +794,24 @@ const StudentDashboard = () => {
                 <Award className="h-4 w-4 inline mr-1" />
                 Certificates
               </button>
+              <button
+  onClick={() => setActiveTab('approvals')}
+  className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap relative ${
+    activeTab === 'approvals'
+      ? 'border-yellow-600 text-yellow-700 bg-yellow-50'
+      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+  }`}
+>
+  <div className="flex items-center gap-2">
+    <AlertCircle className="h-4 w-4" />
+    My Approvals
+    {pendingApprovals && pendingApprovals.totalPending > 0 && (
+      <span className="bg-yellow-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+        {pendingApprovals.totalPending}
+      </span>
+    )}
+  </div>
+</button>
             </div>
           </div>
         </div>

@@ -108,6 +108,8 @@ const StudentProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
   const [selectedEducationType, setSelectedEducationType] = useState("inter");
+  const [selectedCRTBatch, setSelectedCRTBatch] = useState("");
+
 const [pendingApprovals, setPendingApprovals] = useState([]);
 const [showApprovalStatus, setShowApprovalStatus] = useState(false);
 
@@ -118,20 +120,14 @@ const [showApprovalStatus, setShowApprovalStatus] = useState(false);
 
   }, []);
 
-// Replace the existing fetchProfile function in StudentProfile.jsx with this:
-
 const fetchProfile = async () => {
   try {
     setLoading(true);
     setError("");
     const token = localStorage.getItem('userToken');
-    
     const response = await fetch('/api/student/profile', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
-    
     const result = await response.json();
     
     if (response.ok && result.success) {
@@ -139,16 +135,13 @@ const fetchProfile = async () => {
       setFormData(result.data);
       setSelectedEducationType(result.data.academics?.educationType || "inter");
       
-      // Update localStorage with fresh data
+      // FIXED: Initialize selectedCRTBatch with current value
+      setSelectedCRTBatch(result.data.crtBatchChoice || "");
+      
       const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-      localStorage.setItem('userData', JSON.stringify({
-        ...userData,
-        ...result.data
-      }));
+      localStorage.setItem('userData', JSON.stringify({ ...userData, ...result.data }));
     } else {
       setError(result.message || "Failed to fetch profile");
-      
-      // If unauthorized, redirect to login
       if (response.status === 401) {
         localStorage.removeItem("userToken");
         localStorage.removeItem("userData");
@@ -158,8 +151,6 @@ const fetchProfile = async () => {
   } catch (err) {
     console.error('Fetch profile error:', err);
     setError(err?.message || "Failed to fetch profile");
-    
-    // Check for network errors
     if (!err.response) {
       setError("Network error. Please check your connection.");
     }
@@ -167,6 +158,7 @@ const fetchProfile = async () => {
     setLoading(false);
   }
 };
+
 const fetchPendingApprovals = async () => {
   try {
     const token = localStorage.getItem('userToken');
@@ -328,146 +320,146 @@ const fetchPendingApprovals = async () => {
     }
   };
 
-  // Tech Stack handlers
-  const handleTechStackChange = (tech) => {
-    setFormData((prev) => {
-      const currentTechStack = prev.techStack || [];
-      let newTechStack;
+const handleCRTBatchChoiceChange = (e) => {
+  const newBatch = e.target.value;
+  
+  // Only show confirmation if changing from existing value
+  if (newBatch !== profile.crtBatchChoice && profile.crtBatchChoice) {
+    const confirmChange = window.confirm(
+      'Changing CRT batch requires TPO approval. Do you want to continue?'
+    );
+    
+    if (!confirmChange) {
+      // FIXED: Reset to previous value by forcing re-render
+      e.preventDefault();
+      return;
+    }
+  }
+  
+  // Update both local state and formData
+  setSelectedCRTBatch(newBatch);
+  setFormData((prev) => ({
+    ...prev,
+    crtBatchChoice: newBatch
+  }));
+};
 
-      if (currentTechStack.includes(tech)) {
-        // Remove tech if it exists
-        newTechStack = currentTechStack.filter(t => t !== tech);
-      } else {
-        // Add tech if it doesn't exist
-        const validCrtTechs = ['Java', 'Python', 'AI/ML'];
-        
-        // If adding a CRT tech, remove any existing CRT tech first
-        if (validCrtTechs.includes(tech)) {
-          newTechStack = [
-            ...currentTechStack.filter(t => !validCrtTechs.includes(t)),
-            tech
-          ];
-        } else {
-          newTechStack = [...currentTechStack, tech];
+
+const handleTechStackChange = (tech) => {
+  setFormData((prev) => {
+    const currentTechStack = prev.techStack || [];
+    return {
+      ...prev,
+      techStack: currentTechStack.includes(tech)
+        ? currentTechStack.filter(t => t !== tech)
+        : [...currentTechStack, tech]
+    };
+  });
+};
+
+
+const handleCRTInterestChange = (e) => {
+  const interested = e.target.value === "yes";
+  
+  if (interested !== profile.crtInterested) {
+    const confirmChange = window.confirm(
+      'Changing CRT status requires TPO approval. Do you want to continue?'
+    );
+    if (!confirmChange) {
+      e.preventDefault();
+      return;
+    }
+  }
+  
+  setFormData((prev) => ({
+    ...prev,
+    crtInterested: interested,
+    // Clear batch choice if not interested
+    crtBatchChoice: interested ? prev.crtBatchChoice : ""
+  }));
+  
+  // Also update selectedCRTBatch state
+  if (!interested) {
+    setSelectedCRTBatch("");
+  }
+};
+
+
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      
+      const token = localStorage.getItem('userToken');
+      const student = profile;
+      
+      // Only track CRT/batch related changes
+      const crtStatusChanged = formData.crtInterested !== undefined && 
+                             formData.crtInterested !== student.crtInterested;
+      const crtBatchChanged = formData.crtBatchChoice !== undefined && 
+                            formData.crtBatchChoice !== student.crtBatchChoice;
+
+      const hasChangesRequiringApproval = crtStatusChanged || crtBatchChanged;
+
+      if (hasChangesRequiringApproval && isEditing) {
+        const confirmMessage = 'Your CRT-related changes will be sent to TPO for approval. Do you want to continue?';
+        const confirmed = window.confirm(confirmMessage);
+        if (!confirmed) {
+          setLoading(false);
+          return;
         }
       }
 
-      // Update CRT interest based on tech stack
-      const hasCrtTech = newTechStack.some(t => ['Java', 'Python', 'AI/ML'].includes(t));
-      
-      return {
-        ...prev,
-        techStack: newTechStack,
-        crtInterested: hasCrtTech ? true : prev.crtInterested,
-        crtBatchChoice: hasCrtTech ? newTechStack.find(t => ['Java', 'Python', 'AI/ML'].includes(t)) : prev.crtBatchChoice
+      const dataToSend = {
+        ...formData,
+        // Only include CRT fields if they changed
+        ...(crtStatusChanged ? { crtInterested: formData.crtInterested } : {}),
+        ...(crtBatchChanged ? { crtBatchChoice: formData.crtBatchChoice } : {})
       };
-    });
-  };
 
-  // CRT Interest handlers
-  const handleCRTInterestChange = (e) => {
-    const interested = e.target.value === "yes";
-    
-    // Detect if this is a status change
-    if (interested !== formData.crtInterested) {
-      const confirmChange = window.confirm(
-        'Changing CRT status requires TPO approval. Do you want to continue?'
-      );
-      if (!confirmChange) return;
-    }
-    
-    setFormData((prev) => ({
-      ...prev,
-      crtInterested: interested,
-      crtBatchChoice: interested ? prev.crtBatchChoice : "",
-      techStack: interested ? prev.techStack : prev.techStack.filter(t => !['Java', 'Python', 'AI/ML'].includes(t))
-    }));
-  };
+      const response = await fetch('/api/student/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(dataToSend)
+      });
 
-  const handleCRTBatchChoiceChange = (e) => {
-    const newBatch = e.target.value;
-    
-    // Detect if this is a batch change
-    if (newBatch !== formData.crtBatchChoice) {
-      const confirmChange = window.confirm(
-        'Changing CRT batch requires TPO approval. Do you want to continue?'
-      );
-      if (!confirmChange) return;
-    }
-    
-    setFormData((prev) => ({
-      ...prev,
-      crtBatchChoice: newBatch,
-      techStack: [...prev.techStack.filter(t => !['Java', 'Python', 'AI/ML'].includes(t)), newBatch]
-    }));
-  };
+      const result = await response.json();
 
-// Replace the existing handleSave function in StudentProfile.jsx with this:
-
-const handleSave = async () => {
-  try {
-    setLoading(true);
-    setError('');
-    setSuccess('');
-    
-    const token = localStorage.getItem('userToken');
-    
-    // Clean up the form data before sending
-    const dataToSend = {
-      ...formData,
-      crtInterested: formData.crtInterested,
-      crtBatchChoice: formData.crtBatchChoice || null,
-      techStack: formData.techStack || [],
-      // Remove any undefined or empty values
-      projects: formData.projects?.filter(p => !isEmptyProject(p)) || [],
-      internships: formData.internships?.filter(i => !isEmptyInternship(i)) || [],
-      appreciations: formData.appreciations?.filter(a => !isEmptyAppreciation(a)) || [],
-      certifications: formData.certifications?.filter(c => !isEmptyCertification(c)) || [],
-      socialLinks: formData.socialLinks?.filter(s => !isEmptySocialLink(s)) || []
-    };
-
-    const response = await fetch('/api/student/profile', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(dataToSend)
-    });
-
-    const result = await response.json();
-
-    if (response.ok && result.success) {
-      // Update both profile and formData with the response
-      setProfile(result.data);
-      setFormData(result.data);
-      setIsEditing(false);
-      
-      if (result.requiresApproval) {
-        setSuccess('Profile updated. Changes requiring approval have been sent to TPO for review.');
-        setShowApprovalStatus(true);
-        // Refresh pending approvals
-        await fetchPendingApprovals();
+      if (response.ok && result.success) {
+        // Update both profile and formData with the response
+        setProfile(result.data);
+        setFormData(result.data);
+        setIsEditing(false);
+        
+        if (result.requiresApproval) {
+          setSuccess('Profile updated. Changes requiring approval have been sent to TPO for review.');
+          setShowApprovalStatus(true);
+          // Refresh pending approvals
+          await fetchPendingApprovals();
+        } else {
+          setSuccess('Profile updated successfully!');
+        }
+        
+        // Scroll to top to show success message
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        setSuccess('Profile updated successfully!');
+        if (result.hasPendingApproval) {
+          setError('You already have a pending approval request. Please wait for TPO review.');
+        } else {
+          setError(result.message || 'Failed to update profile');
+        }
       }
-      
-      // Scroll to top to show success message
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      if (result.hasPendingApproval) {
-        setError('You already have a pending approval request. Please wait for TPO review.');
-      } else {
-        setError(result.message || 'Failed to update profile');
-      }
+    } catch (err) {
+      console.error('Save error:', err);
+      setError('An error occurred while saving the profile. Please try again.');
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error('Save error:', err);
-    setError('An error occurred while saving the profile. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Add this component to show approval status
   const ApprovalStatusBanner = () => {
@@ -811,10 +803,10 @@ const handleSave = async () => {
             </div>
 
             {/* Tech Stack Section */}
-            <div className="mb-6">
+            {/* <div className="mb-6">
               <h3 className="text-lg font-semibold mb-3">Technology Stack</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {['Java', 'Python', 'C/C++', 'JavaScript', 'AI/ML'].map((tech) => (
+                {['Java', 'Python', 'C/C++', 'JavaScript', 'AIML'].map((tech) => (
                   <label key={tech} className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50">
                     <input
                       type="checkbox"
@@ -827,60 +819,89 @@ const handleSave = async () => {
                   </label>
                 ))}
               </div>
-            </div>
+            </div> */}
 
-            {/* CRT Interest Section */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">CRT Training Interest</h3>
-              <div className="mb-4">
-                <label className="block mb-2">Are you interested in CRT?</label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      name="crtInterested"
-                      value="yes"
-                      checked={formData.crtInterested === true}
-                      onChange={handleCRTInterestChange}
-                      disabled={!isEditing}
-                    />
-                    <span>Yes</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      name="crtInterested"
-                      value="no"
-                      checked={formData.crtInterested === false}
-                      onChange={handleCRTInterestChange}
-                      disabled={!isEditing}
-                    />
-                    <span>No</span>
-                  </label>
-                </div>
-              </div>
+{/* CRT Interest Section */}
+<div className="mb-6">
+  <h3 className="text-lg font-semibold mb-3">CRT Training Interest</h3>
+  
+  {/* CRT Interest Radio */}
+  <div className="mb-4">
+    <label className="block mb-2">Are you interested in CRT?</label>
+    <div className="flex space-x-4">
+      <label className="flex items-center space-x-2">
+        <input
+          type="radio"
+          name="crtInterested"
+          value="yes"
+          checked={formData.crtInterested === true}
+          onChange={handleCRTInterestChange}
+          disabled={!isEditing}
+        />
+        <span>Yes</span>
+      </label>
+      <label className="flex items-center space-x-2">
+        <input
+          type="radio"
+          name="crtInterested"
+          value="no"
+          checked={formData.crtInterested === false}
+          onChange={handleCRTInterestChange}
+          disabled={!isEditing}
+        />
+        <span>No</span>
+      </label>
+    </div>
+  </div>
 
-              {formData.crtInterested && (
-                <div className="mb-4">
-                  <label className="block mb-2">Choose your CRT Training Batch:</label>
-                  <div className="flex flex-wrap gap-4">
-                    {['Java', 'Python', 'AI/ML'].map((batch) => (
-                      <label key={batch} className="flex items-center space-x-2">
-                        <input
-                          type="radio"
-                          name="crtBatchChoice"
-                          value={batch}
-                          checked={formData.crtBatchChoice === batch}
-                          onChange={handleCRTBatchChoiceChange}
-                          disabled={!isEditing}
-                        />
-                        <span>{batch}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+  {/* FIXED: Controlled CRT Batch Selection */}
+  {formData.crtInterested && (
+    <div className="mb-4">
+      <label className="block mb-2">Choose your CRT Training Batch</label>
+      <div className="flex flex-wrap gap-4">
+        {['Java', 'Python', 'AIML'].map((batch) => (
+          <label key={batch} className="flex items-center space-x-2">
+            <input
+              type="radio"
+              name="crtBatchChoice"
+              value={batch}
+              checked={formData.crtBatchChoice === batch}
+              onChange={handleCRTBatchChoiceChange}
+              disabled={!isEditing}
+            />
+            <span>{batch}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  )}
+</div>
+
+{/* FIXED: Separate Tech Stack Section (Independent from CRT) */}
+<div className="mb-6">
+  <h3 className="text-lg font-semibold mb-3">Technology Stack (Skills)</h3>
+  <p className="text-sm text-gray-600 mb-3">
+    Select the technologies you have skills in (independent of CRT batch choice)
+  </p>
+  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+    {['Java', 'Python', 'C/C++', 'JavaScript', 'AIML'].map((tech) => (
+      <label 
+        key={tech} 
+        className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50"
+      >
+        <input
+          type="checkbox"
+          checked={formData.techStack?.includes(tech) || false}
+          onChange={() => handleTechStackChange(tech)}
+          disabled={!isEditing}
+          className="rounded"
+        />
+        <span>{tech}</span>
+      </label>
+    ))}
+  </div>
+</div>
+
 
             {/* Clubs Section */}
             <div className="mb-6">

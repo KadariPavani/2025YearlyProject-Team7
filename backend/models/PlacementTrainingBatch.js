@@ -13,7 +13,7 @@ const PlacementTrainingBatchSchema = new mongoose.Schema({
   }],
   techStack: {
     type: String,
-    enum: ['Java', 'Python', 'AI/ML', 'NonCRT'],
+    enum: ['Java', 'Python', 'AIML', 'NonCRT'],
     required: true
   },
   year: {

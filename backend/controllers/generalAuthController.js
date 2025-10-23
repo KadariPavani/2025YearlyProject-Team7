@@ -58,7 +58,7 @@ async function assignStudentToPlacementTrainingBatch(student) {
   // Determine tech stack (default NonCRT)
   let techStack = 'NonCRT';
   if (student.crtInterested && student.techStack && student.techStack.length > 0) {
-    const validTechs = ['Java', 'Python', 'AI/ML'];
+    const validTechs = ['Java', 'Python', 'AIML'];
     const selectedTech = student.techStack.find(t => validTechs.includes(t));
     if (selectedTech) techStack = selectedTech;
   }

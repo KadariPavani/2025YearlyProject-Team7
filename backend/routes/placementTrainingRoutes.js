@@ -73,7 +73,7 @@ router.get('/', auth, async (req, res) => {
       batchesByTech: {
         Java: batches.filter(b => b.techStack === 'Java').length,
         Python: batches.filter(b => b.techStack === 'Python').length,
-        'AI/ML': batches.filter(b => b.techStack === 'AI/ML').length,
+        'AIML': batches.filter(b => b.techStack === 'AI/AIML').length,
         NonCRT: batches.filter(b => b.techStack === 'NonCRT').length
       },
       batchesByCollege: {

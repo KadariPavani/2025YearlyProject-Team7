@@ -229,15 +229,19 @@ const TPODashboard = () => {
           studentId,
           approvalId,
           action: 'approve'
-        }),
-        credentials: 'include'
+        })
       });
 
       const data = await response.json();
 
       if (response.ok) {
         setMessage('Request approved successfully');
-        await fetchPendingApprovals();
+        // Refresh both approvals and batch data
+        await Promise.all([
+          fetchPendingApprovals(),
+          fetchPlacementTrainingBatches(),
+          fetchStudentDetailsByBatch()
+        ]);
         setShowApprovalDetail(false);
         setSelectedApproval(null);
       } else {
@@ -246,7 +250,7 @@ const TPODashboard = () => {
       }
     } catch (error) {
       console.error('Error approving request:', error);
-      setError('Failed to process approval. Please try again.');
+      setError('Failed to process approval');
     } finally {
       setLoading(false);
     }
@@ -827,7 +831,7 @@ const TPODashboard = () => {
     const colors = {
       Java: 'bg-blue-50 text-blue-700 border-blue-200',
       Python: 'bg-green-50 text-green-700 border-green-200',
-      'AI/ML': 'bg-blue-50 text-blue-700 border-blue-200',
+      'AIML': 'bg-blue-50 text-blue-700 border-blue-200',
       NonCRT: 'bg-gray-50 text-gray-700 border-gray-200',
     };
     return colors[techStack] || 'bg-blue-50 text-blue-700 border-blue-200';
@@ -837,7 +841,7 @@ const TPODashboard = () => {
     const colors = {
       Java: 'bg-blue-500',
       Python: 'bg-green-500',
-      'AI/ML': 'bg-blue-600',
+      'AIML': 'bg-blue-600',
       NonCRT: 'bg-gray-500',
     };
     return colors[techStack] || 'bg-blue-500';
@@ -848,19 +852,19 @@ const TPODashboard = () => {
     if (trainerCount === 0) {
       return {
         status: 'No Trainers',
-        color: 'bg-red-100 text-red-800 border-red-200',
+        color: 'bg-red-100 text-red-800',
         icon: '❌'
       };
     } else if (trainerCount < 3) {
       return {
         status: `${trainerCount} Trainer${trainerCount > 1 ? 's' : ''}`,
-        color: 'bg-blue-100 text-blue-800 border-blue-200',
+        color: 'bg-blue-100 text-blue-800',
         icon: '⚠️'
       };
     } else {
       return {
         status: `${trainerCount} Trainers`,
-        color: 'bg-green-100 text-green-800 border-green-200',
+        color: 'bg-green-100 text-green-800',
         icon: '✅'
       };
     }
@@ -953,17 +957,25 @@ const TPODashboard = () => {
 
   // Approval Detail Modal Component
   const ApprovalDetailModal = ({ approval, onClose, onApprove, onReject }) => {
-    if (!approval) return null;
+    if (!approval || !['crt_status_change', 'batch_change'].includes(approval.requestType)) return null;
 
-    const getRequestTypeLabel = (type) => {
-      return type === 'crt_status_change' ? 'CRT Status Change' : 'Batch Change';
-    };
+const getRequestTypeLabel = (type) => {
+  const labels = {
+    'crt_status_change': 'CRT Status Change',
+    'batch_change': 'Batch Change',
+    'profile_change': 'Profile Update'
+  };
+  return labels[type] || type;
+};
 
-    const getRequestTypeColor = (type) => {
-      return type === 'crt_status_change' 
-        ? 'from-purple-500 to-purple-600' 
-        : 'from-blue-500 to-blue-600';
-    };
+const getRequestTypeColor = (type) => {
+  const colors = {
+    'crt_status_change': 'from-purple-500 to-purple-600',
+    'batch_change': 'from-blue-500 to-blue-600',
+    'profile_change': 'from-green-500 to-green-600'
+  };
+  return colors[type] || 'from-gray-500 to-gray-600';
+};
 
     return (
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
@@ -1098,6 +1110,36 @@ const TPODashboard = () => {
                 </div>
               )}
             </div>
+            {approval.requestType === 'profile_change' && (
+  <div className="space-y-3">
+    <h5 className="font-semibold text-gray-900 mb-2">Changed Fields:</h5>
+    {Object.entries(approval.requestedChanges.changedFields || {}).map(([field, newValue]) => {
+      const oldValue = approval.requestedChanges.originalFields?.[field];
+      return (
+        <div key={field} className="p-3 bg-white rounded border border-blue-200">
+          <p className="text-sm font-semibold text-gray-700 mb-2 capitalize">
+            {field.replace(/([A-Z])/g, ' $1').trim()}
+          </p>
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <p className="text-xs text-gray-600 mb-1">Current Value</p>
+              <p className="text-sm text-gray-800 bg-gray-50 p-2 rounded">
+                {typeof oldValue === 'object' ? JSON.stringify(oldValue, null, 2) : String(oldValue || 'Not set')}
+              </p>
+            </div>
+            <ChevronRight className="h-6 w-6 text-gray-400" />
+            <div className="flex-1">
+              <p className="text-xs text-gray-600 mb-1">Requested Value</p>
+              <p className="text-sm text-blue-800 bg-blue-50 p-2 rounded font-semibold">
+                {typeof newValue === 'object' ? JSON.stringify(newValue, null, 2) : String(newValue)}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+)}
 
             {/* Request Metadata */}
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -1270,8 +1312,6 @@ const TPODashboard = () => {
               </div>
             </div>
           </div>
-
-          {/* Info Cards Row */}
           <div className="px-6 pb-5">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-green-50 rounded-lg p-4 border border-green-200">
@@ -1550,7 +1590,7 @@ const TPODashboard = () => {
                       return (
                         <div key={batch._id} className="bg-white rounded-lg shadow border border-gray-200 hover:shadow-lg transition-all duration-300 overflow-hidden">
                           <div className={`h-1.5 ${getTechStackBadgeColor(batch.techStack)}`}></div>
-                          <div className="p-5">
+                                                                            <div className="p-5">
                             <div className="flex items-start justify-between mb-3">
                               <div>
                                 <h3 className="text-lg font-bold text-gray-900">{batch.batchNumber}</h3>
@@ -1798,8 +1838,8 @@ const TPODashboard = () => {
               ) : pendingApprovals.length === 0 ? (
                 <div className="text-center py-12">
                   <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                  <p className="text-gray-600 font-medium">No pending approval requests</p>
-                  <p className="text-gray-500 text-sm mt-2">All requests have been processed</p>
+                  <p className="text-gray-600 font-medium">No pending CRT approval requests</p>
+                  <p className="text-gray-500 text-sm mt-2">All CRT-related requests have been processed</p>
                 </div>
               ) : (
                 <div className="space-y-3">
