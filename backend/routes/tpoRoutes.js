@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const generalAuth = require('../middleware/generalAuth');
 const Batch = require('../models/Batch');
 const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const Trainer = require('../models/Trainer');
 const TPO = require('../models/TPO');
 const Student = require('../models/Student');
+const Coordinator = require('../models/Coordinator');
+const generatePassword = require('../utils/generatePassword');
+const sendEmail = require('../utils/sendEmail');
 // GET TPO Profile
 router.get('/profile', generalAuth, async (req, res) => {
   try {
@@ -1034,6 +1038,142 @@ router.get('/approval-history', generalAuth, async (req, res) => {
       success: false,
       message: 'Server error while fetching approval history',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// POST /api/tpo/assign-coordinator - Assign student as coordinator for placement training batch
+router.post('/assign-coordinator', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied. TPO route only.' 
+      });
+    }
+
+    const { studentId, batchId } = req.body;
+
+    if (!studentId || !batchId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student ID and Batch ID are required'
+      });
+    }
+
+    // Check batch exists and belongs to TPO
+    const batch = await PlacementTrainingBatch.findOne({
+      _id: batchId,
+      tpoId: req.user._id
+    });
+
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found or unauthorized'
+      });
+    }
+
+    // Check student exists
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student not found'
+      });
+    }
+
+    // Check if student is already a coordinator for this batch
+    const existingCoordinator = await Coordinator.findOne({
+      rollNo: student.rollNo,
+      assignedPlacementBatch: batchId
+    });
+
+    if (existingCoordinator) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student is already assigned as coordinator for this batch'
+      });
+    }
+
+    // Generate coordinator email
+    const coordinatorEmail = student.email.replace('@', '.coordinator@');
+
+    // Use the standard password generator
+    const password = generatePassword(12);
+
+    // Create coordinator
+    const coordinator = new Coordinator({
+      name: student.name,
+      email: coordinatorEmail,
+      password: password,
+      phone: student.phonenumber || student.phone,
+      rollNo: student.rollNo,
+      student: student._id,
+      assignedPlacementBatch: batchId,
+      createdBy: req.user._id
+    });
+
+    await coordinator.save();
+    
+    // Populate coordinator with batch details
+    await coordinator.populate([{
+      path: 'assignedPlacementBatch',
+      select: 'batchNumber techStack startDate endDate year colleges assignedTrainers',
+      populate: {
+        path: 'assignedTrainers.trainer',
+        select: 'name email subjectDealing category experience'
+      }
+    }]);
+
+    // Update batch with coordinator reference
+    batch.coordinators = batch.coordinators || [];
+    batch.coordinators.push(coordinator._id);
+    await batch.save();
+
+    // Send credentials email
+    await sendEmail({
+      email: student.email,
+      subject: 'Student Coordinator Access - InfoVerse',
+      message: `
+        <h2>Welcome Student Coordinator!</h2>
+        <p>You have been assigned as the student coordinator for batch ${batch.batchNumber}.</p>
+        <p><strong>Login Credentials:</strong></p>
+        <p>Email: ${coordinatorEmail}</p>
+        <p>Password: ${password}</p>
+        <p>Please change your password after first login.</p>
+        <p>Note: Use these credentials specifically for coordinator access. Your student account remains unchanged.</p>
+      `
+    });
+
+    res.json({
+      success: true,
+      message: 'Student coordinator assigned successfully',
+      data: {
+        batchId: batch._id,
+        batchNumber: batch.batchNumber,
+        coordinatorId: coordinator._id,
+        coordinatorName: coordinator.name,
+        coordinatorEmail: coordinatorEmail,
+        assignedPlacementBatch: coordinator.assignedPlacementBatch
+      }
+    });
+
+  } catch (error) {
+    console.error('Error assigning coordinator:', error);
+    
+    // Handle duplicate key error specifically
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Student is already assigned as coordinator for another batch'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Error assigning coordinator',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

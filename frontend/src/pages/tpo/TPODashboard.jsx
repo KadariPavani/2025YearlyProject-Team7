@@ -66,6 +66,9 @@ const TPODashboard = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [approvalToReject, setApprovalToReject] = useState(null);
 
+
+  const [assigningCoordinator, setAssigningCoordinator] = useState(false);
+  const [assignmentError, setAssignmentError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -186,6 +189,50 @@ const TPODashboard = () => {
       console.error('Failed to fetch schedule data:', err);
     } finally {
       setLoadingSchedule(false);
+    }
+  };
+
+  const handleAssignCoordinator = async (studentId) => {
+    if (!selectedBatch?._id) {
+      setError('No batch selected');
+      return;
+    }
+
+    setAssigningCoordinator(true);
+    setAssignmentError('');
+    setError('');
+    setMessage('');
+
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/tpo/assign-coordinator', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          studentId,
+          batchId: selectedBatch._id
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to assign coordinator');
+      }
+
+      setMessage('Student assigned as coordinator successfully');
+      await fetchPlacementTrainingBatches(); // Refresh batch data
+      setSelectedBatch(null); // Close the modal
+      
+    } catch (err) {
+      console.error('Coordinator assignment error:', err);
+      setAssignmentError(err.message || 'Failed to assign coordinator');
+      setError(err.message || 'Failed to assign coordinator');
+    } finally {
+      setAssigningCoordinator(false);
     }
   };
 
@@ -1716,7 +1763,7 @@ const getRequestTypeColor = (type) => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {getFilteredStudents().map((student, idx) => (
                         <tr key={student._id} className={`hover:bg-blue-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-3 whitespace-nowrap">
                             <div className="flex items-center gap-2">
                               <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
                                 {student.name.charAt(0)}
@@ -1724,15 +1771,15 @@ const getRequestTypeColor = (type) => {
                               <span className="font-medium text-gray-900 text-sm">{student.name}</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-mono">{student.rollNo}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.college}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{student.branch}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 font-mono">{student.rollNo}</td>
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.college}</td>
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.branch}</td>
+                          <td className="px-6 py-3 whitespace-nowrap">
                             <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium border border-blue-200">
                               {student.techStack?.join(', ') || 'Not specified'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
                             <button
                               onClick={() => setSelectedStudentForProfile(student)}
                               className="text-blue-600 hover:text-blue-800 font-medium"
@@ -1940,7 +1987,7 @@ const getRequestTypeColor = (type) => {
           <div className="relative w-full max-w-6xl bg-white rounded-lg shadow-xl">
             <div className="bg-gradient-to-r from-blue-600 to-green-600 px-6 py-4 rounded-t-lg flex justify-between items-center">
               <div>
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <h3 className="text-xl font-semibold text-white flex items-center gap-2">
                   <GraduationCap className="h-6 w-6" />
                   {selectedBatch.batchNumber}
                 </h3>
@@ -1991,9 +2038,9 @@ const getRequestTypeColor = (type) => {
                         </div>
                         <div className="flex justify-between text-xs">
                           <span className={`px-2 py-1 rounded-lg ${
-                            assignment.timeSlot === 'morning' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                            assignment.timeSlot === 'afternoon' ? 'bg-green-100 text-green-800 border border-green-200' :
-                            'bg-gray-100 text-gray-800 border border-gray-200'
+                            assignment.timeSlot === 'morning' ? 'bg-blue-100 text-blue-800' :
+                            assignment.timeSlot === 'afternoon' ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-800'
                           }`}>
                             {assignment.timeSlot}
                           </span>
@@ -2006,44 +2053,58 @@ const getRequestTypeColor = (type) => {
                   </div>
                 </div>
               )}
-
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="overflow-x-auto max-h-96">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gradient-to-r from-blue-50 to-green-50 sticky top-0">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Roll No</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">College</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Branch</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tech Stack</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-100">
-                      {selectedBatch.students.map((student, idx) => (
-                        <tr key={student._id} className={`hover:bg-blue-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="px-6 py-3 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                                {student.name.charAt(0)}
-                              </div>
-                              <span className="font-medium text-gray-900 text-sm">{student.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 font-mono">{student.rollNo}</td>
-                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.college}</td>
-                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.branch}</td>
-                          <td className="px-6 py-3 whitespace-nowrap">
-                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium border border-blue-200">
-                              {student.techStack?.join(', ') || 'Not specified'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              
+<div className="border border-gray-200 rounded-lg overflow-hidden">
+  <div className="overflow-x-auto max-h-96">
+    <table className="min-w-full divide-y divide-gray-200">
+      <thead className="bg-gradient-to-r from-blue-50 to-green-50 sticky top-0">
+        <tr>
+          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Name</th>
+          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Roll No</th>
+          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">College</th>
+          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Branch</th>
+          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tech Stack</th>
+          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>  {/* New column */}
+        </tr>
+      </thead>
+      <tbody className="bg-white divide-y divide-gray-100">
+        {selectedBatch.students.map((student, idx) => (
+          <tr key={student._id} className={`hover:bg-blue-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+            <td className="px-6 py-3 whitespace-nowrap">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                  {student.name.charAt(0)}
                 </div>
+                <span className="font-medium text-gray-900 text-sm">{student.name}</span>
               </div>
+            </td>
+            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 font-mono">{student.rollNo}</td>
+            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.college}</td>
+            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.branch}</td>
+            <td className="px-6 py-3 whitespace-nowrap">
+              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium border border-blue-200">
+                {student.techStack?.join(', ') || 'Not specified'}
+              </span>
+            </td>
+            <td className="px-6 py-3 whitespace-nowrap">  {/* New actions cell */}
+              <button 
+                onClick={() => handleAssignCoordinator(student._id)}
+                disabled={assigningCoordinator}
+                className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                  assigningCoordinator 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-green-500 hover:bg-green-600 text-white'
+                }`}
+              >
+                {assigningCoordinator ? 'Assigning...' : 'Make Coordinator'}
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
             </div>
           </div>
         </div>

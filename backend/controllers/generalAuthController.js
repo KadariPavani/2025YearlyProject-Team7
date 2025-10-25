@@ -246,6 +246,17 @@ const getDashboard = async (req, res) => {
           createdQuizzes: user.createdQuizzes?.length || 0
         };
         break;
+
+        case 'coordinator':
+        const coordinator = await Coordinator.findById(userId)
+          .populate({
+            path: 'assignedPlacementBatch',
+            populate: [
+              { path: 'students', select: 'name rollNo email college branch techStack yearOfPassing' },
+              { path: 'tpoId', select: 'name email' }
+            ]
+          });
+        return ok(res, { success: true, data: { user: coordinator, message: 'Welcome to Coordinator Dashboard' } });
     }
 
     return ok(res, { success: true, data: dashboardData });
@@ -268,22 +279,33 @@ const getProfile = async (req, res) => {
     const userId = req.user.id;
     const Model = getModelByUserType(userType);
 
-    const user = await Model.findById(userId).select('-password');
-    if (!user) return notFound(res, 'User not found');
-
-    let populatedUser = user;
-    if (user.createdBy) {
-      populatedUser = await Model.findById(userId)
+    let user;
+    if (userType === 'coordinator') {
+      user = await Model.findById(userId)
         .select('-password')
-        .populate('createdBy', 'email role');
+        .populate({
+          path: 'assignedPlacementBatch',
+          select: 'batchNumber techStack startDate endDate year colleges assignedTrainers',
+          populate: {
+            path: 'assignedTrainers.trainer',
+            select: 'name email subjectDealing category experience'
+          }
+        })
+        .populate('createdBy', 'name email');
+    } else {
+      user = await Model.findById(userId)
+        .select('-password')
+        .populate('createdBy', 'name email');
     }
 
-    return ok(res, { success: true, data: populatedUser });
+    if (!user) return notFound(res, 'User not found');
+
+    return ok(res, { success: true, data: user });
 
   } catch (error) {
     console.error('Get Profile Error:', error);
     const errorMessage = error.name === 'CastError' ? 'Invalid user ID format' : 'Failed to fetch profile';
-    return serverError(res, errorMessage, { error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    return serverError(res, errorMessage);
   }
 };
 
@@ -337,13 +359,17 @@ const forgotPassword = async (req, res) => {
 
     const Model = getModelByUserType(userType);
     const user = await Model.findOne({ email });
+    
     if (!user) return notFound(res, `${userType} not found`);
+
+    // For coordinators, get the original student email
+    const sendToEmail = userType === 'coordinator' ? user.getStudentEmail() : email;
 
     const otp = generateOTP();
     await OTP.create({ email, otp, purpose: 'reset_password' });
 
     await sendEmail({
-      email,
+      email: sendToEmail,
       subject: `Reset your ${userType} password`,
       message: `Your OTP to reset your ${userType} password is: ${otp}. It expires in 5 minutes.`
     });

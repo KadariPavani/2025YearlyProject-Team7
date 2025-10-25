@@ -1,3 +1,4 @@
+// File: frontend/src/pages/coordinator/CoordinatorDashboard.jsx (Updated - enhance to show batch details)
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -150,16 +151,70 @@ const CoordinatorDashboard = () => {
                 {coordinatorData?.message || 'Welcome to your coordinator portal'}
               </p>
             </div>
-            {coordinatorData?.lastLogin && (
+            {coordinatorData?.user?.lastLogin && (
               <div className="text-right">
                 <p className="text-sm text-gray-500">Last Login</p>
                 <p className="text-sm font-medium">
-                  {new Date(coordinatorData.lastLogin).toLocaleString()}
+                  {new Date(coordinatorData.user.lastLogin).toLocaleString()}
                 </p>
               </div>
             )}
           </div>
         </div>
+
+        {/* Batch Details Section - New */}
+        {coordinatorData?.user?.assignedPlacementBatch && (
+          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">Assigned Placement Training Batch</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="p-4 border rounded-lg">
+                <h4 className="font-medium mb-2">Batch Details</h4>
+                <p>Batch Number: {coordinatorData.user.assignedPlacementBatch.batchNumber}</p>
+                <p>Tech Stack: {coordinatorData.user.assignedPlacementBatch.techStack}</p>
+                <p>Year: {coordinatorData.user.assignedPlacementBatch.year}</p>
+                <p>Colleges: {coordinatorData.user.assignedPlacementBatch.colleges.join(', ')}</p>
+                <p>Start Date: {new Date(coordinatorData.user.assignedPlacementBatch.startDate).toLocaleDateString()}</p>
+                <p>End Date: {new Date(coordinatorData.user.assignedPlacementBatch.endDate).toLocaleDateString()}</p>
+                <p>Status: {coordinatorData.user.assignedPlacementBatch.status}</p>
+              </div>
+              <div className="p-4 border rounded-lg">
+                <h4 className="font-medium mb-2">TPO</h4>
+                <p>Name: {coordinatorData.user.assignedPlacementBatch.tpoId?.name || 'N/A'}</p>
+                <p>Email: {coordinatorData.user.assignedPlacementBatch.tpoId?.email || 'N/A'}</p>
+              </div>
+            </div>
+            
+            <h4 className="font-medium text-lg mb-4">Students in Batch ({coordinatorData.user.assignedPlacementBatch.students?.length || 0})</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Roll No</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">College</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Branch</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {coordinatorData.user.assignedPlacementBatch.students?.map((student) => (
+                    <tr key={student._id}>
+                      <td className="px-6 py-4 whitespace-nowrap">{student.name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{student.rollNo}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{student.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{student.college}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{student.branch}</td>
+                    </tr>
+                  )) || (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-4 text-center text-gray-500">No students assigned</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">

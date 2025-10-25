@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { 
   User, Mail, Phone, Calendar, MapPin, UserCheck, 
   Edit3, Save, X, Eye, EyeOff, Lock, AlertCircle, CheckCircle,
-  Briefcase, GraduationCap, Award, CheckCircle2
+  Briefcase, GraduationCap, Award, CheckCircle2,
+  Settings,
+  ChevronDown,
+  LogOut
 } from 'lucide-react';
 import { getProfile, updateProfile, changePassword, checkPasswordChange } from '../../services/generalAuthService';
 
@@ -17,6 +20,7 @@ const CoordinatorProfile = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
   const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({});
@@ -128,6 +132,24 @@ const CoordinatorProfile = () => {
     setError('');
   };
 
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('userToken');
+      localStorage.removeItem('userData');
+      navigate('/coordinator-login');
+    }
+  };
+
   if (loading && !profile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -151,41 +173,85 @@ const CoordinatorProfile = () => {
               </button>
               <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
             </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowPasswordModal(true)}
-                className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2"
-              >
-                <Lock className="h-4 w-4" />
-                <span>Change Password</span>
-              </button>
-              {!isEditing ? (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            <div className="flex items-center space-x-4">
+              <div className="relative">
+                <button 
+                  onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
+                  className="flex items-center space-x-1 p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <Edit3 className="h-4 w-4" />
-                  <span>Edit Profile</span>
+                  <Settings className="h-5 w-5" />
+                  <ChevronDown className="h-4 w-4" />
                 </button>
-              ) : (
-                <div className="flex space-x-2">
+                
+                {showSettingsDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-10 border border-gray-200">
+                    <button 
+                      onClick={() => {
+                        setShowSettingsDropdown(false);
+                        navigate('/coordinator-profile');
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      View Profile
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setShowSettingsDropdown(false);
+                        setShowPasswordModal(true);
+                      }}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Change Password
+                    </button>
+                    <button 
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 border-t border-gray-200"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <LogOut className="h-4 w-4" />
+                        <span>Logout</span>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowPasswordModal(true)}
+                  className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center space-x-2"
+                >
+                  <Lock className="h-4 w-4" />
+                  <span>Change Password</span>
+                </button>
+                {!isEditing ? (
                   <button
-                    onClick={handleSave}
-                    disabled={loading}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
+                    onClick={() => setIsEditing(true)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
                   >
-                    <Save className="h-4 w-4" />
-                    <span>Save</span>
+                    <Edit3 className="h-4 w-4" />
+                    <span>Edit Profile</span>
                   </button>
-                  <button
-                    onClick={handleCancel}
-                    className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
-                  >
-                    <X className="h-4 w-4" />
-                    <span>Cancel</span>
-                  </button>
-                </div>
-              )}
+                ) : (
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={handleSave}
+                      disabled={loading}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
+                    >
+                      <Save className="h-4 w-4" />
+                      <span>Save</span>
+                    </button>
+                    <button
+                      onClick={handleCancel}
+                      className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
+                    >
+                      <X className="h-4 w-4" />
+                      <span>Cancel</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -326,13 +392,73 @@ const CoordinatorProfile = () => {
 
               {/* Batch Information */}
               <div className="mt-6">
-                <h4 className="text-md font-medium text-gray-900 mb-4">Assigned Batch</h4>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 text-gray-600">
-                    <GraduationCap className="h-5 w-5" />
-                    <span>Batch ID: {profile?.assignedBatch || 'Not assigned'}</span>
+                <h4 className="text-md font-medium text-gray-900 mb-4">Assigned Batch Details</h4>
+                {profile?.assignedPlacementBatch ? (
+                  <div className="bg-gradient-to-r from-orange-50 to-blue-50 rounded-lg p-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-600">Batch Number</p>
+                        <p className="font-medium">{profile.assignedPlacementBatch.batchNumber}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Tech Stack</p>
+                        <p className="font-medium">{profile.assignedPlacementBatch.techStack}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Start Date</p>
+                        <p className="font-medium">
+                          {new Date(profile.assignedPlacementBatch.startDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">End Date</p>
+                        <p className="font-medium">
+                          {new Date(profile.assignedPlacementBatch.endDate).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Assigned Trainers */}
+                    {profile.assignedPlacementBatch.assignedTrainers?.length > 0 && (
+                      <div className="mt-4">
+                        <h5 className="text-sm font-medium text-gray-900 mb-3">Assigned Trainers</h5>
+                        <div className="space-y-3">
+                          {profile.assignedPlacementBatch.assignedTrainers.map((assignment, idx) => (
+                            <div key={idx} className="bg-white rounded-lg p-3 border border-gray-200">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium text-gray-900">{assignment.trainer.name}</p>
+                                  <p className="text-sm text-gray-600">{assignment.subject}</p>
+                                </div>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  assignment.timeSlot === 'morning' ? 'bg-blue-100 text-blue-800' :
+                                  assignment.timeSlot === 'afternoon' ? 'bg-orange-100 text-orange-800' :
+                                  'bg-purple-100 text-purple-800'
+                                }`}>
+                                  {assignment.timeSlot}
+                                </span>
+                              </div>
+                              {assignment.schedule && (
+                                <div className="mt-2 text-xs text-gray-500">
+                                  {assignment.schedule.map((slot, sidx) => (
+                                    <div key={sidx} className="flex items-center gap-2">
+                                      <span className="font-medium">{slot.day}:</span>
+                                      <span>{slot.startTime} - {slot.endTime}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg p-4 text-gray-500 text-center">
+                    No batch assigned yet
+                  </div>
+                )}
               </div>
             </div>
           </div>
