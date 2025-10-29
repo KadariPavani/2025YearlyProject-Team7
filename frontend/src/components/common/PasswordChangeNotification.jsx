@@ -14,7 +14,7 @@ const PasswordChangeNotification = ({ userType, onPasswordChange }) => {
 
   const checkPasswordStatus = async () => {
     try {
-      const token = localStorage.getItem('userToken'); // or trainerToken/adminToken as needed
+      const token = localStorage.getItem('userToken'); 
       const response = await axios.get('/api/auth/password-status', {
         params: { userType },
         headers: { Authorization: `Bearer ${token}` }

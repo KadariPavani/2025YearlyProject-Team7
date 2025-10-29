@@ -44,9 +44,4 @@ backend/coverage/
 # Optional: Ignore package-lock and yarn.lock if not needed
 # package-lock.json
 # yarn.lock
-# ignore nested repo
-2025YearlyProject-Team7/
 
-# VS Code settings
-.vscode/
-.history/

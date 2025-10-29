@@ -76,3 +76,6 @@
 .marquee__track:hover {
   animation-play-state: paused;
 }
+html {
+  scroll-behavior: smooth;
+}

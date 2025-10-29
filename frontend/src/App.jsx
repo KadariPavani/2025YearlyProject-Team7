@@ -16,6 +16,9 @@ import ViewTPOsPage from './pages/admin/ViewTPOsPage';
 import ViewTrainersPage from './pages/admin/ViewTrainersPage';
 import AddAdmin from './pages/admin/AddAdmin';
 import ViewAdmins from './pages/admin/ViewAdmins';
+import ContactPage from "./pages/ContactPage";
+
+
 // Import the dashboard components
 import TPODashboard from './pages/tpo/TPODashboard';
 import TrainerDashboard from './pages/trainer/TrainerDashboard';
@@ -186,6 +189,8 @@ const LoadingSpinner = ({ color = 'green' }) => (
 
 // Use the dedicated component from components/auth
 import GeneralLogin from './components/auth/GeneralLogin';
+// InfoVerse / Placements contact form
+import GetInTouch from './components/common/GetInTouch';
 
 // Protected Route Component for Admin
 const ProtectedAdminRoute = ({ children }) => {
@@ -297,6 +302,8 @@ function App() {
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Landing />} />
+              {/* InfoVerse placements preview */}
+              <Route path="/contact" element={<GetInTouch />} />
               
               {/* Admin Authentication Routes */}
               <Route path="/super-admin-login" element={<SuperAdminLogin />} />
@@ -309,6 +316,7 @@ function App() {
               <Route path="/view-trainers" element={<ViewTrainersPage />} /> 
               <Route path="/add-admin" element={<AddAdmin />} />
               <Route path="/view-admins" element={<ViewAdmins />} />
+              <Route path="/contact" element={<ContactPage />} />
               <Route 
                 path="/admin/students" 
                 element={

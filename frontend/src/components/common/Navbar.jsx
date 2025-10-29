@@ -1,108 +1,69 @@
-// Navbar.js
-import React, { useState, useRef, useEffect } from "react";
-import { LogOut, Bell, Menu } from "lucide-react";
 
-export default function Navbar({ onLogoClick, onLoginClick, isAdmin }) {
-  const [profileOpen, setProfileOpen] = useState(false);
-  const dropdownRef = useRef(null);
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Menu, X } from "lucide-react";
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setProfileOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  const profile = {
-    name: "Admin", // Changed from Student to Admin
-    email: "Admin@college.com", // Changed from Student to Admin
-    avatar:
-      "https://png.pngtree.com/png-clipart/20230102/original/pngtree-business-man-avatar-png-image_8855195.png",
-  };
+const Navbar = () => {
+  const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="h-16 bg-gradient-to-r from-[#E1DBFF] to-[#1745DA] flex items-center justify-between px-4 md:px-6 text-white shadow relative">
-      {/* Left Section - Logo */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={onLogoClick}>
-          <img
-            src="/logo.svg"
-            alt="Infoverse Logo"
-            className="h-8 w-auto object-contain"
-          />
-          <span className="font-semibold text-lg hidden sm:block">INFOVERSE</span>
+    <header className="bg-white shadow-md fixed w-full top-0 z-50">
+      <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-3">
+        <div className="flex items-center space-x-2">
+
+          <img src="/Logo.png" alt="Infoverse Logo" className="h-10" />
+          <span className="text-gray-900 font-bold text-lg">INFOVERSE</span>
         </div>
+
+        <nav className="hidden md:flex">
+          <ul className="flex space-x-6 font-medium text-gray-900">
+            <li><a href="#home" className="hover:text-gray-600 transition">Home</a></li>
+            <li><a href="#placements" className="hover:text-gray-600 transition">Company’s</a></li>
+            <li><a href="#students" className="hover:text-gray-600 transition">Placed Students</a></li>
+            <li><a href="#faqs" className="hover:text-gray-600 transition">FAQ</a></li>
+            <li><a href="#contact" className="hover:text-gray-600 transition">Contact Us</a></li>
+          </ul>
+        </nav>
+
+        <button
+          onClick={() => navigate("/login")}
+          className="hidden md:block bg-[#5791ED] px-4 py-2 rounded-lg text-white font-medium hover:bg-blue-700 transition"
+        >
+          Login
+        </button>
+
+        <button
+          className="md:hidden text-gray-900 focus:outline-none"
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          {menuOpen ? <X size={28} /> : <Menu size={28} />}
+        </button>
       </div>
 
-      {/* Right Section - Notifications + Profile */}
-      <div className="flex items-center gap-5 relative">
-        {/* Notification Bell (optional based on usage) */}
-        {/* You can show this for authenticated users or hide it based on props */}
-        {isAdmin && (
-          <div className="relative cursor-pointer">
-            <Bell size={22} />
-            <span className="absolute -top-1 -right-2 bg-red-600 text-xs rounded-full px-1">
-              3
-            </span>
-          </div>
-        )}
-
-        {/* Profile/Login section */}
-        {isAdmin ? (
-          <>
-            {/* Desktop Profile */}
-            <div className="hidden md:flex items-center gap-3">
-              <img
-                src={profile.avatar}
-                alt="Profile"
-                className="w-9 h-9 rounded-full object-cover"
-              />
-              <div className="flex flex-col text-white text-sm">
-                <span className="font-semibold">{profile.name}</span>
-                <span className="text-xs">{profile.email}</span>
-              </div>
-            </div>
-
-            {/* Mobile Profile with Dropdown */}
-            <div className="md:hidden relative" ref={dropdownRef}>
-              <button onClick={() => setProfileOpen(!profileOpen)}>
-                <img
-                  src={profile.avatar}
-                  alt="Profile"
-                  className="w-9 h-9 rounded-full object-cover"
-                />
+      {menuOpen && (
+        <div className="md:hidden shadow-lg bg-white animate-slideDown">
+          <ul className="flex flex-col items-center space-y-4 py-6 font-medium text-gray-900">
+            <li><a href="#home" onClick={() => setMenuOpen(false)} className="hover:text-gray-600 transition">Home</a></li>
+            <li><a href="#placements" onClick={() => setMenuOpen(false)} className="hover:text-gray-600 transition">Company’s</a></li>
+            <li><a href="#students" onClick={() => setMenuOpen(false)} className="hover:text-gray-600 transition">Placed Students</a></li>
+            <li><a href="#faqs" onClick={() => setMenuOpen(false)} className="hover:text-gray-600 transition">FAQ</a></li>
+            <li><a href="#contact" onClick={() => setMenuOpen(false)} className="hover:text-gray-600 transition">Contact Us</a></li>
+            <li>
+              <button
+                onClick={() => {
+                  navigate("/login");
+                  setMenuOpen(false);
+                }}
+                className="bg-[#5791ED] px-4 py-2 rounded-lg text-white font-medium hover:bg-blue-700 transition w-[150px]">
+                Login
               </button>
-              {profileOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white text-gray-800 rounded shadow-lg z-50 flex flex-col">
-                  <div className="p-3 border-b">
-                    <span className="block font-semibold">{profile.name}</span>
-                    <span className="block text-xs text-gray-500">{profile.email}</span>
-                  </div>
-                  <button
-                    className="flex items-center gap-2 p-3 hover:bg-gray-100 text-red-600 font-medium"
-                    onClick={onLoginClick}
-                  >
-                    <LogOut size={18} /> Logout
-                  </button>
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <button
-            onClick={onLoginClick}
-            className="bg-red-600 text-white font-semibold py-2 px-6 rounded-lg text-sm transition-colors duration-200 hover:bg-red-700"
-          >
-            LOGIN
-          </button>
-        )}
-      </div>
+            </li>
+          </ul>
+        </div>
+      )}
     </header>
   );
-}
+};
+
+export default Navbar;
