@@ -37,6 +37,55 @@ const CalendarSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+    selectedListFiles: [{
+    fileName: String,
+    fileType: {
+      type: String,
+      enum: ['pdf', 'excel', 'csv'],
+      required: true
+    },
+    fileUrl: String,
+    uploadedAt: { type: Date, default: Date.now }
+  }],
+  registrationFormLink: {
+    type: String,
+    trim: true
+  },
+targetGroup: {
+  type: String,
+  enum: ["crt", "non-crt", "both"],
+  default: "both"
+},
+
+  eventSummary: {
+    totalAttendees: { type: Number, default: 0 }, // can be auto-calculated
+    selectedStudents: { type: Number, default: 0 }, // after TPO upload
+    averageRating: Number,
+    notes: String
+  },
+registrations: [{
+  studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
+  status: { type: String, enum: ['registered', 'confirmed', 'cancelled'], default: 'registered' },
+  registeredAt: { type: Date, default: Date.now },
+  personalInfo: {
+    name: String,
+    rollNo: String,
+    email: String,
+    phonenumber: String,
+    college: String,
+    branch: String,
+    gender: String,
+    dob: Date,
+    currentLocation: String,
+    hometown: String,
+    backlogs: Number,
+    techStack: [String],
+    resumeUrl: String,
+    externalLink: String
+  }
+}],
+
+
   meetingLink: String,
   companyDetails: {
     companyId: {
@@ -50,6 +99,15 @@ const CalendarSchema = new mongoose.Schema({
       allowedBranches: [String],
       maxBacklogs: Number
     },
+    companyFormLink: {       // ✅ Add this field
+    type: String,
+    trim: true
+  },
+  externalLink: {          // ✅ Keep this as the general external link
+    type: String,
+    trim: true
+  },
+
     contactPerson: {
       name: String,
       email: String,
@@ -109,21 +167,7 @@ const CalendarSchema = new mongoose.Schema({
     ref: 'Batch'
   }],
   targetBranches: [String],
-  registrations: [{
-    studentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Student'
-    },
-    registeredAt: {
-      type: Date,
-      default: Date.now
-    },
-    status: {
-      type: String,
-      enum: ['registered', 'confirmed', 'cancelled'],
-      default: 'registered'
-    }
-  }],
+
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     refPath: 'createdByModel',
@@ -187,12 +231,6 @@ const CalendarSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
-  eventSummary: {
-    totalAttendees: Number,
-    selectedStudents: Number,
-    averageRating: Number,
-    notes: String
-  }
 }, {
   timestamps: true
 });

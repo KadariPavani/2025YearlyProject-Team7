@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Users, Settings, LogOut, Bell, ChevronDown, Calendar, Clock, 
-  BookOpen, Award, Activity, GraduationCap, Phone, Mail, 
+import {
+  Users, Settings, LogOut, Bell, ChevronDown, Calendar, Clock,
+  BookOpen, Award, Activity, GraduationCap, Phone, Mail,
   CheckCircle, AlertCircle, UserCheck, Briefcase, School, Monitor, Building2, X,
   PlusCircle, CheckSquare, FileText, User, Menu, Target, TrendingUp
 } from 'lucide-react';
 import axios from 'axios';
-
+import StudentPlacementCalendar from './StudentCalender';
 // Import enhanced student components from the second code
 import StudentQuiz from './StudentQuiz';
 import StudentAssignment from './StudentAssignment';
@@ -34,7 +34,7 @@ const StudentProgress = () => (
       <TrendingUp className="h-6 w-6 text-blue-600" />
       My Progress
     </h3>
-    
+
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
       <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
         <div className="flex items-center gap-3 mb-4">
@@ -129,7 +129,7 @@ const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview'); 
+  const [activeTab, setActiveTab] = useState('overview');
   const [selectedTrainer, setSelectedTrainer] = useState(null);
   const [pendingApprovals, setPendingApprovals] = useState(null);
   const [formData, setFormData] = useState({
@@ -139,6 +139,10 @@ const StudentDashboard = () => {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState('');
+// 🔔 Notifications
+const [notifications, setNotifications] = useState([]);
+const [unreadCount, setUnreadCount] = useState(0);
+const [showNotifications, setShowNotifications] = useState(false);
 
   const navigate = useNavigate();
 
@@ -182,6 +186,48 @@ const StudentDashboard = () => {
       setError('Failed to fetch student data');
     }
   };
+useEffect(() => {
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      if (!token) return;
+
+      const res = await axios.get("http://localhost:5000/api/notifications/student", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.data.success) {
+        const all = res.data.data || [];
+        setNotifications(all);
+        setUnreadCount(all.filter(n => n.recipients?.some(r => !r.isRead)).length);
+      }
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  fetchNotifications();
+}, []);
+const markAsRead = async (id) => {
+  try {
+    const token = localStorage.getItem("userToken");
+    await axios.put(`http://localhost:5000/api/notifications/mark-read/${id}`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    setNotifications((prev) =>
+      prev.map((n) =>
+        n._id === id
+          ? { ...n, recipients: n.recipients.map((r) => ({ ...r, isRead: true })) }
+          : n
+      )
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+  } catch (err) {
+    console.error("Error marking as read:", err);
+  }
+};
+
 
   const fetchBatchInfo = async () => {
     try {
@@ -313,7 +359,7 @@ const StudentDashboard = () => {
       const endTime = new Date(`${q.scheduledDate} ${q.endTime}`);
       return now < endTime && !q.hasSubmitted;
     });
-    const averageQuizScore = completedQuizzes.length > 0 
+    const averageQuizScore = completedQuizzes.length > 0
       ? completedQuizzes.reduce((acc, q) => acc + (q.percentage || 0), 0) / completedQuizzes.length
       : 0;
 
@@ -411,7 +457,7 @@ const StudentDashboard = () => {
   const getCurrentTimeStatus = (startTime, endTime) => {
     const now = new Date();
     const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-    
+
     if (currentTime >= startTime && currentTime <= endTime) {
       return { status: 'ongoing', color: 'bg-green-100 text-green-800 border-green-200', text: '🔴 Live Now' };
     } else if (currentTime < startTime) {
@@ -441,7 +487,7 @@ const StudentDashboard = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     // Special handling for CRT-related changes
     if (name === 'crtInterested' || name === 'crtBatchChoice') {
       setFormData(prev => ({
@@ -462,7 +508,7 @@ const StudentDashboard = () => {
     try {
       setLoading(true);
       setError('');
-      
+
       const token = localStorage.getItem('userToken');
       const response = await axios.put('/api/student/profile', formData, {
         headers: {
@@ -522,23 +568,65 @@ const StudentDashboard = () => {
               </div>
             </div>
             <div className="flex items-center space-x-6">
-              <button className="relative p-2 text-white hover:text-gray-200 transition-colors">
-                <Bell className="h-6 w-6" />
-                <span className="absolute top-0 right-0 h-2 w-2 bg-yellow-400 rounded-full"></span>
-              </button>
-              
+<div className="relative">
+  <button
+    onClick={() => setShowNotifications(!showNotifications)}
+    className="relative p-2 text-white hover:text-gray-200 transition-colors"
+  >
+    <Bell className="h-6 w-6" />
+    {unreadCount > 0 && (
+      <span className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full px-1">
+        {unreadCount}
+      </span>
+    )}
+  </button>
+
+  {/* 🔽 Dropdown */}
+  {showNotifications && (
+    <div className="absolute right-0 mt-2 w-80 bg-white text-gray-800 rounded-xl shadow-xl border z-50 max-h-96 overflow-y-auto">
+      <div className="p-3 border-b font-semibold text-blue-700 flex justify-between items-center">
+        Notifications
+        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
+          {unreadCount} unread
+        </span>
+      </div>
+
+      {notifications.length === 0 ? (
+        <p className="p-4 text-sm text-gray-500 text-center">No notifications yet</p>
+      ) : (
+        notifications.map((n) => (
+          <div
+            key={n._id}
+            onClick={() => markAsRead(n._id)}
+            className={`p-3 border-b cursor-pointer hover:bg-gray-50 transition ${
+              n.recipients?.some((r) => !r.isRead) ? "bg-blue-50" : "bg-white"
+            }`}
+          >
+            <p className="font-medium text-sm text-gray-800">{n.title}</p>
+            <p className="text-xs text-gray-600 mt-1">{n.message}</p>
+            <p className="text-[10px] text-gray-400 mt-1">
+              {new Date(n.createdAt).toLocaleString()}
+            </p>
+          </div>
+        ))
+      )}
+    </div>
+  )}
+</div>
+
+
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
                   className="flex items-center space-x-1 p-2 text-white hover:text-gray-200 transition-colors"
                 >
                   <Settings className="h-6 w-6" />
                   <ChevronDown className="h-4 w-4" />
                 </button>
-                
+
                 {showSettingsDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                    <button 
+                    <button
                       onClick={() => {
                         setShowSettingsDropdown(false);
                         navigate('/student-profile');
@@ -547,7 +635,7 @@ const StudentDashboard = () => {
                     >
                       View Profile
                     </button>
-                    <button 
+                    <button
                       onClick={() => {
                         setShowSettingsDropdown(false);
                         navigate('/student-change-password');
@@ -559,8 +647,8 @@ const StudentDashboard = () => {
                   </div>
                 )}
               </div>
-              
-              <button 
+
+              <button
                 onClick={handleLogout}
                 className="flex items-center space-x-2 bg-white text-blue-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors font-medium"
               >
@@ -582,7 +670,9 @@ const StudentDashboard = () => {
                   Welcome, {studentData?.user?.name || 'Student'}!
                 </h1>
                 <p className="text-gray-600 mt-2">{studentData?.message || 'Welcome to your placement training portal'}</p>
+
               </div>
+
               <div className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-full border border-green-200">
                 <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
                 <span className="text-sm font-medium text-green-700">Live Data</span>
@@ -818,6 +908,14 @@ const StudentDashboard = () => {
     )}
   </div>
 </button>
+<button
+  onClick={() => setActiveTab("calendar")}
+  className="px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap
+    {activeTab === 'calendar' ? 'border-purple-700 text-purple-700 bg-purple-100' : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
+>
+  <Calendar className="h-4 w-4 inline mr-1" /> Placement Calendar
+</button>
+
             </div>
           </div>
         </div>
@@ -850,7 +948,7 @@ const StudentDashboard = () => {
                   <GraduationCap className="h-6 w-6 text-blue-600" />
                   Batch & TPO Information
                 </h3>
-                
+
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Regular Batch Info */}
                   {batchInfo && (
@@ -1005,7 +1103,7 @@ const StudentDashboard = () => {
                         </div>
                         {activity.score !== undefined && (
                           <div className={`text-sm font-medium ${
-                            activity.score >= 80 ? 'text-green-600' : 
+                            activity.score >= 80 ? 'text-green-600' :
                             activity.score >= 60 ? 'text-yellow-600' : 'text-red-600'
                           }`}>
                             {activity.score.toFixed(1)}%
@@ -1071,15 +1169,15 @@ const StudentDashboard = () => {
               <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
                 <h3 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <button 
+                  <button
                     onClick={() => setActiveTab('assignments')}
                     className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 text-center group"
                   >
                     <PlusCircle className="h-12 w-12 text-gray-400 group-hover:text-blue-500 mx-auto mb-3 transition-colors" />
                     <p className="text-gray-600 group-hover:text-blue-600 font-medium">View Assignments</p>
                   </button>
-                  
-                  <button 
+
+                  <button
                     onClick={() => setActiveTab('quizzes')}
                     className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-300 text-center group"
                   >
@@ -1087,7 +1185,7 @@ const StudentDashboard = () => {
                     <p className="text-gray-600 group-hover:text-green-600 font-medium">Take Quizzes</p>
                   </button>
 
-                  <button 
+                  <button
                     onClick={() => setActiveTab('progress')}
                     className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all duration-300 text-center group"
                   >
@@ -1095,13 +1193,15 @@ const StudentDashboard = () => {
                     <p className="text-gray-600 group-hover:text-purple-600 font-medium">View Progress</p>
                   </button>
 
-                  <button 
+                  <button
                     onClick={() => setActiveTab('resources')}
                     className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all duration-300 text-center group"
                   >
                     <FileText className="h-12 w-12 text-gray-400 group-hover:text-orange-500 mx-auto mb-3 transition-colors" />
                     <p className="text-gray-600 group-hover:text-orange-600 font-medium">Study Resources</p>
                   </button>
+
+
                 </div>
               </div>
             </div>
@@ -1116,7 +1216,7 @@ const StudentDashboard = () => {
                     <Users className="h-6 w-6 text-blue-600" />
                     Your Training Team ({placementBatchInfo.totalTrainers} Trainers)
                   </h3>
-                  
+
                   {Object.entries(placementBatchInfo.trainerSchedule).map(([timeSlot, trainers]) => (
                     trainers.length > 0 && (
                       <div key={timeSlot} className="mb-8">
@@ -1139,7 +1239,7 @@ const StudentDashboard = () => {
                                   <p className="text-sm text-gray-600">{assignment.trainer.category} Trainer</p>
                                 </div>
                               </div>
-                              
+
                               <div className="space-y-3 mb-4">
                                 <div>
                                   <span className="text-sm font-medium text-gray-700">Subject:</span>
@@ -1198,7 +1298,7 @@ const StudentDashboard = () => {
                     <Calendar className="h-6 w-6 text-blue-600" />
                     Weekly Class Schedule
                   </h3>
-                  
+
                   <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
                     {Object.entries(placementBatchInfo.weeklySchedule).map(([day, sessions]) => (
                       <div key={day} className="bg-gray-50 rounded-lg p-4">
@@ -1249,6 +1349,8 @@ const StudentDashboard = () => {
           {activeTab === 'progress' && <StudentProgress />}
           {activeTab === 'certificates' && <StudentCertificates />}
           {activeTab === 'attendance' && <StudentAttendanceView />}
+          {activeTab === "calendar" && <StudentPlacementCalendar />}
+
         </div>
       </div>
 

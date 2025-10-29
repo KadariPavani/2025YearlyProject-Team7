@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../../services/api';
 import {
   Users, Settings, LogOut, Bell, ChevronDown, Building, Calendar, Eye, ChevronRight,
   Building2, Code2, GraduationCap, X, TrendingUp, Clock, MapPin, Award, Filter,
@@ -11,6 +12,7 @@ import {
 import TrainerAssignment from './TrainerAssignment';
 import ScheduleTimetable from './ScheduleTimetable';
 import TPOAttendanceView from './TPOAttendanceView';
+import PlacementCalendar from "./PlacementCalendar";
 
 const TPODashboard = () => {
   const [tpoData, setTpoData] = useState(null);
@@ -96,17 +98,14 @@ const TPODashboard = () => {
 
   const fetchDashboard = async () => {
     try {
-      const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/auth/dashboard/tpo', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const result = await response.json();
-      if (result.success) {
-        setTpoData(result.data);
+      const response = await api.get('/api/auth/dashboard/tpo');
+      if (response.data.success) {
+        setTpoData(response.data.data);
       } else {
         setError('Failed to fetch dashboard data');
       }
-    } catch {
+    } catch (err) {
+      console.error('Dashboard fetch error:', err);
       setError('Failed to fetch dashboard data');
     }
   };
@@ -155,11 +154,8 @@ const TPODashboard = () => {
   const fetchPlacementTrainingBatches = async () => {
     setLoadingPlacementBatches(true);
     try {
-      const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/tpo/placement-training-batches', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
+      const response = await api.get('/api/tpo/placement-training-batches');
+      const data = response.data;
       if (data.success) {
         setPlacementBatchData(data.data.organized);
         setPlacementStats(data.data.stats);
@@ -227,7 +223,7 @@ const TPODashboard = () => {
       setMessage('Student assigned as coordinator successfully');
       await fetchPlacementTrainingBatches(); // Refresh batch data
       setSelectedBatch(null); // Close the modal
-      
+
     } catch (err) {
       console.error('Coordinator assignment error:', err);
       setAssignmentError(err.message || 'Failed to assign coordinator');
@@ -265,7 +261,7 @@ const TPODashboard = () => {
       setLoading(true);
       setError('');
       setMessage('');
-      
+
       const token = localStorage.getItem('userToken');
       const response = await fetch('/api/tpo/approve-request', {
         method: 'POST',
@@ -330,7 +326,7 @@ const TPODashboard = () => {
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
         setMessage('Request rejected successfully');
         fetchPendingApprovals(); // Refresh the approvals list
@@ -361,23 +357,23 @@ const TPODashboard = () => {
 
   const getFilteredStudents = () => {
     const allStudents = [];
-    
+
     studentBatchData.forEach(batch => {
       if (selectedBatchFilter !== 'all' && batch.batchNumber !== selectedBatchFilter) return;
-      
+
       batch.students.forEach(student => {
         if (selectedCrtFilter !== 'all' && student.crtStatus !== selectedCrtFilter) return;
         if (selectedCollegeFilter !== 'all' && student.college !== selectedCollegeFilter) return;
         if (selectedBranchFilter !== 'all' && student.branch !== selectedBranchFilter) return;
-        
+
         if (studentSearchTerm && !student.name.toLowerCase().includes(studentSearchTerm.toLowerCase()) &&
             !student.rollNo.toLowerCase().includes(studentSearchTerm.toLowerCase()) &&
             !student.email.toLowerCase().includes(studentSearchTerm.toLowerCase())) return;
-        
+
         allStudents.push(student);
       });
     });
-    
+
     return allStudents;
   };
 
@@ -426,8 +422,8 @@ const TPODashboard = () => {
               <div className="flex flex-col items-center">
                 <div className="w-28 h-28 bg-white rounded-full overflow-hidden border-4 border-blue-200 shadow">
                   {student.profileImageUrl ? (
-                    <img 
-                      src={student.profileImageUrl} 
+                    <img
+                      src={student.profileImageUrl}
                       alt={student.name}
                       className="w-full h-full object-cover cursor-pointer"
                       onClick={() => handleProfileImageView(student.profileImageUrl)}
@@ -439,7 +435,7 @@ const TPODashboard = () => {
                   )}
                 </div>
                 {student.profileImageUrl && (
-                  <button 
+                  <button
                     onClick={() => handleProfileImageView(student.profileImageUrl)}
                     className="mt-3 text-blue-600 hover:text-blue-700 flex items-center gap-1 text-sm font-medium"
                   >
@@ -501,8 +497,8 @@ const TPODashboard = () => {
                   <div className="bg-green-50 p-3 rounded-lg border border-green-100">
                     <label className="text-xs font-semibold text-green-700 uppercase tracking-wide">CRT Status</label>
                     <span className={`mt-1 inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
-                      student.crtStatus === 'CRT' 
-                        ? 'bg-green-100 text-green-800 border border-green-200' 
+                      student.crtStatus === 'CRT'
+                        ? 'bg-green-100 text-green-800 border border-green-200'
                         : 'bg-gray-100 text-gray-800 border border-gray-200'
                     }`}>
                       {student.crtStatus}
@@ -511,9 +507,9 @@ const TPODashboard = () => {
                   <div className="bg-green-50 p-3 rounded-lg border border-green-100">
                     <label className="text-xs font-semibold text-green-700 uppercase tracking-wide">Placement Status</label>
                     <span className={`mt-1 inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
-                      student.status === 'placed' 
-                        ? 'bg-green-100 text-green-800 border border-green-200' 
-                        : student.status === 'eligible' 
+                      student.status === 'placed'
+                        ? 'bg-green-100 text-green-800 border border-green-200'
+                        : student.status === 'eligible'
                         ? 'bg-blue-100 text-blue-800 border border-blue-200'
                         : 'bg-gray-100 text-gray-800 border border-gray-200'
                     }`}>
@@ -707,9 +703,9 @@ const TPODashboard = () => {
                         </div>
                       )}
                       {project.links?.github && (
-                        <a 
-                          href={project.links.github} 
-                          target="_blank" 
+                        <a
+                          href={project.links.github}
+                          target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-800 font-medium text-xs"
                         >
@@ -919,8 +915,8 @@ const TPODashboard = () => {
   };
 
   const years = Object.keys(placementBatchData).sort().reverse();
-  const colleges = selectedYear !== 'all' && placementBatchData[selectedYear] 
-    ? Object.keys(placementBatchData[selectedYear]) 
+  const colleges = selectedYear !== 'all' && placementBatchData[selectedYear]
+    ? Object.keys(placementBatchData[selectedYear])
     : [];
   const techStacks = selectedYear !== 'all' && selectedCollege !== 'all' && placementBatchData[selectedYear]?.[selectedCollege]
     ? Object.keys(placementBatchData[selectedYear][selectedCollege])
@@ -928,16 +924,16 @@ const TPODashboard = () => {
 
   const getFilteredBatches = () => {
     const allBatches = [];
-    
+
     Object.keys(placementBatchData).forEach(year => {
       if (selectedYear !== 'all' && year !== selectedYear) return;
-      
+
       Object.keys(placementBatchData[year]).forEach(college => {
         if (selectedCollege !== 'all' && college !== selectedCollege) return;
-        
+
         Object.keys(placementBatchData[year][college]).forEach(techStack => {
           if (selectedTechStack !== 'all' && techStack !== selectedTechStack) return;
-          
+
           placementBatchData[year][college][techStack].batches.forEach(batch => {
             allBatches.push({
               ...batch,
@@ -951,7 +947,7 @@ const TPODashboard = () => {
     });
 
     if (searchTerm) {
-      return allBatches.filter(batch => 
+      return allBatches.filter(batch =>
         batch.batchNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
         batch.college.toLowerCase().includes(searchTerm.toLowerCase()) ||
         batch.techStack.toLowerCase().includes(searchTerm.toLowerCase())
@@ -1297,19 +1293,19 @@ const getRequestTypeColor = (type) => {
                 <Bell className="h-5 w-5" />
                 <span className="absolute top-1 right-1 h-2 w-2 bg-green-400 rounded-full"></span>
               </button>
-              
+
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
                   className="flex items-center space-x-1 p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
                 >
                   <Settings className="h-5 w-5" />
                   <ChevronDown className="h-4 w-4" />
                 </button>
-                
+
                 {showSettingsDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-10">
-                    <button 
+                    <button
                       onClick={() => {
                         setShowSettingsDropdown(false);
                         navigate('/tpo-profile');
@@ -1318,7 +1314,7 @@ const getRequestTypeColor = (type) => {
                     >
                       View Profile
                     </button>
-                    <button 
+                    <button
                       onClick={() => {
                         setShowSettingsDropdown(false);
                         navigate('/tpo-change-password');
@@ -1330,8 +1326,8 @@ const getRequestTypeColor = (type) => {
                   </div>
                 )}
               </div>
-              
-              <button 
+
+              <button
                 onClick={handleLogout}
                 className="flex items-center space-x-2 bg-white text-blue-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors font-medium"
               >
@@ -1445,11 +1441,11 @@ const getRequestTypeColor = (type) => {
               >
                 Student Details
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('attendance')}
                 className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
                   activeTab === 'attendance'
-                    ? 'border-blue-600 text-blue-700 bg-blue-50' 
+                    ? 'border-blue-600 text-blue-700 bg-blue-50'
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
@@ -1517,7 +1513,10 @@ const getRequestTypeColor = (type) => {
                     <Building className="h-7 w-7 text-gray-400 mx-auto mb-2" />
                     <p className="text-gray-600 font-medium text-sm">Company Relations</p>
                   </button>
-                  <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                  <button
+                    className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                    onClick={() => setActiveTab("placement-calendar")}
+                  >
                     <Calendar className="h-7 w-7 text-gray-400 mx-auto mb-2" />
                     <p className="text-gray-600 font-medium text-sm">Placement Schedule</p>
                   </button>
@@ -1672,7 +1671,7 @@ const getRequestTypeColor = (type) => {
                                 <Building2 className="h-4 w-4 text-blue-600" />
                                 <span>Year {batch.year}</span>
                               </div>
-                              
+
                               <div className="flex items-center gap-2">
                                 <UserCheck className="h-4 w-4" />
                                 <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${assignmentStatus.color} border`}>
@@ -1844,11 +1843,16 @@ const getRequestTypeColor = (type) => {
 
           {/* Schedule Tab */}
           {activeTab === 'schedule' && (
-            <ScheduleTimetable 
-              scheduleData={scheduleData} 
-              loading={loadingSchedule} 
+            <ScheduleTimetable
+              scheduleData={scheduleData}
+              loading={loadingSchedule}
               onRefresh={fetchScheduleData}
             />
+          )}
+          {activeTab === "placement-calendar" && (
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <PlacementCalendar />
+            </div>
           )}
 
         {/* Approvals Tab */}
@@ -1930,8 +1934,8 @@ const getRequestTypeColor = (type) => {
                                 ? 'bg-purple-100 text-purple-800 border border-purple-200'
                                 : 'bg-blue-100 text-blue-800 border border-blue-200'
                             }`}>
-                              {approval.requestType === 'crt_status_change' 
-                                ? 'CRT Status Change' 
+                              {approval.requestType === 'crt_status_change'
+                                ? 'CRT Status Change'
                                 : 'Batch Change'}
                             </span>
 
@@ -2031,6 +2035,111 @@ const getRequestTypeColor = (type) => {
           <div className="bg-green-50 p-3 rounded-lg border border-green-200">
             <p className="text-xs font-medium text-green-700 mb-1">Start Date</p>
             <p className="text-base font-bold text-green-900">{new Date(selectedBatch.startDate).toLocaleDateString()}</p>
+            <div className="p-6 space-y-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                  <p className="text-xs font-medium text-blue-700 mb-1">Tech Stack</p>
+                  <p className="text-base font-bold text-blue-900">{selectedBatch.techStack}</p>
+                </div>
+                <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                  <p className="text-xs font-medium text-green-700 mb-1">Total Students</p>
+                  <p className="text-base font-bold text-green-900">{selectedBatch.studentCount}</p>
+                </div>
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                  <p className="text-xs font-medium text-blue-700 mb-1">TPO</p>
+                  <p className="text-base font-bold text-blue-900">{selectedBatch.tpoId?.name || 'Not assigned'}</p>
+                </div>
+                <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                  <p className="text-xs font-medium text-green-700 mb-1">Start Date</p>
+                  <p className="text-base font-bold text-green-900">{new Date(selectedBatch.startDate).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              {selectedBatch.assignedTrainers && selectedBatch.assignedTrainers.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-5">
+                  <h4 className="text-base font-semibold text-gray-900 mb-3">Assigned Trainers</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {selectedBatch.assignedTrainers.map((assignment, index) => (
+                      <div key={index} className="bg-white rounded-lg p-3 border border-gray-200">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold">
+                            {assignment.trainer?.name?.charAt(0) || 'T'}
+                          </div>
+                          <div>
+                            <h5 className="font-semibold text-gray-900 text-sm">{assignment.trainer?.name || 'Unknown'}</h5>
+                            <p className="text-gray-700 text-xs">{assignment.subject}</p>
+                          </div>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className={`px-2 py-1 rounded-lg ${
+                            assignment.timeSlot === 'morning' ? 'bg-blue-100 text-blue-800' :
+                            assignment.timeSlot === 'afternoon' ? 'bg-green-100 text-green-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {assignment.timeSlot}
+                          </span>
+                          <span className="text-gray-500">
+                            {assignment.schedule?.length || 0} time slots
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+<div className="border border-gray-200 rounded-lg overflow-hidden">
+  <div className="overflow-x-auto max-h-96">
+    <table className="min-w-full divide-y divide-gray-200">
+      <thead className="bg-gradient-to-r from-blue-50 to-green-50 sticky top-0">
+        <tr>
+          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Name</th>
+          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Roll No</th>
+          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">College</th>
+          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Branch</th>
+          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tech Stack</th>
+          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>  {/* New column */}
+        </tr>
+      </thead>
+      <tbody className="bg-white divide-y divide-gray-100">
+        {selectedBatch.students.map((student, idx) => (
+          <tr key={student._id} className={`hover:bg-blue-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+            <td className="px-6 py-3 whitespace-nowrap">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                  {student.name.charAt(0)}
+                </div>
+                <span className="font-medium text-gray-900 text-sm">{student.name}</span>
+              </div>
+            </td>
+            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 font-mono">{student.rollNo}</td>
+            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.college}</td>
+            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.branch}</td>
+            <td className="px-6 py-3 whitespace-nowrap">
+              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium border border-blue-200">
+                {student.techStack?.join(', ') || 'Not specified'}
+              </span>
+            </td>
+            <td className="px-6 py-3 whitespace-nowrap">  {/* New actions cell */}
+              <button
+                onClick={() => handleAssignCoordinator(student._id)}
+                disabled={assigningCoordinator}
+                className={`px-3 py-1 text-xs rounded-md transition-colors ${
+                  assigningCoordinator
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-green-500 hover:bg-green-600 text-white'
+                }`}
+              >
+                {assigningCoordinator ? 'Assigning...' : 'Make Coordinator'}
+              </button>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
+            </div>
           </div>
         </div>
 
@@ -2066,7 +2175,7 @@ const getRequestTypeColor = (type) => {
             </div>
           </div>
         )}
-        
+
         <div className="border border-gray-200 rounded-lg overflow-hidden">
           <div className="overflow-x-auto max-h-96">
             <table className="min-w-full divide-y divide-gray-200">
@@ -2100,12 +2209,12 @@ const getRequestTypeColor = (type) => {
                       </span>
                     </td>
                     <td className="px-6 py-3 whitespace-nowrap">
-                      <button 
+                      <button
                         onClick={() => handleAssignCoordinator(student._id)}
                         disabled={assigningCoordinator}
                         className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                          assigningCoordinator 
-                            ? 'bg-gray-400 cursor-not-allowed' 
+                          assigningCoordinator
+                            ? 'bg-gray-400 cursor-not-allowed'
                             : 'bg-green-500 hover:bg-green-600 text-white'
                         }`}
                       >

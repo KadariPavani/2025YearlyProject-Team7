@@ -22,6 +22,7 @@
     "dotenv": "^17.2.2",
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
+    "express-async-handler": "^1.2.0",
     "express-fileupload": "^1.5.2",
     "express-rate-limit": "^7.4.0",
     "file-type": "^21.0.0",
@@ -31,7 +32,7 @@
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
-    "nodemailer": "^7.0.6",
+    "nodemailer": "^7.0.10",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

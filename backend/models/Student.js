@@ -146,11 +146,12 @@ const StudentSchema = new mongoose.Schema({
   },
 
   // Tech Stack and Skills - NEW FIELD
-  techStack: [{
-    type: String,
-    enum: ['Java', 'Python', 'C/C++', 'JavaScript', 'AIML'],
-    trim: true
-  }],
+techStack: [{
+  type: String,
+  enum: ['Java', 'Python', 'C/C++', 'JavaScript', 'AIML', 'AI/ML', 'Data Science'],
+  trim: true
+}],
+
 
   // Projects and Experience
   projects: [{
@@ -373,15 +374,15 @@ pendingApprovals: [{
     // For CRT status change
     crtInterested: Boolean,
     crtBatchChoice: String,
-    
+
     // For batch/tech stack change
     techStack: [String],
     placementTrainingBatchId: mongoose.Schema.Types.ObjectId,
-    
+
     // For profile changes
     changedFields: mongoose.Schema.Types.Mixed,
     originalFields: mongoose.Schema.Types.Mixed,
-    
+
     // Original values (for reference)
     originalCrtInterested: Boolean,
     originalTechStack: [String]
@@ -402,7 +403,7 @@ pendingApprovals: [{
     reviewedAt: Date,
     rejectionReason: String
   }],
-  
+
 
   // System Information
   lastLogin: Date
@@ -476,7 +477,7 @@ StudentSchema.methods.handleApprovalResponse = async function(approvalId, isAppr
     if (isApproved && approval.requestType === 'crt_status_change') {
       // Update CRT status
       this.crtInterested = approval.requestedChanges.crtInterested;
-      
+
       // Get required models
       const PlacementTrainingBatch = mongoose.model('PlacementTrainingBatch');
       const Admin = mongoose.model('Admin');

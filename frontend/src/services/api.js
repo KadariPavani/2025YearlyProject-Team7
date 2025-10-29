@@ -18,12 +18,12 @@
 // api.interceptors.request.use(
 //   (config) => {
 //     const token = localStorage.getItem('userToken');
-    
+
 //     console.group('API Request Debug');
 //     console.log('URL:', config.url);
 //     console.log('Method:', config.method?.toUpperCase());
 //     console.log('Has Token:', !!token);
-    
+
 //     if (token) {
 //       config.headers['Authorization'] = `Bearer ${token.trim()}`;
 //       console.log('Token Length:', token.length);
@@ -31,7 +31,7 @@
 //     } else {
 //       console.warn('No userToken found in localStorage');
 //     }
-    
+
 //     if (config.data) {
 //       console.log('Request Data:', config.data);
 //     }

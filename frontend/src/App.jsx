@@ -93,9 +93,7 @@ axios.defaults.withCredentials = true;
 axios.interceptors.request.use(
   (config) => {
     // Add auth token to requests if available
-    const token = localStorage.getItem('trainerToken') || 
-                  localStorage.getItem('adminToken') || 
-                  localStorage.getItem('userToken');
+    const token = localStorage.getItem('userToken');
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -123,7 +121,7 @@ axios.interceptors.response.use(
         headers: error.response?.headers,
       },
     });
-    
+
     // Handle 401 errors by redirecting to login
     if (error.response?.status === 401) {
       const path = window.location.pathname;
@@ -137,7 +135,7 @@ axios.interceptors.response.use(
         window.location.href = '/super-admin-login';
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -302,9 +300,6 @@ function App() {
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Landing />} />
-              {/* InfoVerse placements preview */}
-              <Route path="/contact" element={<GetInTouch />} />
-              
               {/* Admin Authentication Routes */}
               <Route path="/super-admin-login" element={<SuperAdminLogin />} />
               <Route path="/otp-verification" element={<OTPVerification />} />
@@ -313,19 +308,18 @@ function App() {
               <Route path="/add-trainer" element={<AddTrainerPage />} />
               <Route path="/add-tpo" element={<AddTPOPage />} />
               <Route path="/view-tpos" element={<ViewTPOsPage />} />
-              <Route path="/view-trainers" element={<ViewTrainersPage />} /> 
+              <Route path="/view-trainers" element={<ViewTrainersPage />} />
               <Route path="/add-admin" element={<AddAdmin />} />
               <Route path="/view-admins" element={<ViewAdmins />} />
-              <Route path="/contact" element={<ContactPage />} />
-              <Route 
-                path="/admin/students" 
+              <Route
+                path="/admin/students"
                 element={
                   <ProtectedAdminRoute>
                     <ViewStudentsPage />
                   </ProtectedAdminRoute>
-                } 
+                }
               />
-              
+
               {/* General User Login Routes */}
               <Route path="/tpo-login" element={<GeneralLogin />} />
               <Route path="/trainer-login" element={<GeneralLogin />} />
@@ -355,40 +349,40 @@ function App() {
                 }
               />
               {/* Protected Admin Routes */}
-              <Route 
-                path="/admin-dashboard" 
+              <Route
+                path="/admin-dashboard"
                 element={
                   <ProtectedAdminRoute>
                     <AdminDashboard />
                   </ProtectedAdminRoute>
-                } 
+                }
               />
-              <Route 
-                path="/admin-profile" 
+              <Route
+                path="/admin-profile"
                 element={
                   <ProtectedAdminRoute>
                     <AdminProfile />
                   </ProtectedAdminRoute>
-                } 
+                }
               />
 
               {/* Protected Trainer Routes */}
               {/* Batch Management Routes */}
-              <Route 
-                path="/admin/batches" 
+              <Route
+                path="/admin/batches"
                 element={
                   <ProtectedAdminRoute>
                     <BatchListPage />
                   </ProtectedAdminRoute>
-                } 
+                }
               />
-              <Route 
-                path="/admin/batches/:batchId/students" 
+              <Route
+                path="/admin/batches/:batchId/students"
                 element={
                   <ProtectedAdminRoute>
                     <BatchStudentsPage />
                   </ProtectedAdminRoute>
-                } 
+                }
               />
 
               <Route
@@ -417,123 +411,123 @@ function App() {
               />
 
               {/* Protected User Dashboard Routes */}
-              <Route 
-                path="/tpo-dashboard" 
+              <Route
+                path="/tpo-dashboard"
                 element={
                   <ProtectedUserRoute>
                     <TPODashboard />
                   </ProtectedUserRoute>
-                } 
+                }
               />
-              <Route 
-                path="/student-dashboard" 
+              <Route
+                path="/student-dashboard"
                 element={
                   <ProtectedUserRoute>
                     <StudentDashboard />
                   </ProtectedUserRoute>
-                } 
+                }
               />
-              <Route 
-                path="/coordinator-dashboard" 
+              <Route
+                path="/coordinator-dashboard"
                 element={
                   <ProtectedUserRoute>
                     <CoordinatorDashboard />
                   </ProtectedUserRoute>
-                } 
+                }
               />
 
               {/* Protected User Profile Routes */}
-              <Route 
-                path="/tpo-profile" 
+              <Route
+                path="/tpo-profile"
                 element={
                   <ProtectedUserRoute>
                     <TPOProfile />
                   </ProtectedUserRoute>
-                } 
+                }
               />
-              <Route 
-                path="/student-profile" 
+              <Route
+                path="/student-profile"
                 element={
                   <ProtectedUserRoute>
                     <StudentProfile />
                   </ProtectedUserRoute>
-                } 
+                }
               />
-              <Route 
-                path="/coordinator-profile" 
+              <Route
+                path="/coordinator-profile"
                 element={
                   <ProtectedUserRoute>
                     <CoordinatorProfile />
                   </ProtectedUserRoute>
-                } 
+                }
               />
 
               {/* Protected Password Change Routes */}
-              <Route 
-                path="/admin-change-password" 
+              <Route
+                path="/admin-change-password"
                 element={
                   <ProtectedAdminRoute>
                     <AdminChangePassword />
                   </ProtectedAdminRoute>
-                } 
+                }
               />
-              <Route 
-                path="/tpo-change-password" 
+              <Route
+                path="/tpo-change-password"
                 element={
                   <ProtectedUserRoute>
                     <TPOChangePassword />
                   </ProtectedUserRoute>
-                } 
+                }
               />
-              <Route 
-                path="/student-change-password" 
+              <Route
+                path="/student-change-password"
                 element={
                   <ProtectedUserRoute>
                     <StudentChangePassword />
                   </ProtectedUserRoute>
-                } 
+                }
               />
-              <Route 
-                path="/coordinator-change-password" 
+              <Route
+                path="/coordinator-change-password"
                 element={
                   <ProtectedUserRoute>
                     <CoordinatorChangePassword />
                   </ProtectedUserRoute>
-                } 
+                }
               />
 
               {/* Student Quizzes Route */}
-              <Route 
-                path="/student/quizzes" 
+              <Route
+                path="/student/quizzes"
                 element={
                   <ProtectedUserRoute>
                     <StudentQuiz />
                   </ProtectedUserRoute>
-                } 
+                }
               />
-              <Route 
-                path="/student/resources" 
+              <Route
+                path="/student/resources"
                 element={
                   <ProtectedUserRoute>
                     <StudentResources />
                   </ProtectedUserRoute>
-                } 
+                }
               />
-              <Route 
-                path="/student/syllabus" 
+              <Route
+                path="/student/syllabus"
                 element={
                   <ProtectedUserRoute>
                     <StudentSyllabus />
                   </ProtectedUserRoute>
-                } 
+                }
               />
-              <Route 
-                path="/student/assignments" 
+              <Route
+                path="/student/assignments"
                 element={
                   <ProtectedUserRoute>
                     <StudentAssignment />
                   </ProtectedUserRoute>
-                } 
+                }
               />
 
               {/* Catch all route - redirect to home */}

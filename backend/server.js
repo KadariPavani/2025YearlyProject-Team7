@@ -42,6 +42,8 @@ const referenceRoutes = require('./routes/referenceRoutes');
 const assignmentRoutes = require('./routes/AssignmentRoutes');
 const syllabusRoutes = require('./routes/syllabusRoutes');
 const PlacementTrainingBatches = require('./routes/placementTrainingRoutes');
+const calendarRoutes = require('./routes/calendarRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -55,6 +57,8 @@ app.use('/api/reference', referenceRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/syllabi', syllabusRoutes);
 app.use('/api/placement-training-batches', PlacementTrainingBatches);
+app.use('/api/calendar', calendarRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Users, Settings, LogOut, Bell, ChevronDown, Calendar, Clock, 
-  BookOpen, X, Award, Activity, GraduationCap, Phone, Mail, 
-  UserCheck, Briefcase, School, Monitor, Building2, TrendingUp, MapPin, 
+import {
+  Users, Settings, LogOut, Bell, ChevronDown, Calendar, Clock,
+  BookOpen, X, Award, Activity, GraduationCap, Phone, Mail,
+  UserCheck, Briefcase, School, Monitor, Building2, TrendingUp, MapPin,
   Filter, Search, PlusCircle, CheckSquare, FileText, User, Menu
 } from 'lucide-react';
 import axios from 'axios';
-
+import TrainerPlacementCalendar from "../trainer/TrainerPlacementCalendar";
 // Import the original trainer components
 import Quiz from '../trainer/Quiz';
 import Reference from '../trainer/Reference';
@@ -30,7 +30,7 @@ const TrainerDashboard = () => {
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard'); // Main tab navigation
   const [selectedBatch, setSelectedBatch] = useState(null);
-  
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,7 +44,7 @@ const TrainerDashboard = () => {
     try {
       const token = localStorage.getItem('userToken') || localStorage.getItem('trainerToken');
       const data = localStorage.getItem('trainerData');
-      
+
       if (!token || !data) {
         navigate('/trainer-login');
         return;
@@ -67,7 +67,7 @@ const TrainerDashboard = () => {
         }
       });
       const data = await response.json();
-      
+
       if (data.success) {
         setPlacementBatches(data.data.batches || []);
         setPlacementStats(data.data.stats || {});
@@ -162,7 +162,7 @@ const TrainerDashboard = () => {
   const getTodaySchedule = () => {
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
     const todayClasses = [];
-    
+
     placementBatches.forEach(batch => {
       if (batch.myAssignment && batch.myAssignment.schedule) {
         batch.myAssignment.schedule.forEach(slot => {
@@ -175,14 +175,14 @@ const TrainerDashboard = () => {
         });
       }
     });
-    
+
     return todayClasses.sort((a, b) => a.scheduleSlot.startTime.localeCompare(b.scheduleSlot.startTime));
   };
 
   const getCurrentTimeStatus = (startTime, endTime) => {
     const now = new Date();
     const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-    
+
     if (currentTime >= startTime && currentTime <= endTime) {
       return { status: 'ongoing', color: 'bg-green-100 text-green-800 border-green-200', text: '🔴 Live Now' };
     } else if (currentTime < startTime) {
@@ -195,7 +195,7 @@ const TrainerDashboard = () => {
   const getWeeklySchedule = () => {
     const weeklySchedule = {};
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    
+
     days.forEach(day => {
       weeklySchedule[day] = [];
     });
@@ -246,7 +246,7 @@ const TrainerDashboard = () => {
           <Users className="h-6 w-6 text-blue-600" />
           Regular Batches ({regularBatches.length})
         </h3>
-        
+
         {regularBatches.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {regularBatches.map((batch) => (
@@ -348,19 +348,19 @@ const TrainerDashboard = () => {
                 <Bell className="h-6 w-6" />
                 <span className="absolute top-0 right-0 h-2 w-2 bg-yellow-400 rounded-full"></span>
               </button>
-              
+
               <div className="relative">
-                <button 
+                <button
                   onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
                   className="flex items-center space-x-1 p-2 text-white hover:text-gray-200 transition-colors"
                 >
                   <Settings className="h-6 w-6" />
                   <ChevronDown className="h-4 w-4" />
                 </button>
-                
+
                 {showSettingsDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                    <button 
+                    <button
                       onClick={() => {
                         setShowSettingsDropdown(false);
                         navigate('/trainer-profile');
@@ -369,7 +369,7 @@ const TrainerDashboard = () => {
                     >
                       View Profile
                     </button>
-                    <button 
+                    <button
                       onClick={() => {
                         setShowSettingsDropdown(false);
                         navigate('/trainer-change-password');
@@ -381,8 +381,8 @@ const TrainerDashboard = () => {
                   </div>
                 )}
               </div>
-              
-              <button 
+
+              <button
                 onClick={handleLogout}
                 className="flex items-center space-x-2 bg-white text-blue-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors font-medium"
               >
@@ -566,6 +566,17 @@ const TrainerDashboard = () => {
                 <FileText className="h-4 w-4 inline mr-1" />
                 References
               </button>
+              <button
+                onClick={() => setActiveTab('placementCalendar')}
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
+                  activeTab === 'placementCalendar'
+                    ? 'border-blue-700 text-blue-700 bg-blue-100'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <Calendar className="h-4 w-4 inline mr-1" />
+                Placement Calendar
+              </button>
             </div>
           </div>
         </div>
@@ -581,7 +592,7 @@ const TrainerDashboard = () => {
                   <Clock className="h-6 w-6 text-blue-600" />
                   Today's Classes ({todaySchedule.length})
                 </h3>
-                
+
                 {todaySchedule.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {todaySchedule.map((classSession, index) => {
@@ -597,7 +608,7 @@ const TrainerDashboard = () => {
                               {timeStatus.text}
                             </span>
                           </div>
-                          
+
                           <div className="space-y-2 mb-4">
                             <div className="flex items-center gap-2 text-sm">
                               <BookOpen className="h-4 w-4 text-gray-500" />
@@ -617,7 +628,7 @@ const TrainerDashboard = () => {
                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${getTimeSlotColor(classSession.myAssignment.timeSlot)}`}>
                               {getTimeSlotIcon(classSession.myAssignment.timeSlot)} {classSession.myAssignment.timeSlot}
                             </span>
-                            <button 
+                            <button
                               onClick={() => setSelectedBatch(classSession)}
                               className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                             >
@@ -641,15 +652,15 @@ const TrainerDashboard = () => {
               <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
                 <h3 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <button 
+                  <button
                     onClick={() => setActiveTab('assignments')}
                     className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 text-center group"
                   >
                     <PlusCircle className="h-12 w-12 text-gray-400 group-hover:text-blue-500 mx-auto mb-3 transition-colors" />
                     <p className="text-gray-600 group-hover:text-blue-600 font-medium">Create Assignment</p>
                   </button>
-                  
-                  <button 
+
+                  <button
                     onClick={() => setActiveTab('quizzes')}
                     className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-300 text-center group"
                   >
@@ -657,7 +668,7 @@ const TrainerDashboard = () => {
                     <p className="text-gray-600 group-hover:text-green-600 font-medium">Create Quiz</p>
                   </button>
 
-                  <button 
+                  <button
                     onClick={() => setActiveTab('syllabus')}
                     className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all duration-300 text-center group"
                   >
@@ -672,7 +683,7 @@ const TrainerDashboard = () => {
                     <p className="text-gray-600 group-hover:text-pink-600 font-medium">View Attandance</p>
                   </button>
 
-                  <button 
+                  <button
                     onClick={() => setActiveTab('references')}
                     className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all duration-300 text-center group"
                   >
@@ -716,7 +727,7 @@ const TrainerDashboard = () => {
                   <GraduationCap className="h-6 w-6 text-blue-600" />
                   My Training Classes ({placementBatches.length})
                 </h3>
-                
+
                 {placementBatches.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {placementBatches.map((batch) => (
@@ -778,7 +789,7 @@ const TrainerDashboard = () => {
                               {new Date(batch.startDate).toLocaleDateString()}
                             </span>
                           </div>
-                          <button 
+                          <button
                             onClick={() => setSelectedBatch(batch)}
                             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                           >
@@ -807,7 +818,7 @@ const TrainerDashboard = () => {
                   <Calendar className="h-6 w-6 text-blue-600" />
                   Weekly Class Schedule
                 </h3>
-                
+
                 <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
                   {Object.entries(weeklySchedule).map(([day, classes]) => (
                     <div key={day} className="bg-gray-50 rounded-lg p-4">
@@ -858,7 +869,7 @@ const TrainerDashboard = () => {
                   <Users className="h-6 w-6 text-blue-600" />
                   All My Students ({placementBatches.reduce((acc, batch) => acc + batch.studentCount, 0)})
                 </h3>
-                
+
                 {placementBatches.length > 0 ? (
                   <div className="space-y-8">
                     {placementBatches.map((batch) => (
@@ -875,7 +886,7 @@ const TrainerDashboard = () => {
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="overflow-x-auto">
                           <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
@@ -932,6 +943,7 @@ const TrainerDashboard = () => {
           {activeTab==='attendance' && <TrainerAttendanceView  />}
 
           {activeTab === 'references' && <Reference availableBatches={availableBatches} />}
+          {activeTab === "placementCalendar" && <TrainerPlacementCalendar />}
         </div>
       </div>
 
