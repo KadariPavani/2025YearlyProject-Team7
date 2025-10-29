@@ -8,15 +8,27 @@ const Footer = () => {
           
           <div className="md:col-span-2">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="w-12 h-12 bg-white rounded flex items-center justify-center shadow-sm">
+                            <button
+                type="button"
+                onClick={() => navigate("/")}
+                aria-label="Super Admin Login"
+              >
+                <img
+                  src="/Logo.png"
+                  alt="InfoVerse Logo"
+                  className="h-20 w-20 object-contain cursor-pointer centered"
+                />
+              </button>
+
+              {/* <div className="w-12 h-12 bg-white rounded flex items-center justify-center shadow-sm">
                 <svg width="36" height="24" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M4 12L14 2H20L10 12L20 22H14L4 12Z" fill="#5B8CFF"/>
                 </svg>
-              </div>
-              <div>
+              </div> */}
+              {/* <div>
                 <h3 className="text-xl font-bold tracking-wide">INFOVERSE</h3>
                 <p className="text-sm text-gray-600">Empowering Your Career</p>
-              </div>
+              </div> */}
             </div>
 
             <p className="text-sm text-gray-600 leading-relaxed">

@@ -311,6 +311,7 @@ function App() {
               <Route path="/view-trainers" element={<ViewTrainersPage />} />
               <Route path="/add-admin" element={<AddAdmin />} />
               <Route path="/view-admins" element={<ViewAdmins />} />
+              <Route path="/contact" element={<ContactPage />} />
               <Route
                 path="/admin/students"
                 element={

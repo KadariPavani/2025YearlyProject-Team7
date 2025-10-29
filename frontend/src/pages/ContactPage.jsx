@@ -10,14 +10,28 @@ const ContactPage = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       {/* 🔙 Back to Home Button */}
-      <header className="fixed top-0 left-0 w-full bg-white shadow-md z-50 py-3 px-4 flex items-center">
-        <button
-          onClick={() => navigate("/")}
-          className="flex items-center space-x-2 text-indigo-600 font-medium hover:text-indigo-800 transition-colors"
-        >
-          <ArrowLeft size={20} />
-          <span>Back to Home</span>
-        </button>
+      <header className="bg-white shadow-sm fixed w-full top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-2">
+            {/* Logo */}
+            <div className="flex items-center space-x-3">
+              <button
+                type="button"
+                onClick={() => navigate("/super-admin-login")}
+                aria-label="Super Admin Login"
+              >
+                <img
+                  src="/Logo.png"
+                  alt="InfoVerse Logo"
+                  className="h-16 w-16 object-contain cursor-pointer"
+                />
+              </button>
+              {/* <span className="text-gray-900 font-bold text-lg sm:text-xl">
+                INFOVERSE
+              </span> */}
+            </div>
+          </div>
+        </div>
       </header>
 
       {/* Contact Section */}

@@ -4,19 +4,19 @@ const slides = [
   {
     title: "Welcome to KIET",
     desc: "Empowering future leaders through innovation and excellence.",
-    img: "/campus.jpg",
+    img: "/image.png",
     btnText: "Learn more",
   },
   {
     title: "Placements 2025 Are Live!",
     desc: "Top companies are hiring talented graduates.",
-    img: "/placements.jpg",
+    img: "/image1.png",
     btnText: "Explore Jobs",
   },
   {
     title: "Training Sessions Open",
     desc: "Upskill with our expert-led training programs.",
-    img: "/training.jpg",
+    img: "/image2.png",
     btnText: "Join Now",
   },
 ];
@@ -42,12 +42,12 @@ const HeroCarousel = () => {
             index === currentSlide ? "opacity-100" : "opacity-0"
           }`}
         >
-          
-          <img
-            src={slide.img}
-            alt={slide.title}
-            className="w-full h-full object-cover object-top"
-          />
+<img
+  src={slide.img}
+  alt={slide.title}
+  className="w-full h-full object-cover object-center"
+/>
+
 
           
           <div className="absolute inset-y-0 left-0 w-full md:w-3/5 bg-gradient-to-r from-[#6E9EDE]/100 via-[#6E9EDE]/95 to-transparent flex flex-col justify-center items-start px-6 sm:px-12 md:px-16 text-white">

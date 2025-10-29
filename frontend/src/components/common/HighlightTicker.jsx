@@ -10,9 +10,9 @@ const HighlightTicker = () => {
 
   return (
     <div className="flex items-center px-2 py-1 bg-blue-45">
-      <button className="bg-[#5791ED] text-white px-4 py-1.5 rounded-l-md text-sm font-medium">
+      {/* <button className="bg-[#5791ED] text-white px-4 py-1.5 rounded-l-md text-sm font-medium">
         Highlights
-      </button>
+      </button> */}
       <div className="overflow-hidden flex-1">
         <div className="inline-block animate-marquee ml-3">
           {highlights.map((text, i) => (

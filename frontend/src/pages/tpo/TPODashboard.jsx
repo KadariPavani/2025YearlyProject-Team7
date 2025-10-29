@@ -1348,7 +1348,7 @@ const getRequestTypeColor = (type) => {
                 <h1 className="text-3xl font-bold text-blue-700">
                   Training Placement Officer
                 </h1>
-                <p className="text-gray-600 mt-1">Welcome, {tpoData?.user?.name}! - {tpoData?.message}</p>
+                <p className="text-gray-600 mt-1">Welcome, {tpoData?.user?.name}</p>
               </div>
               <div className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-lg border border-green-200">
                 <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
@@ -1461,6 +1461,22 @@ const getRequestTypeColor = (type) => {
               >
                 Statistics
               </button>
+                <button
+                onClick={() => setActiveTab('placementCalendar')}
+                className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
+                  activeTab === 'placementCalendar'
+                    ? 'border-blue-600 text-blue-700 bg-blue-50'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                Placement Calendar
+              </button>
+                      {/* <button
+          className={`tab-button ${activeTab === 'placementCalendar' ? 'active' : ''}`}
+          onClick={() => setActiveTab('placementCalendar')}
+        >
+          Placement Calendar
+        </button> */}
               <button
                 onClick={() => setActiveTab('schedule')}
                 className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
@@ -1502,7 +1518,7 @@ const getRequestTypeColor = (type) => {
           {activeTab === 'dashboard' && (
             <div className="space-y-5">
               {/* Quick Actions */}
-              <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              {/* <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors">
@@ -1521,7 +1537,7 @@ const getRequestTypeColor = (type) => {
                     <p className="text-gray-600 font-medium text-sm">Placement Schedule</p>
                   </button>
                 </div>
-              </div>
+              </div> */}
 
               {/* Recent Assigned Batches */}
               <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
@@ -1849,11 +1865,18 @@ const getRequestTypeColor = (type) => {
               onRefresh={fetchScheduleData}
             />
           )}
-          {activeTab === "placement-calendar" && (
+          {/* {activeTab === "placement-calendar" && (
             <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
               <PlacementCalendar />
             </div>
-          )}
+          )} */}
+
+                  {activeTab === 'placementCalendar' && (
+          <div>
+            {/* <h2 className="text-lg font-semibold mb-4">Placement Schedule</h2> */}
+            <PlacementCalendar />
+          </div>
+        )}
 
         {/* Approvals Tab */}
         {activeTab === 'approvals' && (

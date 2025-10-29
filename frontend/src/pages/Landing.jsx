@@ -17,6 +17,7 @@ import Placements from "../components/common/Placements";
 import PlacedStudents from "../components/common/PlacedStudents";
 import FAQSection from "../components/common/FAQSection";
 import Footer from "../components/common/Footer";
+
 import "../styles/globals.css";
 
 const Landing = () => {
@@ -67,9 +68,9 @@ const Landing = () => {
                   className="h-16 w-16 object-contain cursor-pointer"
                 />
               </button>
-              <span className="text-gray-900 font-bold text-lg sm:text-xl">
+              {/* <span className="text-gray-900 font-bold text-lg sm:text-xl">
                 INFOVERSE
-              </span>
+              </span> */}
             </div>
 
             {/* Desktop Nav */}
