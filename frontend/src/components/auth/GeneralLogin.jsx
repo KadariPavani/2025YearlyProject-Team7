@@ -1,9 +1,35 @@
-import React, { useMemo, useState } from 'react';
+// GeneralLogin.jsx - EXACT UI + REMEMBER ME + PERFECT LOGIN FUNCTIONALITY
+// Replace your entire GeneralLogin.jsx with this
+
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Mail, Lock, Eye, EyeOff, ArrowLeft, LogIn, Users, BookOpen, 
   GraduationCap, UserCheck
 } from 'lucide-react';
+
+// TEXT LOGIC - Centralized UI strings for consistency
+const TEXT = {
+  labels: {
+    email: 'Email Address',
+    password: 'Password',
+    rememberMe: 'Remember me',
+  },
+  placeholders: {
+    email: 'Enter your email',
+    password: 'Enter your password',
+  },
+  buttons: {
+    home: 'Home',
+    signIn: 'Sign In',
+    signingIn: 'Signing in...',
+    forgotPassword: 'Forgot your password?',
+  },
+  messages: {
+    newUser: (userType) => `New ${userType}? Contact your administrator for account setup.`,
+    loginFailed: 'Login failed. Please try again.',
+  },
+};
 
 // General Login Component
 const GeneralLogin = () => {
@@ -16,6 +42,7 @@ const GeneralLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
 
   const userTypeConfig = {
     tpo: {
@@ -80,12 +107,23 @@ const GeneralLogin = () => {
   const config = userTypeConfig[userType] || userTypeConfig.tpo;
   const IconComponent = config.icon;
 
+  // Load saved email if "Remember Me" was checked
+  useEffect(() => {
+    const savedEmail = localStorage.getItem(`${userType}_remembered_email`);
+    if (savedEmail) {
+      setFormData(prev => ({ ...prev, email: savedEmail }));
+      setRememberMe(true);
+    }
+  }, [userType]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
+      console.log('🔐 Login attempt:', { email: formData.email, userType });
+
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -98,22 +136,62 @@ const GeneralLogin = () => {
       });
 
       const result = await response.json();
+      console.log('📥 Login response:', result);
 
       if (result.success) {
-        localStorage.setItem('userToken', result.token);
-        localStorage.setItem('userData', JSON.stringify(result.user));
+        const token = result.token;
+        const user = result.user;
+        const effectiveUserType = user.userType || userType;
+
+        // PRIMARY STORAGE - Used by all dashboards
+        localStorage.setItem('token', token);
+        localStorage.setItem('userType', effectiveUserType);
         
-        if (userType === 'trainer') {
-          localStorage.setItem('trainerToken', result.token);
-          localStorage.setItem('trainerData', JSON.stringify(result.user));
+        // LEGACY STORAGE - Keep for backward compatibility
+        localStorage.setItem('userToken', token);
+        localStorage.setItem('userData', JSON.stringify(user));
+
+        // Remember Me functionality
+        if (rememberMe) {
+          localStorage.setItem(`${userType}_remembered_email`, formData.email);
+        } else {
+          localStorage.removeItem(`${userType}_remembered_email`);
         }
         
+        // User-specific storage
+        if (userType === 'trainer') {
+          localStorage.setItem('trainerToken', token);
+          localStorage.setItem('trainerData', JSON.stringify(user));
+        }
+
+        if (userType === 'coordinator') {
+          localStorage.setItem('coordinatorToken', token);
+          localStorage.setItem('coordinatorData', JSON.stringify(user));
+        }
+
+        console.log('✅ Token saved:', token.substring(0, 30) + '...');
+        console.log('✅ UserType saved:', effectiveUserType);
+        console.log('✅ User data saved:', user);
+
+        // Verify token was saved
+        const savedToken = localStorage.getItem('token');
+        console.log('🔍 Verification - Token exists:', !!savedToken);
+
+        if (!savedToken) {
+          console.error('❌ CRITICAL: Token was not saved!');
+          setError('Failed to save login session. Please try again.');
+          return;
+        }
+
+        console.log('🎉 Login successful! Navigating to:', config.dashboard);
         navigate(config.dashboard);
       } else {
+        console.error('❌ Login failed:', result.message);
         setError(result.message);
       }
-    } catch {
-      setError('Login failed. Please try again.');
+    } catch (err) {
+      console.error('❌ Login error:', err);
+      setError(TEXT.messages.loginFailed);
     } finally {
       setLoading(false);
     }
@@ -127,7 +205,7 @@ const GeneralLogin = () => {
         className="fixed top-4 left-4 z-10 flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md"
       >
         <ArrowLeft className="h-4 w-4" />
-        <span className="text-sm">Home</span>
+        <span className="text-sm">{TEXT.buttons.home}</span>
       </button>
 
       <div className="max-w-md w-full mt-8 sm:mt-0">
@@ -145,7 +223,7 @@ const GeneralLogin = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
+                {TEXT.labels.email}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -155,14 +233,14 @@ const GeneralLogin = () => {
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   className={`w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg ${config.focusStyles} transition-colors`}
-                  placeholder="Enter your email"
+                  placeholder={TEXT.placeholders.email}
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
+                {TEXT.labels.password}
               </label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -172,7 +250,7 @@ const GeneralLogin = () => {
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   className={`w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg ${config.focusStyles} transition-colors`}
-                  placeholder="Enter your password"
+                  placeholder={TEXT.placeholders.password}
                 />
                 <button
                   type="button"
@@ -182,6 +260,20 @@ const GeneralLogin = () => {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
+            </div>
+
+            {/* Remember Me Checkbox */}
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className={`h-4 w-4 text-${config.color}-600 focus:ring-${config.color}-500 border-gray-300 rounded`}
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                {TEXT.labels.rememberMe}
+              </label>
             </div>
 
             {error && (
@@ -200,7 +292,7 @@ const GeneralLogin = () => {
               ) : (
                 <LogIn className="h-5 w-5 mr-2" />
               )}
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? TEXT.buttons.signingIn : TEXT.buttons.signIn}
             </button>
           </form>
 
@@ -209,7 +301,7 @@ const GeneralLogin = () => {
               onClick={() => navigate(`/${userType}-forgot-password`)}
               className={`text-${config.color}-600 hover:text-${config.color}-800 text-sm font-medium`}
             >
-              Forgot your password?
+              {TEXT.buttons.forgotPassword}
             </button>
           </div>
         </div>
@@ -217,7 +309,7 @@ const GeneralLogin = () => {
         {/* Admin contact info */}
         <div className="mt-6 p-4 bg-white/50 backdrop-blur-sm rounded-lg shadow-lg">
           <p className="text-gray-700 text-sm text-center">
-            New {userType}? Contact your administrator for account setup.
+            {TEXT.messages.newUser(userType)}
           </p>
         </div>
       </div>

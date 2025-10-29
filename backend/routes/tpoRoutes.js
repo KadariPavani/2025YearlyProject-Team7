@@ -9,6 +9,8 @@ const TPO = require('../models/TPO');
 const Student = require('../models/Student');
 const Coordinator = require('../models/Coordinator');
 const generatePassword = require('../utils/generatePassword');
+const Attendance = require('../models/Attendance');
+const ExcelJS = require('exceljs');
 const sendEmail = require('../utils/sendEmail');
 // GET TPO Profile
 router.get('/profile', generalAuth, async (req, res) => {
@@ -1174,6 +1176,972 @@ router.post('/assign-coordinator', generalAuth, async (req, res) => {
       success: false,
       message: error.message || 'Error assigning coordinator',
       error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// GET Overall Attendance Summary
+router.get('/attendance/overall-summary', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    const tpoId = req.user._id;
+    
+    // Get all batches for this TPO with student details
+    const batches = await PlacementTrainingBatch.find({ tpoId })
+      .select('_id batchNumber techStack colleges students')
+      .populate('students', 'name rollNo email college branch');
+    
+    const batchIds = batches.map(b => b._id);
+
+    // Get all attendance records with FULL population
+    const attendanceRecords = await Attendance.find({
+      batchId: { $in: batchIds }
+    })
+      .populate('batchId', 'batchNumber techStack colleges students')
+      .populate('trainerId', 'name email subjectDealing')
+      .populate('studentAttendance.studentId', 'name rollNo email phonenumber college branch')
+      .populate('markedBy.userId', 'name email')
+      .sort({ sessionDate: -1 });
+
+    // Calculate statistics
+    const totalSessions = attendanceRecords.length;
+    const totalStudentsMarked = attendanceRecords.reduce((sum, record) => 
+      sum + record.totalStudents, 0
+    );
+    const averageAttendance = totalSessions > 0
+      ? Math.round(
+          attendanceRecords.reduce((sum, record) => 
+            sum + record.attendancePercentance, 0
+          ) / totalSessions
+        )
+      : 0;
+
+    // Calculate present/absent totals
+    const totalPresent = attendanceRecords.reduce((sum, record) => 
+      sum + record.presentCount, 0
+    );
+    const totalAbsent = attendanceRecords.reduce((sum, record) => 
+      sum + record.absentCount, 0
+    );
+
+    // Batch-wise detailed summary
+    const batchSummary = {};
+    attendanceRecords.forEach(record => {
+      const batchId = record.batchId._id.toString();
+      if (!batchSummary[batchId]) {
+        batchSummary[batchId] = {
+          _id: batchId,
+          batchNumber: record.batchId.batchNumber,
+          techStack: record.batchId.techStack,
+          colleges: record.batchId.colleges,
+          totalSessions: 0,
+          totalStudents: record.batchId.students ? record.batchId.students.length : 0,
+          averageAttendance: 0,
+          totalPresent: 0,
+          totalAbsent: 0,
+          attendances: [],
+          sessions: []
+        };
+      }
+      
+      batchSummary[batchId].totalSessions++;
+      batchSummary[batchId].attendances.push(record.attendancePercentage);
+      batchSummary[batchId].totalPresent += record.presentCount;
+      batchSummary[batchId].totalAbsent += record.absentCount;
+      
+      // Add session details
+      batchSummary[batchId].sessions.push({
+        _id: record._id,
+        sessionDate: record.sessionDate,
+        timeSlot: record.timeSlot,
+        subject: record.subject,
+        trainer: record.trainerId ? {
+          name: record.trainerId.name,
+          email: record.trainerId.email
+        } : null,
+        attendancePercentage: record.attendancePercentage,
+        presentCount: record.presentCount,
+        absentCount: record.absentCount
+      });
+    });
+
+    // Calculate average for each batch
+    Object.keys(batchSummary).forEach(batchId => {
+      const batch = batchSummary[batchId];
+      batch.averageAttendance = Math.round(
+        batch.attendances.reduce((a, b) => a + b, 0) / batch.attendances.length
+      );
+      delete batch.attendances; // Remove raw data
+    });
+
+    // Get low attendance students (below 75%)
+    const studentAttendanceMap = {};
+    attendanceRecords.forEach(record => {
+      record.studentAttendance.forEach(sa => {
+        const studentId = sa.studentId._id.toString();
+        if (!studentAttendanceMap[studentId]) {
+          studentAttendanceMap[studentId] = {
+            student: sa.studentId,
+            totalSessions: 0,
+            present: 0,
+            absent: 0,
+            late: 0,
+            percentage: 0
+          };
+        }
+        studentAttendanceMap[studentId].totalSessions++;
+        if (sa.status === 'present' || sa.status === 'late') {
+          studentAttendanceMap[studentId].present++;
+        }
+        if (sa.status === 'absent') {
+          studentAttendanceMap[studentId].absent++;
+        }
+        if (sa.status === 'late') {
+          studentAttendanceMap[studentId].late++;
+        }
+      });
+    });
+
+    // Calculate percentage and filter low attendance
+    const lowAttendanceStudents = [];
+    Object.keys(studentAttendanceMap).forEach(studentId => {
+      const data = studentAttendanceMap[studentId];
+      data.percentage = Math.round((data.present / data.totalSessions) * 100);
+      if (data.percentage < 75) {
+        lowAttendanceStudents.push({
+          student: {
+            _id: data.student._id,
+            name: data.student.name,
+            rollNo: data.student.rollNo,
+            email: data.student.email,
+            college: data.student.college,
+            branch: data.student.branch
+          },
+          totalSessions: data.totalSessions,
+          present: data.present,
+          absent: data.absent,
+          late: data.late,
+          percentage: data.percentage
+        });
+      }
+    });
+
+    // Sort by percentage (lowest first)
+    lowAttendanceStudents.sort((a, b) => a.percentage - b.percentage);
+
+    res.json({
+      success: true,
+      data: {
+        overallStats: {
+          totalSessions,
+          totalStudentsMarked,
+          totalPresent,
+          totalAbsent,
+          averageAttendance,
+          totalBatches: Object.keys(batchSummary).length,
+          lowAttendanceCount: lowAttendanceStudents.length
+        },
+        batchWiseStats: Object.values(batchSummary),
+        lowAttendanceStudents: lowAttendanceStudents.slice(0, 20), // Top 20 low attendance
+        recentSessions: attendanceRecords.slice(0, 10).map(record => ({
+          _id: record._id,
+          sessionDate: record.sessionDate,
+          timeSlot: record.timeSlot,
+          startTime: record.startTime,
+          endTime: record.endTime,
+          subject: record.subject,
+          batch: {
+            _id: record.batchId._id,
+            batchNumber: record.batchId.batchNumber,
+            techStack: record.batchId.techStack
+          },
+          trainer: record.trainerId ? {
+            name: record.trainerId.name,
+            email: record.trainerId.email
+          } : null,
+          attendancePercentage: record.attendancePercentage,
+          presentCount: record.presentCount,
+          absentCount: record.absentCount,
+          totalStudents: record.totalStudents,
+          markedBy: record.markedBy ? {
+            name: record.markedBy.name,
+            userType: record.markedBy.userType
+          } : null
+        }))
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching attendance summary:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+const isValidDate = (d) => d instanceof Date && !isNaN(d);
+
+// GET Batch-specific Attendance
+router.get('/attendance/batch/:batchId', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    const { batchId } = req.params;
+    const { startDate, endDate } = req.query;
+
+    // Verify batch belongs to this TPO
+    const batch = await PlacementTrainingBatch.findOne({
+      _id: batchId,
+      tpoId: req.user._id
+    });
+
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found or access denied'
+      });
+    }
+
+    const dateFilter = {};
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      if (isValidDate(start) && isValidDate(end)) {
+        dateFilter.sessionDate = {
+          $gte: start,
+          $lte: end
+        };
+      }
+    }
+
+    const attendanceRecords = await Attendance.find({
+      batchId: batchId,
+      ...dateFilter
+    })
+      .populate('trainerId', 'name email subjectDealing')
+      .populate('batchId', 'batchNumber techStack colleges')
+      .sort({ sessionDate: -1 });
+
+    res.json({
+      success: true,
+      data: {
+        batch: {
+          _id: batch._id,
+          batchNumber: batch.batchNumber,
+          techStack: batch.techStack,
+          colleges: batch.colleges
+        },
+        attendance: attendanceRecords,
+        statistics: {
+          totalSessions: attendanceRecords.length,
+          averageAttendance: attendanceRecords.length > 0
+            ? Math.round(
+                attendanceRecords.reduce((sum, r) => sum + r.attendancePercentage, 0) / 
+                attendanceRecords.length
+              )
+            : 0
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching batch attendance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// GET Attendance by Date Range
+router.get('/attendance/date-range', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    const { startDate, endDate } = req.query;
+    const tpoId = req.user._id;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Start date and end date are required'
+      });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (!isValidDate(start) || !isValidDate(end)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid date format'
+      });
+    }
+
+    // Get all batches for this TPO
+    const batches = await PlacementTrainingBatch.find({ tpoId }).select('_id');
+    const batchIds = batches.map(b => b._id);
+
+    const attendanceRecords = await Attendance.find({
+      batchId: { $in: batchIds },
+      sessionDate: {
+        $gte: start,
+        $lte: end
+      }
+    })
+      .populate('batchId', 'batchNumber techStack colleges')
+      .populate('trainerId', 'name')
+      .sort({ sessionDate: -1 });
+
+    res.json({
+      success: true,
+      data: {
+        attendance: attendanceRecords,
+        count: attendanceRecords.length,
+        dateRange: { startDate, endDate }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching attendance by date range:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// GET Complete Attendance Report with ALL Student Details
+router.get('/attendance/complete-report', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    const tpoId = req.user._id;
+    const { startDate, endDate, batchId } = req.query;
+
+    // Build query
+    let batchQuery = { tpoId };
+    if (batchId) {
+      batchQuery._id = batchId;
+    }
+
+    // Get all batches with complete student data
+    const batches = await PlacementTrainingBatch.find(batchQuery)
+      .populate({
+        path: 'students',
+        select: 'name rollNo email phone college branch year section'
+      })
+      .populate('tpoId', 'name email')
+      .lean();
+
+    if (!batches || batches.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          batches: [],
+          attendanceData: [],
+          summary: {
+            totalBatches: 0,
+            totalStudents: 0,
+            totalSessions: 0,
+            averageAttendance: 0
+          }
+        }
+      });
+    }
+
+    const batchIds = batches.map(b => b._id);
+
+    // Build attendance query with date validation
+    let attendanceQuery = { batchId: { $in: batchIds } };
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      if (isValidDate(start) && isValidDate(end)) {
+        attendanceQuery.sessionDate = {
+          $gte: start,
+          $lte: end
+        };
+      }
+    }
+
+    // Get all attendance records with full population
+    const attendanceRecords = await Attendance.find(attendanceQuery)
+      .populate({
+        path: 'batchId',
+        select: 'batchNumber techStack colleges year'
+      })
+      .populate({
+        path: 'trainerId',
+        select: 'name email phone subjectDealing'
+      })
+      .populate({
+        path: 'studentAttendance.studentId',
+        select: 'name rollNo email phone college branch year section'
+      })
+      .populate({
+        path: 'markedBy.userId',
+        select: 'name email'
+      })
+      .sort({ sessionDate: -1, timeSlot: 1 })
+      .lean();
+
+    // Process data for comprehensive report
+    const studentWiseReport = {};
+    const sessionWiseReport = [];
+    
+    let totalPresent = 0;
+    let totalAbsent = 0;
+    let totalLate = 0;
+
+    attendanceRecords.forEach(record => {
+      // Session-wise data
+      const sessionData = {
+        _id: record._id,
+        date: record.sessionDate,
+        day: new Date(record.sessionDate).toLocaleDateString('en-US', { weekday: 'long' }),
+        timeSlot: record.timeSlot,
+        startTime: record.startTime,
+        endTime: record.endTime,
+        subject: record.subject || 'N/A',
+        batch: {
+          _id: record.batchId._id,
+          batchNumber: record.batchId.batchNumber,
+          techStack: record.batchId.techStack,
+          year: record.batchId.year
+        },
+        trainer: record.trainerId ? {
+          name: record.trainerId.name,
+          email: record.trainerId.email,
+          phone: record.trainerId.phone,
+          subject: record.trainerId.subjectDealing
+        } : null,
+        trainerStatus: record.trainerStatus,
+        totalStudents: record.totalStudents,
+        presentCount: record.presentCount,
+        absentCount: record.absentCount,
+        attendancePercentage: record.attendancePercentage,
+        markedBy: record.markedBy ? {
+          name: record.markedBy.name,
+          userType: record.markedBy.userType
+        } : null,
+        students: []
+      };
+
+      // Student-wise data
+      record.studentAttendance.forEach(sa => {
+        if (!sa.studentId) return;
+
+        const student = sa.studentId;
+        const studentId = student._id.toString();
+
+        // Track student overall attendance
+        if (!studentWiseReport[studentId]) {
+          studentWiseReport[studentId] = {
+            student: {
+              _id: student._id,
+              name: student.name,
+              rollNo: student.rollNo,
+              email: student.email,
+              phone: student.phone || 'N/A',
+              college: student.college,
+              branch: student.branch,
+              year: student.year || 'N/A',
+              section: student.section || 'N/A'
+            },
+            totalSessions: 0,
+            present: 0,
+            absent: 0,
+            late: 0,
+            percentage: 0,
+            sessions: []
+          };
+        }
+
+        studentWiseReport[studentId].totalSessions++;
+        if (sa.status === 'present') {
+          studentWiseReport[studentId].present++;
+          totalPresent++;
+        } else if (sa.status === 'absent') {
+          studentWiseReport[studentId].absent++;
+          totalAbsent++;
+        } else if (sa.status === 'late') {
+          studentWiseReport[studentId].late++;
+          totalPresent++; // Count late as present for percentage
+        }
+
+        // Add to student's session history
+        studentWiseReport[studentId].sessions.push({
+          date: record.sessionDate,
+          timeSlot: record.timeSlot,
+          subject: record.subject || 'N/A',
+          status: sa.status,
+          remarks: sa.remarks || '',
+          trainer: record.trainerId ? record.trainerId.name : 'N/A'
+        });
+
+        // Add to session's student list
+        sessionData.students.push({
+          _id: student._id,
+          name: student.name,
+          rollNo: student.rollNo,
+          email: student.email,
+          phone: student.phone || 'N/A',
+          college: student.college,
+          branch: student.branch,
+          status: sa.status,
+          remarks: sa.remarks || ''
+        });
+      });
+
+      sessionWiseReport.push(sessionData);
+    });
+
+    // Calculate percentages for each student
+    Object.values(studentWiseReport).forEach(student => {
+      student.percentage = student.totalSessions > 0
+        ? Math.round(((student.present + student.late) / student.totalSessions) * 100)
+        : 0;
+    });
+
+    // Sort students by percentage (lowest first for alerts)
+    const studentArray = Object.values(studentWiseReport);
+    const lowAttendanceStudents = studentArray
+      .filter(s => s.percentage < 75)
+      .sort((a, b) => a.percentage - b.percentage);
+
+    // Calculate batch-wise stats
+    const batchStats = batches.map(batch => {
+      const batchSessions = sessionWiseReport.filter(
+        s => s.batch._id.toString() === batch._id.toString()
+      );
+      
+      const batchStudents = studentArray.filter(s => 
+        batch.students.some(bs => bs._id.toString() === s.student._id.toString())
+      );
+
+      const avgAttendance = batchStudents.length > 0
+        ? Math.round(
+            batchStudents.reduce((sum, s) => sum + s.percentage, 0) / batchStudents.length
+          )
+        : 0;
+
+      return {
+        _id: batch._id,
+        batchNumber: batch.batchNumber,
+        techStack: batch.techStack,
+        colleges: batch.colleges,
+        year: batch.year,
+        totalStudents: batch.students.length,
+        totalSessions: batchSessions.length,
+        averageAttendance: avgAttendance,
+        lowAttendanceCount: batchStudents.filter(s => s.percentage < 75).length
+      };
+    });
+
+    // Overall summary
+    const totalStudents = studentArray.length;
+    const totalSessions = attendanceRecords.length;
+    const averageAttendance = totalStudents > 0
+      ? Math.round(studentArray.reduce((sum, s) => sum + s.percentage, 0) / totalStudents)
+      : 0;
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          totalBatches: batches.length,
+          totalStudents,
+          totalSessions,
+          totalPresent,
+          totalAbsent,
+          totalLate,
+          averageAttendance,
+          lowAttendanceCount: lowAttendanceStudents.length
+        },
+        batchStats,
+        studentWiseReport: studentArray,
+        sessionWiseReport,
+        lowAttendanceStudents: lowAttendanceStudents.slice(0, 50),
+        dateRange: {
+          start: startDate || 'All',
+          end: endDate || 'All'
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching complete attendance report:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// DOWNLOAD Excel Report - Multi-Sheet Structure
+// Sheet 1: Trainer Attendance
+// Sheet 2+: Batch-wise Attendance (one sheet per batch)
+// Last Sheet: Summary
+router.get('/attendance/download-excel', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    const tpoId = req.user._id;
+    const { startDate, endDate, batchId } = req.query;
+
+    // Validate dates if provided
+    let start = null;
+    let end = null;
+    
+    if (startDate) {
+      start = new Date(startDate);
+      if (!isValidDate(start)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid startDate format'
+        });
+      }
+    }
+    
+    if (endDate) {
+      end = new Date(endDate);
+      if (!isValidDate(end)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid endDate format'
+        });
+      }
+    }
+
+    // Build batch query
+    let batchQuery = { tpoId };
+    if (batchId) {
+      batchQuery._id = batchId;
+    }
+
+    const batches = await PlacementTrainingBatch.find(batchQuery)
+      .populate('students', 'name rollNo email phone college branch year section')
+      .lean();
+
+    if (!batches || batches.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No batches found'
+      });
+    }
+
+    const batchIds = batches.map(b => b._id);
+
+    // Build attendance query
+    let attendanceQuery = { batchId: { $in: batchIds } };
+    if (start && end) {
+      attendanceQuery.sessionDate = {
+        $gte: start,
+        $lte: end
+      };
+    }
+
+    const attendanceRecords = await Attendance.find(attendanceQuery)
+      .populate('batchId', 'batchNumber techStack colleges')
+      .populate('trainerId', 'name email subjectDealing')
+      .populate('studentAttendance.studentId', 'name rollNo email phone college branch')
+      .sort({ sessionDate: 1, timeSlot: 1 })
+      .lean();
+
+    if (!attendanceRecords || attendanceRecords.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No attendance records found for the given criteria'
+      });
+    }
+
+    // Create Excel workbook
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'TPO Attendance System';
+    workbook.created = new Date();
+
+    // ========== SHEET 1: TRAINER ATTENDANCE ==========
+    const trainerSheet = workbook.addWorksheet('Trainer Attendance');
+    
+    trainerSheet.columns = [
+      { header: 'Date', key: 'date', width: 12 },
+      { header: 'Day', key: 'day', width: 10 },
+      { header: 'Time Slot', key: 'timeSlot', width: 12 },
+      { header: 'Start Time', key: 'startTime', width: 10 },
+      { header: 'End Time', key: 'endTime', width: 10 },
+      { header: 'Trainer Name', key: 'trainerName', width: 25 },
+      { header: 'Subject', key: 'subject', width: 20 },
+      { header: 'Batch', key: 'batch', width: 15 },
+      { header: 'Trainer Status', key: 'trainerStatus', width: 15 },
+      { header: 'Total Students', key: 'totalStudents', width: 15 },
+      { header: 'Present', key: 'present', width: 10 },
+      { header: 'Absent', key: 'absent', width: 10 },
+      { header: 'Attendance %', key: 'percentage', width: 12 }
+    ];
+
+    // Style header
+    trainerSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    trainerSheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF4472C4' }
+    };
+    trainerSheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Add trainer data
+    attendanceRecords.forEach(record => {
+      const dateStr = new Date(record.sessionDate).toLocaleDateString('en-US');
+      const dayStr = new Date(record.sessionDate).toLocaleDateString('en-US', { weekday: 'long' });
+
+      const row = trainerSheet.addRow({
+        date: dateStr,
+        day: dayStr,
+        timeSlot: record.timeSlot || 'N/A',
+        startTime: record.startTime || '',
+        endTime: record.endTime || '',
+        trainerName: record.trainerId ? record.trainerId.name : 'N/A',
+        subject: record.subject || 'N/A',
+        batch: record.batchId.batchNumber,
+        trainerStatus: record.trainerStatus || 'present',
+        totalStudents: record.totalStudents,
+        present: record.presentCount,
+        absent: record.absentCount,
+        percentage: record.attendancePercentage + '%'
+      });
+
+      // Color code trainer status
+      const statusCell = row.getCell('trainerStatus');
+      if (record.trainerStatus === 'present') {
+        statusCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF90EE90' }
+        };
+      } else if (record.trainerStatus === 'absent') {
+        statusCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFFF6B6B' }
+        };
+      }
+    });
+
+    // ========== SHEETS 2+: BATCH-WISE ATTENDANCE ==========
+    batches.forEach(batch => {
+      const batchRecords = attendanceRecords.filter(
+        r => r.batchId._id.toString() === batch._id.toString()
+      );
+
+      if (batchRecords.length === 0) return;
+
+      const batchSheet = workbook.addWorksheet(`Batch ${batch.batchNumber}`);
+      
+      batchSheet.columns = [
+        { header: 'Date', key: 'date', width: 12 },
+        { header: 'Day', key: 'day', width: 10 },
+        { header: 'Time Slot', key: 'timeSlot', width: 12 },
+        { header: 'Subject', key: 'subject', width: 20 },
+        { header: 'Trainer', key: 'trainer', width: 20 },
+        { header: 'Student Name', key: 'studentName', width: 25 },
+        { header: 'Roll Number', key: 'rollNo', width: 15 },
+        { header: 'Email', key: 'email', width: 30 },
+        { header: 'College', key: 'college', width: 20 },
+        { header: 'Branch', key: 'branch', width: 15 },
+        { header: 'Status', key: 'status', width: 10 },
+        { header: 'Remarks', key: 'remarks', width: 25 }
+      ];
+
+      // Style header
+      batchSheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      batchSheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF70AD47' }
+      };
+      batchSheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      // Add batch data
+      batchRecords.forEach(record => {
+        const dateStr = new Date(record.sessionDate).toLocaleDateString('en-US');
+        const dayStr = new Date(record.sessionDate).toLocaleDateString('en-US', { weekday: 'long' });
+
+        record.studentAttendance.forEach(sa => {
+          if (!sa.studentId) return;
+
+          const row = batchSheet.addRow({
+            date: dateStr,
+            day: dayStr,
+            timeSlot: record.timeSlot || 'N/A',
+            subject: record.subject || 'N/A',
+            trainer: record.trainerId ? record.trainerId.name : 'N/A',
+            studentName: sa.studentId.name,
+            rollNo: sa.studentId.rollNo,
+            email: sa.studentId.email,
+            college: sa.studentId.college,
+            branch: sa.studentId.branch,
+            status: sa.status.toUpperCase(),
+            remarks: sa.remarks || ''
+          });
+
+          // Color code status
+          const statusCell = row.getCell('status');
+          if (sa.status === 'present') {
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FF90EE90' }
+            };
+          } else if (sa.status === 'absent') {
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFF6B6B' }
+            };
+          } else if (sa.status === 'late') {
+            statusCell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFFFD700' }
+            };
+          }
+        });
+      });
+    });
+
+    // ========== LAST SHEET: SUMMARY ==========
+    const summarySheet = workbook.addWorksheet('Summary');
+    
+    summarySheet.columns = [
+      { header: 'Student Name', key: 'name', width: 25 },
+      { header: 'Roll Number', key: 'rollNo', width: 15 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'College', key: 'college', width: 20 },
+      { header: 'Branch', key: 'branch', width: 15 },
+      { header: 'Batch', key: 'batch', width: 15 },
+      { header: 'Total Sessions', key: 'totalSessions', width: 15 },
+      { header: 'Present', key: 'present', width: 10 },
+      { header: 'Absent', key: 'absent', width: 10 },
+      { header: 'Late', key: 'late', width: 10 },
+      { header: 'Attendance %', key: 'percentage', width: 15 }
+    ];
+
+    summarySheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    summarySheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFFF6B35' }
+    };
+    summarySheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Calculate student-wise summary
+    const studentMap = {};
+    attendanceRecords.forEach(record => {
+      record.studentAttendance.forEach(sa => {
+        if (!sa.studentId) return;
+        
+        const sid = sa.studentId._id.toString();
+        if (!studentMap[sid]) {
+          studentMap[sid] = {
+            student: sa.studentId,
+            batch: record.batchId.batchNumber,
+            total: 0,
+            present: 0,
+            absent: 0,
+            late: 0
+          };
+        }
+        studentMap[sid].total++;
+        if (sa.status === 'present') studentMap[sid].present++;
+        else if (sa.status === 'absent') studentMap[sid].absent++;
+        else if (sa.status === 'late') studentMap[sid].late++;
+      });
+    });
+
+    Object.values(studentMap).forEach(data => {
+      const percentage = data.total > 0
+        ? Math.round(((data.present + data.late) / data.total) * 100)
+        : 0;
+
+      const row = summarySheet.addRow({
+        name: data.student.name,
+        rollNo: data.student.rollNo,
+        email: data.student.email,
+        college: data.student.college,
+        branch: data.student.branch,
+        batch: data.batch,
+        totalSessions: data.total,
+        present: data.present,
+        absent: data.absent,
+        late: data.late,
+        percentage: percentage + '%'
+      });
+
+      // Highlight low attendance
+      if (percentage < 75) {
+        row.getCell('percentage').fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFFF6B6B' }
+        };
+        row.getCell('percentage').font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      }
+    });
+
+    // Generate filename
+    const dateStr = start && end 
+      ? `${start.toISOString().split('T')[0]}_to_${end.toISOString().split('T')[0]}`
+      : 'All_Dates';
+    const filename = `Attendance_Report_${dateStr}_${Date.now()}.xlsx`;
+
+    // Set response headers
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    // Write to response
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (error) {
+    console.error('Error generating Excel:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating Excel file',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

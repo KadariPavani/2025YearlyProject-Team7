@@ -1,9 +1,497 @@
-// routes/coordinatorRoutes.js
+// routes/coordinatorRoutes.js - COMPLETE FILE (REPLACE EXISTING)
 const express = require('express');
 const router = express.Router();
+const generalAuth = require('../middleware/generalAuth');
+const Coordinator = require('../models/Coordinator');
+const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
+const Student = require('../models/Student');
+const Trainer = require('../models/Trainer');
+const Attendance = require('../models/Attendance');
 
-router.get('/dashboard', (req, res) => {
-  res.json({ message: 'Coordinator dashboard - to be implemented' });
+// ============================================
+// COORDINATOR PROFILE & DASHBOARD
+// ============================================
+
+// GET Coordinator Profile
+router.get('/profile', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'coordinator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied. Coordinator route only.' 
+      });
+    }
+
+    const coordinator = await Coordinator.findById(req.user.id)
+      .populate({
+        path: 'assignedPlacementBatch',
+        populate: [
+          { path: 'students', select: 'name rollNo email college branch techStack' },
+          { path: 'tpoId', select: 'name email phone' },
+          { 
+            path: 'assignedTrainers.trainer', 
+            select: 'name email subjectDealing category experience' 
+          }
+        ]
+      })
+      .select('-password');
+
+    if (!coordinator) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Coordinator not found' 
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Profile fetched successfully',
+      data: { user: coordinator }
+    });
+  } catch (error) {
+    console.error('Error fetching coordinator profile:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error while fetching profile' 
+    });
+  }
+});
+
+// GET Coordinator Dashboard
+router.get('/dashboard', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'coordinator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const coordinator = await Coordinator.findById(req.user.id)
+      .populate({
+        path: 'assignedPlacementBatch',
+        populate: [
+          { path: 'students' },
+          { path: 'tpoId' },
+          { path: 'assignedTrainers.trainer' }
+        ]
+      })
+      .select('-password');
+
+    res.json({
+      success: true,
+      message: 'Dashboard data fetched successfully',
+      data: { user: coordinator }
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
+// ============================================
+// ATTENDANCE MANAGEMENT - MARK ATTENDANCE
+// ============================================
+
+// GET Scheduled Sessions for Today
+router.get('/attendance/today-sessions', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'coordinator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const coordinator = await Coordinator.findById(req.user.id);
+    if (!coordinator || !coordinator.assignedPlacementBatch) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No batch assigned' 
+      });
+    }
+
+    const batch = await PlacementTrainingBatch.findById(coordinator.assignedPlacementBatch)
+      .populate('students', 'name rollNo email college branch')
+      .populate('assignedTrainers.trainer', 'name email subjectDealing category');
+
+    if (!batch) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Batch not found' 
+      });
+    }
+
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    const todaySessions = [];
+
+    // Get scheduled sessions for today
+    batch.assignedTrainers.forEach(assignment => {
+      if (assignment.schedule && assignment.schedule.length > 0) {
+        assignment.schedule.forEach(slot => {
+          if (slot.day === today) {
+            todaySessions.push({
+              trainerId: assignment.trainer._id,
+              trainerName: assignment.trainer.name,
+              subject: assignment.subject,
+              timeSlot: assignment.timeSlot,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              day: slot.day
+            });
+          }
+        });
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        batchId: batch._id,
+        batchNumber: batch.batchNumber,
+        students: batch.students,
+        todaySessions: todaySessions.sort((a, b) => 
+          a.startTime.localeCompare(b.startTime)
+        )
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching today sessions:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
+// POST Mark Attendance
+router.post('/attendance/mark', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'coordinator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const {
+      batchId,
+      sessionDate,
+      timeSlot,
+      startTime,
+      endTime,
+      trainerId,
+      subject,
+      trainerStatus,
+      trainerRemarks,
+      studentAttendance, // Array of { studentId, status, remarks }
+      sessionNotes
+    } = req.body;
+
+    // Validation
+    if (!batchId || !sessionDate || !timeSlot || !startTime || !endTime) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Required fields missing' 
+      });
+    }
+
+    // Verify coordinator has access to this batch
+    const coordinator = await Coordinator.findById(req.user.id);
+    if (coordinator.assignedPlacementBatch.toString() !== batchId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized for this batch' 
+      });
+    }
+
+    // Check if attendance already exists
+    const existingAttendance = await Attendance.findOne({
+      batchId,
+      sessionDate: new Date(sessionDate),
+      timeSlot,
+      trainerId: trainerId || null
+    });
+
+    if (existingAttendance) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Attendance already marked for this session' 
+      });
+    }
+
+    // Mark timestamp for each student
+    const processedStudentAttendance = studentAttendance.map(s => ({
+      ...s,
+      markedAt: new Date()
+    }));
+
+    // Create new attendance record
+    const attendance = new Attendance({
+      sessionDate: new Date(sessionDate),
+      batchId,
+      batchType: 'placement',
+      timeSlot,
+      startTime,
+      endTime,
+      trainerId: trainerId || null,
+      subject: subject || '',
+      trainerStatus: trainerStatus || 'not_marked',
+      trainerRemarks: trainerRemarks || '',
+      studentAttendance: processedStudentAttendance,
+      markedBy: {
+        userId: req.user.id,
+        userType: 'Coordinator',
+        name: coordinator.name
+      },
+      sessionNotes: sessionNotes || '',
+      isCompleted: true
+    });
+
+    await attendance.save();
+
+    // Populate the response
+    await attendance.populate([
+      { path: 'studentAttendance.studentId', select: 'name rollNo email' },
+      { path: 'trainerId', select: 'name email subjectDealing' }
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Attendance marked successfully',
+      data: attendance
+    });
+  } catch (error) {
+    console.error('Error marking attendance:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message || 'Server error while marking attendance' 
+    });
+  }
+});
+
+// ============================================
+// ATTENDANCE VIEWING & MANAGEMENT
+// ============================================
+
+// GET Attendance History
+router.get('/attendance/history', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'coordinator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const coordinator = await Coordinator.findById(req.user.id);
+    const { startDate, endDate, timeSlot } = req.query;
+
+    const query = {
+      batchId: coordinator.assignedPlacementBatch
+    };
+
+    if (startDate && endDate) {
+      query.sessionDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    if (timeSlot) {
+      query.timeSlot = timeSlot;
+    }
+
+    const attendanceRecords = await Attendance.find(query)
+      .populate('trainerId', 'name email subjectDealing')
+      .populate('studentAttendance.studentId', 'name rollNo email')
+      .sort({ sessionDate: -1, timeSlot: 1 });
+
+    res.json({
+      success: true,
+      data: {
+        totalRecords: attendanceRecords.length,
+        records: attendanceRecords
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching attendance history:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
+// GET Attendance for Specific Date
+router.get('/attendance/date/:date', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'coordinator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const coordinator = await Coordinator.findById(req.user.id);
+    const requestedDate = new Date(req.params.date);
+
+    const attendanceRecords = await Attendance.find({
+      batchId: coordinator.assignedPlacementBatch,
+      sessionDate: {
+        $gte: new Date(requestedDate.setHours(0, 0, 0, 0)),
+        $lte: new Date(requestedDate.setHours(23, 59, 59, 999))
+      }
+    })
+    .populate('trainerId', 'name email subjectDealing')
+    .populate('studentAttendance.studentId', 'name rollNo email')
+    .sort({ timeSlot: 1 });
+
+    res.json({
+      success: true,
+      data: {
+        date: req.params.date,
+        sessionsCount: attendanceRecords.length,
+        records: attendanceRecords
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching date attendance:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
+// PUT Update Attendance
+router.put('/attendance/:attendanceId', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'coordinator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const { attendanceId } = req.params;
+    const updateData = req.body;
+
+    const coordinator = await Coordinator.findById(req.user.id);
+    const attendance = await Attendance.findById(attendanceId);
+
+    if (!attendance) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Attendance record not found' 
+      });
+    }
+
+    // Verify coordinator has access
+    if (attendance.batchId.toString() !== coordinator.assignedPlacementBatch.toString()) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Not authorized' 
+      });
+    }
+
+    // Update fields
+    if (updateData.trainerStatus) attendance.trainerStatus = updateData.trainerStatus;
+    if (updateData.trainerRemarks) attendance.trainerRemarks = updateData.trainerRemarks;
+    if (updateData.studentAttendance) attendance.studentAttendance = updateData.studentAttendance;
+    if (updateData.sessionNotes) attendance.sessionNotes = updateData.sessionNotes;
+
+    await attendance.save();
+
+    await attendance.populate([
+      { path: 'studentAttendance.studentId', select: 'name rollNo email' },
+      { path: 'trainerId', select: 'name email subjectDealing' }
+    ]);
+
+    res.json({
+      success: true,
+      message: 'Attendance updated successfully',
+      data: attendance
+    });
+  } catch (error) {
+    console.error('Error updating attendance:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
+// GET Attendance Summary Statistics
+router.get('/attendance/summary', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'coordinator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const coordinator = await Coordinator.findById(req.user.id);
+    const { startDate, endDate } = req.query;
+
+    const dateFilter = {};
+    if (startDate && endDate) {
+      dateFilter.sessionDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    const attendanceRecords = await Attendance.find({
+      batchId: coordinator.assignedPlacementBatch,
+      ...dateFilter
+    });
+
+    // Calculate statistics
+    const totalSessions = attendanceRecords.length;
+    const totalStudentRecords = attendanceRecords.reduce((sum, record) => 
+      sum + record.studentAttendance.length, 0
+    );
+    const totalPresent = attendanceRecords.reduce((sum, record) => 
+      sum + record.presentCount, 0
+    );
+    const totalAbsent = attendanceRecords.reduce((sum, record) => 
+      sum + record.absentCount, 0
+    );
+
+    const overallPercentage = totalStudentRecords > 0 
+      ? Math.round((totalPresent / totalStudentRecords) * 100) 
+      : 0;
+
+    // Time slot distribution
+    const timeSlotStats = {
+      morning: attendanceRecords.filter(r => r.timeSlot === 'morning').length,
+      afternoon: attendanceRecords.filter(r => r.timeSlot === 'afternoon').length,
+      evening: attendanceRecords.filter(r => r.timeSlot === 'evening').length
+    };
+
+    res.json({
+      success: true,
+      data: {
+        totalSessions,
+        totalStudentRecords,
+        totalPresent,
+        totalAbsent,
+        overallPercentage,
+        timeSlotStats
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching summary:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
 });
 
 module.exports = router;

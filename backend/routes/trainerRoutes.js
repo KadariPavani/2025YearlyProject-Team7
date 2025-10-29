@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const Trainer = require('../models/Trainer');
 const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const generalAuth = require('../middleware/generalAuth');
-
+const Attendance = require('../models/Attendance');
 const router = express.Router();
 
 // @desc Register trainer
@@ -346,6 +346,123 @@ router.post('/logout', generalAuth, async (req, res) => {
   } catch (error) {
     console.error('Logout Trainer Error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// GET Trainer's Own Attendance
+router.get('/attendance/my-attendance', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'trainer') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const { startDate, endDate } = req.query;
+    const trainerId = req.user.id;
+
+    const dateFilter = {};
+    if (startDate && endDate) {
+      dateFilter.sessionDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    const attendanceRecords = await Attendance.find({
+      trainerId: trainerId,
+      ...dateFilter
+    })
+    .populate('batchId', 'batchNumber techStack colleges')
+    .sort({ sessionDate: -1 });
+
+    // Calculate statistics
+    const totalSessions = attendanceRecords.length;
+    const presentCount = attendanceRecords.filter(a => 
+      a.trainerStatus === 'present'
+    ).length;
+    const absentCount = attendanceRecords.filter(a => 
+      a.trainerStatus === 'absent'
+    ).length;
+    const attendancePercentage = totalSessions > 0 
+      ? Math.round((presentCount / totalSessions) * 100) 
+      : 0;
+
+    res.json({
+      success: true,
+      data: {
+        attendance: attendanceRecords,
+        statistics: {
+          totalSessions,
+          presentCount,
+          absentCount,
+          attendancePercentage
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching trainer attendance:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
+// GET Sessions Taught by Trainer
+router.get('/attendance/sessions-taught', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'trainer') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const trainerId = req.user.id;
+    const { month, year } = req.query;
+
+    let dateFilter = {};
+    if (month && year) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0, 23, 59, 59);
+      dateFilter.sessionDate = {
+        $gte: startDate,
+        $lte: endDate
+      };
+    }
+
+    const sessions = await Attendance.find({
+      trainerId: trainerId,
+      ...dateFilter
+    })
+    .populate('batchId', 'batchNumber techStack')
+    .sort({ sessionDate: -1 });
+
+    const summary = {
+      totalSessions: sessions.length,
+      totalStudentsAttended: sessions.reduce((sum, s) => sum + s.presentCount, 0),
+      averageAttendance: sessions.length > 0 
+        ? Math.round(
+            sessions.reduce((sum, s) => sum + s.attendancePercentage, 0) / sessions.length
+          )
+        : 0
+    };
+
+    res.json({
+      success: true,
+      data: {
+        sessions,
+        summary
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching sessions taught:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
   }
 });
 

@@ -12,7 +12,7 @@ import axios from 'axios';
 import StudentQuiz from './StudentQuiz';
 import StudentAssignment from './StudentAssignment';
 import StudentResources from './StudentResources';
-
+import StudentAttendanceView from './StudentAttendanceView';
 // Keep placeholder components for the rest as in the first code
 const StudentSyllabus = () => (
   <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
@@ -729,6 +729,12 @@ const StudentDashboard = () => {
                 Class Schedule
               </button>
               <button
+  onClick={() => setActiveTab('attendance')}
+  className={`px-4 py-2 ${activeTab === 'attendance' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+>
+  Attendance
+</button>
+              <button
                 onClick={() => setActiveTab('assignments')}
                 className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
                   activeTab === 'assignments'
@@ -1242,6 +1248,7 @@ const StudentDashboard = () => {
           {activeTab === 'syllabus' && <StudentSyllabus />}
           {activeTab === 'progress' && <StudentProgress />}
           {activeTab === 'certificates' && <StudentCertificates />}
+          {activeTab === 'attendance' && <StudentAttendanceView />}
         </div>
       </div>
 

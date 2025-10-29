@@ -8,7 +8,7 @@ const Admin = require('../models/Admin');
 const generalAuth = require('../middleware/generalAuth');
 const { profileUpload, resumeUpload } = require('../middleware/fileUpload');
 const router = express.Router();
-
+const Attendance = require('../models/Attendance');
 // Function to get TPO based on student's assigned batch
 async function getTPOForStudent(student) {
   let assignedTPO = null;
@@ -687,6 +687,152 @@ router.get('/my-trainers-schedule', generalAuth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching trainer schedule:', error);
     res.status(500).json({ success: false, message: 'Server error fetching trainer schedule' });
+  }
+});
+
+// GET Student's Own Attendance
+router.get('/attendance/my-attendance', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'student') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const { startDate, endDate } = req.query;
+    const studentId = req.user.id;
+
+    const dateFilter = {};
+    if (startDate && endDate) {
+      dateFilter.sessionDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    const attendanceRecords = await Attendance.find({
+      'studentAttendance.studentId': studentId,
+      ...dateFilter
+    })
+    .populate('trainerId', 'name email subjectDealing')
+    .populate('batchId', 'batchNumber techStack')
+    .sort({ sessionDate: -1 });
+
+    // Extract only this student's attendance from each record
+    const myAttendance = attendanceRecords.map(record => {
+      const studentRecord = record.studentAttendance.find(
+        s => s.studentId.toString() === studentId.toString()
+      );
+      
+      return {
+        attendanceId: record._id,
+        sessionDate: record.sessionDate,
+        timeSlot: record.timeSlot,
+        startTime: record.startTime,
+        endTime: record.endTime,
+        subject: record.subject,
+        trainer: record.trainerId,
+        batch: record.batchId,
+        status: studentRecord.status,
+        remarks: studentRecord.remarks,
+        markedAt: studentRecord.markedAt
+      };
+    });
+
+    // Calculate statistics
+    const totalSessions = myAttendance.length;
+    const presentCount = myAttendance.filter(a => 
+      a.status === 'present' || a.status === 'late'
+    ).length;
+    const absentCount = myAttendance.filter(a => 
+      a.status === 'absent'
+    ).length;
+    const attendancePercentage = totalSessions > 0 
+      ? Math.round((presentCount / totalSessions) * 100) 
+      : 0;
+
+    res.json({
+      success: true,
+      data: {
+        attendance: myAttendance,
+        statistics: {
+          totalSessions,
+          presentCount,
+          absentCount,
+          attendancePercentage
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching student attendance:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
+// GET Student Attendance Summary by Month
+router.get('/attendance/monthly-summary', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'student') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const { month, year } = req.query;
+    const studentId = req.user.id;
+
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const attendanceRecords = await Attendance.find({
+      'studentAttendance.studentId': studentId,
+      sessionDate: {
+        $gte: startDate,
+        $lte: endDate
+      }
+    });
+
+    // Group by date
+    const dailyAttendance = {};
+    attendanceRecords.forEach(record => {
+      const dateKey = record.sessionDate.toISOString().split('T')[0];
+      if (!dailyAttendance[dateKey]) {
+        dailyAttendance[dateKey] = {
+          date: dateKey,
+          sessions: []
+        };
+      }
+
+      const studentRecord = record.studentAttendance.find(
+        s => s.studentId.toString() === studentId.toString()
+      );
+
+      dailyAttendance[dateKey].sessions.push({
+        timeSlot: record.timeSlot,
+        subject: record.subject,
+        status: studentRecord.status
+      });
+    });
+
+    res.json({
+      success: true,
+      data: {
+        month,
+        year,
+        dailyAttendance: Object.values(dailyAttendance)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching monthly summary:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
   }
 });
 
