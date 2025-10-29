@@ -1,70 +1,78 @@
-const mongoose = require('mongoose');
+// FIXED Assignment Model with Extension Field
+// models/Assignment.js
 
-const AssignmentSchema = new mongoose.Schema({
-  trainerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Trainer',
-    required: [true, 'Trainer ID is required']
-  },
-  title: {
-    type: String,
-    required: [true, 'Assignment title is required'],
-    trim: true
-  },
-  description: {
-    type: String,
-    trim: true
-  },
-  subject: {
-    type: String,
-    required: [true, 'Subject is required'],
-    trim: true
-  },
-  dueDate: {
-    type: Date,
-    required: [true, 'Due date is required']
-  },
-  totalMarks: {
-    type: Number,
-    required: [true, 'Total marks are required'],
-    min: [0, 'Total marks cannot be negative']
-  },
-  assignedBatches: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Batch',
-    required: [true, 'At least one batch is required']
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+
+const assignmentSchema = new Schema({
+  title: { type: String, required: true },
+  description: String,
+  subject: { type: String, required: true },
+  dueDate: { type: Date, required: true },
+  totalMarks: { type: Number, required: true },
+  trainerId: { type: Schema.Types.ObjectId, ref: 'Trainer', required: true },
+  assignedBatches: [{ type: Schema.Types.ObjectId, ref: 'Batch' }],
+  assignedPlacementBatches: [{ type: Schema.Types.ObjectId, ref: 'PlacementTrainingBatch' }],
+  batchType: { type: String, enum: ['regular', 'placement', 'both'], required: true },
+  attachments: [{
+    url: String,
+    publicId: String,
+    originalName: String,
+    uploadedAt: Date,
+    size: Number,
+    mimeType: String,
+    extension: String // ADDED: Store file extension separately
   }],
-  attachmentLink: {
-    type: String,
-    trim: true,
-    match: [/^https?:\/\/[^\s$.?#].[^\s]*$/, 'Please provide a valid URL for the attachment link']
-  },
   submissions: [{
-    studentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Student',
-      required: true
-    },
-    submittedAt: {
-      type: Date,
-      default: Date.now
-    },
-    submissionLink: {
-      type: String,
-      trim: true,
-      match: [/^https?:\/\/[^\s$.?#].[^\s]*$/, 'Please provide a valid URL for the submission']
-    },
-    score: {
-      type: Number,
-      min: [0, 'Score cannot be negative']
-    },
-    remarks: {
-      type: String,
-      trim: true
-    }
+    studentId: { type: Schema.Types.ObjectId, ref: 'Student' },
+    files: [{
+      url: String,
+      publicId: String,
+      originalName: String,
+      uploadedAt: Date,
+      size: Number,
+      mimeType: String,
+      extension: String // ADDED: Store file extension separately
+    }],
+    submittedAt: Date,
+    isLate: Boolean,
+    score: Number,
+    remarks: String,
+    feedback: String,
+    evaluatedAt: Date,
+    evaluatedBy: { type: Schema.Types.ObjectId, ref: 'Trainer' }
   }],
-}, {
-  timestamps: true
+  instructions: String,
+  allowLateSubmission: { type: Boolean, default: false },
+  lateSubmissionPenalty: { type: Number, default: 0 },
+  maxAttempts: { type: Number, default: 1 },
+  rubric: [{ criteria: String, points: Number }],
+  createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Assignment', AssignmentSchema);
+assignmentSchema.methods.canStudentAccess = function(student) {
+  return (
+    (this.batchType === 'regular' && student.batchId && this.assignedBatches.includes(student.batchId)) ||
+    (this.batchType === 'placement' && student.placementTrainingBatchId && this.assignedPlacementBatches.includes(student.placementTrainingBatchId)) ||
+    (this.batchType === 'both' && (
+      (student.batchId && this.assignedBatches.includes(student.batchId)) ||
+      (student.placementTrainingBatchId && this.assignedPlacementBatches.includes(student.placementTrainingBatchId))
+    ))
+  );
+};
+
+// Virtual to get submission count
+assignmentSchema.virtual('submissionCount').get(function() {
+  return this.submissions ? this.submissions.length : 0;
+});
+
+// Virtual to get graded submission count
+assignmentSchema.virtual('gradedCount').get(function() {
+  return this.submissions ? this.submissions.filter(s => s.score !== undefined && s.score !== null).length : 0;
+});
+
+// Ensure virtuals are included in JSON
+assignmentSchema.set('toJSON', { virtuals: true });
+assignmentSchema.set('toObject', { virtuals: true });
+
+module.exports = mongoose.model('Assignment', assignmentSchema);

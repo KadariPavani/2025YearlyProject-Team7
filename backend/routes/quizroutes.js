@@ -1,21 +1,101 @@
-// This is your updated quizroutes.js
-// Changes: 
-// - Removed mockBatches usage where possible, assuming Batch schema now has trainerId.
-// - Updated /student/list to filter by student's batches, add hasSubmitted, score, percentage using aggregation.
-// - Added /student/:id to fetch full quiz for student, with access check.
-// - Cleaned up error handling.
-
 const express = require('express');
 const router = express.Router();
 const Quiz = require('../models/Quiz');
 const Batch = require('../models/Batch');
-const protectTrainer = require('../middleware/protectTrainer');
-const mongoose = require('mongoose');
+const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const Student = require('../models/Student');
+const Trainer = require('../models/Trainer');
 const generalAuth = require('../middleware/generalAuth');
+const mongoose = require('mongoose');
+
+// Helper function to get trainer's assigned placement batches
+const getTrainerPlacementBatches = async (trainerId) => {
+  try {
+    const batches = await PlacementTrainingBatch.find({
+      'assignedTrainers.trainer': trainerId,
+      isActive: true
+    }).select('_id batchNumber techStack year colleges students');
+    
+    return batches.map(batch => ({
+      _id: batch._id,
+      name: `${batch.batchNumber} - ${batch.techStack} (${batch.year})`,
+      batchNumber: batch.batchNumber,
+      techStack: batch.techStack,
+      year: batch.year,
+      colleges: batch.colleges,
+      studentCount: batch.students.length,
+      type: 'placement'
+    }));
+  } catch (error) {
+    console.error('Error fetching placement batches:', error);
+    return [];
+  }
+};
+
+// Helper function to get trainer's regular batches
+const getTrainerRegularBatches = async (trainerId) => {
+  try {
+    const batches = await Batch.find({ trainerId }).select('_id name students');
+    return batches.map(batch => ({
+      _id: batch._id,
+      name: batch.name,
+      studentCount: batch.students?.length || 0,
+      type: 'regular'
+    }));
+  } catch (error) {
+    console.error('Error fetching regular batches:', error);
+    return [];
+  }
+};
+
+// Modified: Helper function to get trainer's subject (singular)
+const getTrainerSubject = async (trainerId) => {
+  try {
+    const trainer = await Trainer.findById(trainerId).select('subjectDealing');
+    return trainer?.subjectDealing ? [trainer.subjectDealing] : []; // Return as array for consistency
+  } catch (error) {
+    console.error('Error fetching trainer subject:', error);
+    return [];
+  }
+};
+
+// Get all batches for trainer (both regular and placement)
+router.get('/batches', generalAuth, async (req, res) => {
+  try {
+    const trainerId = req.user.id;
+    
+    const [regularBatches, placementBatches] = await Promise.all([
+      getTrainerRegularBatches(trainerId),
+      getTrainerPlacementBatches(trainerId)
+    ]);
+    
+    const allBatches = {
+      regular: regularBatches,
+      placement: placementBatches,
+      all: [...regularBatches, ...placementBatches]
+    };
+    
+    res.json(allBatches);
+  } catch (error) {
+    console.error('Error fetching batches:', error);
+    res.status(500).json({ message: 'Failed to fetch batches' });
+  }
+});
+
+// Modified: Get trainer's subject
+router.get('/subjects', generalAuth, async (req, res) => {
+  try {
+    const trainerId = req.user.id;
+    const subject = await getTrainerSubject(trainerId);
+    res.json(subject); // Returns array with single subject
+  } catch (error) {
+    console.error('Error fetching subject:', error);
+    res.status(500).json({ message: 'Failed to fetch subject' });
+  }
+});
 
 // Create a new quiz
-router.post('/', protectTrainer, async (req, res, next) => {
+router.post('/', generalAuth, async (req, res) => {
   try {
     const {
       title,
@@ -29,17 +109,40 @@ router.post('/', protectTrainer, async (req, res, next) => {
       totalMarks,
       passingMarks,
       assignedBatches,
+      assignedPlacementBatches,
+      batchType,
       shuffleQuestions,
       showResultsImmediately,
       allowRetake,
-      status // <-- add this to accept status from frontend
+      status
     } = req.body;
 
     const trainerId = req.user.id;
 
-    let validatedBatches = [];
-    if (Array.isArray(assignedBatches) && assignedBatches.length > 0) {
-      validatedBatches = assignedBatches.filter(id => mongoose.Types.ObjectId.isValid(id));
+    // Validate subject
+    const trainerSubject = await getTrainerSubject(trainerId);
+    if (!trainerSubject.includes(subject)) {
+      return res.status(400).json({ message: 'Invalid subject for this trainer' });
+    }
+
+    // Validate batch assignments based on type
+    let validatedRegularBatches = [];
+    let validatedPlacementBatches = [];
+
+    if (batchType === 'regular' || batchType === 'both') {
+      if (assignedBatches && assignedBatches.length > 0) {
+        validatedRegularBatches = assignedBatches.filter(id => 
+          mongoose.Types.ObjectId.isValid(id)
+        );
+      }
+    }
+
+    if (batchType === 'placement' || batchType === 'both') {
+      if (assignedPlacementBatches && assignedPlacementBatches.length > 0) {
+        validatedPlacementBatches = assignedPlacementBatches.filter(id => 
+          mongoose.Types.ObjectId.isValid(id)
+        );
+      }
     }
 
     const quiz = new Quiz({
@@ -54,46 +157,65 @@ router.post('/', protectTrainer, async (req, res, next) => {
       totalMarks,
       passingMarks,
       trainerId,
-      assignedBatches: validatedBatches,
+      assignedBatches: validatedRegularBatches,
+      assignedPlacementBatches: validatedPlacementBatches,
+      batchType: batchType || 'regular',
       shuffleQuestions,
       showResultsImmediately,
       allowRetake,
-      status: status || "active" // <-- default to "active"
+      status: status || 'active'
     });
 
     const savedQuiz = await quiz.save();
+    
+    // Populate batch information for response
+    await savedQuiz.populate([
+      { path: 'assignedBatches', select: 'name' },
+      { path: 'assignedPlacementBatches', select: 'batchNumber techStack year colleges' }
+    ]);
+
     res.status(201).json(savedQuiz);
   } catch (error) {
-    console.error('Error creating quiz:', error.message, error.stack);
+    console.error('Error creating quiz:', error);
     res.status(400).json({ message: error.message || 'Failed to create quiz' });
   }
 });
 
 // Get all quizzes for the trainer
-router.get('/', protectTrainer, async (req, res, next) => {
+router.get('/', generalAuth, async (req, res) => {
   try {
     const quizzes = await Quiz.find({ trainerId: req.user.id })
-      .populate('assignedBatches', 'name')
-      .select('-submissions -questions');
+      .populate([
+        { path: 'assignedBatches', select: 'name' },
+        { path: 'assignedPlacementBatches', select: 'batchNumber techStack year colleges' }
+      ])
+      .select('-submissions -questions')
+      .sort({ createdAt: -1 });
+
     res.json(quizzes);
   } catch (error) {
-    console.error('Error fetching quizzes:', error.message, error.stack);
+    console.error('Error fetching quizzes:', error);
     res.status(500).json({ message: 'Failed to fetch quizzes' });
   }
 });
 
 // Get a single quiz by ID for trainer
-router.get('/:id', protectTrainer, async (req, res, next) => {
+router.get('/:id', generalAuth, async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id)
-      .populate('assignedBatches', 'name')
+      .populate([
+        { path: 'assignedBatches', select: 'name' },
+        { path: 'assignedPlacementBatches', select: 'batchNumber techStack year colleges' }
+      ])
       .select('-submissions');
+
     if (!quiz || quiz.trainerId.toString() !== req.user.id) {
       return res.status(404).json({ message: 'Quiz not found or not authorized' });
     }
+
     res.json(quiz);
   } catch (error) {
-    console.error('Error fetching quiz:', error.message, error.stack);
+    console.error('Error fetching quiz:', error);
     res.status(500).json({ message: 'Failed to fetch quiz' });
   }
 });
@@ -102,23 +224,80 @@ router.get('/:id', protectTrainer, async (req, res, next) => {
 router.get('/student/list', generalAuth, async (req, res) => {
   try {
     const studentId = req.user.id;
-    const quizzes = await Quiz.find({ status: 'active' });
+    
+    // Get student information to check their batch assignments
+    const student = await Student.findById(studentId)
+      .select('batchId placementTrainingBatchId');
+      
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Build query to find quizzes accessible to this student
+    const query = {
+      status: 'active',
+      $or: []
+    };
+
+    // Add regular batch condition if student has a batchId
+    if (student.batchId) {
+      query.$or.push({
+        batchType: { $in: ['regular', 'both'] },
+        assignedBatches: student.batchId
+      });
+    }
+
+    // Add placement batch condition if student has placementTrainingBatchId
+    if (student.placementTrainingBatchId) {
+      query.$or.push({
+        batchType: { $in: ['placement', 'both'] },
+        assignedPlacementBatches: student.placementTrainingBatchId
+      });
+    }
+
+    // If student has no batch assignments, return empty array
+    if (query.$or.length === 0) {
+      return res.json([]);
+    }
+
+    const quizzes = await Quiz.find(query)
+      .populate([
+        { path: 'assignedBatches', select: 'name' },
+        { path: 'assignedPlacementBatches', select: 'batchNumber techStack year' }
+      ])
+      .select('title subject totalMarks passingMarks scheduledDate startTime endTime duration submissions batchType')
+      .sort({ scheduledDate: 1 });
 
     // For each quiz, check if the student has submitted
-    const quizList = quizzes.map(q => {
-      const submission = q.submissions.find(sub => sub.studentId.toString() === studentId);
+    const quizList = quizzes.map(quiz => {
+      const submission = quiz.submissions.find(sub => 
+        sub.studentId.toString() === studentId
+      );
+
       return {
-        _id: q._id,
-        title: q.title,
-        totalMarks: q.totalMarks,
+        _id: quiz._id,
+        title: quiz.title,
+        subject: quiz.subject,
+        totalMarks: quiz.totalMarks,
+        passingMarks: quiz.passingMarks,
+        scheduledDate: quiz.scheduledDate,
+        startTime: quiz.startTime,
+        endTime: quiz.endTime,
+        duration: quiz.duration,
+        batchType: quiz.batchType,
+        assignedBatches: quiz.assignedBatches,
+        assignedPlacementBatches: quiz.assignedPlacementBatches,
         hasSubmitted: !!submission,
-        score: submission ? submission.score : 0,
-        // ...add other fields as needed
+        score: submission ? submission.score : null,
+        percentage: submission ? submission.percentage : null,
+        submittedAt: submission ? submission.submittedAt : null,
+        attemptNumber: submission ? submission.attemptNumber : 0
       };
     });
 
     res.json(quizList);
   } catch (error) {
+    console.error('Error fetching quizzes for student:', error);
     res.status(500).json({ message: 'Failed to fetch quizzes for student' });
   }
 });
@@ -126,71 +305,83 @@ router.get('/student/list', generalAuth, async (req, res) => {
 // Get a single quiz by ID for student
 router.get('/student/:id', generalAuth, async (req, res) => {
   try {
-    const quiz = await Quiz.findById(req.params.id);
-    if (!quiz) return res.status(404).json({ message: 'Quiz not found' });
-    // Optionally, remove sensitive fields
-    res.json(quiz);
+    const studentId = req.user.id;
+    const quizId = req.params.id;
+    
+    const [quiz, student] = await Promise.all([
+      Quiz.findById(quizId),
+      Student.findById(studentId).select('batchId placementTrainingBatchId')
+    ]);
+
+    if (!quiz || !student) {
+      return res.status(404).json({ message: 'Quiz or student not found' });
+    }
+
+    // Check if student can access this quiz
+    if (!quiz.canStudentAccess(student)) {
+      return res.status(403).json({ message: 'You are not authorized to access this quiz' });
+    }
+
+    // Remove sensitive information for student view
+    const studentQuiz = {
+      _id: quiz._id,
+      title: quiz.title,
+      description: quiz.description,
+      subject: quiz.subject,
+      scheduledDate: quiz.scheduledDate,
+      startTime: quiz.startTime,
+      endTime: quiz.endTime,
+      duration: quiz.duration,
+      questions: quiz.questions.map(q => ({
+        questionText: q.questionText,
+        questionType: q.questionType,
+        options: q.options.map(opt => ({ text: opt.text })), // Remove isCorrect
+        marks: q.marks,
+        difficulty: q.difficulty
+      })),
+      totalMarks: quiz.totalMarks,
+      passingMarks: quiz.passingMarks,
+      shuffleQuestions: quiz.shuffleQuestions,
+      showResultsImmediately: quiz.showResultsImmediately,
+      allowRetake: quiz.allowRetake
+    };
+
+    res.json(studentQuiz);
   } catch (error) {
     console.error('Error fetching quiz for student:', error);
     res.status(500).json({ message: 'Failed to fetch quiz for student' });
   }
 });
 
-// Edit/update a quiz (trainer only)
-router.put('/:id', protectTrainer, async (req, res) => {
-  try {
-    const quizId = req.params.id;
-    const updateData = req.body;
-
-    // Prevent editing submissions directly
-    if ('submissions' in updateData) {
-      delete updateData.submissions;
-    }
-
-    // Only allow the trainer who created the quiz to edit
-    const quiz = await Quiz.findById(quizId);
-    if (!quiz || quiz.trainerId.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Quiz not found or not authorized' });
-    }
-
-    // Update the quiz (including questions, title, etc.)
-    Object.assign(quiz, updateData);
-    await quiz.save();
-
-    res.json(quiz);
-  } catch (error) {
-    console.error('Error updating quiz:', error);
-    res.status(500).json({ message: 'Failed to update quiz' });
-  }
-});
-
-// Delete a quiz
-router.delete('/:id', protectTrainer, async (req, res, next) => {
-  try {
-    const quiz = await Quiz.findById(req.params.id);
-    if (!quiz || quiz.trainerId.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Quiz not found or not authorized' });
-    }
-    await Quiz.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Quiz deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting quiz:', error.message, error.stack);
-    res.status(500).json({ message: 'Failed to delete quiz' });
-  }
-});
-
 // Submit a quiz (for students)
-router.post('/:id/submit', generalAuth, async (req, res, next) => {
+router.post('/:id/submit', generalAuth, async (req, res) => {
   try {
-    const quiz = await Quiz.findById(req.params.id);
-    if (!quiz) {
-      return res.status(404).json({ message: 'Quiz not found' });
+    const studentId = req.user.id;
+    const quizId = req.params.id;
+    const { answers, timeSpent } = req.body;
+
+    const [quiz, student] = await Promise.all([
+      Quiz.findById(quizId),
+      Student.findById(studentId).select('batchId placementTrainingBatchId name')
+    ]);
+
+    if (!quiz || !student) {
+      return res.status(404).json({ message: 'Quiz or student not found' });
     }
 
-    const { answers, timeSpent } = req.body;
-    const studentId = req.user.id;
+    // Check if student can access this quiz
+    if (!quiz.canStudentAccess(student)) {
+      return res.status(403).json({ message: 'You are not authorized to submit this quiz' });
+    }
 
-    // REMOVE BATCH CHECK: All students can submit any quiz
+    // Check if student has already submitted (if retakes are not allowed)
+    const existingSubmission = quiz.submissions.find(sub => 
+      sub.studentId.toString() === studentId
+    );
+
+    if (existingSubmission && !quiz.allowRetake) {
+      return res.status(400).json({ message: 'You have already submitted this quiz' });
+    }
 
     // Calculate score
     let score = 0;
@@ -202,20 +393,29 @@ router.post('/:id/submit', generalAuth, async (req, res, next) => {
         const correctOption = question.options.find(opt => opt.isCorrect);
         isCorrect = ans.selectedOption === correctOption?.text;
       } else if (question.questionType === 'true-false') {
-        isCorrect = ans.selectedOption.toLowerCase() === question.correctAnswer.toLowerCase();
+        isCorrect = ans.selectedOption?.toLowerCase() === question.correctAnswer?.toLowerCase();
       } else if (question.questionType === 'fill-blank') {
-        isCorrect = ans.answer?.toLowerCase() === question.correctAnswer?.toLowerCase();
+        isCorrect = ans.answer?.toLowerCase().trim() === question.correctAnswer?.toLowerCase().trim();
       }
 
       if (isCorrect) score += question.marks;
-      return { ...ans, isCorrect, questionIndex: index };
+
+      return {
+        questionIndex: index,
+        selectedOption: ans.selectedOption,
+        answer: ans.answer,
+        isCorrect
+      };
     });
 
     const percentage = (score / quiz.totalMarks) * 100;
+    
     let performanceCategory;
     if (percentage >= 80) performanceCategory = 'green';
     else if (percentage >= 60) performanceCategory = 'yellow';
     else performanceCategory = 'red';
+
+    const attemptNumber = existingSubmission ? existingSubmission.attemptNumber + 1 : 1;
 
     const submission = {
       studentId,
@@ -224,27 +424,104 @@ router.post('/:id/submit', generalAuth, async (req, res, next) => {
       percentage,
       timeSpent,
       performanceCategory,
-      attemptNumber: quiz.submissions.filter(sub => sub.studentId.toString() === studentId).length + 1
+      attemptNumber,
+      submittedAt: new Date()
     };
 
-    quiz.submissions.push(submission);
+    if (existingSubmission && quiz.allowRetake) {
+      // Update existing submission
+      Object.assign(existingSubmission, submission);
+    } else {
+      // Add new submission
+      quiz.submissions.push(submission);
+    }
+
     await quiz.save();
 
-    res.json({ score, percentage, performanceCategory });
+    res.json({
+      score,
+      percentage,
+      performanceCategory,
+      totalMarks: quiz.totalMarks,
+      passingMarks: quiz.passingMarks,
+      passed: score >= quiz.passingMarks,
+      attemptNumber
+    });
   } catch (error) {
-    console.error('Error submitting quiz:', error.message, error.stack);
+    console.error('Error submitting quiz:', error);
     res.status(500).json({ message: 'Failed to submit quiz' });
   }
 });
 
+// Update a quiz
+router.put('/:id', generalAuth, async (req, res) => {
+  try {
+    const quizId = req.params.id;
+    const updateData = req.body;
+
+    // Prevent editing submissions directly
+    if ('submissions' in updateData) {
+      delete updateData.submissions;
+    }
+
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz || quiz.trainerId.toString() !== req.user.id) {
+      return res.status(404).json({ message: 'Quiz not found or not authorized' });
+    }
+
+    // Validate subject if updated
+    if (updateData.subject) {
+      const trainerSubject = await getTrainerSubject(req.user.id);
+      if (!trainerSubject.includes(updateData.subject)) {
+        return res.status(400).json({ message: 'Invalid subject for this trainer' });
+      }
+    }
+
+    // Update the quiz
+    Object.assign(quiz, updateData);
+    await quiz.save();
+
+    // Populate for response
+    await quiz.populate([
+      { path: 'assignedBatches', select: 'name' },
+      { path: 'assignedPlacementBatches', select: 'batchNumber techStack year colleges' }
+    ]);
+
+    res.json(quiz);
+  } catch (error) {
+    console.error('Error updating quiz:', error);
+    res.status(500).json({ message: 'Failed to update quiz' });
+  }
+});
+
+// Delete a quiz
+router.delete('/:id', generalAuth, async (req, res) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+
+    if (!quiz || quiz.trainerId.toString() !== req.user.id) {
+      return res.status(404).json({ message: 'Quiz not found or not authorized' });
+    }
+
+    await Quiz.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Quiz deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting quiz:', error);
+    res.status(500).json({ message: 'Failed to delete quiz' });
+  }
+});
+
 // Get batch progress for a quiz (trainer)
-router.get('/:id/batch-progress', protectTrainer, async (req, res, next) => {
+router.get('/:id/batch-progress', generalAuth, async (req, res) => {
   try {
     const quiz = await Quiz.findById(req.params.id)
-      .populate('submissions.studentId', 'name')
-      .populate('assignedBatches', 'name')
-      .select('submissions assignedBatches trainerId');
-    
+      .populate([
+        { path: 'submissions.studentId', select: 'name rollNo email college branch' },
+        { path: 'assignedBatches', select: 'name' },
+        { path: 'assignedPlacementBatches', select: 'batchNumber techStack year colleges' }
+      ])
+      .select('submissions assignedBatches assignedPlacementBatches trainerId totalMarks passingMarks');
+
     if (!quiz || quiz.trainerId.toString() !== req.user.id) {
       return res.status(404).json({ message: 'Quiz not found or not authorized' });
     }
@@ -252,28 +529,45 @@ router.get('/:id/batch-progress', protectTrainer, async (req, res, next) => {
     const progress = quiz.submissions.map(sub => ({
       studentId: sub.studentId._id,
       studentName: sub.studentId.name,
+      rollNo: sub.studentId.rollNo,
+      email: sub.studentId.email,
+      college: sub.studentId.college,
+      branch: sub.studentId.branch,
       score: sub.score,
       percentage: sub.percentage,
       performanceCategory: sub.performanceCategory,
       timeSpent: sub.timeSpent,
-      submittedAt: sub.submittedAt
+      submittedAt: sub.submittedAt,
+      attemptNumber: sub.attemptNumber,
+      passed: sub.score >= quiz.passingMarks
     }));
 
-    res.json({ progress, batches: quiz.assignedBatches });
-  } catch (error) {
-    console.error('Error fetching batch progress:', error.message, error.stack);
-    res.status(500).json({ message: 'Failed to fetch batch progress' });
-  }
-});
+    const stats = {
+      totalSubmissions: progress.length,
+      averageScore: progress.length > 0 ? 
+        progress.reduce((acc, p) => acc + p.score, 0) / progress.length : 0,
+      averagePercentage: progress.length > 0 ? 
+        progress.reduce((acc, p) => acc + p.percentage, 0) / progress.length : 0,
+      passedCount: progress.filter(p => p.passed).length,
+      failedCount: progress.filter(p => !p.passed).length,
+      performanceDistribution: {
+        green: progress.filter(p => p.performanceCategory === 'green').length,
+        yellow: progress.filter(p => p.performanceCategory === 'yellow').length,
+        red: progress.filter(p => p.performanceCategory === 'red').length
+      }
+    };
 
-// Get batches for trainer
-router.get('/batches', protectTrainer, async (req, res, next) => {
-  try {
-    const batches = await Batch.find({ trainerId: req.user.id }).select('_id name students');
-    res.json(batches); // Always return array, even if empty
+    res.json({
+      progress,
+      stats,
+      batches: {
+        regular: quiz.assignedBatches,
+        placement: quiz.assignedPlacementBatches
+      }
+    });
   } catch (error) {
-    console.error('Error fetching batches:', error.message, error.stack);
-    res.status(500).json({ message: 'Failed to fetch batches' });
+    console.error('Error fetching batch progress:', error);
+    res.status(500).json({ message: 'Failed to fetch batch progress' });
   }
 });
 

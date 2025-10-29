@@ -12,6 +12,15 @@ import {
   CheckCircle,
   GraduationCap,
   Upload,
+  Code2,
+  Briefcase,
+  Award,
+  Building2,
+  MapPin,
+  Star,
+  ExternalLink,
+  Download,
+  Eye,
 } from "lucide-react";
 import {
   getProfile,
@@ -99,36 +108,73 @@ const StudentProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
   const [selectedEducationType, setSelectedEducationType] = useState("inter");
+  const [selectedCRTBatch, setSelectedCRTBatch] = useState("");
+
+const [pendingApprovals, setPendingApprovals] = useState([]);
+const [showApprovalStatus, setShowApprovalStatus] = useState(false);
 
   useEffect(() => {
     fetchProfile();
     checkPasswordStatus();
+      fetchPendingApprovals();
+
   }, []);
 
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const response = await getProfile("student");
-      if (response.data.success) {
-        setProfile(response.data.data);
-        setFormData(response.data.data);
-        setSelectedEducationType(response.data.data.academics?.educationType || "inter");
-      } else {
-        setError(response.data.message || "Failed to fetch profile");
-      }
-    } catch (err) {
-      setError(err?.response?.data?.message || "Failed to fetch profile");
-      if (err?.response?.status === 401) {
+const fetchProfile = async () => {
+  try {
+    setLoading(true);
+    setError("");
+    const token = localStorage.getItem('userToken');
+    const response = await fetch('/api/student/profile', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      setProfile(result.data);
+      setFormData(result.data);
+      setSelectedEducationType(result.data.academics?.educationType || "inter");
+      
+      // FIXED: Initialize selectedCRTBatch with current value
+      setSelectedCRTBatch(result.data.crtBatchChoice || "");
+      
+      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+      localStorage.setItem('userData', JSON.stringify({ ...userData, ...result.data }));
+    } else {
+      setError(result.message || "Failed to fetch profile");
+      if (response.status === 401) {
         localStorage.removeItem("userToken");
         localStorage.removeItem("userData");
         navigate("/student-login");
       }
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err) {
+    console.error('Fetch profile error:', err);
+    setError(err?.message || "Failed to fetch profile");
+    if (!err.response) {
+      setError("Network error. Please check your connection.");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
+const fetchPendingApprovals = async () => {
+  try {
+    const token = localStorage.getItem('userToken');
+    const response = await fetch('/api/student/pending-approvals', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const data = await response.json();
+    if (data.success) {
+      setPendingApprovals(data.data);
+    }
+  } catch (error) {
+    console.error('Error fetching approvals:', error);
+  }
+};
   const checkPasswordStatus = async () => {
     try {
       const response = await checkPasswordChange("student");
@@ -170,49 +216,299 @@ const StudentProfile = () => {
     }
   };
 
-  // Tech Stack handlers
-  const handleTechStackChange = (tech) => {
-    setFormData((prev) => {
-      const techSet = new Set(prev.techStack || []);
-      if (techSet.has(tech)) {
-        techSet.delete(tech);
+  // Add these upload functions
+  const uploadProfileImage = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Check file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB');
+      return;
+    }
+
+    // Check file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a valid image file (JPEG, PNG, or GIF)');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('profileImage', file);
+    setUploadingImage(true);
+
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch(`${backendURL}/api/student/profile-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setFormData(prev => ({
+          ...prev,
+          profileImageUrl: data.data
+        }));
+        setSuccess('Profile image uploaded successfully');
       } else {
-        techSet.add(tech);
+        throw new Error(data.message || 'Failed to upload image');
       }
-      return { ...prev, techStack: Array.from(techSet) };
-    });
+    } catch (err) {
+      setError(err.message || 'Error uploading profile image');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
-  // CRT Interest handlers
-  const handleCRTInterestChange = (e) => {
-    const interested = e.target.value === "yes";
-    setFormData((prev) => ({
-      ...prev,
-      crtInterested: interested,
-      crtBatchChoice: interested ? prev.crtBatchChoice : "",
-    }));
-  };
+  const uploadResume = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+  
+    // Check file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size must be less than 10MB');
+      return;
+    }
+  
+    // Check file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please upload a PDF or Word document');
+      return;
+    }
+  
+    const formData = new FormData();
+    formData.append('resume', file);
+    setUploadingResume(true);
 
-  const handleCRTBatchChoiceChange = (e) => {
-    setFormData((prev) => ({
-      ...prev,
-      crtBatchChoice: e.target.value,
-      // Update techStack to include the selected CRT batch tech
-      techStack: prev.techStack ? [...prev.techStack.filter(t => !['Java', 'Python', 'AI/ML'].includes(t)), e.target.value] : [e.target.value]
-    }));
-  };
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch(`${backendURL}/api/student/resume`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
 
-  // Clubs handlers
-  const handleClubChange = (club) => {
-    setFormData((prev) => {
-      const clubSet = new Set(prev.otherClubs || []);
-      if (clubSet.has(club)) {
-        clubSet.delete(club);
+      const data = await response.json();
+
+      if (data.success) {
+        setFormData(prev => ({
+          ...prev,
+          resumeUrl: data.data.url,
+          resumeFileName: data.data.fileName
+        }));
+        setSuccess('Resume uploaded successfully');
       } else {
-        clubSet.add(club);
+        throw new Error(data.message || 'Failed to upload resume');
       }
-      return { ...prev, otherClubs: Array.from(clubSet) };
-    });
+    } catch (err) {
+      setError(err.message || 'Error uploading resume');
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
+const handleCRTBatchChoiceChange = (e) => {
+  const newBatch = e.target.value;
+  
+  // Only show confirmation if changing from existing value
+  if (newBatch !== profile.crtBatchChoice && profile.crtBatchChoice) {
+    const confirmChange = window.confirm(
+      'Changing CRT batch requires TPO approval. Do you want to continue?'
+    );
+    
+    if (!confirmChange) {
+      // FIXED: Reset to previous value by forcing re-render
+      e.preventDefault();
+      return;
+    }
+  }
+  
+  // Update both local state and formData
+  setSelectedCRTBatch(newBatch);
+  setFormData((prev) => ({
+    ...prev,
+    crtBatchChoice: newBatch
+  }));
+};
+
+
+const handleTechStackChange = (tech) => {
+  setFormData((prev) => {
+    const currentTechStack = prev.techStack || [];
+    return {
+      ...prev,
+      techStack: currentTechStack.includes(tech)
+        ? currentTechStack.filter(t => t !== tech)
+        : [...currentTechStack, tech]
+    };
+  });
+};
+
+
+const handleCRTInterestChange = (e) => {
+  const interested = e.target.value === "yes";
+  
+  if (interested !== profile.crtInterested) {
+    const confirmChange = window.confirm(
+      'Changing CRT status requires TPO approval. Do you want to continue?'
+    );
+    if (!confirmChange) {
+      e.preventDefault();
+      return;
+    }
+  }
+  
+  setFormData((prev) => ({
+    ...prev,
+    crtInterested: interested,
+    // Clear batch choice if not interested
+    crtBatchChoice: interested ? prev.crtBatchChoice : ""
+  }));
+  
+  // Also update selectedCRTBatch state
+  if (!interested) {
+    setSelectedCRTBatch("");
+  }
+};
+
+
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      setSuccess('');
+      
+      const token = localStorage.getItem('userToken');
+      const student = profile;
+      
+      // Only track CRT/batch related changes
+      const crtStatusChanged = formData.crtInterested !== undefined && 
+                             formData.crtInterested !== student.crtInterested;
+      const crtBatchChanged = formData.crtBatchChoice !== undefined && 
+                            formData.crtBatchChoice !== student.crtBatchChoice;
+
+      const hasChangesRequiringApproval = crtStatusChanged || crtBatchChanged;
+
+      if (hasChangesRequiringApproval && isEditing) {
+        const confirmMessage = 'Your CRT-related changes will be sent to TPO for approval. Do you want to continue?';
+        const confirmed = window.confirm(confirmMessage);
+        if (!confirmed) {
+          setLoading(false);
+          return;
+        }
+      }
+
+      const dataToSend = {
+        ...formData,
+        // Only include CRT fields if they changed
+        ...(crtStatusChanged ? { crtInterested: formData.crtInterested } : {}),
+        ...(crtBatchChanged ? { crtBatchChoice: formData.crtBatchChoice } : {})
+      };
+
+      const response = await fetch('/api/student/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(dataToSend)
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Update both profile and formData with the response
+        setProfile(result.data);
+        setFormData(result.data);
+        setIsEditing(false);
+        
+        if (result.requiresApproval) {
+          setSuccess('Profile updated. Changes requiring approval have been sent to TPO for review.');
+          setShowApprovalStatus(true);
+          // Refresh pending approvals
+          await fetchPendingApprovals();
+        } else {
+          setSuccess('Profile updated successfully!');
+        }
+        
+        // Scroll to top to show success message
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        if (result.hasPendingApproval) {
+          setError('You already have a pending approval request. Please wait for TPO review.');
+        } else {
+          setError(result.message || 'Failed to update profile');
+        }
+      }
+    } catch (err) {
+      console.error('Save error:', err);
+      setError('An error occurred while saving the profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add this component to show approval status
+  const ApprovalStatusBanner = () => {
+    if (!pendingApprovals || pendingApprovals.totalPending === 0) return null;
+
+    return (
+      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <AlertCircle className="h-5 w-5 text-yellow-400" />
+          </div>
+          <div className="ml-3">
+            <p className="text-sm text-yellow-700">
+              You have {pendingApprovals.totalPending} pending approval request{pendingApprovals.totalPending !== 1 ? 's' : ''}.
+              Your changes will be reviewed by the TPO.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Add this component for rejected approvals
+  const RejectedApprovalsBanner = () => {
+    const rejectedApprovals = pendingApprovals?.rejected || [];
+    if (rejectedApprovals.length === 0) return null;
+
+    return (
+      <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <X className="h-5 w-5 text-red-400" />
+          </div>
+          <div className="ml-3">
+            {rejectedApprovals.map((approval, index) => (
+              <p key={index} className="text-sm text-red-700">
+                Your request was rejected: {approval.rejectionReason}
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const handleCancel = () => {
+    setFormData(profile);
+    setIsEditing(false);
+    setError("");
   };
 
   const addItemToArray = (field, defaultValue) => {
@@ -223,132 +519,44 @@ const StudentProfile = () => {
   };
 
   const removeItemFromArray = (field, idx) => {
-    setFormData((prev) => {
-      const arr = prev[field] ? [...prev[field]] : [];
-      arr.splice(idx, 1);
-      return { ...prev, [field]: arr };
-    });
+    setFormData((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== idx),
+    }));
   };
 
   const updateItemInArray = (field, idx, key, val) => {
-    setFormData((prev) => {
-      const arr = prev[field] ? [...prev[field]] : [];
-      const item = { ...arr[idx] };
-      item[key] = val;
-      arr[idx] = item;
-      return { ...prev, [field]: arr };
-    });
+    setFormData((prev) => ({
+      ...prev,
+      [field]: prev[field].map((item, i) =>
+        i === idx ? { ...item, [key]: val } : item
+      ),
+    }));
   };
 
   const updateLinkInArray = (field, idx, linkKey, val) => {
-    setFormData((prev) => {
-      const arr = prev[field] ? [...prev[field]] : [];
-      const item = { ...arr[idx] };
-      item.links = { ...(item.links || {}), [linkKey]: val };
-      arr[idx] = item;
-      return { ...prev, [field]: arr };
-    });
+    setFormData((prev) => ({
+      ...prev,
+      [field]: prev[field].map((item, i) =>
+        i === idx
+          ? {
+              ...item,
+              links: { ...(item.links || {}), [linkKey]: val },
+            }
+          : item
+      ),
+    }));
   };
 
-  const hasEmptyItem = (field, checker) => (formData[field] || []).some(checker);
-
-  const uploadProfileImage = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const formDataUpload = new FormData();
-    formDataUpload.append("profileImage", file);
-    setUploadingImage(true);
-    try {
-      const res = await fetch("/api/student/profile-image", {
-        method: "POST",
-        body: formDataUpload,
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("userToken")}`,
-        },
-      });
-      const data = await res.json();
-      if (data.success) {
-        setFormData((prev) => ({ ...prev, profileImageUrl: data.data }));
-        setSuccess("Profile image uploaded successfully");
-        setTimeout(() => setSuccess(""), 3000);
-      } else {
-        setError("Image upload failed");
-      }
-    } catch (error) {
-      setError("Image upload failed");
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-// Replace the resume upload function in StudentProfile.jsx
-const uploadResume = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  // Check file type
-  const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-  if (!allowedTypes.includes(file.type)) {
-    setError('Only PDF, DOC, and DOCX files are allowed');
-    return;
-  }
-  
-  const formDataUpload = new FormData();
-  formDataUpload.append("resume", file);
-  setUploadingResume(true);
-  try {
-    const res = await fetch("/api/student/resume", {
-      method: "POST",
-      body: formDataUpload,
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("userToken")}`,
-      },
-    });
-    const data = await res.json();
-    if (data.success) {
-      setFormData((prev) => ({ 
-        ...prev, 
-        resumeUrl: data.data.url,
-        resumeFileName: data.data.fileName
-      }));
-      setSuccess("Resume uploaded successfully");
-      setTimeout(() => setSuccess(""), 3000);
-    } else {
-      setError(data.message || "Resume upload failed");
-    }
-  } catch (error) {
-    setError("Resume upload failed");
-  } finally {
-    setUploadingResume(false);
-  }
-};
-
-
-  const handleSave = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const response = await updateProfile("student", formData);
-      if (response.data.success) {
-        setProfile(response.data.data);
-        setFormData(response.data.data);
-        setSuccess("Profile updated successfully");
-        setTimeout(() => setSuccess(""), 3000);
-        setIsEditing(false);
-      } else {
-        setError(response.data.message || "Failed to update profile");
-      }
-    } catch {
-      setError("Failed to update profile");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setFormData(profile);
-    setIsEditing(false);
-    setError("");
+  const handleClubChange = (club) => {
+    setFormData((prev) => ({
+      ...prev,
+      otherClubs: prev.otherClubs
+        ? prev.otherClubs.includes(club)
+          ? prev.otherClubs.filter((c) => c !== club)
+          : [...prev.otherClubs, club]
+        : [club],
+    }));
   };
 
   if (loading && !profile)
@@ -372,6 +580,8 @@ const uploadResume = async (e) => {
               </button>
               <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
             </div>
+                <ApprovalStatusBanner />
+    <RejectedApprovalsBanner />
             <div className="flex space-x-3">
               <button
                 onClick={() => navigate("/student-change-password")}
@@ -593,10 +803,10 @@ const uploadResume = async (e) => {
             </div>
 
             {/* Tech Stack Section */}
-            <div className="mb-6">
+            {/* <div className="mb-6">
               <h3 className="text-lg font-semibold mb-3">Technology Stack</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {['Java', 'Python', 'C/C++', 'JavaScript', 'AI/ML'].map((tech) => (
+                {['Java', 'Python', 'C/C++', 'JavaScript', 'AIML'].map((tech) => (
                   <label key={tech} className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50">
                     <input
                       type="checkbox"
@@ -609,60 +819,89 @@ const uploadResume = async (e) => {
                   </label>
                 ))}
               </div>
-            </div>
+            </div> */}
 
-            {/* CRT Interest Section */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">CRT Training Interest</h3>
-              <div className="mb-4">
-                <label className="block mb-2">Are you interested in CRT?</label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      name="crtInterested"
-                      value="yes"
-                      checked={formData.crtInterested === true}
-                      onChange={handleCRTInterestChange}
-                      disabled={!isEditing}
-                    />
-                    <span>Yes</span>
-                  </label>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      name="crtInterested"
-                      value="no"
-                      checked={formData.crtInterested === false}
-                      onChange={handleCRTInterestChange}
-                      disabled={!isEditing}
-                    />
-                    <span>No</span>
-                  </label>
-                </div>
-              </div>
+{/* CRT Interest Section */}
+<div className="mb-6">
+  <h3 className="text-lg font-semibold mb-3">CRT Training Interest</h3>
+  
+  {/* CRT Interest Radio */}
+  <div className="mb-4">
+    <label className="block mb-2">Are you interested in CRT?</label>
+    <div className="flex space-x-4">
+      <label className="flex items-center space-x-2">
+        <input
+          type="radio"
+          name="crtInterested"
+          value="yes"
+          checked={formData.crtInterested === true}
+          onChange={handleCRTInterestChange}
+          disabled={!isEditing}
+        />
+        <span>Yes</span>
+      </label>
+      <label className="flex items-center space-x-2">
+        <input
+          type="radio"
+          name="crtInterested"
+          value="no"
+          checked={formData.crtInterested === false}
+          onChange={handleCRTInterestChange}
+          disabled={!isEditing}
+        />
+        <span>No</span>
+      </label>
+    </div>
+  </div>
 
-              {formData.crtInterested && (
-                <div className="mb-4">
-                  <label className="block mb-2">Choose your CRT Training Batch:</label>
-                  <div className="flex flex-wrap gap-4">
-                    {['Java', 'Python', 'AI/ML'].map((batch) => (
-                      <label key={batch} className="flex items-center space-x-2">
-                        <input
-                          type="radio"
-                          name="crtBatchChoice"
-                          value={batch}
-                          checked={formData.crtBatchChoice === batch}
-                          onChange={handleCRTBatchChoiceChange}
-                          disabled={!isEditing}
-                        />
-                        <span>{batch}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+  {/* FIXED: Controlled CRT Batch Selection */}
+  {formData.crtInterested && (
+    <div className="mb-4">
+      <label className="block mb-2">Choose your CRT Training Batch</label>
+      <div className="flex flex-wrap gap-4">
+        {['Java', 'Python', 'AIML'].map((batch) => (
+          <label key={batch} className="flex items-center space-x-2">
+            <input
+              type="radio"
+              name="crtBatchChoice"
+              value={batch}
+              checked={formData.crtBatchChoice === batch}
+              onChange={handleCRTBatchChoiceChange}
+              disabled={!isEditing}
+            />
+            <span>{batch}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  )}
+</div>
+
+{/* FIXED: Separate Tech Stack Section (Independent from CRT) */}
+<div className="mb-6">
+  <h3 className="text-lg font-semibold mb-3">Technology Stack (Skills)</h3>
+  <p className="text-sm text-gray-600 mb-3">
+    Select the technologies you have skills in (independent of CRT batch choice)
+  </p>
+  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+    {['Java', 'Python', 'C/C++', 'JavaScript', 'AIML'].map((tech) => (
+      <label 
+        key={tech} 
+        className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50"
+      >
+        <input
+          type="checkbox"
+          checked={formData.techStack?.includes(tech) || false}
+          onChange={() => handleTechStackChange(tech)}
+          disabled={!isEditing}
+          className="rounded"
+        />
+        <span>{tech}</span>
+      </label>
+    ))}
+  </div>
+</div>
+
 
             {/* Clubs Section */}
             <div className="mb-6">

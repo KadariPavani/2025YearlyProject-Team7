@@ -1,3 +1,4 @@
+// File: backend/models/PlacementTrainingBatch.js (Updated)
 const mongoose = require('mongoose');
 
 const PlacementTrainingBatchSchema = new mongoose.Schema({
@@ -13,7 +14,7 @@ const PlacementTrainingBatchSchema = new mongoose.Schema({
   }],
   techStack: {
     type: String,
-    enum: ['Java', 'Python', 'AI/ML', 'NonCRT'],
+    enum: ['Java', 'Python', 'AIML', 'NonCRT'],
     required: true
   },
   year: {
@@ -34,6 +35,10 @@ const PlacementTrainingBatchSchema = new mongoose.Schema({
     ref: 'Admin', 
     required: true
   },
+  coordinators: [{  // New field for assigned coordinators
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Coordinator'
+  }],
   startDate: { 
     type: Date, 
     required: true 

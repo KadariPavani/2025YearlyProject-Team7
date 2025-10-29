@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const Syllabus = require('../models/syllabus');
-const protectTrainer = require('../middleware/protectTrainer');
+const generalAuth = require('../middleware/generalAuth');
 
-router.post('/', protectTrainer, async (req, res, next) => {
+router.post('/', generalAuth, async (req, res, next) => {
   try {
     const { courseId, title, description, topics } = req.body;
     const createdBy = req.user.id;
@@ -12,9 +12,10 @@ router.post('/', protectTrainer, async (req, res, next) => {
       return res.status(400).json({ message: 'Topics array is required and must not be empty' });
     }
 
-    const validTopics = topics.every(topic => 
+    const validTopics = topics.every(topic =>
       topic.topicName && topic.duration
     );
+
     if (!validTopics) {
       return res.status(400).json({ message: 'Each topic must have a name and duration' });
     }
@@ -38,7 +39,7 @@ router.post('/', protectTrainer, async (req, res, next) => {
   }
 });
 
-router.get('/', protectTrainer, async (req, res, next) => {
+router.get('/', generalAuth, async (req, res, next) => {
   try {
     const syllabi = await Syllabus.find({ createdBy: req.user.id })
       .populate('courseId', 'name')
@@ -63,14 +64,16 @@ router.get('/public', async (req, res, next) => {
   }
 });
 
-router.put('/:id', protectTrainer, async (req, res, next) => {
+router.put('/:id', generalAuth, async (req, res, next) => {
   try {
     const syllabus = await Syllabus.findById(req.params.id);
+
     if (!syllabus || syllabus.createdBy.toString() !== req.user.id) {
       return res.status(404).json({ message: 'Syllabus not found or not authorized' });
     }
 
     const { courseId, topics } = req.body;
+
     if (topics && (!Array.isArray(topics) || topics.length === 0 || !topics.every(topic => topic.topicName && topic.duration))) {
       return res.status(400).json({ message: 'Each topic must have a name and duration' });
     }
@@ -85,6 +88,7 @@ router.put('/:id', protectTrainer, async (req, res, next) => {
       new: true,
       runValidators: true
     }).populate('courseId', 'name');
+
     res.json(updatedSyllabus);
   } catch (error) {
     console.error('Error updating syllabus:', error.message, error.stack);
@@ -92,12 +96,14 @@ router.put('/:id', protectTrainer, async (req, res, next) => {
   }
 });
 
-router.delete('/:id', protectTrainer, async (req, res, next) => {
+router.delete('/:id', generalAuth, async (req, res, next) => {
   try {
     const syllabus = await Syllabus.findById(req.params.id);
+
     if (!syllabus || syllabus.createdBy.toString() !== req.user.id) {
       return res.status(404).json({ message: 'Syllabus not found or not authorized' });
     }
+
     await Syllabus.findByIdAndDelete(req.params.id);
     res.json({ message: 'Syllabus deleted successfully' });
   } catch (error) {

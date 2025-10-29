@@ -114,20 +114,29 @@ const CRTBatchSection = () => {
 
   return (
     <section className="bg-white rounded-xl shadow p-6 mt-12">
-      <div className="flex justify-between items-center mb-6">
-        <div>
+      {/* Updated responsive header section */}
+      <div className="mb-6 space-y-4 md:space-y-0 md:flex md:justify-between md:items-center">
+        <div className="space-y-1">
           <h2 className="text-xl font-bold text-gray-900">CRT Batches Management</h2>
           <p className="text-gray-500 text-sm">Manage and view all CRT batches easily from here.</p>
         </div>
-        <div className="flex space-x-3">
-          <button onClick={() => navigate("/crt-management")} className="flex items-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow transition">
+        <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-3">
+          <button 
+            onClick={() => navigate("/crt-management")} 
+            className="flex items-center justify-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow transition text-sm"
+          >
             <Plus size={16} className="mr-2" /> Manage CRT Batches
           </button>
-          <button onClick={fetchBatches} className="flex items-center border border-gray-300 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 ml-1" title="Refresh">
+          <button 
+            onClick={fetchBatches} 
+            className="flex items-center justify-center border border-gray-300 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 text-sm" 
+            title="Refresh"
+          >
             <RefreshCw size={16} className="mr-1" /> Refresh
           </button>
         </div>
       </div>
+
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
       {loading ? (
         <div className="py-12 flex justify-center">

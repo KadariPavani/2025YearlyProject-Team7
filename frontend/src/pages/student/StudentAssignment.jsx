@@ -1,295 +1,428 @@
-import React, { useEffect, useState } from "react";
 
-// Helper function to check if a date is upcoming
-const isUpcoming = (dueDate) => {
-  const today = new Date();
-  const due = new Date(dueDate);
-  return due.setHours(0, 0, 0, 0) > today.setHours(0, 0, 0, 0);
-};
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { FileText, Upload, CheckCircle, XCircle, Download, Paperclip, Eye } from 'lucide-react';
 
-// Assignment statistics card
-const AssignmentStatsCard = ({ total, completed, pending, upcoming }) => (
-  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
-    <StatItem label="Total" count={total} color="bg-blue-200 text-blue-800" />
-    <StatItem label="Completed" count={completed} color="bg-green-200 text-green-800" />
-    <StatItem label="Pending" count={pending} color="bg-yellow-200 text-yellow-800" />
-    <StatItem label="Upcoming" count={upcoming} color="bg-purple-200 text-purple-800" />
-  </div>
-);
+const StudentAssignment = () => {
+  const [assignments, setAssignments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState({});
+  const [uploading, setUploading] = useState(false);
+  const [expandedAssignment, setExpandedAssignment] = useState(null);
 
-const StatItem = ({ label, count, color }) => (
-  <div className={`p-4 rounded-xl text-center ${color} shadow-lg transition-transform hover:scale-105`}>
-    <div className="text-3xl font-extrabold">{count}</div>
-    <div className="text-sm font-semibold">{label}</div>
-  </div>
-);
+  useEffect(() => {
+    fetchAssignments();
+  }, []);
 
-// Assignment list item
-const AssignmentItem = ({ assignment, onClick }) => {
-  let statusColor = "";
-  let statusText = "";
+  const fetchAssignments = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('userToken');
+      if (!token) throw new Error('No user token found');
 
-  if (assignment.status === "graded") {
-    statusColor = "bg-indigo-100 text-indigo-700";
-    statusText = `Graded: ${assignment.grade}`;
-  } else if (assignment.status === "submitted") {
-    statusColor = "bg-purple-100 text-purple-700";
-    statusText = "Submitted";
-  } else if (isUpcoming(assignment.dueDate)) {
-    statusColor = "bg-blue-100 text-blue-700";
-    statusText = "Upcoming";
-  } else {
-    statusColor = "bg-yellow-100 text-yellow-700";
-    statusText = "Pending";
-  }
-
-  return (
-    <div
-      className="bg-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between transition-transform duration-200 hover:scale-[1.02] cursor-pointer"
-      onClick={() => onClick(assignment)}
-    >
-      <div className="flex-1">
-        <h2 className="text-lg font-bold text-gray-800">{assignment.title}</h2>
-        <p className="text-sm text-gray-500 mt-1">Given by: {assignment.trainerId?.name || "N/A"}</p>
-        <p className="text-sm text-gray-500">Due: {assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : ""}</p>
-      </div>
-      <div className="flex items-center space-x-4 mt-4 md:mt-0">
-        <div className={`text-sm font-semibold py-1 px-3 rounded-full whitespace-nowrap ${statusColor}`}>
-          {statusText}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Assignment details and file upload
-const AssignmentDetails = ({ assignment, onGoBack, onFileSubmit }) => {
-  const [file, setFile] = useState(null);
-
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
-
-  const handleUploadClick = () => {
-    if (file) {
-      onFileSubmit(assignment._id, file.name);
-      setFile(null);
+      const response = await axios.get('/api/assignments/student/list', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAssignments(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch assignments');
+    } finally {
+      setLoading(false);
     }
   };
 
-  let statusColor = "";
-  let statusText = "";
-  if (assignment.status === "graded") {
-    statusColor = "bg-indigo-100 text-indigo-700";
-    statusText = `Graded: ${assignment.grade}`;
-  } else if (assignment.status === "submitted") {
-    statusColor = "bg-purple-100 text-purple-700";
-    statusText = "Submitted";
-  } else if (isUpcoming(assignment.dueDate)) {
-    statusColor = "bg-blue-100 text-blue-700";
-    statusText = "Upcoming";
-  } else {
-    statusColor = "bg-yellow-100 text-yellow-700";
-    statusText = "Pending";
+  // ============================================
+  // CRITICAL FIX: File Handlers
+  // Use clean URLs without fl_attachment transformations
+  // ============================================
+  
+  // View file - opens in new tab
+  const handleFileView = (e, file) => {
+    e.preventDefault();
+    
+    // Use clean URL - NO transformations for raw files!
+    let viewUrl = file.url;
+    
+    if (viewUrl) {
+      // Ensure HTTPS
+      viewUrl = viewUrl.replace('http://', 'https://');
+      
+      // Open in new tab
+      window.open(viewUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      alert('File URL not available');
+    }
+  };
+
+  // Download file with custom filename
+  const handleFileDownload = (e, file) => {
+    e.preventDefault();
+    
+    // Use clean URL - NO fl_attachment!
+    let downloadUrl = file.url;
+    
+    if (downloadUrl) {
+      // Ensure HTTPS
+      downloadUrl = downloadUrl.replace('http://', 'https://');
+      
+      // Create download link with HTML5 download attribute
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = file.originalName || 'download';
+      link.target = '_blank';
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      alert('File URL not available');
+    }
+  };
+
+  // Get file icon based on extension
+  const getFileIcon = (fileName, mimeType = '') => {
+    const ext = fileName.split('.').pop().toLowerCase();
+    
+    if (mimeType) {
+      if (mimeType.startsWith('image/')) return '🖼️';
+      if (mimeType === 'application/pdf') return '📄';
+      if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
+      if (mimeType.includes('zip') || mimeType.includes('rar')) return '🗜️';
+      if (mimeType.startsWith('text/')) return '📃';
+    }
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) return '🖼️';
+    if (['pdf'].includes(ext)) return '📄';
+    if (['doc', 'docx'].includes(ext)) return '📝';
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '🗜️';
+    if (['txt', 'csv', 'json', 'xml', 'js', 'html', 'css'].includes(ext)) return '📃';
+    
+    return '📎';
+  };
+
+  const handleFileSelect = (assignmentId, files) => {
+    const validFiles = Array.from(files).filter(file => {
+      const isValidType = [
+        'image/jpeg',
+        'image/png',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain',
+        'application/zip',
+        'application/x-rar-compressed'
+      ].includes(file.type);
+      
+      const isValidSize = file.size <= 10 * 1024 * 1024;
+      
+      if (!isValidType) {
+        setError(`Invalid file type for ${file.name}`);
+      }
+      if (!isValidSize) {
+        setError(`File ${file.name} exceeds 10MB limit`);
+      }
+      
+      return isValidType && isValidSize;
+    });
+
+    setSelectedFiles(prev => ({
+      ...prev,
+      [assignmentId]: validFiles
+    }));
+  };
+
+  const handleSubmitAssignment = async (assignmentId) => {
+    const files = selectedFiles[assignmentId];
+    
+    if (!files || files.length === 0) {
+      setError('Please select at least one file');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setError('');
+      
+      const token = localStorage.getItem('userToken');
+      if (!token) throw new Error('No user token found');
+
+      const formData = new FormData();
+      files.forEach(file => {
+        formData.append('files', file);
+      });
+
+      await axios.post(`/api/assignments/${assignmentId}/submit`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      setSelectedFiles(prev => {
+        const updated = { ...prev };
+        delete updated[assignmentId];
+        return updated;
+      });
+
+      await fetchAssignments();
+      alert('Assignment submitted successfully!');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to submit assignment');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const formatDate = (date) => {
+    return new Date(date).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const isOverdue = (dueDate) => {
+    return new Date() > new Date(dueDate);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
   }
 
   return (
-    <div className="bg-white p-8 rounded-2xl shadow-xl max-w-2xl mx-auto">
-      <button
-        onClick={onGoBack}
-        className="mb-6 flex items-center text-blue-600 hover:text-blue-800 transition-colors"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-        </svg>
-        Back to Assignments
-      </button>
+    <div className="container mx-auto px-4 py-6">
+      <h1 className="text-3xl font-bold mb-6 flex items-center">
+        <FileText className="w-8 h-8 mr-3 text-blue-600" />
+        My Assignments
+      </h1>
 
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">{assignment.title}</h1>
-      <div className="flex items-center space-x-4 mb-6 text-gray-600 text-sm">
-        <p>Given by: <span className="font-semibold">{assignment.trainerId?.name || "N/A"}</span></p>
-        <p>Due: <span className="font-semibold">{assignment.dueDate ? new Date(assignment.dueDate).toLocaleDateString() : ""}</span></p>
-        <span className={`text-xs font-bold py-1 px-3 rounded-full ${statusColor}`}>{statusText}</span>
-      </div>
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex justify-between items-center">
+          <span>{error}</span>
+          <button onClick={() => setError('')} className="font-bold text-xl">×</button>
+        </div>
+      )}
 
-      <div className="prose max-w-none text-gray-700">
-        <h2 className="text-xl font-bold mb-2">Description</h2>
-        <p>{assignment.description}</p>
-        {assignment.submission && (
-          <p className="mt-4 font-semibold text-gray-800">
-            Submitted File: <span className="text-blue-600">{assignment.submission}</span>
-          </p>
-        )}
-        {assignment.grade && (
-          <p className="mt-2 font-semibold text-gray-800">
-            Grade: <span className="text-indigo-600">{assignment.grade}</span>
-          </p>
-        )}
-        {assignment.attachmentLink && (
-          <p className="mt-2 font-semibold text-gray-800">
-            Attachment:{" "}
-            <a href={assignment.attachmentLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-              Download
-            </a>
-          </p>
-        )}
-      </div>
+      {assignments.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-lg shadow-md">
+          <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 text-lg">No assignments available</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {assignments.map((assignment) => (
+            <div key={assignment._id} className="bg-white rounded-lg shadow-md overflow-hidden">
+              {/* Assignment Header */}
+              <div 
+                className={`p-6 cursor-pointer hover:bg-gray-50 transition ${
+                  expandedAssignment === assignment._id ? 'bg-gray-50' : ''
+                }`}
+                onClick={() => setExpandedAssignment(
+                  expandedAssignment === assignment._id ? null : assignment._id
+                )}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">
+                      {assignment.title}
+                    </h2>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Subject:</span>
+                        <p className="font-medium">{assignment.subject}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Due Date:</span>
+                        <p className={`font-medium ${isOverdue(assignment.dueDate) ? 'text-red-600' : 'text-gray-900'}`}>
+                          {formatDate(assignment.dueDate)}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Total Marks:</span>
+                        <p className="font-medium">{assignment.totalMarks}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Status:</span>
+                        {assignment.hasSubmitted ? (
+                          <div className="flex items-center text-green-600 font-medium">
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Submitted
+                          </div>
+                        ) : isOverdue(assignment.dueDate) ? (
+                          <div className="flex items-center text-red-600 font-medium">
+                            <XCircle className="w-4 h-4 mr-1" />
+                            Overdue
+                          </div>
+                        ) : (
+                          <div className="flex items-center text-yellow-600 font-medium">
+                            <Upload className="w-4 h-4 mr-1" />
+                            Pending
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-      {!assignment.submission && (
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Submit Assignment</h2>
-          <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <input
-              type="file"
-              id="submission-upload"
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              onChange={handleFileChange}
-            />
-            <button
-              onClick={handleUploadClick}
-              disabled={!file}
-              className={`font-semibold py-2 px-6 rounded-lg shadow-md w-full sm:w-auto transition-colors ${
-                file
-                  ? "bg-blue-600 text-white hover:bg-blue-700"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
-            >
-              Submit
-            </button>
-          </div>
+              {/* Expanded Content */}
+              {expandedAssignment === assignment._id && (
+                <div className="border-t border-gray-200 p-6 bg-gray-50">
+                  {/* Description */}
+                  {assignment.description && (
+                    <div className="mb-4">
+                      <h3 className="font-semibold text-gray-700 mb-2">Description:</h3>
+                      <p className="text-gray-600">{assignment.description}</p>
+                    </div>
+                  )}
+
+                  {/* Instructions */}
+                  {assignment.instructions && (
+                    <div className="mb-4">
+                      <h3 className="font-semibold text-gray-700 mb-2">Instructions:</h3>
+                      <p className="text-gray-600">{assignment.instructions}</p>
+                    </div>
+                  )}
+
+                  {/* Assignment Attachments */}
+                  {assignment.attachments && assignment.attachments.length > 0 && (
+                    <div className="mb-4">
+                      <h3 className="font-semibold text-gray-700 mb-2 flex items-center">
+                        <Paperclip className="w-4 h-4 mr-1" />
+                        Assignment Files:
+                      </h3>
+                      <div className="space-y-2">
+                        {assignment.attachments.map((file, index) => (
+                          <div key={index} className="flex items-center justify-between bg-white p-3 rounded border border-gray-200">
+                            <div className="flex items-center">
+                              <span className="text-2xl mr-2">{getFileIcon(file.originalName, file.mimeType)}</span>
+                              <span className="text-sm font-medium">{file.originalName}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={(e) => handleFileView(e, file)}
+                                className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                              >
+                                <Eye className="w-4 h-4 mr-1" />
+                                View
+                              </button>
+                              <button
+                                onClick={(e) => handleFileDownload(e, file)}
+                                className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                              >
+                                <Download className="w-4 h-4 mr-1" />
+                                Download
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Submission Section */}
+                  {!assignment.hasSubmitted ? (
+                    <div className="bg-white p-4 rounded-lg border-2 border-dashed border-gray-300">
+                      <h3 className="font-semibold text-gray-700 mb-3">Submit Your Work:</h3>
+                      <input
+                        type="file"
+                        multiple
+                        accept=".jpg,.png,.pdf,.doc,.docx,.txt,.zip,.rar"
+                        onChange={(e) => handleFileSelect(assignment._id, e.target.files)}
+                        className="mb-3 w-full px-3 py-2 border border-gray-300 rounded-md"
+                      />
+                      {selectedFiles[assignment._id] && selectedFiles[assignment._id].length > 0 && (
+                        <div className="mb-3 text-sm text-gray-600">
+                          Selected: {selectedFiles[assignment._id].map(f => f.name).join(', ')}
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleSubmitAssignment(assignment._id)}
+                        disabled={uploading || !selectedFiles[assignment._id] || selectedFiles[assignment._id].length === 0}
+                        className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {uploading ? 'Submitting...' : 'Submit Assignment'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                      <h3 className="font-semibold text-green-700 mb-3 flex items-center">
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        Your Submission:
+                      </h3>
+                      {assignment.submissions && assignment.submissions[0] && (
+                        <>
+                          <p className="text-sm text-gray-600 mb-3">
+                            Submitted on: {formatDate(assignment.submissions[0].submittedAt)}
+                            {assignment.submissions[0].isLate && (
+                              <span className="ml-2 text-red-600 font-medium">(Late Submission)</span>
+                            )}
+                          </p>
+                          
+                          {assignment.submissions[0].files && assignment.submissions[0].files.length > 0 && (
+                            <div className="space-y-2 mb-3">
+                              <h4 className="font-medium text-gray-700">Submitted Files:</h4>
+                              {assignment.submissions[0].files.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
+                                  <div className="flex items-center">
+                                    <span className="text-xl mr-2">{getFileIcon(file.originalName, file.mimeType)}</span>
+                                    <span className="text-sm">{file.originalName}</span>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={(e) => handleFileView(e, file)}
+                                      className="flex items-center px-2 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs"
+                                    >
+                                      <Eye className="w-3 h-3 mr-1" />
+                                      View
+                                    </button>
+                                    <button
+                                      onClick={(e) => handleFileDownload(e, file)}
+                                      className="flex items-center px-2 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-xs"
+                                    >
+                                      <Download className="w-3 h-3 mr-1" />
+                                      Download
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {assignment.submissions[0].score !== undefined && assignment.submissions[0].score !== null && (
+                            <div className="bg-white p-3 rounded border border-green-300">
+                              <p className="text-lg font-bold text-green-700">
+                                Score: {assignment.submissions[0].score} / {assignment.totalMarks}
+                              </p>
+                              {assignment.submissions[0].feedback && (
+                                <div className="mt-2">
+                                  <p className="text-sm font-medium text-gray-700">Feedback:</p>
+                                  <p className="text-sm text-gray-600">{assignment.submissions[0].feedback}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 };
 
-export default function StudentAssignment() {
-  const [assignments, setAssignments] = useState([]);
-  const [currentView, setCurrentView] = useState("dashboard");
-  const [selectedAssignment, setSelectedAssignment] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  // Load submissions from localStorage
-  const [submissions, setSubmissions] = useState(() => {
-    const saved = localStorage.getItem("studentAssignmentSubmissions");
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  // Save submissions to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem("studentAssignmentSubmissions", JSON.stringify(submissions));
-  }, [submissions]);
-
-  useEffect(() => {
-    async function fetchAssignments() {
-      try {
-        setLoading(true);
-        const response = await fetch("/api/assignments/public");
-        if (!response.ok) {
-          throw new Error("Failed to fetch assignments");
-        }
-        const data = await response.json();
-        const withSubmission = data.map((a) =>
-          submissions[a._id]
-            ? { ...a, submission: submissions[a._id], status: "submitted" }
-            : a
-        );
-        setAssignments(Array.isArray(withSubmission) ? withSubmission : []);
-      } catch (err) {
-        setError("Failed to fetch assignments");
-        setAssignments([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchAssignments();
-    // eslint-disable-next-line
-  }, [submissions]);
-
-  const handleSubmitAssignment = (id, fileName) => {
-    setSubmissions((prev) => ({ ...prev, [id]: fileName }));
-    setCurrentView("dashboard");
-    setSelectedAssignment(null);
-  };
-
-  const handleAssignmentClick = (assignment) => {
-    setSelectedAssignment(assignment);
-    setCurrentView("details");
-  };
-
-  const totalAssignments = assignments.length;
-  const completedAssignments = assignments.filter(
-    (a) => a.status === "completed" || a.status === "submitted" || a.status === "graded"
-  ).length;
-  const pendingAssignments = assignments.filter((a) => a.status === "pending").length;
-  const upcomingAssignments = assignments.filter(
-    (a) => a.status === "pending" && isUpcoming(a.dueDate)
-  ).length;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-red-100 text-red-700 p-4 rounded">{error}</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-8 bg-gray-100 min-h-screen">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-extrabold text-center text-gray-800 mb-10">
-          Your Assignments
-        </h1>
-        {currentView === "details" && selectedAssignment ? (
-          <AssignmentDetails
-            assignment={{
-              ...selectedAssignment,
-              submission: submissions[selectedAssignment._id],
-            }}
-            onGoBack={() => setCurrentView("dashboard")}
-            onFileSubmit={handleSubmitAssignment}
-          />
-        ) : (
-          <>
-            <AssignmentStatsCard
-              total={totalAssignments}
-              completed={completedAssignments}
-              pending={pendingAssignments}
-              upcoming={upcomingAssignments}
-            />
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-gray-800 mb-4">Assignment List</h2>
-              {assignments.length > 0 ? (
-                assignments.map((assignment) => (
-                  <AssignmentItem
-                    key={assignment._id}
-                    assignment={{
-                      ...assignment,
-                      submission: submissions[assignment._id],
-                      status: submissions[assignment._id]
-                        ? "submitted"
-                        : assignment.status || "pending",
-                    }}
-                    onClick={handleAssignmentClick}
-                  />
-                ))
-              ) : (
-                <p className="text-center text-gray-500">No assignments found.</p>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+export default StudentAssignment;

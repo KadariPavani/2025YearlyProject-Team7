@@ -58,7 +58,7 @@ async function assignStudentToPlacementTrainingBatch(student) {
   // Determine tech stack (default NonCRT)
   let techStack = 'NonCRT';
   if (student.crtInterested && student.techStack && student.techStack.length > 0) {
-    const validTechs = ['Java', 'Python', 'AI/ML'];
+    const validTechs = ['Java', 'Python', 'AIML'];
     const selectedTech = student.techStack.find(t => validTechs.includes(t));
     if (selectedTech) techStack = selectedTech;
   }
@@ -143,22 +143,51 @@ const validateSession = async (req, res) => {
 const generalLogin = async (req, res) => {
   try {
     const { email, password, userType } = req.body;
+    console.log('Login attempt:', { email, userType });
+
     if (!userType || !isValidUserType(userType)) {
+      console.log('Invalid userType:', userType);
       return badRequest(res, 'Invalid userType');
     }
-    const Model = getModelByUserType(userType);
 
-    const user = await Model.findOne({ email }).select('+password');
-    if (!user) return unauthorized(res, 'Invalid credentials');
+    const Model = getModelByUserType(userType);
+    const user = await Model.findOne({ email }).select('+password isActive status');
+    if (!user) {
+      console.log('User not found:', email);
+      return unauthorized(res, 'Invalid credentials');
+    }
+
+    // Apply status check only for 'student'
+    if (userType === 'student') {
+      if (user.isActive === false || (user.status && !['pursuing', 'placed', 'completed'].includes(user.status))) {
+        console.log('Student user inactive or suspended:', { isActive: user.isActive, status: user.status });
+        return unauthorized(res, 'Your account is inactive or suspended. Please contact administrator.');
+      }
+    } else {
+      // For other userTypes apply previous status check if needed or just check isActive
+      if (user.isActive === false || (user.status && user.status !== 'active')) {
+        console.log(`User inactive or suspended for userType ${userType}:`, { isActive: user.isActive, status: user.status });
+        return unauthorized(res, 'Your account is inactive or suspended. Please contact administrator.');
+      }
+    }
 
     const isMatch = await user.matchPassword(password);
-    if (!isMatch) return unauthorized(res, 'Invalid credentials');
+    if (!isMatch) {
+      console.log('Password mismatch:', email);
+      return unauthorized(res, 'Invalid credentials');
+    }
 
     user.lastLogin = new Date();
     await user.save();
 
-    // Ensure token carries canonical userType for downstream middleware
-    const token = generateToken({ id: user._id, email: user.email, role: userType, userType });
+    const token = generateToken({
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      userType,
+    });
+
+    console.log('Login successful:', email);
 
     return ok(res, {
       success: true,
@@ -170,6 +199,9 @@ const generalLogin = async (req, res) => {
     return serverError(res, 'Login failed');
   }
 };
+
+
+
 
 // @desc    General Dashboard
 // @route   GET /api/auth/dashboard/:userType
@@ -214,6 +246,17 @@ const getDashboard = async (req, res) => {
           createdQuizzes: user.createdQuizzes?.length || 0
         };
         break;
+
+        case 'coordinator':
+        const coordinator = await Coordinator.findById(userId)
+          .populate({
+            path: 'assignedPlacementBatch',
+            populate: [
+              { path: 'students', select: 'name rollNo email college branch techStack yearOfPassing' },
+              { path: 'tpoId', select: 'name email' }
+            ]
+          });
+        return ok(res, { success: true, data: { user: coordinator, message: 'Welcome to Coordinator Dashboard' } });
     }
 
     return ok(res, { success: true, data: dashboardData });
@@ -236,22 +279,33 @@ const getProfile = async (req, res) => {
     const userId = req.user.id;
     const Model = getModelByUserType(userType);
 
-    const user = await Model.findById(userId).select('-password');
-    if (!user) return notFound(res, 'User not found');
-
-    let populatedUser = user;
-    if (user.createdBy) {
-      populatedUser = await Model.findById(userId)
+    let user;
+    if (userType === 'coordinator') {
+      user = await Model.findById(userId)
         .select('-password')
-        .populate('createdBy', 'email role');
+        .populate({
+          path: 'assignedPlacementBatch',
+          select: 'batchNumber techStack startDate endDate year colleges assignedTrainers',
+          populate: {
+            path: 'assignedTrainers.trainer',
+            select: 'name email subjectDealing category experience'
+          }
+        })
+        .populate('createdBy', 'name email');
+    } else {
+      user = await Model.findById(userId)
+        .select('-password')
+        .populate('createdBy', 'name email');
     }
 
-    return ok(res, { success: true, data: populatedUser });
+    if (!user) return notFound(res, 'User not found');
+
+    return ok(res, { success: true, data: user });
 
   } catch (error) {
     console.error('Get Profile Error:', error);
     const errorMessage = error.name === 'CastError' ? 'Invalid user ID format' : 'Failed to fetch profile';
-    return serverError(res, errorMessage, { error: process.env.NODE_ENV === 'development' ? error.message : undefined });
+    return serverError(res, errorMessage);
   }
 };
 
@@ -305,13 +359,17 @@ const forgotPassword = async (req, res) => {
 
     const Model = getModelByUserType(userType);
     const user = await Model.findOne({ email });
+    
     if (!user) return notFound(res, `${userType} not found`);
+
+    // For coordinators, get the original student email
+    const sendToEmail = userType === 'coordinator' ? user.getStudentEmail() : email;
 
     const otp = generateOTP();
     await OTP.create({ email, otp, purpose: 'reset_password' });
 
     await sendEmail({
-      email,
+      email: sendToEmail,
       subject: `Reset your ${userType} password`,
       message: `Your OTP to reset your ${userType} password is: ${otp}. It expires in 5 minutes.`
     });

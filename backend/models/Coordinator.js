@@ -1,12 +1,11 @@
-
+// File: backend/models/Coordinator.js (Updated)
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const CoordinatorSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Name is required'],
-    trim: true
+    required: [true, 'Name is required']
   },
   email: {
     type: String,
@@ -18,119 +17,74 @@ const CoordinatorSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: [6, 'Password must be at least 6 characters'],
     select: false
-  },
-  rollNo: {
-    type: String,
-    required: [true, 'Roll number is required'],
-    unique: true,
-    trim: true
   },
   phone: {
     type: String,
-    required: [true, 'Phone number is required'],
-    match: [/^[0-9]{10}$/, 'Phone number must be 10 digits']
+    required: [true, 'Phone number is required']
   },
-  role: {
+  rollNo: {
     type: String,
-    default: 'coordinator',
-    immutable: true
+    required: [true, 'Roll number is required']
+    // Remove unique constraint
   },
-  assignedBatch: {
+  student: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Batch',
-    required: true
+    ref: 'Student',
+    required: [true, 'Student reference is required']
   },
-  managedFeedbacks: [{
+  assignedPlacementBatch: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Feedback'
-  }],
-  verifiedCertificates: [{
-    studentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Student'
-    },
-    certificateId: {
-      type: mongoose.Schema.Types.ObjectId
-    },
-    verificationDate: {
-      type: Date,
-      default: Date.now
-    },
-    status: {
-      type: String,
-      enum: ['verified', 'rejected', 'pending'],
-      default: 'pending'
-    }
-  }],
-  verifiedProjects: [{
-    studentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Student'
-    },
-    projectId: {
-      type: mongoose.Schema.Types.ObjectId
-    },
-    verificationDate: {
-      type: Date,
-      default: Date.now
-    },
-    status: {
-      type: String,
-      enum: ['verified', 'rejected', 'pending'],
-      default: 'pending'
-    }
-  }],
-  verifiedInternships: [{
-    studentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Student'
-    },
-    internshipId: {
-      type: mongoose.Schema.Types.ObjectId
-    },
-    verificationDate: {
-      type: Date,
-      default: Date.now
-    },
-    status: {
-      type: String,
-      enum: ['verified', 'rejected', 'pending'],
-      default: 'pending'
-    }
-  }],
+    ref: 'PlacementTrainingBatch',
+    required: [true, 'Placement batch reference is required']
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'TPO',
-    required: true
+    required: [true, 'TPO reference is required']
   },
-  status: {
-    type: String,
-    enum: ['active', 'inactive'],
-    default: 'active'
-  },
-  lastLogin: {
-    type: Date
+  lastLogin: Date,
+  isActive: {
+    type: Boolean,
+    default: true
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
+// Add compound unique index for rollNo and assignedPlacementBatch
+CoordinatorSchema.index({ rollNo: 1, assignedPlacementBatch: 1 }, { unique: true });
+
+// Pre-save middleware for password hashing
 CoordinatorSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
-  
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (err) {
-    next(err);
-  }
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
 });
 
-CoordinatorSchema.methods.matchPassword = async function(enteredPassword) {
-  return bcrypt.compare(enteredPassword, this.password);
+// Add method to get original student email
+CoordinatorSchema.methods.getStudentEmail = function() {
+  return this.email.replace('.coordinator@', '@');
 };
+
+// Modify password verification to work with both hashed and unhashed passwords
+CoordinatorSchema.methods.matchPassword = async function(enteredPassword) {
+  const password = this.password;
+  if (!password) return false;
+  return await bcrypt.compare(enteredPassword, password);
+};
+
+// Add virtual for batch details
+CoordinatorSchema.virtual('batchDetails').get(function() {
+  if (!this.assignedPlacementBatch) return null;
+  return {
+    batchNumber: this.assignedPlacementBatch.batchNumber,
+    techStack: this.assignedPlacementBatch.techStack,
+    startDate: this.assignedPlacementBatch.startDate,
+    endDate: this.assignedPlacementBatch.endDate
+  };
+});
 
 module.exports = mongoose.model('Coordinator', CoordinatorSchema);

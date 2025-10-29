@@ -19,36 +19,49 @@ const GeneralForgotPassword = () => {
       title: 'TPO Forgot Password',
       icon: Users,
       color: 'blue',
-      bgFrom: 'from-blue-600',
-      bgTo: 'to-blue-700',
+      lightBg: 'from-blue-50 via-blue-25 to-white',
+      buttonBg: 'from-blue-500 to-blue-600',
+      buttonHover: 'hover:from-blue-600 hover:to-blue-700',
+      iconBg: 'bg-blue-500',
+      focusStyles: 'focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500',
       loginPath: '/tpo-login'
     },
     trainer: {
       title: 'Trainer Forgot Password',
       icon: BookOpen,
       color: 'green',
-      bgFrom: 'from-green-600',
-      bgTo: 'to-green-700',
+      lightBg: 'from-green-50 via-green-25 to-white',
+      buttonBg: 'from-green-500 to-green-600',
+      buttonHover: 'hover:from-green-600 hover:to-green-700',
+      iconBg: 'bg-green-500',
+      focusStyles: 'focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500',
       loginPath: '/trainer-login'
     },
     student: {
       title: 'Student Forgot Password',
       icon: GraduationCap,
       color: 'purple',
-      bgFrom: 'from-purple-600',
-      bgTo: 'to-purple-700',
+      lightBg: 'from-purple-50 via-purple-25 to-white',
+      buttonBg: 'from-purple-500 to-purple-600',
+      buttonHover: 'hover:from-purple-600 hover:to-purple-700',
+      iconBg: 'bg-purple-500',
+      focusStyles: 'focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500',
       loginPath: '/student-login'
     },
     coordinator: {
       title: 'Coordinator Forgot Password',
       icon: UserCheck,
       color: 'orange',
-      bgFrom: 'from-orange-600',
-      bgTo: 'to-orange-700',
+      lightBg: 'from-orange-50 via-orange-25 to-white',
+      buttonBg: 'from-orange-500 to-orange-600',
+      buttonHover: 'hover:from-orange-600 hover:to-orange-700',
+      iconBg: 'bg-orange-500',
+      focusStyles: 'focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500',
       loginPath: '/coordinator-login'
     }
   };
 
+  // Better React pattern from your team member
   const userType = useMemo(() => {
     const path = location.pathname;
     if (path.includes('tpo-forgot-password')) return 'tpo';
@@ -70,6 +83,7 @@ const GeneralForgotPassword = () => {
       const response = await forgotPassword(userType, email);
       
       if (response.data.success) {
+        // Team member's session storage functionality - IMPORTANT!
         sessionStorage.setItem('resetEmail', email);
         sessionStorage.setItem('resetUserType', userType);
         setSuccess(true);
@@ -85,22 +99,23 @@ const GeneralForgotPassword = () => {
 
   if (success) {
     return (
-      <div className={`min-h-screen bg-gradient-to-br ${config.bgFrom} ${config.bgTo} flex items-center justify-center p-4`}>
+      <div className={`min-h-screen bg-gradient-to-br ${config.lightBg} flex items-center justify-center p-4`}>
+        {/* Fixed Back to Home Button */}
         <button
           onClick={() => navigate(config.loginPath)}
-          className="absolute top-6 left-6 flex items-center space-x-2 text-white hover:text-gray-200 transition-colors"
+          className="fixed top-4 left-4 z-10 flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md"
         >
-          <ArrowLeft className="h-5 w-5" />
-          <span>Back to Login</span>
+          <ArrowLeft className="h-4 w-4" />
+          <span className="text-sm">Back to Login</span>
         </button>
 
-        <div className="max-w-md w-full">
+        <div className="max-w-md w-full mt-8 sm:mt-0">
           <div className="text-center mb-8">
-            <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="h-8 w-8 text-green-600" />
+            <div className="bg-green-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <CheckCircle className="h-8 w-8 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">OTP Sent!</h1>
-            <p className="text-white/80">Check your email for the reset code</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">OTP Sent!</h1>
+            <p className="text-gray-600">Check your email for the reset code</p>
           </div>
 
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
@@ -117,7 +132,7 @@ const GeneralForgotPassword = () => {
             <div className="space-y-4">
               <button
                 onClick={() => navigate(`/${userType}-reset-password`)}
-                className={`w-full bg-gradient-to-r ${config.bgFrom} ${config.bgTo} text-white py-3 px-4 rounded-lg font-medium hover:opacity-90 transition-opacity`}
+                className={`w-full bg-gradient-to-r ${config.buttonBg} ${config.buttonHover} text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 shadow-lg`}
               >
                 Enter OTP & Reset Password
               </button>
@@ -136,22 +151,23 @@ const GeneralForgotPassword = () => {
   }
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${config.bgFrom} ${config.bgTo} flex items-center justify-center p-4`}>
+    <div className={`min-h-screen bg-gradient-to-br ${config.lightBg} flex items-center justify-center p-4`}>
+      {/* Fixed Back to Home Button - Same as Login Pages */}
       <button
         onClick={() => navigate(config.loginPath)}
-        className="absolute top-6 left-6 flex items-center space-x-2 text-white hover:text-gray-200 transition-colors"
+        className="fixed top-4 left-4 z-10 flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md"
       >
-        <ArrowLeft className="h-5 w-5" />
-        <span>Back to Login</span>
+        <ArrowLeft className="h-4 w-4" />
+        <span className="text-sm">Back to Login</span>
       </button>
 
-      <div className="max-w-md w-full">
+      <div className="max-w-md w-full mt-8 sm:mt-0">
         <div className="text-center mb-8">
-          <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <IconComponent className={`h-8 w-8 text-${config.color}-600`} />
+          <div className={`${config.iconBg} w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg`}>
+            <IconComponent className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">{config.title}</h1>
-          <p className="text-white/80">Enter your email to receive reset code</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{config.title}</h1>
+          <p className="text-gray-600">Enter your email to receive reset code</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
@@ -167,7 +183,7 @@ const GeneralForgotPassword = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={`w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg ${config.focusStyles} transition-colors`}
                   placeholder="Enter your email"
                 />
               </div>
@@ -183,7 +199,7 @@ const GeneralForgotPassword = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full bg-gradient-to-r ${config.bgFrom} ${config.bgTo} text-white py-3 px-4 rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center`}
+              className={`w-full bg-gradient-to-r ${config.buttonBg} ${config.buttonHover} text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 flex items-center justify-center shadow-lg`}
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>

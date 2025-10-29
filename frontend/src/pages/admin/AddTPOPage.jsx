@@ -57,15 +57,15 @@ const AddTPOPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-purple-50 via-white to-purple-50">
+    <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       {/* Mobile Header - Fixed at top for mobile */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 px-4 py-4 shadow-lg" style={{ backgroundColor: '#eceafe' }}>
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 px-4 py-4 shadow-lg bg-blue-100">
         <div className="flex items-center justify-between mb-3">
           <button
             onClick={() => navigate('/admin-dashboard')}
-            className="flex items-center text-[#7c6ee7] hover:text-[#6f5ee7] transition-colors"
+            className="flex items-center text-blue-800 hover:text-blue-700 transition-colors"
           >
-            <ArrowLeft className="h-6 w-6 mr-2" />
+            <ArrowLeft className="h-6 w-6 mr-2 text-blue-800" />
             <span className="font-medium">Back</span>
           </button>
         </div>
@@ -73,13 +73,13 @@ const AddTPOPage = () => {
           <div className="bg-white/30 backdrop-blur-sm rounded-full p-3 mr-4">
             <Users
               size={32}
-              className="text-[#7c6ee7]"
+              className="text-blue-800"
               strokeWidth={1.5}
             />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[#7c6ee7]">Add New TPO</h1>
-            <p className="text-[#6f5ee7] text-sm">Create TPO profile</p>
+            <h1 className="text-xl font-bold text-blue-900">Add New TPO</h1>
+            <p className="text-blue-700 text-sm">Create TPO profile</p>
           </div>
         </div>
       </div>
@@ -88,16 +88,16 @@ const AddTPOPage = () => {
       <div className="md:hidden h-32"></div>
 
       {/* Left side with icon - Only visible on desktop */}
-      <div className="hidden md:flex md:w-1/3 flex-col items-center justify-center p-12 shadow-lg rounded-r-3xl" style={{ backgroundColor: '#eceafe' }}>
+      <div className="hidden md:flex md:w-1/3 flex-col items-center justify-center p-12 shadow-lg rounded-r-3xl bg-blue-100">
         <Users
           size={120}
-          className="text-[#7c6ee7]"
+          className="text-blue-800"
           strokeWidth={1.5}
         />
-        <h2 className="mt-6 text-2xl font-bold text-gray-900 text-center">
+        <h2 className="mt-6 text-2xl font-bold text-blue-900 text-center">
           Add TPO
         </h2>
-        <p className="mt-2 text-center text-gray-800 max-w-xs">
+        <p className="mt-2 text-center text-blue-800 max-w-xs">
           Fill in the details below to create a new TPO account.
         </p>
       </div>
@@ -121,16 +121,16 @@ const AddTPOPage = () => {
 
               {/* Mobile Form Title */}
               <div className="mb-8 text-center">
-                <h2 className="text-xl font-bold text-gray-900 mb-2">TPO Details</h2>
-                <div className="w-16 h-1 bg-gradient-to-r from-[#7c6ee7] to-[#6f5ee7] mx-auto rounded-full"></div>
+                <h2 className="text-xl font-bold text-blue-900 mb-2">TPO Details</h2>
+                <div className="w-16 h-1 bg-gradient-to-r from-blue-600 to-indigo-600 mx-auto rounded-full"></div>
               </div>
 
               <div className="grid grid-cols-1 gap-4">
                 {/* Name */}
                 <div className="flex flex-col">
-                  <label htmlFor="name-mobile" className="flex items-center text-sm font-semibold text-gray-700 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-[#eceafe] rounded-full mr-3">
-                      <User className="h-4 w-4 text-[#7c6ee7]" />
+                  <label htmlFor="name-mobile" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
+                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
+                      <User className="h-4 w-4 text-blue-600" />
                     </div>
                     <span>Full Name</span>
                     <span className="text-red-500 ml-1">*</span>
@@ -143,15 +143,15 @@ const AddTPOPage = () => {
                     placeholder="Enter name"
                     value={tpoData.name}
                     onChange={handleChange}
-                    className="border border-gray-200 bg-gray-50 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#7c6ee7] focus:border-transparent transition-all"
+                    className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
                   />
                 </div>
 
                 {/* Email */}
                 <div className="flex flex-col">
-                  <label htmlFor="email-mobile" className="flex items-center text-sm font-semibold text-gray-700 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-[#eceafe] rounded-full mr-3">
-                      <Mail className="h-4 w-4 text-[#7c6ee7]" />
+                  <label htmlFor="email-mobile" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
+                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
+                      <Mail className="h-4 w-4 text-blue-600" />
                     </div>
                     <span>Email Address</span>
                     <span className="text-red-500 ml-1">*</span>
@@ -164,15 +164,15 @@ const AddTPOPage = () => {
                     placeholder="Enter email"
                     value={tpoData.email}
                     onChange={handleChange}
-                    className="border border-gray-200 bg-gray-50 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#7c6ee7] focus:border-transparent transition-all"
+                    className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
                   />
                 </div>
 
                 {/* Phone */}
                 <div className="flex flex-col">
-                  <label htmlFor="phone-mobile" className="flex items-center text-sm font-semibold text-gray-700 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-[#eceafe] rounded-full mr-3">
-                      <Phone className="h-4 w-4 text-[#7c6ee7]" />
+                  <label htmlFor="phone-mobile" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
+                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
+                      <Phone className="h-4 w-4 text-blue-600" />
                     </div>
                     <span>Phone Number</span>
                     <span className="text-red-500 ml-1">*</span>
@@ -186,15 +186,15 @@ const AddTPOPage = () => {
                     placeholder="10-digit phone"
                     value={tpoData.phone}
                     onChange={handleChange}
-                    className="border border-gray-200 bg-gray-50 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#7c6ee7] focus:border-transparent transition-all"
+                    className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
                   />
                 </div>
 
                 {/* Experience */}
                 <div className="flex flex-col">
-                  <label htmlFor="experience-mobile" className="flex items-center text-sm font-semibold text-gray-700 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-[#eceafe] rounded-full mr-3">
-                      <Briefcase className="h-4 w-4 text-[#7c6ee7]" />
+                  <label htmlFor="experience-mobile" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
+                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
+                      <Briefcase className="h-4 w-4 text-blue-600" />
                     </div>
                     <span>Experience (Years)</span>
                   </label>
@@ -206,15 +206,15 @@ const AddTPOPage = () => {
                     placeholder="Years of experience"
                     value={tpoData.experience}
                     onChange={handleChange}
-                    className="border border-gray-200 bg-gray-50 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#7c6ee7] focus:border-transparent transition-all"
+                    className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
                   />
                 </div>
 
                 {/* LinkedIn */}
                 <div className="flex flex-col">
-                  <label htmlFor="linkedIn-mobile" className="flex items-center text-sm font-semibold text-gray-700 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-[#eceafe] rounded-full mr-3">
-                      <Linkedin className="h-4 w-4 text-[#7c6ee7]" />
+                  <label htmlFor="linkedIn-mobile" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
+                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
+                      <Linkedin className="h-4 w-4 text-blue-600" />
                     </div>
                     <span>LinkedIn Profile</span>
                   </label>
@@ -225,7 +225,7 @@ const AddTPOPage = () => {
                     placeholder="LinkedIn URL"
                     value={tpoData.linkedIn}
                     onChange={handleChange}
-                    className="border border-gray-200 bg-gray-50 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-[#7c6ee7] focus:border-transparent transition-all"
+                    className="border border-blue-200 bg-blue-50 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
                   />
                 </div>
               </div>
@@ -235,7 +235,7 @@ const AddTPOPage = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-4 bg-gradient-to-r from-[#7c6ee7] to-[#6f5ee7] text-white rounded-lg font-semibold w-full flex items-center gap-2 justify-center transition hover:from-[#6f5ee7] hover:to-[#5a4bd4] shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none disabled:opacity-70"
+                  className="px-6 py-4 bg-blue-600 text-white rounded-lg font-semibold w-full flex items-center gap-2 justify-center transition hover:bg-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none disabled:opacity-70"
                 >
                   <UserPlus className="h-5 w-5" />
                   {loading ? 'Adding TPO...' : 'Add TPO'}
@@ -260,8 +260,8 @@ const AddTPOPage = () => {
             <div className="grid grid-cols-2 gap-x-8 gap-y-6">
               {/* Name */}
               <div className="flex flex-col">
-                <label htmlFor="name-desktop" className="flex items-center text-sm font-semibold text-gray-700 mb-1">
-                  <User className="mr-2 h-4 w-4 text-[#7c6ee7]" /> Name <span className="text-red-500 ml-1">*</span>
+                <label htmlFor="name-desktop" className="flex items-center text-sm font-semibold text-blue-800 mb-1">
+                  <User className="mr-2 h-4 w-4 text-blue-600" /> Name <span className="text-red-500 ml-1">*</span>
                 </label>
                 <input
                   id="name-desktop"
@@ -271,14 +271,14 @@ const AddTPOPage = () => {
                   placeholder="Enter name"
                   value={tpoData.name}
                   onChange={handleChange}
-                  className="border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#7c6ee7]"
+                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
                 />
               </div>
               
               {/* Email */}
               <div className="flex flex-col">
-                <label htmlFor="email-desktop" className="flex items-center text-sm font-semibold text-gray-700 mb-1">
-                  <Mail className="mr-2 h-4 w-4 text-[#7c6ee7]" /> Email <span className="text-red-500 ml-1">*</span>
+                <label htmlFor="email-desktop" className="flex items-center text-sm font-semibold text-blue-800 mb-1">
+                  <Mail className="mr-2 h-4 w-4 text-blue-600" /> Email <span className="text-red-500 ml-1">*</span>
                 </label>
                 <input
                   id="email-desktop"
@@ -288,14 +288,14 @@ const AddTPOPage = () => {
                   placeholder="Enter email"
                   value={tpoData.email}
                   onChange={handleChange}
-                  className="border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#7c6ee7]"
+                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
                 />
               </div>
               
               {/* Phone */}
               <div className="flex flex-col">
-                <label htmlFor="phone-desktop" className="flex items-center text-sm font-semibold text-gray-700 mb-1">
-                  <Phone className="mr-2 h-4 w-4 text-[#7c6ee7]" /> Phone <span className="text-red-500 ml-1">*</span>
+                <label htmlFor="phone-desktop" className="flex items-center text-sm font-semibold text-blue-800 mb-1">
+                  <Phone className="mr-2 h-4 w-4 text-blue-600" /> Phone <span className="text-red-500 ml-1">*</span>
                 </label>
                 <input
                   id="phone-desktop"
@@ -306,14 +306,14 @@ const AddTPOPage = () => {
                   placeholder="10-digit phone"
                   value={tpoData.phone}
                   onChange={handleChange}
-                  className="border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#7c6ee7]"
+                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
                 />
               </div>
               
               {/* Experience */}
               <div className="flex flex-col">
-                <label htmlFor="experience-desktop" className="flex items-center text-sm font-semibold text-gray-700 mb-1">
-                  <Briefcase className="mr-2 h-4 w-4 text-[#7c6ee7]" /> Experience (Years)
+                <label htmlFor="experience-desktop" className="flex items-center text-sm font-semibold text-blue-800 mb-1">
+                  <Briefcase className="mr-2 h-4 w-4 text-blue-600" /> Experience (Years)
                 </label>
                 <input
                   id="experience-desktop"
@@ -323,14 +323,14 @@ const AddTPOPage = () => {
                   placeholder="Years of experience"
                   value={tpoData.experience}
                   onChange={handleChange}
-                  className="border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#7c6ee7]"
+                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
                 />
               </div>
               
               {/* LinkedIn */}
               <div className="flex flex-col col-span-2">
-                <label htmlFor="linkedIn-desktop" className="flex items-center text-sm font-semibold text-gray-700 mb-1">
-                  <Linkedin className="mr-2 h-4 w-4 text-[#7c6ee7]" /> LinkedIn Profile
+                <label htmlFor="linkedIn-desktop" className="flex items-center text-sm font-semibold text-blue-800 mb-1">
+                  <Linkedin className="mr-2 h-4 w-4 text-blue-600" /> LinkedIn Profile
                 </label>
                 <input
                   id="linkedIn-desktop"
@@ -339,7 +339,7 @@ const AddTPOPage = () => {
                   placeholder="LinkedIn URL"
                   value={tpoData.linkedIn}
                   onChange={handleChange}
-                  className="border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#7c6ee7]"
+                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
                 />
               </div>
             </div>
@@ -350,14 +350,14 @@ const AddTPOPage = () => {
                 type="button"
                 onClick={() => navigate('/admin-dashboard')}
                 disabled={loading}
-                className="px-7 py-3 bg-black text-white rounded-lg font-semibold w-1/2 transition hover:bg-gray-900"
+                className="px-7 py-3 bg-black text-white rounded-lg font-semibold w-1/2 transition hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-7 py-3 bg-gradient-to-r from-[#7c6ee7] to-[#6f5ee7] text-white rounded-lg font-semibold w-1/2 flex items-center gap-2 justify-center transition hover:from-[#6f5ee7] hover:to-[#5a4bd4]"
+                className="px-7 py-3 bg-blue-600 text-white rounded-lg font-semibold w-1/2 flex items-center gap-2 justify-center transition hover:bg-blue-700"
               >
                 <UserPlus className="h-5 w-5" />
                 {loading ? 'Adding...' : 'Add TPO'}

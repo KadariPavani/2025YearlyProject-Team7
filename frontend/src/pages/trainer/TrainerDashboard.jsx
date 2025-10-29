@@ -13,12 +13,17 @@ import Quiz from '../trainer/Quiz';
 import Reference from '../trainer/Reference';
 import Assignment from '../trainer/Assignment';
 import Syllabus from '../trainer/Syllabus';
-
+import TrainerAttendanceView from './TrainerAttendanceView';
 const TrainerDashboard = () => {
   const [trainerData, setTrainerData] = useState(null);
   const [placementBatches, setPlacementBatches] = useState([]);
   const [placementStats, setPlacementStats] = useState({});
   const [regularBatches, setRegularBatches] = useState([]);
+  const [availableBatches, setAvailableBatches] = useState({
+    regular: [],
+    placement: [],
+    all: []
+  });
   const [batchProgress, setBatchProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -32,6 +37,7 @@ const TrainerDashboard = () => {
     fetchTrainerData();
     fetchPlacementBatches();
     fetchRegularBatches();
+    fetchAvailableBatches();
   }, []);
 
   const fetchTrainerData = async () => {
@@ -88,6 +94,33 @@ const TrainerDashboard = () => {
     } catch (err) {
       console.error('Failed to fetch regular batches:', err);
       setRegularBatches([]);
+    }
+  };
+
+  // NEW: Fetch all available batches for components - This is the key integration from second code
+  const fetchAvailableBatches = async () => {
+    try {
+      const token = localStorage.getItem('userToken') || localStorage.getItem('trainerToken');
+      if (!token) throw new Error('No trainer token found');
+
+      // Fetch batches for quizzes, assignments, and references
+      const [quizBatches, assignmentBatches, referenceBatches] = await Promise.all([
+        axios.get('/api/quizzes/batches', {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { regular: [], placement: [], all: [] } })),
+        axios.get('/api/assignments/batches', {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { regular: [], placement: [], all: [] } })),
+        axios.get('/api/references/batches', {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: { regular: [], placement: [], all: [] } }))
+      ]);
+
+      // Use quiz batches as the primary source
+      setAvailableBatches(quizBatches.data || { regular: [], placement: [], all: [] });
+    } catch (err) {
+      console.error('Failed to fetch available batches:', err);
+      setAvailableBatches({ regular: [], placement: [], all: [] });
     }
   };
 
@@ -205,7 +238,7 @@ const TrainerDashboard = () => {
     }
   };
 
-  // Render Regular Batches Tab
+  // Render Regular Batches Tab - Using UI from first code
   const renderRegularBatches = () => (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
@@ -631,6 +664,13 @@ const TrainerDashboard = () => {
                     <BookOpen className="h-12 w-12 text-gray-400 group-hover:text-purple-500 mx-auto mb-3 transition-colors" />
                     <p className="text-gray-600 group-hover:text-purple-600 font-medium">Manage Syllabus</p>
                   </button>
+                  <button 
+                    onClick={() => setActiveTab('attendance')}
+                    className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-pink-500 hover:bg-pink-50 transition-all duration-300 text-center group"
+                  >
+                    <Users className="h-12 w-12 text-gray-400 group-hover:text-pink-500 mx-auto mb-3 transition-colors" />
+                    <p className="text-gray-600 group-hover:text-pink-600 font-medium">View Attandance</p>
+                  </button>
 
                   <button 
                     onClick={() => setActiveTab('references')}
@@ -666,6 +706,7 @@ const TrainerDashboard = () => {
               </div>
             </div>
           )}
+
 
           {/* Classes Tab */}
           {activeTab === 'classes' && (
@@ -808,6 +849,7 @@ const TrainerDashboard = () => {
           {/* Regular Batches Tab */}
           {activeTab === 'regular-batches' && renderRegularBatches()}
 
+
           {/* Students Tab */}
           {activeTab === 'students' && (
             <div className="space-y-6">
@@ -883,11 +925,13 @@ const TrainerDashboard = () => {
             </div>
           )}
 
-          {/* Original Component Tabs */}
-          {activeTab === 'assignments' && <Assignment />}
-          {activeTab === 'quizzes' && <Quiz />}
-          {activeTab === 'syllabus' && <Syllabus />}
-          {activeTab === 'references' && <Reference />}
+          {/* Original Component Tabs - With availableBatches prop from second code */}
+          {activeTab === 'assignments' && <Assignment availableBatches={availableBatches} />}
+          {activeTab === 'quizzes' && <Quiz availableBatches={availableBatches} />}
+          {activeTab === 'syllabus' && <Syllabus availableBatches={availableBatches} />}
+          {activeTab==='attendance' && <TrainerAttendanceView  />}
+
+          {activeTab === 'references' && <Reference availableBatches={availableBatches} />}
         </div>
       </div>
 

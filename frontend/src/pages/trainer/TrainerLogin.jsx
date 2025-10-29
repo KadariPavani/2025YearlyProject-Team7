@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, BookOpen, ArrowLeft, Mail, Lock, LogIn } from 'lucide-react';
 import axios from 'axios';
 
 const TrainerLogin = () => {
@@ -8,6 +9,7 @@ const TrainerLogin = () => {
     email: '',
     password: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
@@ -17,7 +19,6 @@ const TrainerLogin = () => {
       ...prev,
       [name]: value
     }));
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -53,26 +54,22 @@ const TrainerLogin = () => {
       const response = await axios.post('/api/trainer/login', formData);
       
       if (response.data.success) {
-        // Log response to debug
         console.log('Login response:', response.data);
         
-        // Store token and trainer data (also set shared userToken for axios)
         localStorage.setItem('trainerToken', response.data.token);
         localStorage.setItem('userToken', response.data.token);
         localStorage.setItem('trainerData', JSON.stringify(response.data.data));
         
-        // Wait for localStorage to update before navigating
         setTimeout(() => {
           alert('Login successful!');
           navigate('/trainer-dashboard');
-        }, 100); // Small delay to ensure storage is complete
+        }, 100);
       }
     } catch (error) {
       const message = error.response?.data?.message || 'Login failed. Please try again.';
       console.error('Login error:', error);
       alert(message);
       
-      // Clear form on error
       if (error.response?.status === 401) {
         setFormData({ email: '', password: '' });
       }
@@ -82,77 +79,110 @@ const TrainerLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="bg-white shadow-xl rounded-lg px-8 py-10">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-gray-900">Trainer Login</h2>
-            <p className="mt-2 text-gray-600">Access your training dashboard</p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-green-25 to-white flex items-center justify-center p-4">
+      {/* Fixed Back to Home Button */}
+      <button
+        onClick={() => navigate('/')}
+        className="fixed top-4 left-4 z-10 flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <span className="text-sm">Home</span>
+      </button>
 
-          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+      <div className="max-w-md w-full mt-8 sm:mt-0">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="bg-green-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <BookOpen className="h-8 w-8 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Trainer Login</h1>
+          <p className="text-gray-600">Access your training dashboard</p>
+        </div>
+
+        {/* Login Form */}
+        <div className="bg-white rounded-2xl shadow-xl p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email Address
               </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
-                  errors.email ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Enter your email"
-              />
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500 transition-colors ${
+                    errors.email ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter your email"
+                />
+              </div>
               {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
             </div>
 
+            {/* Password Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Password
               </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
-                  errors.password ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Enter your password"
-              />
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500 transition-colors ${
+                    errors.password ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
               {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
             </div>
 
-            <div>
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed shadow-lg flex items-center justify-center"
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+              ) : (
+                <LogIn className="h-5 w-5 mr-2" />
+              )}
+              {loading ? 'Signing in...' : 'Sign In'}
+            </button>
+
+            {/* Forgot Password Link */}
+            <div className="text-center">
               <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
+                onClick={() => navigate('/trainer-forgot-password')}
+                className="text-green-600 hover:text-green-800 text-sm font-medium"
               >
-                {loading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                ) : (
-                  'Sign In'
-                )}
+                Forgot your password?
               </button>
             </div>
-
-            <div className="text-center space-y-2">
-              <p className="text-sm text-gray-600">
-                {' '}
-                {/* <Link to="/trainer-register" className="font-medium text-green-600 hover:text-green-500">
-                  Register here
-                </Link> */}
-              </p>
-              <p className="text-sm text-gray-600">
-                <Link to="/" className="font-medium text-green-600 hover:text-green-500">
-                  Back to Home
-                </Link>
-              </p>
-            </div>
           </form>
+        </div>
+
+        {/* Admin contact info */}
+        <div className="mt-6 p-4 bg-white/50 backdrop-blur-sm rounded-lg shadow-lg">
+          <p className="text-gray-700 text-sm text-center">
+            New trainer? Contact your administrator for account setup.
+          </p>
         </div>
       </div>
     </div>

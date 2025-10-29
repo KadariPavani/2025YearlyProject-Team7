@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, Calendar, Clock, User, BookOpen, Filter, Search, RefreshCw, FileSpreadsheet, Eye, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
+
 const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
   const [selectedWeek, setSelectedWeek] = useState('current');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'table'
@@ -12,20 +13,22 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
   const [showScheduleDetail, setShowScheduleDetail] = useState(false);
   const [selectedScheduleItem, setSelectedScheduleItem] = useState(null);
 
+
   // Get current week dates
   const getCurrentWeek = () => {
     const now = new Date();
     const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 1)); // Monday
     const weekDates = [];
-    
+
     for (let i = 0; i < 7; i++) {
       const date = new Date(startOfWeek);
       date.setDate(startOfWeek.getDate() + i);
       weekDates.push(date);
     }
-    
+
     return weekDates;
   };
+
 
   const weekDates = getCurrentWeek();
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -35,13 +38,16 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
     { name: 'Evening', start: '18:00', end: '21:00', color: 'bg-purple-50 border-purple-200 text-purple-800' }
   ];
 
+
   // Get unique values for filters
   const uniqueBatches = [...new Set(scheduleData?.map(item => item.batchNumber) || [])];
   const uniqueColleges = [...new Set(scheduleData?.flatMap(item => item.colleges) || [])];
 
+
   // Filter schedule data based on selected filters
   const getFilteredSchedule = () => {
     if (!scheduleData) return [];
+
 
     return scheduleData.filter(item => {
       const matchesBatch = selectedBatch === 'all' || item.batchNumber === selectedBatch;
@@ -56,16 +62,18 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
           trainer.subject?.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
+
       return matchesBatch && matchesCollege && matchesTimeSlot && matchesSearch;
     });
   };
 
+
   const filteredSchedule = getFilteredSchedule();
 
-  // Create timetable grid data
+
+  // ✅ FIXED: CREATE TIMETABLE GRID BASED ON ACTUAL SCHEDULE START TIME, NOT SLOT LABEL
   const createTimetableGrid = () => {
     const grid = {};
-    
     dayNames.forEach(day => {
       grid[day] = {};
       timeSlots.forEach(slot => {
@@ -79,22 +87,39 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
           if (trainerAssignment.schedule && trainerAssignment.schedule.length > 0) {
             trainerAssignment.schedule.forEach(scheduleItem => {
               const day = scheduleItem.day;
-              const timeSlot = trainerAssignment.timeSlot;
-              const slotName = timeSlot.charAt(0).toUpperCase() + timeSlot.slice(1);
-              
+
+              // ✅ FIX: Determine slot by ACTUAL schedule startTime, not assignment label
+              const startHour = parseInt(scheduleItem.startTime.split(':')[0]);
+              let slotName;
+
+              // Time boundaries based on actual time:
+              // Morning: 09:00 - 11:59 (hours 9, 10, 11)
+              // Afternoon: 12:00 - 17:59 (hours 12, 13, 14, 15, 16, 17)
+              // Evening: 18:00 - 21:59 (hours 18, 19, 20, 21)
+
+              if (startHour >= 9 && startHour < 12) {
+                slotName = 'Morning';
+              } else if (startHour >= 12 && startHour < 18) {
+                slotName = 'Afternoon';
+              } else if (startHour >= 18 && startHour < 22) {
+                slotName = 'Evening';
+              } else {
+                slotName = 'Morning'; // Default fallback
+              }
+
               if (grid[day] && grid[day][slotName]) {
-                grid[day][slotName].push({
-                  batchNumber: batch.batchNumber,
-                  batchId: batch._id,
-                  trainer: trainerAssignment.trainer,
-                  subject: trainerAssignment.subject,
-                  timeSlot: timeSlot,
-                  startTime: scheduleItem.startTime,
-                  endTime: scheduleItem.endTime,
-                  colleges: batch.colleges,
-                  techStack: batch.techStack,
-                  studentCount: batch.studentCount,
-                  year: batch.year
+                grid[day][slotName].push({ 
+                  batchNumber: batch.batchNumber, 
+                  batchId: batch._id, 
+                  trainer: trainerAssignment.trainer, 
+                  subject: trainerAssignment.subject, 
+                  timeSlot: slotName.toLowerCase(), // Use calculated slot based on actual time
+                  startTime: scheduleItem.startTime, 
+                  endTime: scheduleItem.endTime, 
+                  colleges: batch.colleges, 
+                  techStack: batch.techStack, 
+                  studentCount: batch.studentCount, 
+                  year: batch.year 
                 });
               }
             });
@@ -106,15 +131,17 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
     return grid;
   };
 
+
   const timetableGrid = createTimetableGrid();
+
 
   // Export to Excel function
   const exportToExcel = () => {
     const workbook = XLSX.utils.book_new();
-    
+
     // Create main schedule sheet
     const scheduleSheet = [];
-    
+
     // Headers
     scheduleSheet.push([
       'Day', 'Time Slot', 'Start Time', 'End Time', 'Batch Number', 
@@ -122,11 +149,12 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
       'Year', 'Student Count'
     ]);
 
+
     // Data rows
     dayNames.forEach(day => {
       timeSlots.forEach(slot => {
         const items = timetableGrid[day][slot.name] || [];
-        
+
         if (items.length === 0) {
           // Add empty slot
           scheduleSheet.push([
@@ -153,8 +181,10 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
       });
     });
 
+
     const ws1 = XLSX.utils.aoa_to_sheet(scheduleSheet);
     XLSX.utils.book_append_sheet(workbook, ws1, "Weekly Schedule");
+
 
     // Create summary sheet
     const summarySheet = [];
@@ -168,36 +198,40 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
     }, 0)]);
     summarySheet.push(['']);
     summarySheet.push(['Batch Distribution by College']);
-    
+
     const collegeDistribution = {};
     filteredSchedule.forEach(batch => {
       batch.colleges.forEach(college => {
         collegeDistribution[college] = (collegeDistribution[college] || 0) + 1;
       });
     });
-    
+
     Object.entries(collegeDistribution).forEach(([college, count]) => {
       summarySheet.push([college, count]);
     });
 
+
     const ws2 = XLSX.utils.aoa_to_sheet(summarySheet);
     XLSX.utils.book_append_sheet(workbook, ws2, "Summary");
 
+
     // Generate filename with current date
     const fileName = `TPO_Schedule_${new Date().toISOString().split('T')[0]}.xlsx`;
-    
+
     XLSX.writeFile(workbook, fileName);
   };
+
 
   const getTechStackColor = (techStack) => {
     const colors = {
       Java: 'bg-red-100 text-red-700 border-red-200',
       Python: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      'AI/ML': 'bg-purple-100 text-purple-700 border-purple-200',
+      'AIML': 'bg-purple-100 text-purple-700 border-purple-200',
       NonCRT: 'bg-slate-100 text-slate-700 border-slate-200',
     };
     return colors[techStack] || 'bg-blue-100 text-blue-700 border-blue-200';
   };
+
 
   const getTimeSlotColor = (timeSlot) => {
     const colors = {
@@ -208,6 +242,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
     return colors[timeSlot] || 'bg-gray-100 text-gray-700 border-gray-200';
   };
 
+
   if (loading) {
     return (
       <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
@@ -216,6 +251,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
       </div>
     );
   }
+
 
   return (
     <div className="space-y-6">
@@ -231,7 +267,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <button
               onClick={onRefresh}
@@ -240,7 +276,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
               <RefreshCw className="h-4 w-4" />
               Refresh
             </button>
-            
+
             <button
               onClick={exportToExcel}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
@@ -250,6 +286,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
             </button>
           </div>
         </div>
+
 
         {/* Filters */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -267,6 +304,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
             </select>
           </div>
 
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">College</label>
             <select
@@ -280,6 +318,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
               ))}
             </select>
           </div>
+
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Time Slot</label>
@@ -295,6 +334,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
             </select>
           </div>
 
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">View</label>
             <select
@@ -306,6 +346,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
               <option value="table">Table View</option>
             </select>
           </div>
+
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
@@ -321,6 +362,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
             </div>
           </div>
         </div>
+
 
         {/* Summary Stats */}
         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -355,6 +397,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
         </div>
       </div>
 
+
       {/* Timetable Grid View */}
       {viewMode === 'grid' && (
         <div className="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
@@ -364,7 +407,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
               Current week: {weekDates[0].toLocaleDateString()} - {weekDates[6].toLocaleDateString()}
             </p>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -406,17 +449,17 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
                                   {item.techStack}
                                 </span>
                               </div>
-                              
+
                               <div className="text-xs text-gray-600 mb-1">
                                 <div className="font-medium">{item.trainer?.name || 'Not Assigned'}</div>
                                 <div>{item.subject}</div>
                               </div>
-                              
+
                               <div className="flex items-center justify-between text-xs">
                                 <span className="text-gray-500">{item.startTime} - {item.endTime}</span>
                                 <span className="text-gray-500">{item.studentCount} students</span>
                               </div>
-                              
+
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {item.colleges.map(college => (
                                   <span key={college} className="px-1 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
@@ -426,7 +469,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
                               </div>
                             </div>
                           ))}
-                          
+
                           {(timetableGrid[day][slot.name] || []).length === 0 && (
                             <div className="text-center py-4 text-gray-400 text-sm">
                               No classes scheduled
@@ -443,6 +486,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
         </div>
       )}
 
+
       {/* Table View */}
       {viewMode === 'table' && (
         <div className="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
@@ -450,7 +494,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
             <h3 className="text-lg font-bold text-gray-900">Schedule Table View</h3>
             <p className="text-sm text-gray-600 mt-1">Detailed list of all scheduled classes</p>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
@@ -534,7 +578,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
                 ))}
               </tbody>
             </table>
-            
+
             {filteredSchedule.length === 0 && (
               <div className="text-center py-12">
                 <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -545,6 +589,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
           </div>
         </div>
       )}
+
 
       {/* Schedule Detail Modal */}
       {showScheduleDetail && selectedScheduleItem && (
@@ -566,6 +611,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
               </button>
             </div>
 
+
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
@@ -573,7 +619,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
                   <p className="text-lg font-bold text-blue-900">
                     {selectedScheduleItem.startTime} - {selectedScheduleItem.endTime}
                   </p>
-                  <p className="text-xs text-blue-600 mt-1 capitalize">{selectedScheduleItem.trainer?.timeSlot} slot</p>
+                  <p className="text-xs text-blue-600 mt-1 capitalize">{selectedScheduleItem.timeSlot} slot</p>
                 </div>
                 <div className="bg-green-50 p-4 rounded-xl border border-green-200">
                   <p className="text-xs font-medium text-green-600 mb-1">Students</p>
@@ -581,6 +627,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
                   <p className="text-xs text-green-600 mt-1">Enrolled</p>
                 </div>
               </div>
+
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -613,24 +660,25 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
                   </div>
                 </div>
 
+
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-3">Trainer Information</h4>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Name:</span>
-                      <span className="font-medium">{selectedScheduleItem.trainer?.trainer?.name || 'Not Assigned'}</span>
+                      <span className="font-medium">{selectedScheduleItem.trainer?.name || 'Not Assigned'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Subject:</span>
-                      <span className="font-medium">{selectedScheduleItem.trainer?.subject}</span>
+                      <span className="font-medium">{selectedScheduleItem.subject}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Category:</span>
-                      <span className="font-medium capitalize">{selectedScheduleItem.trainer?.trainer?.category}</span>
+                      <span className="font-medium capitalize">{selectedScheduleItem.trainer?.category}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Experience:</span>
-                      <span className="font-medium">{selectedScheduleItem.trainer?.trainer?.experience} years</span>
+                      <span className="font-medium">{selectedScheduleItem.trainer?.experience} years</span>
                     </div>
                   </div>
                 </div>
@@ -642,5 +690,4 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
     </div>
   );
 };
-
 export default ScheduleTimetable;
