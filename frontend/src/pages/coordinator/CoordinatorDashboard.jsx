@@ -81,6 +81,8 @@ const TEXT = {
 
 const CoordinatorDashboard = () => {
   const [coordinatorData, setCoordinatorData] = useState(null);
+  const [feedbackStats, setFeedbackStats] = useState(null);
+  const [recentFeedbacks, setRecentFeedbacks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
@@ -90,6 +92,7 @@ const CoordinatorDashboard = () => {
 
   useEffect(() => {
     fetchDashboard();
+    fetchFeedbackPreview();
   }, []);
 
   const fetchDashboard = async () => {

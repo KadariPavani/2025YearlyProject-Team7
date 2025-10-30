@@ -45,6 +45,7 @@ const PlacementTrainingBatches = require('./routes/placementTrainingRoutes');
 const calendarRoutes = require('./routes/calendarRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 
+const feedbackRoutes = require('./routes/feedbackRoutes');
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -59,6 +60,7 @@ app.use('/api/syllabi', syllabusRoutes);
 app.use('/api/placement-training-batches', PlacementTrainingBatches);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {

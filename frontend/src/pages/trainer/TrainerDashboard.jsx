@@ -4,7 +4,8 @@ import {
   Users, Settings, LogOut, Bell, ChevronDown, Calendar, Clock,
   BookOpen, X, Award, Activity, GraduationCap, Phone, Mail,
   UserCheck, Briefcase, School, Monitor, Building2, TrendingUp, MapPin,
-  Filter, Search, PlusCircle, CheckSquare, FileText, User, Menu
+  Filter, Search, PlusCircle, CheckSquare, FileText, User, Menu,
+  MessageSquare
 } from 'lucide-react';
 import axios from 'axios';
 import TrainerPlacementCalendar from "../trainer/TrainerPlacementCalendar";
@@ -14,8 +15,12 @@ import Reference from '../trainer/Reference';
 import Assignment from '../trainer/Assignment';
 import Syllabus from '../trainer/Syllabus';
 import TrainerAttendanceView from './TrainerAttendanceView';
+import FeedbackWidget from '../../components/FeedbackWidget';
+
 const TrainerDashboard = () => {
   const [trainerData, setTrainerData] = useState(null);
+  const [feedbackStats, setFeedbackStats] = useState(null);
+  const [recentFeedbacks, setRecentFeedbacks] = useState([]);
   const [placementBatches, setPlacementBatches] = useState([]);
   const [placementStats, setPlacementStats] = useState({});
   const [regularBatches, setRegularBatches] = useState([]);
@@ -38,6 +43,10 @@ const TrainerDashboard = () => {
     fetchPlacementBatches();
     fetchRegularBatches();
     fetchAvailableBatches();
+  }, []);
+
+  useEffect(() => {
+    fetchFeedbackPreview();
   }, []);
 
   const fetchTrainerData = async () => {
@@ -138,6 +147,24 @@ const TrainerDashboard = () => {
     } catch (err) {
       console.error('Failed to fetch batch progress:', err);
       setError(err.response?.data?.message || 'Failed to fetch batch progress');
+    }
+  };
+
+  const fetchFeedbackPreview = async () => {
+    try {
+      const token = localStorage.getItem('trainerToken') || localStorage.getItem('userToken');
+      const res = await axios.get('/api/feedback/trainer/received', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res?.data?.success && res.data.data) {
+        setFeedbackStats(res.data.data.statistics || null);
+        setRecentFeedbacks((res.data.data.feedbacks || []).slice(0, 3));
+      } else if (Array.isArray(res.data)) {
+        // fallback if endpoint returns raw array
+        setRecentFeedbacks(res.data.slice(0, 3));
+      }
+    } catch (err) {
+      console.error('Error fetching trainer feedback preview:', err);
     }
   };
 
@@ -328,13 +355,17 @@ const TrainerDashboard = () => {
   const todaySchedule = getTodaySchedule();
   const weeklySchedule = getWeeklySchedule();
 
+  // --- added: safe average value to avoid accessing .avg on null ---
+  const _avgFeedbackValue = Number(feedbackStats?.avg);
+  const avgFeedbackDisplay = Number.isFinite(_avgFeedbackValue) ? _avgFeedbackValue.toFixed(1) : '0.0';
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4">  
               <div className="bg-white p-2 rounded-lg">
                 <UserCheck className="h-8 w-8 text-blue-600" />
               </div>
@@ -394,7 +425,12 @@ const TrainerDashboard = () => {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Stats cards row */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {/* ... existing stat cards ... */}
+        </div>
+
         {/* Header Section */}
         <div className="bg-white border-b border-gray-200 shadow-sm">
           <div className="px-8 py-6">
@@ -472,110 +508,112 @@ const TrainerDashboard = () => {
           {/* Tab Navigation */}
           <div className="px-8">
             <div className="flex gap-1 border-b border-gray-200 overflow-x-auto scrollbar-hide">
+
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'dashboard'
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'classes'
                     ? 'border-blue-700 text-blue-700 bg-blue-100'
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 Dashboard
               </button>
               <button
                 onClick={() => setActiveTab('classes')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'classes'
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'classes'
                     ? 'border-blue-700 text-blue-700 bg-blue-100'
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 My Classes
               </button>
               <button
                 onClick={() => setActiveTab('schedule')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'schedule'
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'schedule'
                     ? 'border-blue-700 text-blue-700 bg-blue-100'
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 Schedule
               </button>
               <button
                 onClick={() => setActiveTab('regular-batches')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'regular-batches'
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'regular-batches'
                     ? 'border-blue-700 text-blue-700 bg-blue-100'
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 Regular Batches
               </button>
               <button
                 onClick={() => setActiveTab('students')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'students'
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'students'
                     ? 'border-blue-700 text-blue-700 bg-blue-100'
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 Students
               </button>
               <button
                 onClick={() => setActiveTab('assignments')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'assignments'
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'assignments'
                     ? 'border-blue-700 text-blue-700 bg-blue-100'
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <PlusCircle className="h-4 w-4 inline mr-1" />
                 Assignments
               </button>
               <button
                 onClick={() => setActiveTab('quizzes')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'quizzes'
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'quizzes'
                     ? 'border-blue-700 text-blue-700 bg-blue-100'
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <CheckSquare className="h-4 w-4 inline mr-1" />
                 Quizzes
               </button>
               <button
                 onClick={() => setActiveTab('syllabus')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'syllabus'
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'syllabus'
                     ? 'border-blue-700 text-blue-700 bg-blue-100'
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <BookOpen className="h-4 w-4 inline mr-1" />
                 Syllabus
               </button>
               <button
                 onClick={() => setActiveTab('references')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'references'
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'references'
                     ? 'border-blue-700 text-blue-700 bg-blue-100'
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <FileText className="h-4 w-4 inline mr-1" />
                 References
               </button>
               <button
                 onClick={() => setActiveTab('placementCalendar')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'placementCalendar'
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'placementCalendar'
                     ? 'border-blue-700 text-blue-700 bg-blue-100'
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <Calendar className="h-4 w-4 inline mr-1" />
                 Placement Calendar
+              </button>
+
+              <button
+                onClick={() => setActiveTab('feedback')}
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'feedback'
+                    ? 'border-blue-700 text-blue-700 bg-blue-100'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+              >
+                <MessageSquare className="h-4 w-4 inline mr-1" />
+                Feedback
               </button>
             </div>
           </div>
@@ -675,7 +713,7 @@ const TrainerDashboard = () => {
                     <BookOpen className="h-12 w-12 text-gray-400 group-hover:text-purple-500 mx-auto mb-3 transition-colors" />
                     <p className="text-gray-600 group-hover:text-purple-600 font-medium">Manage Syllabus</p>
                   </button>
-                  <button 
+                  <button
                     onClick={() => setActiveTab('attendance')}
                     className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-pink-500 hover:bg-pink-50 transition-all duration-300 text-center group"
                   >
@@ -714,6 +752,55 @@ const TrainerDashboard = () => {
                     <div className="text-sm text-gray-600 mt-1">Years Experience</div>
                   </div>
                 </div>
+              </div>
+
+              {/* REPLACED: Recent Feedback (replaces Feedback Snapshot) */}
+              <div className="bg-white rounded-xl shadow p-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-semibold">Recent Feedback</h4>
+                  <a href="/trainer-feedback" className="text-sm text-blue-600">View all →</a>
+                </div>
+
+                {/* Top stats (Total / Avg / Pending) - use feedbackStats if available */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="rounded-lg bg-blue-50 p-4 flex flex-col items-start">
+                    <span className="text-xs text-blue-600 font-semibold">Total</span>
+                    <span className="text-2xl font-bold text-blue-700 mt-2">{feedbackStats?.total ?? 0}</span>
+                  </div>
+                  <div className="rounded-lg bg-amber-50 p-4 flex flex-col items-start">
+                    <span className="text-xs text-amber-700 font-semibold">Avg</span>
+                    <span className="text-2xl font-bold text-amber-800 mt-2">{avgFeedbackDisplay} ★</span>
+                  </div>
+                  <div className="rounded-lg bg-rose-50 p-4 flex flex-col items-start">
+                    <span className="text-xs text-rose-600 font-semibold">Pending</span>
+                    <span className="text-2xl font-bold text-rose-700 mt-2">{feedbackStats?.pending ?? 0}</span>
+                  </div>
+                </div>
+
+                {/* List of recent feedbacks styled like the top snapshot */}
+                {recentFeedbacks.length === 0 ? (
+                  <div className="text-sm text-gray-500">No recent feedback</div>
+                ) : (
+                  <div className="space-y-4">
+                    {recentFeedbacks.map(f => (
+                      <div key={f._id} className="rounded-lg border border-gray-100 p-4 flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">{f.title}</div>
+                          <div className="text-xs text-gray-500 mt-1">{f.fromStudent?.name || (f.isAnonymous ? 'Anonymous' : 'Student')}</div>
+                          <p className="text-sm text-gray-700 mt-3 line-clamp-2">{f.content}</p>
+                        </div>
+
+                        <div className="flex flex-col items-end justify-between">
+                          <div className="bg-yellow-50 rounded-full px-3 py-1 flex items-center gap-2 border border-yellow-100">
+                            <svg className="h-4 w-4 text-yellow-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .587l3.668 7.431L24 9.748l-6 5.849 1.417 8.263L12 18.896 4.583 24.;"/></svg>
+                            <span className="text-yellow-700 text-sm font-semibold">{f.rating}</span>
+                          </div>
+                          <div className="text-xs text-gray-400 mt-2">{new Date(f.createdAt).toLocaleDateString()}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -940,10 +1027,20 @@ const TrainerDashboard = () => {
           {activeTab === 'assignments' && <Assignment availableBatches={availableBatches} />}
           {activeTab === 'quizzes' && <Quiz availableBatches={availableBatches} />}
           {activeTab === 'syllabus' && <Syllabus availableBatches={availableBatches} />}
-          {activeTab==='attendance' && <TrainerAttendanceView  />}
+          {activeTab === 'attendance' && <TrainerAttendanceView />}
 
           {activeTab === 'references' && <Reference availableBatches={availableBatches} />}
           {activeTab === "placementCalendar" && <TrainerPlacementCalendar />}
+
+          {/* Feedback Tab - New Section */}
+          {activeTab === 'feedback' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
+                <h3 className="text-xl font-semibold text-gray-900 mb-6">Student Feedback</h3>
+                {/* Feedback content will be added here */}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -4,7 +4,7 @@ import {
   Users, Settings, LogOut, Bell, ChevronDown, Calendar, Clock,
   BookOpen, Award, Activity, GraduationCap, Phone, Mail,
   CheckCircle, AlertCircle, UserCheck, Briefcase, School, Monitor, Building2, X,
-  PlusCircle, CheckSquare, FileText, User, Menu, Target, TrendingUp
+  PlusCircle, CheckSquare, FileText, User, Menu, Target, TrendingUp, MessageSquare
 } from 'lucide-react';
 import axios from 'axios';
 import StudentPlacementCalendar from './StudentCalender';
@@ -13,6 +13,9 @@ import StudentQuiz from './StudentQuiz';
 import StudentAssignment from './StudentAssignment';
 import StudentResources from './StudentResources';
 import StudentAttendanceView from './StudentAttendanceView';
+import StudentFeedback from '../student/StudentFeedback';
+import FeedbackPreview from '../../components/FeedbackPreview'; // Import feedback preview component
+
 // Keep placeholder components for the rest as in the first code
 const StudentSyllabus = () => (
   <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
@@ -140,9 +143,9 @@ const StudentDashboard = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState('');
 // 🔔 Notifications
+const [showNotifications, setShowNotifications] = useState(false);
 const [notifications, setNotifications] = useState([]);
 const [unreadCount, setUnreadCount] = useState(0);
-const [showNotifications, setShowNotifications] = useState(false);
 
   const navigate = useNavigate();
 
@@ -568,6 +571,7 @@ const markAsRead = async (id) => {
               </div>
             </div>
             <div className="flex items-center space-x-6">
+{/* Notifications Dropdown */}
 <div className="relative">
   <button
     onClick={() => setShowNotifications(!showNotifications)}
@@ -581,34 +585,45 @@ const markAsRead = async (id) => {
     )}
   </button>
 
-  {/* 🔽 Dropdown */}
+  {/* Dropdown Content */}
   {showNotifications && (
     <div className="absolute right-0 mt-2 w-80 bg-white text-gray-800 rounded-xl shadow-xl border z-50 max-h-96 overflow-y-auto">
       <div className="p-3 border-b font-semibold text-blue-700 flex justify-between items-center">
-        Notifications
+        <span>Notifications</span>
         <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
           {unreadCount} unread
         </span>
       </div>
 
       {notifications.length === 0 ? (
-        <p className="p-4 text-sm text-gray-500 text-center">No notifications yet</p>
+        <div className="p-4 text-sm text-gray-500 text-center">
+          <Bell className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+          <p>No notifications yet</p>
+        </div>
       ) : (
-        notifications.map((n) => (
-          <div
-            key={n._id}
-            onClick={() => markAsRead(n._id)}
-            className={`p-3 border-b cursor-pointer hover:bg-gray-50 transition ${
-              n.recipients?.some((r) => !r.isRead) ? "bg-blue-50" : "bg-white"
-            }`}
-          >
-            <p className="font-medium text-sm text-gray-800">{n.title}</p>
-            <p className="text-xs text-gray-600 mt-1">{n.message}</p>
-            <p className="text-[10px] text-gray-400 mt-1">
-              {new Date(n.createdAt).toLocaleString()}
-            </p>
-          </div>
-        ))
+        <div className="divide-y divide-gray-100">
+          {notifications.map((notification) => (
+            <div
+              key={notification._id}
+              onClick={() => markAsRead(notification._id)}
+              className={`p-3 cursor-pointer hover:bg-gray-50 transition-colors ${
+                notification.recipients?.some(r => !r.isRead) 
+                  ? "bg-blue-50" 
+                  : "bg-white"
+              }`}
+            >
+              <p className="font-medium text-sm text-gray-800">
+                {notification.title}
+              </p>
+              <p className="text-xs text-gray-600 mt-1">
+                {notification.message}
+              </p>
+              <p className="text-[10px] text-gray-400 mt-1">
+                {new Date(notification.createdAt).toLocaleString()}
+              </p>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )}
@@ -798,6 +813,7 @@ const markAsRead = async (id) => {
               >
                 Overview
               </button>
+
               <button
                 onClick={() => setActiveTab('trainers')}
                 className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
@@ -808,6 +824,7 @@ const markAsRead = async (id) => {
               >
                 My Trainers
               </button>
+
               <button
                 onClick={() => setActiveTab('schedule')}
                 className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
@@ -818,12 +835,18 @@ const markAsRead = async (id) => {
               >
                 Class Schedule
               </button>
+
               <button
-  onClick={() => setActiveTab('attendance')}
-  className={`px-4 py-2 ${activeTab === 'attendance' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
->
-  Attendance
-</button>
+                onClick={() => setActiveTab('attendance')}
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
+                  activeTab === 'attendance'
+                    ? 'border-blue-700 text-blue-700 bg-blue-100'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                Attendance
+              </button>
+
               <button
                 onClick={() => setActiveTab('assignments')}
                 className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
@@ -835,6 +858,7 @@ const markAsRead = async (id) => {
                 <PlusCircle className="h-4 w-4 inline mr-1" />
                 Assignments
               </button>
+
               <button
                 onClick={() => setActiveTab('quizzes')}
                 className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
@@ -846,6 +870,7 @@ const markAsRead = async (id) => {
                 <CheckSquare className="h-4 w-4 inline mr-1" />
                 Quizzes
               </button>
+
               <button
                 onClick={() => setActiveTab('resources')}
                 className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
@@ -857,65 +882,30 @@ const markAsRead = async (id) => {
                 <FileText className="h-4 w-4 inline mr-1" />
                 Resources
               </button>
-              <button
-                onClick={() => setActiveTab('syllabus')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'syllabus'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <BookOpen className="h-4 w-4 inline mr-1" />
-                Syllabus
-              </button>
-              <button
-                onClick={() => setActiveTab('progress')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'progress'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <TrendingUp className="h-4 w-4 inline mr-1" />
-                Progress
-              </button>
-              <button
-                onClick={() => setActiveTab('certificates')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'certificates'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <Award className="h-4 w-4 inline mr-1" />
-                Certificates
-              </button>
-              <button
-  onClick={() => setActiveTab('approvals')}
-  className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap relative ${
-    activeTab === 'approvals'
-      ? 'border-yellow-600 text-yellow-700 bg-yellow-50'
-      : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-  }`}
->
-  <div className="flex items-center gap-2">
-    <AlertCircle className="h-4 w-4" />
-    My Approvals
-    {pendingApprovals && pendingApprovals.totalPending > 0 && (
-      <span className="bg-yellow-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
-        {pendingApprovals.totalPending}
-      </span>
-    )}
-  </div>
-</button>
-<button
-  onClick={() => setActiveTab("calendar")}
-  className="px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap
-    {activeTab === 'calendar' ? 'border-purple-700 text-purple-700 bg-purple-100' : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'}"
->
-  <Calendar className="h-4 w-4 inline mr-1" /> Placement Calendar
-</button>
 
+              <button
+                onClick={() => setActiveTab('calendar')}
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
+                  activeTab === 'calendar'
+                    ? 'border-blue-700 text-blue-700 bg-blue-100'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <Calendar className="h-4 w-4 inline mr-1" />
+                Placement Calendar
+              </button>
+
+              <button
+                onClick={() => navigate('/student/feedback')}
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
+                  activeTab === 'feedback'
+                    ? 'border-blue-700 text-blue-700 bg-blue-100'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <MessageSquare className="h-4 w-4 inline mr-1" />
+                Feedback
+              </button>
             </div>
           </div>
         </div>
@@ -1204,6 +1194,22 @@ const markAsRead = async (id) => {
 
                 </div>
               </div>
+
+              {/* Recent Feedback Section - New addition */}
+              <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Recent Feedback</h3>
+                  <button
+                    onClick={() => navigate('/student/feedback')}
+                    className="text-blue-600 hover:text-blue-700 text-sm"
+                  >
+                    View All →
+                  </button>
+                </div>
+                
+                {/* Add feedback preview content here */}
+                <FeedbackPreview role="student" />
+              </div>
             </div>
           )}
 
@@ -1351,6 +1357,7 @@ const markAsRead = async (id) => {
           {activeTab === 'attendance' && <StudentAttendanceView />}
           {activeTab === "calendar" && <StudentPlacementCalendar />}
 
+          {activeTab === 'feedback' && <StudentFeedback />}
         </div>
       </div>
 
