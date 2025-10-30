@@ -1,3 +1,4 @@
+// backend/models/Student.js - COMPLETE FILE WITH DYNAMIC TECH STACKS
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
@@ -145,13 +146,12 @@ const StudentSchema = new mongoose.Schema({
     min: 0
   },
 
-  // Tech Stack and Skills - NEW FIELD
-techStack: [{
-  type: String,
-  enum: ['Java', 'Python', 'C/C++', 'JavaScript', 'AIML', 'AI/ML', 'Data Science'],
-  trim: true
-}],
-
+  // UPDATED: Tech Stack field - NO ENUM, completely dynamic for skills
+  techStack: [{
+    type: String,
+    trim: true
+    // Removed enum - students can add ANY tech skills
+  }],
 
   // Projects and Experience
   projects: [{
@@ -255,17 +255,22 @@ techStack: [{
       ref: 'TPO'
     }
   }],
-  // Updated reference for crtBatchId to PlacementTrainingBatch
+
+  // CRT Batch Fields
   crtBatchId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'PlacementTrainingBatch'
   },
-  crtBatchName: {  // NEW FIELD - stores assigned CRT batch name
+  crtBatchName: {
     type: String,
     trim: true
   },
-
-  // Add this field to your Student schema
+  // NEW: Stores which CRT batch the student wants (validated dynamically)
+  crtBatchChoice: {
+    type: String,
+    trim: true
+    // No enum - validated against batch's allowedTechStacks
+  },
   placementTrainingBatchId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'PlacementTrainingBatch'
@@ -273,9 +278,7 @@ techStack: [{
 
   // Documents and Links
   resumeUrl: String,
-  // Add this to your Student schema
-  resumeFileName: String, // Add this line after resumeUrl
-
+  resumeFileName: String,
   videoResumeUrl: String,
   socialLinks: [{
     platform: {
@@ -295,7 +298,6 @@ techStack: [{
     type: Boolean,
     default: false
   },
-
   status: {
     type: String,
     enum: ['pursuing', 'placed', 'completed'],
@@ -364,29 +366,28 @@ techStack: [{
     completedAt: Date,
     submissionCode: String
   }],
-pendingApprovals: [{
-  requestType: {
-    type: String,
-    enum: ['crt_status_change', 'batch_change', 'profile_change'], // Add 'profile_change'
-    required: true
-  },
-  requestedChanges: {
-    // For CRT status change
-    crtInterested: Boolean,
-    crtBatchChoice: String,
 
-    // For batch/tech stack change
-    techStack: [String],
-    placementTrainingBatchId: mongoose.Schema.Types.ObjectId,
-
-    // For profile changes
-    changedFields: mongoose.Schema.Types.Mixed,
-    originalFields: mongoose.Schema.Types.Mixed,
-
-    // Original values (for reference)
-    originalCrtInterested: Boolean,
-    originalTechStack: [String]
-  },
+  // Pending Approvals
+  pendingApprovals: [{
+    requestType: {
+      type: String,
+      enum: ['crt_status_change', 'batch_change', 'profile_change'],
+      required: true
+    },
+    requestedChanges: {
+      // For CRT status change
+      crtInterested: Boolean,
+      crtBatchChoice: String,
+      // For batch/tech stack change
+      techStack: [String],
+      placementTrainingBatchId: mongoose.Schema.Types.ObjectId,
+      // For profile changes
+      changedFields: mongoose.Schema.Types.Mixed,
+      originalFields: mongoose.Schema.Types.Mixed,
+      // Original values (for reference)
+      originalCrtInterested: Boolean,
+      originalTechStack: [String]
+    },
     status: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],
@@ -404,14 +405,13 @@ pendingApprovals: [{
     rejectionReason: String
   }],
 
-
   // System Information
   lastLogin: Date
 }, {
   timestamps: true
 });
 
-
+// Password hashing middleware
 StudentSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(10);
@@ -419,13 +419,43 @@ StudentSchema.pre('save', async function(next) {
   next();
 });
 
+// Password comparison method
 StudentSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Add method to create approval request
+// NEW METHOD: Validate CRT batch choice against batch's allowed tech stacks
+StudentSchema.methods.validateCRTBatchChoice = async function(batchChoice) {
+  if (!this.batchId) {
+    throw new Error('Student must be assigned to a batch first');
+  }
+  
+  const Batch = mongoose.model('Batch');
+  const batch = await Batch.findById(this.batchId);
+  
+  if (!batch) {
+    throw new Error('Student batch not found');
+  }
+  
+  const availableOptions = batch.getAvailableCRTOptions();
+  
+  if (!availableOptions.includes(batchChoice)) {
+    throw new Error(
+      `Invalid CRT batch choice. Available options: ${availableOptions.join(', ')}`
+    );
+  }
+  
+  return true;
+};
+
+// Create approval request method
 StudentSchema.methods.createApprovalRequest = async function(type, changes) {
   try {
+    // NEW: Validate CRT batch choice if it's being changed
+    if (changes.crtBatchChoice) {
+      await this.validateCRTBatchChoice(changes.crtBatchChoice);
+    }
+    
     const request = {
       requestType: type,
       requestedChanges: changes,
@@ -458,12 +488,12 @@ StudentSchema.methods.createApprovalRequest = async function(type, changes) {
   }
 };
 
-// Add method to check for pending approvals
+// Check for pending approvals
 StudentSchema.methods.hasPendingApprovals = function() {
   return this.pendingApprovals.some(approval => approval.status === 'pending');
 };
 
-// Update the handleApprovalResponse method
+// Handle approval response method
 StudentSchema.methods.handleApprovalResponse = async function(approvalId, isApproved, tpoId, reason) {
   try {
     const approval = this.pendingApprovals.id(approvalId);
@@ -491,7 +521,7 @@ StudentSchema.methods.handleApprovalResponse = async function(approvalId, isAppr
         throw new Error('Required admin or TPO not found');
       }
 
-      // Remove from any existing placement batch
+      // Remove from existing placement batch
       if (this.placementTrainingBatchId) {
         await PlacementTrainingBatch.findByIdAndUpdate(
           this.placementTrainingBatchId,
@@ -499,7 +529,7 @@ StudentSchema.methods.handleApprovalResponse = async function(approvalId, isAppr
         );
       }
 
-      // Determine batch type and tech stack
+      // Determine tech stack (from approved choice or NonCRT)
       let techStack;
       if (this.crtInterested) {
         // For CRT students, use their chosen batch
@@ -511,7 +541,7 @@ StudentSchema.methods.handleApprovalResponse = async function(approvalId, isAppr
         this.crtBatchChoice = null;
       }
 
-      // Find existing batch with space
+      // Find existing batch with space (max 80 students)
       let batch = await PlacementTrainingBatch.findOne({
         colleges: this.college,
         techStack: techStack,
@@ -521,16 +551,14 @@ StudentSchema.methods.handleApprovalResponse = async function(approvalId, isAppr
 
       // Create new batch if none found
       if (!batch) {
-        // Count existing batches for this type
         const existingBatches = await PlacementTrainingBatch.countDocuments({
           colleges: this.college,
           techStack: techStack,
           year: this.yearOfPassing
         });
 
-        // Generate batch number with appropriate prefix
-        const batchPrefix = this.crtInterested ? 'PT' : 'NT'; // PT for CRT, NT for Non-CRT
-        const batchNumber = `${batchPrefix}${this.yearOfPassing}${this.college}${techStack}${existingBatches + 1}`;
+        const batchPrefix = this.crtInterested ? 'PT' : 'NT';
+        const batchNumber = `${batchPrefix}_${this.yearOfPassing}_${this.college}_${techStack}_${existingBatches + 1}`;
 
         batch = new PlacementTrainingBatch({
           batchNumber,

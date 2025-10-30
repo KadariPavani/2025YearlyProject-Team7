@@ -109,72 +109,70 @@ const StudentProfile = () => {
   const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
   const [selectedEducationType, setSelectedEducationType] = useState("inter");
   const [selectedCRTBatch, setSelectedCRTBatch] = useState("");
-
-const [pendingApprovals, setPendingApprovals] = useState([]);
-const [showApprovalStatus, setShowApprovalStatus] = useState(false);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [availableCRTOptions, setAvailableCRTOptions] = useState([]);
 
   useEffect(() => {
     fetchProfile();
     checkPasswordStatus();
-      fetchPendingApprovals();
-
+    fetchPendingApprovals();
   }, []);
 
-const fetchProfile = async () => {
-  try {
-    setLoading(true);
-    setError("");
-    const token = localStorage.getItem('userToken');
-    const response = await fetch('/api/student/profile', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const result = await response.json();
-    
-    if (response.ok && result.success) {
-      setProfile(result.data);
-      setFormData(result.data);
-      setSelectedEducationType(result.data.academics?.educationType || "inter");
-      
-      // FIXED: Initialize selectedCRTBatch with current value
-      setSelectedCRTBatch(result.data.crtBatchChoice || "");
-      
-      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-      localStorage.setItem('userData', JSON.stringify({ ...userData, ...result.data }));
-    } else {
-      setError(result.message || "Failed to fetch profile");
-      if (response.status === 401) {
-        localStorage.removeItem("userToken");
-        localStorage.removeItem("userData");
-        navigate("/student-login");
-      }
-    }
-  } catch (err) {
-    console.error('Fetch profile error:', err);
-    setError(err?.message || "Failed to fetch profile");
-    if (!err.response) {
-      setError("Network error. Please check your connection.");
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/student/profile', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const result = await response.json();
 
-const fetchPendingApprovals = async () => {
-  try {
-    const token = localStorage.getItem('userToken');
-    const response = await fetch('/api/student/pending-approvals', {
-      headers: {
-        'Authorization': `Bearer ${token}`
+      if (response.ok && result.success) {
+        setProfile(result.data);
+        setFormData(result.data);
+        setSelectedEducationType(result.data.academics?.educationType || "inter");
+        setSelectedCRTBatch(result.data.crtBatchChoice || "");
+        setAvailableCRTOptions(result.data.availableCRTOptions || ['NonCRT']);
+
+        const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+        localStorage.setItem('userData', JSON.stringify({
+          ...userData,
+          ...result.data
+        }));
+      } else {
+        setError(result.message || "Failed to fetch profile");
+        if (response.status === 401) {
+          localStorage.removeItem("userToken");
+          localStorage.removeItem("userData");
+          navigate("/student-login");
+        }
       }
-    });
-    const data = await response.json();
-    if (data.success) {
-      setPendingApprovals(data.data);
+    } catch (err) {
+      console.error('Fetch profile error:', err);
+      setError(err?.message || "Failed to fetch profile");
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching approvals:', error);
-  }
-};
+  };
+
+  const fetchPendingApprovals = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch('/api/student/pending-approvals', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setPendingApprovals(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching approvals:', error);
+    }
+  };
+
   const checkPasswordStatus = async () => {
     try {
       const response = await checkPasswordChange("student");
@@ -216,18 +214,15 @@ const fetchPendingApprovals = async () => {
     }
   };
 
-  // Add these upload functions
   const uploadProfileImage = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Check file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
       setError('File size must be less than 5MB');
       return;
     }
 
-    // Check file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
     if (!allowedTypes.includes(file.type)) {
       setError('Please upload a valid image file (JPEG, PNG, or GIF)');
@@ -269,14 +264,12 @@ const fetchPendingApprovals = async () => {
   const uploadResume = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-  
-    // Check file size (10MB limit)
+
     if (file.size > 10 * 1024 * 1024) {
       setError('File size must be less than 10MB');
       return;
     }
-  
-    // Check file type
+
     const allowedTypes = [
       'application/pdf',
       'application/msword',
@@ -286,7 +279,7 @@ const fetchPendingApprovals = async () => {
       setError('Please upload a PDF or Word document');
       return;
     }
-  
+
     const formData = new FormData();
     formData.append('resume', file);
     setUploadingResume(true);
@@ -320,81 +313,71 @@ const fetchPendingApprovals = async () => {
     }
   };
 
-const handleCRTBatchChoiceChange = (e) => {
-  const newBatch = e.target.value;
-  
-  // Only show confirmation if changing from existing value
-  if (newBatch !== profile.crtBatchChoice && profile.crtBatchChoice) {
-    const confirmChange = window.confirm(
-      'Changing CRT batch requires TPO approval. Do you want to continue?'
-    );
-    
-    if (!confirmChange) {
-      // FIXED: Reset to previous value by forcing re-render
-      e.preventDefault();
-      return;
+  const handleCRTBatchChoiceChange = (e) => {
+    const newBatch = e.target.value;
+
+    if (newBatch !== profile.crtBatchChoice && profile.crtBatchChoice) {
+      const confirmChange = window.confirm(
+        'Changing CRT batch requires TPO approval. Do you want to continue?'
+      );
+      if (!confirmChange) {
+        e.target.value = selectedCRTBatch;
+        return;
+      }
     }
-  }
-  
-  // Update both local state and formData
-  setSelectedCRTBatch(newBatch);
-  setFormData((prev) => ({
-    ...prev,
-    crtBatchChoice: newBatch
-  }));
-};
 
-
-const handleTechStackChange = (tech) => {
-  setFormData((prev) => {
-    const currentTechStack = prev.techStack || [];
-    return {
+    setSelectedCRTBatch(newBatch);
+    setFormData((prev) => ({
       ...prev,
-      techStack: currentTechStack.includes(tech)
-        ? currentTechStack.filter(t => t !== tech)
-        : [...currentTechStack, tech]
-    };
-  });
-};
+      crtBatchChoice: newBatch
+    }));
+  };
 
+  const handleCRTInterestChange = (e) => {
+    const interested = e.target.value === "yes";
 
-const handleCRTInterestChange = (e) => {
-  const interested = e.target.value === "yes";
-  
-  if (interested !== profile.crtInterested) {
-    const confirmChange = window.confirm(
-      'Changing CRT status requires TPO approval. Do you want to continue?'
-    );
-    if (!confirmChange) {
-      e.preventDefault();
-      return;
+    if (interested !== profile.crtInterested) {
+      const confirmChange = window.confirm(
+        'Changing CRT status requires TPO approval. Do you want to continue?'
+      );
+      if (!confirmChange) {
+        e.preventDefault();
+        return;
+      }
     }
-  }
-  
-  setFormData((prev) => ({
-    ...prev,
-    crtInterested: interested,
-    // Clear batch choice if not interested
-    crtBatchChoice: interested ? prev.crtBatchChoice : ""
-  }));
-  
-  // Also update selectedCRTBatch state
-  if (!interested) {
-    setSelectedCRTBatch("");
-  }
-};
 
+    setFormData((prev) => ({
+      ...prev,
+      crtInterested: interested,
+      crtBatchChoice: interested ? prev.crtBatchChoice : ""
+    }));
+
+    if (!interested) {
+      setSelectedCRTBatch("");
+    }
+  };
+
+  const handleTechStackChange = (tech) => {
+    setFormData((prev) => {
+      const currentTechStack = prev.techStack || [];
+      return {
+        ...prev,
+        techStack: currentTechStack.includes(tech)
+          ? currentTechStack.filter(t => t !== tech)
+          : [...currentTechStack, tech]
+      };
+    });
+  };
 
   const handleSave = async () => {
     try {
       setLoading(true);
       setError('');
       setSuccess('');
-      
+
       const token = localStorage.getItem('userToken');
       const student = profile;
-      
-      // Only track CRT/batch related changes
+
       const crtStatusChanged = formData.crtInterested !== undefined && 
                              formData.crtInterested !== student.crtInterested;
       const crtBatchChanged = formData.crtBatchChoice !== undefined && 
@@ -403,8 +386,9 @@ const handleCRTInterestChange = (e) => {
       const hasChangesRequiringApproval = crtStatusChanged || crtBatchChanged;
 
       if (hasChangesRequiringApproval && isEditing) {
-        const confirmMessage = 'Your CRT-related changes will be sent to TPO for approval. Do you want to continue?';
-        const confirmed = window.confirm(confirmMessage);
+        const confirmed = window.confirm(
+          'Your CRT-related changes will be sent to TPO for approval. Do you want to continue?'
+        );
         if (!confirmed) {
           setLoading(false);
           return;
@@ -413,7 +397,6 @@ const handleCRTInterestChange = (e) => {
 
       const dataToSend = {
         ...formData,
-        // Only include CRT fields if they changed
         ...(crtStatusChanged ? { crtInterested: formData.crtInterested } : {}),
         ...(crtBatchChanged ? { crtBatchChoice: formData.crtBatchChoice } : {})
       };
@@ -430,21 +413,17 @@ const handleCRTInterestChange = (e) => {
       const result = await response.json();
 
       if (response.ok && result.success) {
-        // Update both profile and formData with the response
         setProfile(result.data);
         setFormData(result.data);
         setIsEditing(false);
-        
+
         if (result.requiresApproval) {
           setSuccess('Profile updated. Changes requiring approval have been sent to TPO for review.');
-          setShowApprovalStatus(true);
-          // Refresh pending approvals
           await fetchPendingApprovals();
         } else {
           setSuccess('Profile updated successfully!');
         }
-        
-        // Scroll to top to show success message
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         if (result.hasPendingApproval) {
@@ -461,7 +440,6 @@ const handleCRTInterestChange = (e) => {
     }
   };
 
-  // Add this component to show approval status
   const ApprovalStatusBanner = () => {
     if (!pendingApprovals || pendingApprovals.totalPending === 0) return null;
 
@@ -482,7 +460,6 @@ const handleCRTInterestChange = (e) => {
     );
   };
 
-  // Add this component for rejected approvals
   const RejectedApprovalsBanner = () => {
     const rejectedApprovals = pendingApprovals?.rejected || [];
     if (rejectedApprovals.length === 0) return null;
@@ -509,6 +486,7 @@ const handleCRTInterestChange = (e) => {
     setFormData(profile);
     setIsEditing(false);
     setError("");
+    setSelectedCRTBatch(profile.crtBatchChoice || "");
   };
 
   const addItemToArray = (field, defaultValue) => {
@@ -580,8 +558,10 @@ const handleCRTInterestChange = (e) => {
               </button>
               <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
             </div>
-                <ApprovalStatusBanner />
-    <RejectedApprovalsBanner />
+            <div className="flex flex-col space-y-2">
+              <ApprovalStatusBanner />
+              <RejectedApprovalsBanner />
+            </div>
             <div className="flex space-x-3">
               <button
                 onClick={() => navigate("/student-change-password")}
@@ -664,7 +644,7 @@ const handleCRTInterestChange = (e) => {
                   accept="image/*"
                   onChange={uploadProfileImage}
                   disabled={uploadingImage}
-                  className="mb-4"
+                  className="mb-4 w-full text-sm"
                 />
               )}
 
@@ -674,67 +654,64 @@ const handleCRTInterestChange = (e) => {
                 <GraduationCap className="h-4 w-4" />
                 <span>{profile?.college || "College"}</span>
               </div>
-              
-              {/* Display CRT Batch Name */}
+
               {formData.crtBatchName && (
-                <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
+                <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm inline-block">
                   Batch: {formData.crtBatchName}
                 </div>
               )}
             </div>
 
             {/* Resume Section */}
-{/* Resume Section - UPDATED */}
-<div className="bg-white rounded-lg shadow-sm p-6 mt-4">
-  <h3 className="text-lg font-semibold mb-4">Resume</h3>
-  {formData.resumeUrl ? (
-    <div className="mb-4">
-      <div className="flex items-center justify-between p-3 bg-gray-50 rounded border">
-        <div className="flex items-center space-x-2">
-          <Upload className="h-4 w-4 text-blue-600" />
-          <span className="text-sm text-gray-700">
-            {formData.resumeFileName || 'Resume.pdf'}
-          </span>
-        </div>
-        <div className="flex space-x-2">
-          <a
-            href={formData.resumeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1 border border-blue-600 rounded hover:bg-blue-50"
-          >
-            View
-          </a>
-          <a
-            href={formData.resumeUrl}
-            download={formData.resumeFileName}
-            className="text-green-600 hover:text-green-800 text-sm px-3 py-1 border border-green-600 rounded hover:bg-green-50"
-          >
-            Download
-          </a>
-        </div>
-      </div>
-    </div>
-  ) : (
-    <p className="text-gray-500 mb-4">No resume uploaded</p>
-  )}
-  
-  {isEditing && (
-    <div>
-      <input
-        type="file"
-        accept=".pdf,.doc,.docx"
-        onChange={uploadResume}
-        disabled={uploadingResume}
-        className="w-full"
-      />
-      {uploadingResume && (
-        <p className="text-sm text-blue-600 mt-2">Uploading...</p>
-      )}
-    </div>
-  )}
-</div>
+            <div className="bg-white rounded-lg shadow-sm p-6 mt-4">
+              <h3 className="text-lg font-semibold mb-4">Resume</h3>
+              {formData.resumeUrl ? (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded border">
+                    <div className="flex items-center space-x-2">
+                      <Upload className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm text-gray-700">
+                        {formData.resumeFileName || 'Resume.pdf'}
+                      </span>
+                    </div>
+                    <div className="flex space-x-2">
+                      <a
+                        href={formData.resumeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 text-sm px-3 py-1 border border-blue-600 rounded hover:bg-blue-50"
+                      >
+                        View
+                      </a>
+                      <a
+                        href={formData.resumeUrl}
+                        download={formData.resumeFileName}
+                        className="text-green-600 hover:text-green-800 text-sm px-3 py-1 border border-green-600 rounded hover:bg-green-50"
+                      >
+                        Download
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-500 mb-4">No resume uploaded</p>
+              )}
 
+              {isEditing && (
+                <div>
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    onChange={uploadResume}
+                    disabled={uploadingResume}
+                    className="w-full text-sm"
+                  />
+                  {uploadingResume && (
+                    <p className="text-sm text-blue-600 mt-2">Uploading...</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Profile Details */}
@@ -802,12 +779,183 @@ const handleCRTInterestChange = (e) => {
               ))}
             </div>
 
-            {/* Tech Stack Section */}
-            {/* <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">Technology Stack</h3>
+            {/* CRT Training Preferences Section */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6 border">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-purple-100 p-3 rounded-lg">
+                  <GraduationCap className="text-purple-600" size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    CRT Training Preferences
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    Choose your training track (requires TPO approval)
+                  </p>
+                </div>
+              </div>
+
+              {/* Current Status (View Mode) */}
+              {!isEditing && (
+                <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">CRT Status</p>
+                      <p className="font-semibold text-gray-900">
+                        {profile?.crtInterested ? (
+                          <span className="text-green-600">Interested</span>
+                        ) : (
+                          <span className="text-gray-500">Not Interested</span>
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Selected Batch</p>
+                      <p className="font-semibold text-gray-900">
+                        {profile?.crtBatchChoice || 'Not Selected'}
+                      </p>
+                    </div>
+                    {profile?.crtBatchName && (
+                      <div className="col-span-2">
+                        <p className="text-sm text-gray-600">Assigned Training Batch</p>
+                        <p className="font-semibold text-indigo-600">
+                          {profile.crtBatchName}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Editing Mode */}
+              {isEditing && (
+                <div className="space-y-4">
+                  {/* CRT Interest */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Are you interested in CRT training?
+                    </label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="crtInterested"
+                          value="yes"
+                          checked={formData.crtInterested === true}
+                          onChange={handleCRTInterestChange}
+                          className="w-4 h-4 text-indigo-600"
+                        />
+                        <span className="text-gray-700">Yes</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="crtInterested"
+                          value="no"
+                          checked={formData.crtInterested === false}
+                          onChange={handleCRTInterestChange}
+                          className="w-4 h-4 text-indigo-600"
+                        />
+                        <span className="text-gray-700">No (NonCRT)</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* CRT Batch Choice */}
+                  {formData.crtInterested && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select CRT Training Batch *
+                      </label>
+
+                      <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-800">
+                          <strong>Available Options for your batch ({profile?.batchId?.batchNumber}):</strong>
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {availableCRTOptions.filter(opt => opt !== 'NonCRT').map(opt => (
+                            <span key={opt} className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                              {opt}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <select
+                        value={selectedCRTBatch}
+                        onChange={handleCRTBatchChoiceChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        required={formData.crtInterested}
+                      >
+                        <option value="">-- Select Training Track --</option>
+                        {availableCRTOptions
+                          .filter(option => option !== 'NonCRT')
+                          .map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                      </select>
+
+                      <p className="text-xs text-gray-500 mt-2">
+                        Your batch administrator has configured these training options. Changes require TPO approval.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Approval Warning */}
+                  {(formData.crtInterested !== profile?.crtInterested || 
+                    formData.crtBatchChoice !== profile?.crtBatchChoice) && (
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="text-yellow-600 flex-shrink-0 mt-0.5" size={18} />
+                        <div>
+                          <p className="text-sm text-yellow-800 font-medium">
+                            Approval Required
+                          </p>
+                          <p className="text-xs text-yellow-700 mt-1">
+                            Your CRT preference changes will be sent to TPO for approval.
+                            You will receive notification once reviewed.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pending Approvals */}
+              {pendingApprovals?.totalPending > 0 && (
+                <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm text-orange-800 font-medium">
+                    You have {pendingApprovals.totalPending} pending approval request(s)
+                  </p>
+                  {pendingApprovals.requests?.map((req, idx) => (
+                    <div key={idx} className="mt-2 text-xs text-orange-700">
+                      {req.requestType === 'crt_status_change' && (
+                        <div>
+                          Requested: {req.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}
+                          {req.requestedChanges.crtBatchChoice && ` - ${req.requestedChanges.crtBatchChoice}`}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Tech Stack (Independent) */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-3">Technology Stack (Skills)</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Select the technologies you have skills in (independent of CRT batch choice)
+              </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {['Java', 'Python', 'C/C++', 'JavaScript', 'AIML'].map((tech) => (
-                  <label key={tech} className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50">
+                  <label 
+                    key={tech} 
+                    className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50"
+                  >
                     <input
                       type="checkbox"
                       checked={formData.techStack?.includes(tech) || false}
@@ -819,91 +967,9 @@ const handleCRTInterestChange = (e) => {
                   </label>
                 ))}
               </div>
-            </div> */}
+            </div>
 
-{/* CRT Interest Section */}
-<div className="mb-6">
-  <h3 className="text-lg font-semibold mb-3">CRT Training Interest</h3>
-  
-  {/* CRT Interest Radio */}
-  <div className="mb-4">
-    <label className="block mb-2">Are you interested in CRT?</label>
-    <div className="flex space-x-4">
-      <label className="flex items-center space-x-2">
-        <input
-          type="radio"
-          name="crtInterested"
-          value="yes"
-          checked={formData.crtInterested === true}
-          onChange={handleCRTInterestChange}
-          disabled={!isEditing}
-        />
-        <span>Yes</span>
-      </label>
-      <label className="flex items-center space-x-2">
-        <input
-          type="radio"
-          name="crtInterested"
-          value="no"
-          checked={formData.crtInterested === false}
-          onChange={handleCRTInterestChange}
-          disabled={!isEditing}
-        />
-        <span>No</span>
-      </label>
-    </div>
-  </div>
-
-  {/* FIXED: Controlled CRT Batch Selection */}
-  {formData.crtInterested && (
-    <div className="mb-4">
-      <label className="block mb-2">Choose your CRT Training Batch</label>
-      <div className="flex flex-wrap gap-4">
-        {['Java', 'Python', 'AIML'].map((batch) => (
-          <label key={batch} className="flex items-center space-x-2">
-            <input
-              type="radio"
-              name="crtBatchChoice"
-              value={batch}
-              checked={formData.crtBatchChoice === batch}
-              onChange={handleCRTBatchChoiceChange}
-              disabled={!isEditing}
-            />
-            <span>{batch}</span>
-          </label>
-        ))}
-      </div>
-    </div>
-  )}
-</div>
-
-{/* FIXED: Separate Tech Stack Section (Independent from CRT) */}
-<div className="mb-6">
-  <h3 className="text-lg font-semibold mb-3">Technology Stack (Skills)</h3>
-  <p className="text-sm text-gray-600 mb-3">
-    Select the technologies you have skills in (independent of CRT batch choice)
-  </p>
-  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-    {['Java', 'Python', 'C/C++', 'JavaScript', 'AIML'].map((tech) => (
-      <label 
-        key={tech} 
-        className="flex items-center space-x-2 p-2 border rounded hover:bg-gray-50"
-      >
-        <input
-          type="checkbox"
-          checked={formData.techStack?.includes(tech) || false}
-          onChange={() => handleTechStackChange(tech)}
-          disabled={!isEditing}
-          className="rounded"
-        />
-        <span>{tech}</span>
-      </label>
-    ))}
-  </div>
-</div>
-
-
-            {/* Clubs Section */}
+            {/* Clubs & Activities */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-3">Clubs & Activities</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -922,7 +988,7 @@ const handleCRTInterestChange = (e) => {
               </div>
             </div>
 
-            {/* Education */}
+            {/* Academic Information */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-3">Academic Information</h3>
               <div className="mb-4">
@@ -939,7 +1005,7 @@ const handleCRTInterestChange = (e) => {
                   className="w-full md:w-1/3 border rounded p-2"
                 />
               </div>
-              
+
               <div className="mb-4">
                 <label className="block mb-1">Education Type</label>
                 <select
@@ -959,7 +1025,6 @@ const handleCRTInterestChange = (e) => {
                     <label className="block mb-1">Inter Percentage</label>
                     <input
                       type="number"
-                      placeholder="Inter Percentage"
                       name="academics.inter.percentage"
                       value={formData.academics?.inter?.percentage ?? ""}
                       onChange={handleInputChange}
@@ -971,7 +1036,6 @@ const handleCRTInterestChange = (e) => {
                     <label className="block mb-1">Board</label>
                     <input
                       type="text"
-                      placeholder="Inter Board"
                       name="academics.inter.board"
                       value={formData.academics?.inter?.board ?? ""}
                       onChange={handleInputChange}
@@ -983,7 +1047,6 @@ const handleCRTInterestChange = (e) => {
                     <label className="block mb-1">Passed Year</label>
                     <input
                       type="number"
-                      placeholder="Inter Passed Year"
                       name="academics.inter.passedYear"
                       value={formData.academics?.inter?.passedYear ?? ""}
                       onChange={handleInputChange}
@@ -998,7 +1061,6 @@ const handleCRTInterestChange = (e) => {
                     <label className="block mb-1">Diploma Percentage</label>
                     <input
                       type="number"
-                      placeholder="Diploma Percentage"
                       name="academics.diploma.percentage"
                       value={formData.academics?.diploma?.percentage ?? ""}
                       onChange={handleInputChange}
@@ -1010,7 +1072,6 @@ const handleCRTInterestChange = (e) => {
                     <label className="block mb-1">Board</label>
                     <input
                       type="text"
-                      placeholder="Diploma Board"
                       name="academics.diploma.board"
                       value={formData.academics?.diploma?.board ?? ""}
                       onChange={handleInputChange}
@@ -1022,7 +1083,6 @@ const handleCRTInterestChange = (e) => {
                     <label className="block mb-1">Passed Year</label>
                     <input
                       type="number"
-                      placeholder="Diploma Passed Year"
                       name="academics.diploma.passedYear"
                       value={formData.academics?.diploma?.passedYear ?? ""}
                       onChange={handleInputChange}
@@ -1033,7 +1093,6 @@ const handleCRTInterestChange = (e) => {
                 </div>
               )}
 
-              {/* Backlogs */}
               <div className="mt-4 w-32">
                 <label className="block mb-1">Backlogs</label>
                 <input
@@ -1048,7 +1107,7 @@ const handleCRTInterestChange = (e) => {
               </div>
             </div>
 
-            {/* Dynamic Arrays */}
+            {/* Dynamic Sections */}
             <ArraySection
               title="Projects"
               items={formData.projects || []}

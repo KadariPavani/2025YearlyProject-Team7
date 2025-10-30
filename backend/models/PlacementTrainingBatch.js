@@ -1,4 +1,3 @@
-// File: backend/models/PlacementTrainingBatch.js (Updated)
 const mongoose = require('mongoose');
 
 const PlacementTrainingBatchSchema = new mongoose.Schema({
@@ -12,10 +11,12 @@ const PlacementTrainingBatchSchema = new mongoose.Schema({
     enum: ['KIET', 'KIEK', 'KIEW'],
     required: true
   }],
+  // UPDATED: No enum restriction - completely dynamic!
   techStack: {
     type: String,
-    enum: ['Java', 'Python', 'AIML', 'NonCRT'],
-    required: true
+    required: true,
+    trim: true
+    // Removed enum - accepts any tech stack from batch configuration
   },
   year: {
     type: String,
@@ -35,7 +36,7 @@ const PlacementTrainingBatchSchema = new mongoose.Schema({
     ref: 'Admin', 
     required: true
   },
-  coordinators: [{  // New field for assigned coordinators
+  coordinators: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Coordinator'
   }],
@@ -51,7 +52,6 @@ const PlacementTrainingBatchSchema = new mongoose.Schema({
     type: Boolean, 
     default: true 
   },
-  // NEW: Trainer Assignment System
   assignedTrainers: [{
     trainer: {
       type: mongoose.Schema.Types.ObjectId,

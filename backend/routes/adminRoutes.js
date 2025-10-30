@@ -183,83 +183,88 @@ router.put('/batches/:batchId', auth, async (req, res) => {
 });
 
 
-// @route   DELETE /api/admin/batches/:batchId
-// @desc    Delete a batch
-// @access  Private/Admin
-router.delete('/batches/:batchId', auth, async (req, res) => {
-  try {
-    const batch = await Batch.findById(req.params.batchId);
-    if (!batch) {
-      return res.status(404).json({ success: false, message: 'Batch not found' });
-    }
-
-    // Delete all students in this batch
-    await Student.deleteMany({ batchId: batch._id });
-
-    // Delete the batch itself
-    await Batch.findByIdAndDelete(req.params.batchId);
-
-    res.json({ success: true, message: 'Batch and all its students deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting batch:', error);
-    res.status(500).json({ success: false, message: 'Server error deleting batch' });
-  }
-});
-
-
-// Batch Creation Route
-// Batch Creation Route
-
-// POST /api/admin/crt-batch - Create CRT batch and students with password hashing
+// POST /api/admin/crt-batch - Create CRT batch with dynamic tech stacks
 router.post('/crt-batch', auth, excelUploadMiddleware, async (req, res) => {
   try {
     console.log('Batch Creation: Request received');
-    console.log('Files:', req.files); // This will now work
+    console.log('Files:', req.files);
     console.log('Body:', req.body);
 
     if (!req.files || !req.files.file) {
-      return res.status(400).json({ 
-        success: false, 
+      return res.status(400).json({
+        success: false,
         message: 'Student Excel file is required',
         details: 'No file uploaded'
       });
     }
 
-    let { batchNumber, colleges, tpoId, startDate, endDate } = req.body;
+    let { batchNumber, colleges, tpoId, startDate, endDate, allowedTechStacks } = req.body;
 
-    // Parse colleges if it's a string
+    // Parse colleges if string
     if (typeof colleges === 'string') {
       try {
         colleges = JSON.parse(colleges);
       } catch (err) {
-        console.error('Batch Creation: Invalid colleges format', err);
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Invalid colleges format' 
+        console.error('Invalid colleges format', err);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid colleges format'
+        });
+      }
+    }
+
+    // NEW: Parse allowedTechStacks if string
+    if (typeof allowedTechStacks === 'string') {
+      try {
+        allowedTechStacks = JSON.parse(allowedTechStacks);
+      } catch (err) {
+        console.error('Invalid tech stacks format', err);
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid tech stacks format'
         });
       }
     }
 
     if (!Array.isArray(colleges)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Colleges must be an array' 
+      return res.status(400).json({
+        success: false,
+        message: 'Colleges must be an array'
       });
     }
+
+    // NEW: Validate allowedTechStacks
+    if (!allowedTechStacks || !Array.isArray(allowedTechStacks)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Allowed tech stacks must be provided as an array'
+      });
+    }
+
+    if (allowedTechStacks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one tech stack must be specified'
+      });
+    }
+
+    // Sanitize tech stacks
+    allowedTechStacks = allowedTechStacks.map(ts => ts.trim()).filter(ts => ts.length > 0);
 
     colleges = colleges.map(c => c.trim().toUpperCase());
 
     // Validate required fields
     if (!batchNumber || !colleges.length || !tpoId || !startDate || !endDate) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Missing required fields: Batch number, colleges, TPO, startDate, and endDate are required',
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: Batch number, colleges, TPO, startDate, endDate, and tech stacks are required',
         details: {
           batchNumber: !!batchNumber,
           colleges: colleges.length > 0,
           tpoId: !!tpoId,
           startDate: !!startDate,
-          endDate: !!endDate
+          endDate: !!endDate,
+          allowedTechStacks: allowedTechStacks.length > 0
         }
       });
     }
@@ -267,20 +272,21 @@ router.post('/crt-batch', auth, excelUploadMiddleware, async (req, res) => {
     // Verify TPO exists
     const tpo = await TPO.findById(tpoId);
     if (!tpo) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'TPO not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'TPO not found'
       });
     }
 
     // Validate file
     const file = req.files.file;
     if (!file.name.match(/\.(xls|xlsx)$/)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Please upload an Excel file (.xls or .xlsx)' 
+      return res.status(400).json({
+        success: false,
+        message: 'Please upload an Excel file (.xls or .xlsx)'
       });
     }
+
     console.log('Batch Creation: Excel file received:', file.name);
 
     // Read Excel file
@@ -289,9 +295,9 @@ router.post('/crt-batch', auth, excelUploadMiddleware, async (req, res) => {
     const data = XLSX.utils.sheet_to_json(worksheet);
 
     if (data.length === 0) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Excel file is empty' 
+      return res.status(400).json({
+        success: false,
+        message: 'Excel file is empty'
       });
     }
 
@@ -305,31 +311,31 @@ router.post('/crt-batch', auth, excelUploadMiddleware, async (req, res) => {
       const branch = row.branch?.trim();
       const college = row.college?.trim();
       const phonenumber = row.phonenumber?.toString().trim();
-      
+
       if (!name || !email || !rollNumber || !branch || !college || !phonenumber) {
-        return res.status(400).json({ 
-          success: false, 
+        return res.status(400).json({
+          success: false,
           message: `Missing fields in student row ${index + 1}. Required: name, email, roll number, branch, college, phonenumber`,
           details: `Row ${index + 1}: ${JSON.stringify(row)}`
         });
       }
-      
+
       if (!validBranches.includes(branch)) {
-        return res.status(400).json({ 
-          success: false, 
-          message: `Invalid branch '${branch}' in student ${name}. Valid branches: ${validBranches.join(', ')}` 
+        return res.status(400).json({
+          success: false,
+          message: `Invalid branch '${branch}' in student ${name}. Valid branches: ${validBranches.join(', ')}`
         });
       }
-      
+
       if (!colleges.includes(college)) {
-        return res.status(400).json({ 
-          success: false, 
-          message: `College '${college}' not in batch colleges for student ${name}` 
+        return res.status(400).json({
+          success: false,
+          message: `College '${college}' not in batch colleges for student ${name}`
         });
       }
     }
 
-    // Create Batch
+    // Create Batch with allowedTechStacks
     const batch = await Batch.create({
       batchNumber,
       colleges,
@@ -338,8 +344,11 @@ router.post('/crt-batch', auth, excelUploadMiddleware, async (req, res) => {
       createdBy: req.admin._id,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
+      allowedTechStacks: allowedTechStacks // NEW FIELD
     });
+
     console.log('Batch Creation: Batch created:', batch._id);
+    console.log('Allowed Tech Stacks:', allowedTechStacks);
 
     // Hash passwords and prepare student data
     const studentsData = [];
@@ -366,32 +375,68 @@ router.post('/crt-batch', auth, excelUploadMiddleware, async (req, res) => {
     } catch (err) {
       console.error('Batch Creation: Error inserting students', err);
       await Batch.findByIdAndDelete(batch._id);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Error inserting students', 
-        error: err.message 
+      return res.status(500).json({
+        success: false,
+        message: 'Error inserting students',
+        error: err.message
       });
     }
 
     batch.students = studentDocs.map(student => student._id);
     await batch.save();
+
     console.log('Batch Creation: Batch updated with students');
 
     return res.status(201).json({
       success: true,
       message: 'CRT batch created successfully',
-      data: { batch, studentsCount: studentDocs.length }
+      data: { 
+        batch, 
+        studentsCount: studentDocs.length,
+        allowedTechStacks: allowedTechStacks 
+      }
     });
 
   } catch (error) {
     console.error('Batch Creation Error:', error);
-    return res.status(500).json({ 
-      success: false, 
+    return res.status(500).json({
+      success: false,
       message: error.message || 'Failed to create CRT batch',
       details: error.stack
     });
   }
 });
+
+// GET batch with available tech stacks
+router.get('/batches/:batchId', auth, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.batchId)
+      .populate('tpoId', 'name email')
+      .populate('students', 'name email branch college');
+
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...batch.toJSON(),
+        availableCRTOptions: batch.getAvailableCRTOptions()
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching batch:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
 
 // GET /api/admin/batches/grouped
 
