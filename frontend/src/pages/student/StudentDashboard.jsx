@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, Settings, LogOut, Bell, ChevronDown, Calendar, Clock,
   BookOpen, Award, Activity, GraduationCap, Phone, Mail,
   CheckCircle, AlertCircle, UserCheck, Briefcase, School, Monitor, Building2, X,
-  PlusCircle, CheckSquare, FileText, User, Menu, Target, TrendingUp, MessageSquare
+  PlusCircle, CheckSquare, FileText, User, Menu, Target, TrendingUp, MessageSquare,ChevronLeft
 } from 'lucide-react';
 import axios from 'axios';
 import StudentPlacementCalendar from './StudentCalender';
@@ -127,6 +127,14 @@ const StudentDashboard = () => {
     resources: { total: 0, viewed: 0 },
     performance: { totalQuizzes: 0, averageScore: 0, passRate: 0 }
   });
+const [categoryUnread, setCategoryUnread] = useState({
+  Placement: 0,
+  "Weekly Class Schedule": 0,
+  "My Assignments": 0,
+  "Available Quizzes": 0,
+  "Learning Resources": 0,
+});
+
   const [recentActivity, setRecentActivity] = useState([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -146,6 +154,21 @@ const StudentDashboard = () => {
 const [showNotifications, setShowNotifications] = useState(false);
 const [notifications, setNotifications] = useState([]);
 const [unreadCount, setUnreadCount] = useState(0);
+const [selectedCategory, setSelectedCategory] = useState(null);
+// 🔔 Close notification when clicking outside
+const notificationRef = useRef(null);
+
+useEffect(() => {
+  const handleClickOutside = (event) => {
+    if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+      setShowNotifications(false);
+    }
+  };
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => {
+    document.removeEventListener("mousedown", handleClickOutside);
+  };
+}, []);
 
   const navigate = useNavigate();
 
@@ -189,47 +212,53 @@ const [unreadCount, setUnreadCount] = useState(0);
       setError('Failed to fetch student data');
     }
   };
+const fetchNotifications = async () => {
+  try {
+    const token = localStorage.getItem("userToken");
+    const res = await axios.get("/api/notifications/student", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    console.log("🔔 Notifications fetched:", res.data);
+
+    const notifications = res.data.data || [];
+    const unreadByCategory = res.data.unreadByCategory || {
+      Placement: 0,
+      "Weekly Class Schedule": 0,
+      "My Assignments": 0,
+      "Available Quizzes": 0,
+      "Learning Resources": 0,
+    };
+
+    const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+
+    setNotifications(notifications);
+    setCategoryUnread(unreadByCategory);
+    setUnreadCount(totalUnread);
+  } catch (err) {
+    console.error("Error fetching notifications:", err);
+  }
+};
+
+// ✅ Now your effect and markAsRead can use it
 useEffect(() => {
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem("userToken");
-      if (!token) return;
-
-      const res = await axios.get("http://localhost:5000/api/notifications/student", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.data.success) {
-        const all = res.data.data || [];
-        setNotifications(all);
-        setUnreadCount(all.filter(n => n.recipients?.some(r => !r.isRead)).length);
-      }
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
-    }
-  };
-
   fetchNotifications();
+  const interval = setInterval(fetchNotifications, 30000);
+  return () => clearInterval(interval);
 }, []);
+
 const markAsRead = async (id) => {
   try {
     const token = localStorage.getItem("userToken");
     await axios.put(`http://localhost:5000/api/notifications/mark-read/${id}`, {}, {
       headers: { Authorization: `Bearer ${token}` },
     });
-
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n._id === id
-          ? { ...n, recipients: n.recipients.map((r) => ({ ...r, isRead: true })) }
-          : n
-      )
-    );
-    setUnreadCount((prev) => Math.max(0, prev - 1));
+    await fetchNotifications(); // ✅ works fine now
   } catch (err) {
-    console.error("Error marking as read:", err);
+    console.error("Error marking notification as read:", err);
   }
 };
+
 
 
   const fetchBatchInfo = async () => {
@@ -554,6 +583,8 @@ const markAsRead = async (id) => {
       </div>
     );
   }
+// ✅ Safe student ID for notification matching
+const studentId = studentData?.user?._id || studentData?._id;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -571,8 +602,8 @@ const markAsRead = async (id) => {
               </div>
             </div>
             <div className="flex items-center space-x-6">
-{/* Notifications Dropdown */}
-<div className="relative">
+<div className="relative" ref={notificationRef}>
+
   <button
     onClick={() => setShowNotifications(!showNotifications)}
     className="relative p-2 text-white hover:text-gray-200 transition-colors"
@@ -585,48 +616,92 @@ const markAsRead = async (id) => {
     )}
   </button>
 
-  {/* Dropdown Content */}
-  {showNotifications && (
-    <div className="absolute right-0 mt-2 w-80 bg-white text-gray-800 rounded-xl shadow-xl border z-50 max-h-96 overflow-y-auto">
-      <div className="p-3 border-b font-semibold text-blue-700 flex justify-between items-center">
-        <span>Notifications</span>
-        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded">
-          {unreadCount} unread
-        </span>
-      </div>
-
-      {notifications.length === 0 ? (
-        <div className="p-4 text-sm text-gray-500 text-center">
-          <Bell className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-          <p>No notifications yet</p>
-        </div>
-      ) : (
-        <div className="divide-y divide-gray-100">
-          {notifications.map((notification) => (
-            <div
-              key={notification._id}
-              onClick={() => markAsRead(notification._id)}
-              className={`p-3 cursor-pointer hover:bg-gray-50 transition-colors ${
-                notification.recipients?.some(r => !r.isRead) 
-                  ? "bg-blue-50" 
-                  : "bg-white"
-              }`}
-            >
-              <p className="font-medium text-sm text-gray-800">
-                {notification.title}
-              </p>
-              <p className="text-xs text-gray-600 mt-1">
-                {notification.message}
-              </p>
-              <p className="text-[10px] text-gray-400 mt-1">
-                {new Date(notification.createdAt).toLocaleString()}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
+  {/* 🔽 Dropdown */}
+{showNotifications && (
+  <div
+    className="absolute right-0 mt-3 w-96 z-50 backdrop-blur-xl bg-white/80 border border-white/20 shadow-2xl rounded-3xl p-4 space-y-3 max-h-[32rem] overflow-y-auto transition-all duration-300 hide-scrollbar"
+  >
+    {/* Header */}
+    <div className="flex justify-between items-center pb-2 border-b border-white/30">
+      <h3 className="text-blue-700 font-semibold flex items-center gap-2">
+        <Bell className="h-4 w-4 text-blue-600" /> Notifications
+      </h3>
+      <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
+        {unreadCount} unread
+      </span>
     </div>
-  )}
+
+    {/* CATEGORY VIEW */}
+    {!selectedCategory && (
+      <div className="space-y-3 mt-2">
+        {["Placement", "Weekly Class Schedule", "My Assignments", "Available Quizzes", "Learning Resources"]
+          .map((category) => {
+            const unread = categoryUnread[category] > 0;
+            return (
+              <div
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className="flex justify-between items-center p-3 bg-white hover:bg-blue-50 rounded-xl border border-gray-200 cursor-pointer transition"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-blue-800">{category}</span>
+                  {unread && <span className="w-2 h-2 bg-red-500 rounded-full"></span>}
+                </div>
+                <span className="text-xs text-gray-500">
+                  {categoryUnread[category] > 0 ? `${categoryUnread[category]} new` : ""}
+                </span>
+              </div>
+            );
+          })}
+      </div>
+    )}
+
+    {/* CATEGORY NOTIFICATIONS VIEW */}
+    {selectedCategory && (
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <button
+            onClick={() => setSelectedCategory(null)}
+            className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+          >
+            <ChevronLeft className="h-4 w-4" /> Back
+          </button>
+          <h4 className="text-blue-800 font-semibold">{selectedCategory}</h4>
+        </div>
+
+        {notifications.filter(n => n.category === selectedCategory).length === 0 ? (
+          <p className="text-sm text-gray-500 text-center py-4">No notifications</p>
+        ) : (
+          notifications
+            .filter(n => n.category === selectedCategory)
+            .map((n) => {
+              const recipient = n.recipients?.find(
+                (r) => r.recipientId?.toString() === studentId?.toString()
+              );
+              const unread = recipient && !recipient.isRead;
+
+              return (
+                <div
+                  key={n._id}
+                  onClick={() => markAsRead(n._id)}
+                  className={`p-3 mb-2 rounded-lg cursor-pointer border transition ${
+                    unread ? "bg-blue-50 border-blue-300" : "bg-white hover:bg-gray-50"
+                  }`}
+                >
+                  <p className="text-sm font-semibold text-gray-800">{n.title}</p>
+                  <p className="text-xs text-gray-600">{n.message}</p>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    {new Date(n.createdAt).toLocaleString()}
+                  </p>
+                </div>
+              );
+            })
+        )}
+      </div>
+    )}
+  </div>
+)}
+
 </div>
 
 
@@ -1206,7 +1281,7 @@ const markAsRead = async (id) => {
                     View All →
                   </button>
                 </div>
-                
+
                 {/* Add feedback preview content here */}
                 <FeedbackPreview role="student" />
               </div>

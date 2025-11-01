@@ -7,7 +7,8 @@ const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const Student = require('../models/Student');
 const generalAuth = require('../middleware/generalAuth');
 const mongoose = require('mongoose');
-
+// ✅ Add notification after populate() and before response
+const { createNotification } = require("../controllers/notificationController");
 // Helper function to get trainer's assigned placement batches
 const getTrainerPlacementBatches = async (trainerId) => {
   try {
@@ -15,7 +16,7 @@ const getTrainerPlacementBatches = async (trainerId) => {
       'assignedTrainers.trainer': trainerId,
       isActive: true
     }).select('_id batchNumber techStack year colleges students');
-    
+
     return batches.map(batch => ({
       _id: batch._id,
       name: `${batch.batchNumber} - ${batch.techStack} (${batch.year})`,
@@ -52,18 +53,18 @@ const getTrainerRegularBatches = async (trainerId) => {
 router.get('/batches', generalAuth, async (req, res) => {
   try {
     const trainerId = req.user.id;
-    
+
     const [regularBatches, placementBatches] = await Promise.all([
       getTrainerRegularBatches(trainerId),
       getTrainerPlacementBatches(trainerId)
     ]);
-    
+
     const allBatches = {
       regular: regularBatches,
       placement: placementBatches,
       all: [...regularBatches, ...placementBatches]
     };
-    
+
     res.json(allBatches);
   } catch (error) {
     console.error('Error fetching batches:', error);
@@ -103,7 +104,7 @@ router.post('/', generalAuth, async (req, res) => {
     if (accessLevel === 'batch-specific') {
       if (batchType === 'regular' || batchType === 'both') {
         if (assignedBatches && assignedBatches.length > 0) {
-          validatedRegularBatches = assignedBatches.filter(id => 
+          validatedRegularBatches = assignedBatches.filter(id =>
             mongoose.Types.ObjectId.isValid(id)
           );
         }
@@ -111,7 +112,7 @@ router.post('/', generalAuth, async (req, res) => {
 
       if (batchType === 'placement' || batchType === 'both') {
         if (assignedPlacementBatches && assignedPlacementBatches.length > 0) {
-          validatedPlacementBatches = assignedPlacementBatches.filter(id => 
+          validatedPlacementBatches = assignedPlacementBatches.filter(id =>
             mongoose.Types.ObjectId.isValid(id)
           );
         }
@@ -120,7 +121,7 @@ router.post('/', generalAuth, async (req, res) => {
 
     // Process legacy fields into resources array
     const processedResources = resources ? [...resources] : [];
-    
+
     if (referenceVideoLink) {
       processedResources.push({
         type: 'video',
@@ -129,7 +130,7 @@ router.post('/', generalAuth, async (req, res) => {
         description: 'Main reference video for this topic'
       });
     }
-    
+
     if (referenceNotesLink) {
       processedResources.push({
         type: 'document',
@@ -153,9 +154,9 @@ router.post('/', generalAuth, async (req, res) => {
       batchType: accessLevel === 'public' ? 'public' : (batchType || 'public'),
       isPublic: accessLevel === 'public' ? true : (isPublic !== undefined ? isPublic : true),
       accessLevel: accessLevel || 'public',
-      learningObjectives: Array.isArray(learningObjectives) ? learningObjectives : 
+      learningObjectives: Array.isArray(learningObjectives) ? learningObjectives :
         (learningObjectives ? [learningObjectives] : []),
-      prerequisites: Array.isArray(prerequisites) ? prerequisites : 
+      prerequisites: Array.isArray(prerequisites) ? prerequisites :
         (prerequisites ? [prerequisites] : []),
       tags: Array.isArray(tags) ? tags : (tags ? [tags] : []),
       availableFrom: availableFrom ? new Date(availableFrom) : new Date(),
@@ -163,12 +164,48 @@ router.post('/', generalAuth, async (req, res) => {
     });
 
     const savedReference = await reference.save();
-    
+
     // Populate batch information for response
     await savedReference.populate([
       { path: 'assignedBatches', select: 'name' },
       { path: 'assignedPlacementBatches', select: 'batchNumber techStack year colleges' }
     ]);
+
+
+// Notify placement batches
+if (validatedPlacementBatches.length > 0) {
+  await createNotification(
+    {
+      body: {
+        title: `New Learning Resource: ${topicName}`,
+        message: `A new learning resource "${topicName}" has been shared by ${req.user.name}. Check your Learning Resources section for details.`,
+        category: "Learning Resources",
+        targetBatchIds: validatedPlacementBatches,
+        type: "resource",
+      },
+      user: req.user,
+    },
+    { status: () => ({ json: () => {} }) } // dummy res
+  );
+}
+
+// Notify regular batches
+if (validatedRegularBatches.length > 0) {
+  await createNotification(
+    {
+      body: {
+        title: `New Learning Resource: ${topicName}`,
+        message: `A new learning resource "${topicName}" has been shared by ${req.user.name}. Check your Learning Resources section for details.`,
+        category: "Learning Resources",
+        targetBatchIds: validatedRegularBatches,
+        type: "resource",
+      },
+      user: req.user,
+    },
+    { status: () => ({ json: () => {} }) }
+  );
+}
+
 
     res.status(201).json(savedReference);
   } catch (error) {
@@ -181,22 +218,22 @@ router.post('/', generalAuth, async (req, res) => {
 router.get('/', generalAuth, async (req, res) => {
   try {
     const { search, subject, difficulty, batchType, page = 1, limit = 10 } = req.query;
-    
+
     // Build query
     const query = { trainerId: req.user.id, status: 'active' };
-    
+
     if (search) {
       query.$text = { $search: search };
     }
-    
+
     if (subject) {
       query.subject = subject;
     }
-    
+
     if (difficulty) {
       query.difficulty = difficulty;
     }
-    
+
     if (batchType && batchType !== 'all') {
       query.batchType = batchType;
     }
@@ -268,7 +305,7 @@ router.put('/:id', generalAuth, async (req, res) => {
         if (field === 'availableFrom' || field === 'availableUntil') {
           reference[field] = req.body[field] ? new Date(req.body[field]) : null;
         } else if (field === 'learningObjectives' || field === 'prerequisites' || field === 'tags') {
-          reference[field] = Array.isArray(req.body[field]) ? req.body[field] : 
+          reference[field] = Array.isArray(req.body[field]) ? req.body[field] :
             (req.body[field] ? [req.body[field]] : []);
         } else {
           reference[field] = req.body[field];
@@ -299,7 +336,7 @@ router.put('/:id', generalAuth, async (req, res) => {
     }
 
     const updatedReference = await reference.save();
-    
+
     await updatedReference.populate([
       { path: 'assignedBatches', select: 'name' },
       { path: 'assignedPlacementBatches', select: 'batchNumber techStack year colleges' }
@@ -337,11 +374,11 @@ router.get('/student/list', generalAuth, async (req, res) => {
   try {
     const studentId = req.user.id;
     const { search, subject, difficulty, page = 1, limit = 10 } = req.query;
-    
+
     // Get student information
     const student = await Student.findById(studentId)
       .select('batchId placementTrainingBatchId');
-      
+
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
@@ -391,11 +428,11 @@ router.get('/student/list', generalAuth, async (req, res) => {
     if (search) {
       query.$text = { $search: search };
     }
-    
+
     if (subject) {
       query.subject = subject;
     }
-    
+
     if (difficulty) {
       query.difficulty = difficulty;
     }
@@ -415,7 +452,7 @@ router.get('/student/list', generalAuth, async (req, res) => {
 
     // Add view status for each reference
     const referencesWithViewStatus = references.map(ref => {
-      const hasViewed = ref.lastViewedBy.some(view => 
+      const hasViewed = ref.lastViewedBy.some(view =>
         view.studentId.toString() === studentId
       );
 
@@ -444,7 +481,7 @@ router.get('/student/:id', generalAuth, async (req, res) => {
   try {
     const studentId = req.user.id;
     const referenceId = req.params.id;
-    
+
     const [reference, student] = await Promise.all([
       Reference.findById(referenceId)
         .populate([
@@ -469,7 +506,7 @@ router.get('/student/:id', generalAuth, async (req, res) => {
     await reference.save();
 
     // Get student's rating for this reference
-    const studentRating = reference.ratings.find(rating => 
+    const studentRating = reference.ratings.find(rating =>
       rating.studentId.toString() === studentId
     );
 
@@ -572,7 +609,7 @@ router.get('/:id/analytics', generalAuth, async (req, res) => {
           }))
       },
       engagement: {
-        averageViewsPerStudent: reference.lastViewedBy.length > 0 ? 
+        averageViewsPerStudent: reference.lastViewedBy.length > 0 ?
           reference.viewCount / reference.lastViewedBy.length : 0,
         feedbackRate: reference.ratings.length > 0 && reference.lastViewedBy.length > 0 ?
           (reference.ratings.length / reference.lastViewedBy.length) * 100 : 0

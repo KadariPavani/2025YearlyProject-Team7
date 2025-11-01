@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 🔒 Fully hide scrollbars */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -505,11 +514,11 @@ html {
   .mobile-hidden {
     display: none !important;
   }
-  
+
   .mobile-full {
     width: 100% !important;
   }
-  
+
   .mobile-text-center {
     text-align: center !important;
   }
@@ -519,7 +528,7 @@ html {
   .tablet-hidden {
     display: none !important;
   }
-  
+
   .tablet-full {
     width: 100% !important;
   }
@@ -536,15 +545,15 @@ html {
   .no-print {
     display: none !important;
   }
-  
+
   .print-break-before {
     page-break-before: always;
   }
-  
+
   .print-break-after {
     page-break-after: always;
   }
-  
+
   body {
     background: white !important;
     color: black !important;
@@ -580,7 +589,7 @@ html {
   .card {
     border: 2px solid #000;
   }
-  
+
   .btn-primary,
   .btn-secondary,
   .btn-danger,

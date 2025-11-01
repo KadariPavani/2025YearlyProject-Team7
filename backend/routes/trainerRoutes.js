@@ -5,6 +5,10 @@ const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const generalAuth = require('../middleware/generalAuth');
 const Attendance = require('../models/Attendance');
 const router = express.Router();
+const { notifyAssignmentCreated } = require("../controllers/notificationController");
+const notificationController = require("../controllers/notificationController");
+// ✅ Fetch all notifications for the logged-in trainer
+router.get("/notifications", generalAuth, notificationController.getTrainerNotifications);
 
 // @desc Register trainer
 // @route POST /api/trainer/register
@@ -353,9 +357,9 @@ router.post('/logout', generalAuth, async (req, res) => {
 router.get('/attendance/my-attendance', generalAuth, async (req, res) => {
   try {
     if (req.userType !== 'trainer') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied' 
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
       });
     }
 
@@ -379,14 +383,14 @@ router.get('/attendance/my-attendance', generalAuth, async (req, res) => {
 
     // Calculate statistics
     const totalSessions = attendanceRecords.length;
-    const presentCount = attendanceRecords.filter(a => 
+    const presentCount = attendanceRecords.filter(a =>
       a.trainerStatus === 'present'
     ).length;
-    const absentCount = attendanceRecords.filter(a => 
+    const absentCount = attendanceRecords.filter(a =>
       a.trainerStatus === 'absent'
     ).length;
-    const attendancePercentage = totalSessions > 0 
-      ? Math.round((presentCount / totalSessions) * 100) 
+    const attendancePercentage = totalSessions > 0
+      ? Math.round((presentCount / totalSessions) * 100)
       : 0;
 
     res.json({
@@ -403,9 +407,9 @@ router.get('/attendance/my-attendance', generalAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching trainer attendance:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 });
@@ -414,9 +418,9 @@ router.get('/attendance/my-attendance', generalAuth, async (req, res) => {
 router.get('/attendance/sessions-taught', generalAuth, async (req, res) => {
   try {
     if (req.userType !== 'trainer') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied' 
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
       });
     }
 
@@ -443,7 +447,7 @@ router.get('/attendance/sessions-taught', generalAuth, async (req, res) => {
     const summary = {
       totalSessions: sessions.length,
       totalStudentsAttended: sessions.reduce((sum, s) => sum + s.presentCount, 0),
-      averageAttendance: sessions.length > 0 
+      averageAttendance: sessions.length > 0
         ? Math.round(
             sessions.reduce((sum, s) => sum + s.attendancePercentage, 0) / sessions.length
           )
@@ -459,9 +463,9 @@ router.get('/attendance/sessions-taught', generalAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching sessions taught:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error' 
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 });

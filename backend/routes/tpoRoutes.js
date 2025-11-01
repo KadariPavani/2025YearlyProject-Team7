@@ -12,6 +12,9 @@ const generatePassword = require('../utils/generatePassword');
 const Attendance = require('../models/Attendance');
 const ExcelJS = require('exceljs');
 const sendEmail = require('../utils/sendEmail');
+const notificationController = require("../controllers/notificationController");
+
+
 // GET TPO Profile
 router.get('/profile', generalAuth, async (req, res) => {
   try {
@@ -145,11 +148,11 @@ router.get('/students-by-batch', generalAuth, async (req, res) => {
 
     // Calculate summary statistics
     const totalStudents = batches.reduce((acc, batch) => acc + batch.students.length, 0);
-    const crtStudents = batches.reduce((acc, batch) => 
+    const crtStudents = batches.reduce((acc, batch) =>
       acc + batch.students.filter(student => student.crtInterested).length, 0
     );
     const nonCrtStudents = totalStudents - crtStudents;
-    
+
     const collegeDistribution = {};
     batches.forEach(batch => {
       batch.colleges.forEach(college => {
@@ -210,7 +213,7 @@ router.get('/placement-training-batches', generalAuth, async (req, res) => {
     }
 
     const tpoId = req.user._id;
-    
+
     const batches = await PlacementTrainingBatch.find({ tpoId })
       .populate('students', 'name rollNo email college branch techStack crtInterested yearOfPassing')
       .populate('tpoId', 'name email')
@@ -403,8 +406,21 @@ router.post('/assign-trainers/:batchId', generalAuth, async (req, res) => {
       assignedAt: new Date()
     }));
 
-    batch.assignedTrainers = assignedTrainers;
-    await batch.save();
+const isUpdate = batch.assignedTrainers?.length > 0;
+
+// ✅ Save the updated batch assignments
+batch.assignedTrainers = assignedTrainers;
+await batch.save();
+
+if (isUpdate) {
+  console.log("🔁 Existing trainer schedule detected — sending reschedule notifications.");
+  await notificationController.notifyTrainerReschedule(batch._id, req.user.name || "TPO");
+  await notificationController.notifyStudentReschedule(batch._id, req.user.name || "TPO");
+} else {
+  console.log("🆕 New trainer schedule detected — sending assignment notifications.");
+  await notificationController.notifyTrainerAssignment(batch._id, req.user.name || "TPO");
+}
+
 
     // Populate the response
     await batch.populate([
@@ -413,6 +429,62 @@ router.post('/assign-trainers/:batchId', generalAuth, async (req, res) => {
         select: 'name email subjectDealing category experience'
       }
     ]);
+// 🔔 Send Weekly Class Schedule notification to all students in the batch
+await notificationController.notifyTrainerAssignment(
+  batch._id,
+  req.user.name || "TPO"
+);
+
+// ✅ Notify Trainers (so they see it in "My Classes")
+// ✅ Notify Trainers (so they see it in "My Classes")
+const Notification = require("../models/Notification");
+
+for (const assignment of trainerAssignments) {
+  // 🧩 Support multiple structures
+  const trainerId =
+    assignment.trainerId ||
+    (assignment.trainer && (assignment.trainer._id || assignment.trainer)) ||
+    null;
+
+  if (!trainerId) {
+    console.warn("⚠️ Skipping notification — trainerId not found in assignment:", assignment);
+    continue;
+  }
+
+  try {
+    await Notification.create({
+      title: "New Class Assigned",
+      message: `You have been assigned a new class or schedule for batch ${batch.batchNumber}. Please check your "My Classes" section for details.`,
+      category: "My Classes", // ✅ make sure this exists in Notification model enum
+      senderModel: "TPO",
+      senderId: req.user._id,
+      recipients: [
+        { recipientId: trainerId, recipientModel: "Trainer", isRead: false },
+      ],
+      targetRoles: ["trainer"],
+      targetBatches: [batch._id],
+      status: "sent",
+    });
+
+    console.log(`✅ Notification created for trainer ${trainerId}`);
+  } catch (err) {
+    console.error("❌ Error creating notification for trainer:", trainerId, err);
+  }
+}
+
+// ✅ Continue your existing response
+res.json({
+  success: true,
+  message: 'Trainers assigned successfully',
+  data: {
+    batchId: batch._id,
+    batchNumber: batch.batchNumber,
+    assignedTrainers: batch.assignedTrainers,
+    updatedAt: new Date()
+  }
+});
+
+
 
     res.json({
       success: true,
@@ -550,7 +622,7 @@ router.get('/schedule-timetable', generalAuth, async (req, res) => {
           return trainerAcc + (trainer.schedule?.length || 0);
         }, 0) || 0);
       }, 0),
-      assignedTrainers: [...new Set(batches.flatMap(batch => 
+      assignedTrainers: [...new Set(batches.flatMap(batch =>
         batch.assignedTrainers?.map(t => t.trainer?._id.toString()) || []
       ))].length,
       batchesByTechStack: {
@@ -639,7 +711,7 @@ router.get('/batch-schedule/:batchId', generalAuth, async (req, res) => {
         assignment.schedule.forEach(scheduleItem => {
           const day = scheduleItem.day;
           const timeSlot = assignment.timeSlot;
-          
+
           if (weeklySchedule[day] && weeklySchedule[day][timeSlot]) {
             weeklySchedule[day][timeSlot].push({
               trainer: assignment.trainer,
@@ -702,7 +774,7 @@ router.get('/export-schedule', generalAuth, async (req, res) => {
 
     // Flatten the data for export
     const exportData = [];
-    
+
     batches.forEach(batch => {
       if (batch.assignedTrainers && batch.assignedTrainers.length > 0) {
         batch.assignedTrainers.forEach(assignment => {
@@ -762,15 +834,15 @@ router.get('/export-schedule', generalAuth, async (req, res) => {
       // Set CSV headers
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename="TPO_Schedule_${new Date().toISOString().split('T')[0]}.csv"`);
-      
+
       // Create CSV content
       const csvHeaders = Object.keys(exportData[0] || {}).join(',');
-      const csvRows = exportData.map(row => 
-        Object.values(row).map(value => 
+      const csvRows = exportData.map(row =>
+        Object.values(row).map(value =>
           typeof value === 'string' && value.includes(',') ? `"${value}"` : value
         ).join(',')
       );
-      
+
       const csvContent = [csvHeaders, ...csvRows].join('\n');
       res.send(csvContent);
     } else {
@@ -817,10 +889,10 @@ router.get('/pending-approvals', generalAuth, async (req, res) => {
 
     // Filter and format approval requests
     const approvalRequests = [];
-    
+
     studentsWithPendingApprovals.forEach(student => {
       const pendingApprovals = student.pendingApprovals.filter(
-        approval => approval.status === 'pending' && 
+        approval => approval.status === 'pending' &&
                    ['crt_status_change', 'batch_change'].includes(approval.requestType)
       );
 
@@ -1048,9 +1120,9 @@ router.get('/approval-history', generalAuth, async (req, res) => {
 router.post('/assign-coordinator', generalAuth, async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied. TPO route only.' 
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. TPO route only.'
       });
     }
 
@@ -1117,7 +1189,7 @@ router.post('/assign-coordinator', generalAuth, async (req, res) => {
     });
 
     await coordinator.save();
-    
+
     // Populate coordinator with batch details
     await coordinator.populate([{
       path: 'assignedPlacementBatch',
@@ -1163,7 +1235,7 @@ router.post('/assign-coordinator', generalAuth, async (req, res) => {
 
   } catch (error) {
     console.error('Error assigning coordinator:', error);
-    
+
     // Handle duplicate key error specifically
     if (error.code === 11000) {
       return res.status(400).json({
@@ -1191,12 +1263,12 @@ router.get('/attendance/overall-summary', generalAuth, async (req, res) => {
     }
 
     const tpoId = req.user._id;
-    
+
     // Get all batches for this TPO with student details
     const batches = await PlacementTrainingBatch.find({ tpoId })
       .select('_id batchNumber techStack colleges students')
       .populate('students', 'name rollNo email college branch');
-    
+
     const batchIds = batches.map(b => b._id);
 
     // Get all attendance records with FULL population
@@ -1211,22 +1283,22 @@ router.get('/attendance/overall-summary', generalAuth, async (req, res) => {
 
     // Calculate statistics
     const totalSessions = attendanceRecords.length;
-    const totalStudentsMarked = attendanceRecords.reduce((sum, record) => 
+    const totalStudentsMarked = attendanceRecords.reduce((sum, record) =>
       sum + record.totalStudents, 0
     );
     const averageAttendance = totalSessions > 0
       ? Math.round(
-          attendanceRecords.reduce((sum, record) => 
+          attendanceRecords.reduce((sum, record) =>
             sum + record.attendancePercentance, 0
           ) / totalSessions
         )
       : 0;
 
     // Calculate present/absent totals
-    const totalPresent = attendanceRecords.reduce((sum, record) => 
+    const totalPresent = attendanceRecords.reduce((sum, record) =>
       sum + record.presentCount, 0
     );
-    const totalAbsent = attendanceRecords.reduce((sum, record) => 
+    const totalAbsent = attendanceRecords.reduce((sum, record) =>
       sum + record.absentCount, 0
     );
 
@@ -1249,12 +1321,12 @@ router.get('/attendance/overall-summary', generalAuth, async (req, res) => {
           sessions: []
         };
       }
-      
+
       batchSummary[batchId].totalSessions++;
       batchSummary[batchId].attendances.push(record.attendancePercentage);
       batchSummary[batchId].totalPresent += record.presentCount;
       batchSummary[batchId].totalAbsent += record.absentCount;
-      
+
       // Add session details
       batchSummary[batchId].sessions.push({
         _id: record._id,
@@ -1419,7 +1491,7 @@ router.get('/attendance/batch/:batchId', generalAuth, async (req, res) => {
     if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (isValidDate(start) && isValidDate(end)) {
         dateFilter.sessionDate = {
           $gte: start,
@@ -1450,7 +1522,7 @@ router.get('/attendance/batch/:batchId', generalAuth, async (req, res) => {
           totalSessions: attendanceRecords.length,
           averageAttendance: attendanceRecords.length > 0
             ? Math.round(
-                attendanceRecords.reduce((sum, r) => sum + r.attendancePercentage, 0) / 
+                attendanceRecords.reduce((sum, r) => sum + r.attendancePercentage, 0) /
                 attendanceRecords.length
               )
             : 0
@@ -1581,7 +1653,7 @@ router.get('/attendance/complete-report', generalAuth, async (req, res) => {
     if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+
       if (isValidDate(start) && isValidDate(end)) {
         attendanceQuery.sessionDate = {
           $gte: start,
@@ -1614,7 +1686,7 @@ router.get('/attendance/complete-report', generalAuth, async (req, res) => {
     // Process data for comprehensive report
     const studentWiseReport = {};
     const sessionWiseReport = [];
-    
+
     let totalPresent = 0;
     let totalAbsent = 0;
     let totalLate = 0;
@@ -1740,8 +1812,8 @@ router.get('/attendance/complete-report', generalAuth, async (req, res) => {
       const batchSessions = sessionWiseReport.filter(
         s => s.batch._id.toString() === batch._id.toString()
       );
-      
-      const batchStudents = studentArray.filter(s => 
+
+      const batchStudents = studentArray.filter(s =>
         batch.students.some(bs => bs._id.toString() === s.student._id.toString())
       );
 
@@ -1824,7 +1896,7 @@ router.get('/attendance/download-excel', generalAuth, async (req, res) => {
     // Validate dates if provided
     let start = null;
     let end = null;
-    
+
     if (startDate) {
       start = new Date(startDate);
       if (!isValidDate(start)) {
@@ -1834,7 +1906,7 @@ router.get('/attendance/download-excel', generalAuth, async (req, res) => {
         });
       }
     }
-    
+
     if (endDate) {
       end = new Date(endDate);
       if (!isValidDate(end)) {
@@ -1894,7 +1966,7 @@ router.get('/attendance/download-excel', generalAuth, async (req, res) => {
 
     // ========== SHEET 1: TRAINER ATTENDANCE ==========
     const trainerSheet = workbook.addWorksheet('Trainer Attendance');
-    
+
     trainerSheet.columns = [
       { header: 'Date', key: 'date', width: 12 },
       { header: 'Day', key: 'day', width: 10 },
@@ -1967,7 +2039,7 @@ router.get('/attendance/download-excel', generalAuth, async (req, res) => {
       if (batchRecords.length === 0) return;
 
       const batchSheet = workbook.addWorksheet(`Batch ${batch.batchNumber}`);
-      
+
       batchSheet.columns = [
         { header: 'Date', key: 'date', width: 12 },
         { header: 'Day', key: 'day', width: 10 },
@@ -2042,7 +2114,7 @@ router.get('/attendance/download-excel', generalAuth, async (req, res) => {
 
     // ========== LAST SHEET: SUMMARY ==========
     const summarySheet = workbook.addWorksheet('Summary');
-    
+
     summarySheet.columns = [
       { header: 'Student Name', key: 'name', width: 25 },
       { header: 'Roll Number', key: 'rollNo', width: 15 },
@@ -2070,7 +2142,7 @@ router.get('/attendance/download-excel', generalAuth, async (req, res) => {
     attendanceRecords.forEach(record => {
       record.studentAttendance.forEach(sa => {
         if (!sa.studentId) return;
-        
+
         const sid = sa.studentId._id.toString();
         if (!studentMap[sid]) {
           studentMap[sid] = {
@@ -2120,7 +2192,7 @@ router.get('/attendance/download-excel', generalAuth, async (req, res) => {
     });
 
     // Generate filename
-    const dateStr = start && end 
+    const dateStr = start && end
       ? `${start.toISOString().split('T')[0]}_to_${end.toISOString().split('T')[0]}`
       : 'All_Dates';
     const filename = `Attendance_Report_${dateStr}_${Date.now()}.xlsx`;

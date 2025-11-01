@@ -57,55 +57,56 @@ export default function TestimonialSlider() {
   const getCardStyle = (index) => {
     const diff = index - currentIndex;
     let position;
-    
+
     if (diff === 0) position = 0;
     else if (diff === 1 || diff === -(testimonials.length - 1)) position = 1;
     else if (diff === -1 || diff === testimonials.length - 1) position = -1;
     else if (diff === 2 || diff === -(testimonials.length - 2)) position = 2;
     else if (diff === -2 || diff === testimonials.length - 2) position = -2;
     else position = 3;
-    
+
     if (position === 0) {
       return {
         transform: 'translateX(-230px) translateY(-30%) scale(1)',
         opacity: 1,
         zIndex: 30,
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        transition: 'all 0.8s ease-in-out',
       };
     } else if (position === 1) {
       return {
         transform: 'translateX(26%) translateY(-30%) scale(0.75)',
         opacity: 0.5,
         zIndex: 20,
-        pointerEvents: 'auto'
+        transition: 'all 0.8s ease-in-out',
       };
     } else if (position === -1) {
       return {
         transform: 'translateX(-130%) translateY(-30%) scale(0.75)',
         opacity: 0.5,
         zIndex: 20,
-        pointerEvents: 'auto'
+        transition: 'all 0.8s ease-in-out',
       };
     } else if (position === 2) {
       return {
         transform: 'translateX(60%) translateY(-30%) scale(0.6)',
         opacity: 0.3,
         zIndex: 10,
-        pointerEvents: 'auto'
+        transition: 'all 0.8s ease-in-out',
       };
     } else if (position === -2) {
       return {
         transform: 'translateX(-160%) translateY(-30%) scale(0.6)',
         opacity: 0.3,
         zIndex: 10,
-        pointerEvents: 'auto'
+        transition: 'all 0.8s ease-in-out',
       };
     } else {
       return {
         transform: 'translateX(0) translateY(-30%) scale(0.5)',
         opacity: 0,
         zIndex: 0,
-        pointerEvents: 'none'
+        transition: 'all 0.8s ease-in-out',
       };
     }
   };
@@ -124,63 +125,88 @@ export default function TestimonialSlider() {
     }
   };
 
+  // 🕒 Auto-slide effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      nextSlide();
+    }, 3000); // slides every 3 seconds
+
+    return () => clearInterval(interval);
+  }, [currentIndex]);
+
+  // 🎹 Keyboard navigation
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [currentIndex]);
 
   return (
-    // 👇 Added the ID "students" here
-    <section id="students" className="w-full flex flex-col items-center justify-center py-8" style={{ background: '#5791ED' }}>
-      
+<section
+  id="students"
+  className="w-full flex flex-col items-center justify-center py-20"  // increased padding
+  style={{ background: '#5791ED', minHeight: '500px' }} // added minHeight
+>
+
       <div className="text-center mb-8">
-        <h1 className="text-5xl font-bold text-white mb-4">Placement Success Stories</h1>
+        <h1 className="text-5xl font-bold text-white mb-4">
+          Placement Success Stories
+        </h1>
         <p className="text-xl text-white/90 max-w-2xl mx-auto">
           Hear what our successful candidates have to say about their journey with us
         </p>
       </div>
 
-      <div className="relative w-full max-w-7xl h-80">
-        {testimonials.map((testimonial, index) => {
-          const style = getCardStyle(index);
-          
-          return (
-            <div 
-              key={testimonial.id}
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md transition-all duration-500 ease-in-out cursor-pointer"
-              style={style}
-              onClick={() => handleCardClick(index)}
-            >
-              <div className={`rounded-2xl shadow-2xl p-8 text-center transition-all duration-500 ${
-                index === currentIndex ? 'bg-white' : 'bg-blue-200'
-              }`}>
-                <div className="flex justify-center mb-6">
-                  <img
-                    src={testimonial.image}
-                    alt={testimonial.name}
-                    className="w-40 h-40 rounded-full border-4 border-teal-500 object-cover"
-                    style={{ objectPosition: 'center' }}
-                  />
-                </div>
+{/* 🟩 Shift cards slightly upward */}
+<div className="relative w-full max-w-7xl h-80 -mt-12">
+  {testimonials.map((testimonial, index) => {
+    const style = getCardStyle(index);
+    return (
+      <div
+        key={testimonial.id}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md transition-all duration-700 ease-in-out cursor-pointer"
+        style={style}
+        onClick={() => handleCardClick(index)}
+      >
+        <div
+          className={`rounded-2xl shadow-2xl p-8 text-center transition-all duration-700 ${
+            index === currentIndex ? 'bg-white scale-105' : 'bg-blue-200'
+          }`}
+        >
+          <div className="flex justify-center mb-6">
+            <img
+              src={testimonial.image}
+              alt={testimonial.name}
+              className="w-40 h-40 rounded-full border-4 border-teal-500 object-cover"
+            />
+          </div>
 
-                <h3 className={`font-semibold text-2xl mb-1 ${
-                  index === currentIndex ? 'text-gray-900' : 'text-blue-900'
-                }`}>
-                  {testimonial.name}
-                </h3>
+          <h3
+            className={`font-semibold text-2xl mb-1 ${
+              index === currentIndex ? 'text-gray-900' : 'text-blue-900'
+            }`}
+          >
+            {testimonial.name}
+          </h3>
 
-                <div className="text-sm mb-3" style={{ color: index === currentIndex ? '#374151' : '#1e3a8a' }}>
-                  {testimonial.role} &nbsp;•&nbsp; Roll No: {testimonial.rollNumber}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+          <div
+            className="text-sm mb-3"
+            style={{
+              color: index === currentIndex ? '#374151' : '#1e3a8a',
+            }}
+          >
+            {testimonial.role} &nbsp;•&nbsp; Roll No: {testimonial.rollNumber}
+          </div>
+        </div>
       </div>
-      
-      <div className="mt-6 text-center text-white/80 text-sm">
-        <p>Click on side cards or use arrow keys to navigate</p>
-      </div>
+    );
+  })}
+</div>
+
+{/* Bring note text closer to cards */}
+
+
+
+
     </section>
   );
 }

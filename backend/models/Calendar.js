@@ -39,11 +39,7 @@ const CalendarSchema = new mongoose.Schema({
   },
     selectedListFiles: [{
     fileName: String,
-    fileType: {
-      type: String,
-      enum: ['pdf', 'excel', 'csv'],
-      required: true
-    },
+
     fileUrl: String,
     uploadedAt: { type: Date, default: Date.now }
   }],
@@ -67,6 +63,8 @@ registrations: [{
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' },
   status: { type: String, enum: ['registered', 'confirmed', 'cancelled'], default: 'registered' },
   registeredAt: { type: Date, default: Date.now },
+  notified: { type: Boolean, default: false },
+
   personalInfo: {
     name: String,
     rollNo: String,
@@ -84,9 +82,20 @@ registrations: [{
     externalLink: String
   }
 }],
+selectedStudents: [
+  {
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: "Student" },
+    name: String,
+    rollNo: String,
+    email: String,
+    branch: String,
+    selectedAt: { type: Date, default: Date.now },
+  },
+],
 
 
   meetingLink: String,
+
   companyDetails: {
     companyId: {
       type: mongoose.Schema.Types.ObjectId,

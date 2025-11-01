@@ -79,9 +79,30 @@ const NotificationSchema = new mongoose.Schema({
     type: String,
     enum: ['draft', 'sent', 'scheduled'],
     default: 'sent'
-  }
+  },
+category: {
+  type: String,
+  enum: [
+    "Placement",
+    "Weekly Class Schedule",
+    "My Assignments",
+    "Available Quizzes",
+    "Learning Resources",
+"My Classes",
+"Placement Calendar",
+  ],
+  required: true
+},
+uniqueKey: {
+  type: String,
+  unique: true,          // enforce uniqueness at DB level
+  sparse: true,          // allow documents without this field
+  index: true,           // make it queryable and efficient
+},
+
 }, {
   timestamps: true
 });
+
 
 module.exports = mongoose.model('Notification', NotificationSchema);

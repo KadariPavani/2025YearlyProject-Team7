@@ -34,7 +34,8 @@ const HeroCarousel = () => {
   }, []);
 
   return (
-    <div className="relative w-full h-[700px] md:h-[600px] sm:h-[450px] overflow-hidden">
+<div className="relative w-full h-[700px] md:h-[500px] sm:h-[300px] overflow-hidden mt-1">
+
       {slides.map((slide, index) => (
         <div
           key={index}
@@ -49,22 +50,20 @@ const HeroCarousel = () => {
 />
 
 
-          
           <div className="absolute inset-y-0 left-0 w-full md:w-3/5 bg-gradient-to-r from-[#6E9EDE]/100 via-[#6E9EDE]/95 to-transparent flex flex-col justify-center items-start px-6 sm:px-12 md:px-16 text-white">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight drop-shadow-md">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-tight drop-shadow-md">
               {slide.title}
             </h1>
-            <p className="mt-3 sm:mt-4 text-base sm:text-lg md:text-xl max-w-md">
+            <p className="mt-3 sm:mt-4 text-sm sm:text-base md:text-lg max-w-md">
               {slide.desc}
             </p>
-            <button className="mt-5 sm:mt-6 bg-white text-[#6E9EDE] px-5 sm:px-7 py-2 sm:py-3 rounded hover:bg-gray-100 transition text-sm sm:text-base font-medium">
+            <button className="mt-5 sm:mt-6 bg-white text-[#6E9EDE] px-5 sm:px-7 py-2 sm:py-3 rounded hover:bg-gray-100 transition text-sm sm:text-base font-medium shadow-md">
               {slide.btnText}
             </button>
           </div>
         </div>
       ))}
 
-      
       <button
         onClick={prevSlide}
         className="absolute top-1/2 left-3 sm:left-5 transform -translate-y-1/2 bg-gray-800 bg-opacity-50 text-white p-2 sm:p-3 rounded-full hover:bg-opacity-80 text-lg sm:text-xl"
@@ -78,7 +77,6 @@ const HeroCarousel = () => {
         ❯
       </button>
 
-      
       <div className="absolute bottom-4 sm:bottom-6 w-full flex justify-center space-x-2 sm:space-x-3">
         {slides.map((_, index) => (
           <button
@@ -93,5 +91,6 @@ const HeroCarousel = () => {
     </div>
   );
 };
+
 
 export default HeroCarousel;

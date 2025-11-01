@@ -43,7 +43,7 @@ const Landing = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // 🎞 Animation only for PlacedStudents section
+  // Animation for PlacedStudents
   const fadeInUp = {
     hidden: { opacity: 0, y: 60 },
     visible: { opacity: 1, y: 0 },
@@ -52,20 +52,21 @@ const Landing = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 scroll-smooth">
       {/* Header */}
-      <header className="bg-white shadow-sm fixed w-full top-0 z-50">
+      <header className="bg-white shadow-md fixed w-full top-0 z-50 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-2">
+          <div className="flex justify-between items-center py-3">
             {/* Logo */}
             <div className="flex items-center space-x-3">
               <button
                 type="button"
                 onClick={() => navigate("/super-admin-login")}
                 aria-label="Super Admin Login"
+                className="focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
               >
                 <img
                   src="/Logo.png"
                   alt="InfoVerse Logo"
-                  className="h-16 w-16 object-contain cursor-pointer"
+                  className="h-16 w-16 object-contain cursor-pointer transition-transform duration-300 hover:scale-105"
                 />
               </button>
               {/* <span className="text-gray-900 font-bold text-lg sm:text-xl">
@@ -74,14 +75,14 @@ const Landing = () => {
             </div>
 
             {/* Desktop Nav */}
-            <nav className="hidden md:flex space-x-8 text-gray-800 font-medium">
-              <a href="#home" className="hover:text-indigo-600">Home</a>
-              <a href="#placements" className="hover:text-indigo-600">Placements</a>
-              <a href="#students" className="hover:text-indigo-600">Students</a>
-              <a href="#faqs" className="hover:text-indigo-600">FAQ</a>
+            <nav className="hidden md:flex space-x-10 text-gray-800 font-semibold tracking-wide">
+              <a href="#home" className="hover:text-indigo-600 transition-colors duration-300">Home</a>
+              <a href="#placements" className="hover:text-indigo-600 transition-colors duration-300">Placements</a>
+              <a href="#students" className="hover:text-indigo-600 transition-colors duration-300">Students</a>
+              <a href="#faqs" className="hover:text-indigo-600 transition-colors duration-300">FAQ</a>
               <button
                 onClick={() => navigate("/contact")}
-                className="hover:text-indigo-600"
+                className="hover:text-indigo-600 transition-colors duration-300 font-semibold"
               >
                 Contact
               </button>
@@ -92,21 +93,19 @@ const Landing = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowDropdown((s) => !s)}
-                  className="flex items-center space-x-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-lg transition-all duration-300 shadow-sm hover:shadow-md text-sm sm:text-base"
+                  className="flex items-center space-x-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   aria-haspopup="true"
                   aria-expanded={showDropdown}
                 >
-                  <LogIn className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span className="font-medium">Login</span>
+                  <LogIn className="h-5 w-5" />
+                  <span className="font-semibold select-none">Login</span>
                   <ChevronDown
-                    className={`h-3 w-3 sm:h-4 sm:w-4 transition-transform duration-200 ${
-                      showDropdown ? "rotate-180" : ""
-                    }`}
+                    className={`h-4 w-4 transition-transform duration-200 ${showDropdown ? "rotate-180" : ""}`}
                   />
                 </button>
 
                 {showDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 sm:w-56 bg-white rounded-xl shadow-xl py-2 z-50 border border-gray-100 animate-fadeIn">
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl py-2 border border-gray-100 animate-fadeIn z-50">
                     {userTypes.map((type, index) => {
                       const IconComponent = type.icon;
                       return (
@@ -116,12 +115,12 @@ const Landing = () => {
                             navigate(type.path);
                             setShowDropdown(false);
                           }}
-                          className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 transition-all duration-200 text-sm sm:text-base"
+                          className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 transition-all duration-200 text-sm sm:text-base rounded-lg focus:outline-none focus:bg-indigo-100"
                         >
-                          <div className={`p-2 rounded-lg ${type.bgColor} bg-opacity-10`}>
-                            <IconComponent className={`h-4 w-4 sm:h-5 sm:w-5 ${type.color}`} />
+                          <div className={`p-2 rounded-lg ${type.bgColor} bg-opacity-20`}>
+                            <IconComponent className={`h-5 w-5 ${type.color}`} />
                           </div>
-                          <span className="font-medium">{type.name}</span>
+                          <span className="font-semibold">{type.name}</span>
                         </button>
                       );
                     })}
@@ -132,13 +131,40 @@ const Landing = () => {
 
             {/* Mobile menu button */}
             <button
-              className="block md:hidden text-gray-800 focus:outline-none"
+              className="block md:hidden text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
               onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Toggle menu"
             >
-              {menuOpen ? <X size={26} /> : <Menu size={26} />}
+              <motion.div
+                animate={{ rotate: menuOpen ? 90 : 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                {menuOpen ? <X size={26} /> : <Menu size={26} />}
+              </motion.div>
             </button>
           </div>
         </div>
+
+        {/* Mobile Nav */}
+        {menuOpen && (
+          <nav className="md:hidden bg-white border-t border-gray-200 shadow-lg">
+            <div className="flex flex-col space-y-3 py-4 px-6 text-gray-800 font-medium">
+              <a href="#home" className="hover:text-indigo-600 transition-colors duration-300">Home</a>
+              <a href="#placements" className="hover:text-indigo-600 transition-colors duration-300">Placements</a>
+              <a href="#students" className="hover:text-indigo-600 transition-colors duration-300">Students</a>
+              <a href="#faqs" className="hover:text-indigo-600 transition-colors duration-300">FAQ</a>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate("/contact");
+                }}
+                className="text-left hover:text-indigo-600 transition-colors duration-300 font-semibold"
+              >
+                Contact
+              </button>
+            </div>
+          </nav>
+        )}
       </header>
 
       {/* Page sections start here */}
@@ -148,7 +174,8 @@ const Landing = () => {
 
         {/* Placements section */}
         <section id="placements">
-          <h2 className="text-2xl font-semibold text-center mt-6 mb-4">
+          <h2 className="text-2xl font-semibold text-center mt-6 mb-4 tracking-wide text-gray-800">
+            {/* You can put a title here if desired */}
           </h2>
           <Placements />
         </section>

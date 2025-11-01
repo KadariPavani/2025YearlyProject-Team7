@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef  } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import {
-  Users, Settings, LogOut, Bell, ChevronDown, Building, Calendar, Eye, ChevronRight,
+  Users, Settings, LogOut, ChevronDown, Building, Calendar, Eye, ChevronRight,
   Building2, Code2, GraduationCap, X, TrendingUp, Clock, MapPin, Award, Filter,
   Search, UserPlus, UserCheck, Download, CalendarDays, BookOpen, FileText,
   User, Phone, Mail, MapPin as Location, GraduationCap as Education, Briefcase,
   ExternalLink, Image as ImageIcon, Star,
-  CheckCircle, AlertCircle,
+  CheckCircle, AlertCircle
 } from 'lucide-react';
 import TrainerAssignment from './TrainerAssignment';
 import ScheduleTimetable from './ScheduleTimetable';
@@ -69,6 +69,19 @@ const TPODashboard = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [approvalToReject, setApprovalToReject] = useState(null);
 
+// 🔔 TPO Notifications
+const [showNotifications, setShowNotifications] = useState(false);
+const [notifications, setNotifications] = useState([]);
+const [unreadCount, setUnreadCount] = useState(0);
+const [categoryUnread, setCategoryUnread] = useState({
+  "Placement": 0,
+  "Weekly Class Schedule": 0,
+  "My Assignments": 0,
+  "Available Quizzes": 0,
+  "Learning Resources": 0,
+});
+const [selectedCategory, setSelectedCategory] = useState(null);
+const notificationRef = useRef(null);
 
   const [assigningCoordinator, setAssigningCoordinator] = useState(false);
   const [assignmentError, setAssignmentError] = useState('');
@@ -109,6 +122,61 @@ const TPODashboard = () => {
       setError('Failed to fetch dashboard data');
     }
   };
+useEffect(() => {
+  const handleClickOutside = (event) => {
+    if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+      setShowNotifications(false);
+    }
+  };
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => {
+    document.removeEventListener("mousedown", handleClickOutside);
+  };
+}, []);
+
+const fetchNotifications = async () => {
+  try {
+    const token = localStorage.getItem("userToken");
+    const res = await axios.get("/api/notifications/tpo", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const notifications = res.data.data || [];
+    const unreadByCategory = res.data.unreadByCategory || {
+      "Placement": 0,
+      "Weekly Class Schedule": 0,
+      "My Assignments": 0,
+      "Available Quizzes": 0,
+      "Learning Resources": 0,
+    };
+
+    const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+
+    setNotifications(notifications);
+    setCategoryUnread(unreadByCategory);
+    setUnreadCount(totalUnread);
+  } catch (err) {
+    console.error("Error fetching TPO notifications:", err);
+  }
+};
+
+useEffect(() => {
+  fetchNotifications();
+  const interval = setInterval(fetchNotifications, 30000);
+  return () => clearInterval(interval);
+}, []);
+
+const markAsRead = async (id) => {
+  try {
+    const token = localStorage.getItem("userToken");
+    await axios.put(`/api/notifications/mark-read/${id}`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    await fetchNotifications();
+  } catch (err) {
+    console.error("Error marking TPO notification as read:", err);
+  }
+};
 
   const fetchAssignedBatches = async () => {
     setLoadingBatches(true);
@@ -1289,19 +1357,11 @@ const getRequestTypeColor = (type) => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <button className="relative p-2 text-white hover:bg-white/10 rounded-lg transition-colors">
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-1 right-1 h-2 w-2 bg-green-400 rounded-full"></span>
-              </button>
 
-              <div className="relative">
-                <button
-                  onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-                  className="flex items-center space-x-1 p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
-                >
-                  <Settings className="h-5 w-5" />
-                  <ChevronDown className="h-4 w-4" />
-                </button>
+
+              <div className="relative" >
+
+
 
                 {showSettingsDropdown && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-10">

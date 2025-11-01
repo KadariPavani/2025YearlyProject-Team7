@@ -31,6 +31,17 @@ const [showModal, setShowModal] = useState(false);
 const [deletedEvents, setDeletedEvents] = useState([]);
 const [showDeletedModal, setShowDeletedModal] = useState(false);
 const [targetGroup, setTargetGroup] = useState("both");
+const [selectedStudentEmail, setSelectedStudentEmail] = useState("");
+const [selectedEmail, setSelectedEmail] = useState("");
+const [highlightedEventId, setHighlightedEventId] = useState(null);
+const [selectedFile, setSelectedFile] = useState(null);
+const [showSelectModal, setShowSelectModal] = useState(false);
+const [mailSent, setMailSent] = useState(false);
+const [selectedDateLabel, setSelectedDateLabel] = useState("");
+const [showSelectedStudentsModal, setShowSelectedStudentsModal] = useState(false);
+const [selectedStudents, setSelectedStudents] = useState([]);
+const [eventRegistrations, setEventRegistrations] = useState([]);
+const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleShowRegistrations = (eventId) => {
     setSelectedEventId(eventId);
@@ -41,6 +52,27 @@ const openCompanyRegistrationForm = (event) => {
   setTpoExternalLink(event.externalLink || "");
   setShowStudentForm(true);
 };
+const handleViewSelectedStudents = async (eventId) => {
+  try {
+    const token = localStorage.getItem("userToken");
+    const res = await axios.get(
+      `http://localhost:5000/api/calendar/${eventId}/selected-students`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    const students = res.data?.data || [];
+    if (students.length > 0) {
+      setSelectedStudents(students);
+      setShowSelectedStudentsModal(true);
+    } else {
+      alert("⚠️ No selected students found for this event.");
+    }
+  } catch (err) {
+    console.error("Error fetching selected students:", err);
+    alert("Failed to load selected students");
+  }
+};
+
 const [formData, setFormData] = useState({
   id: "",
   title: "",
@@ -91,6 +123,41 @@ const [formData, setFormData] = useState({
   markSheets: null,
 });
 
+const handleUploadSelectedList = async () => {
+  const eventIdToUse = selectedEventId || formData?.id;
+  if (!selectedFile || !eventIdToUse) return alert("⚠️ Please select a file and event first!");
+  if (mailSent) return alert("Mail & notification already sent!");
+
+  try {
+    const token = localStorage.getItem("userToken");
+    const uploadData = new FormData();
+    uploadData.append("file", selectedFile);
+    uploadData.append("selectedStudentsCount", registeredStudents.length);
+    uploadData.append(
+      "selectedEmails",
+      JSON.stringify(registeredStudents.map((s) => s.email))
+    );
+
+    const res = await axios.put(
+      `http://localhost:5000/api/calendar/${eventIdToUse}/upload-selected`,
+      uploadData,
+      { headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" } }
+    );
+
+    if (res.data.success) {
+      alert("📧 Selected list uploaded & mail sent successfully!");
+      setMailSent(true); // ✅ lock mail sending
+      setSelectedFile(null);
+      fetchEvents();
+    } else {
+      alert("⚠️ Upload failed: " + res.data.message);
+    }
+  } catch (err) {
+    console.error("❌ Upload failed:", err);
+    alert("❌ Upload failed: " + err.message);
+  }
+};
+
 
   // Fetch TPO ID from logged-in user
   useEffect(() => {
@@ -124,7 +191,25 @@ useEffect(() => {
     window.removeEventListener("studentRegistered", handleStudentRegistered);
   };
 }, []);
+
+const selectStudent = async (email) => {
+  try {
+    const res = await axios.put(
+      `http://localhost:5000/api/calendar/${selectedEventId}/select-student`,
+      { email },
+      { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+    );
+    alert(res.data.message);
+    fetchRegisteredStudents(selectedEventId); // refresh list
+  } catch (err) {
+    console.error("Error selecting student:", err);
+    alert("Failed to update student selection");
+  }
+};
+
 const handleViewRegisteredStudents = async (eventId) => {
+setSelectedEventId(eventId);
+
   try {
     const token = localStorage.getItem("userToken");
     if (!token) {
@@ -132,19 +217,29 @@ const handleViewRegisteredStudents = async (eventId) => {
       return;
     }
 
+    // Fetch registered students from backend
     const res = await axios.get(
-      `http://localhost:5000/api/calendar/${eventId}/registrations`,
+      `http://localhost:5000/api/calendar/${eventId}/registered-students`,
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       }
     );
 
     if (res.status === 200 && Array.isArray(res.data?.data)) {
-      setRegisteredStudents(res.data.data);
+      const students = res.data.data;
+
+      // ✅ Update global state so dropdown also gets populated
+      setRegisteredStudents(students);
       setSelectedEvent(eventId);
+
+      // ✅ Show both modal + ready dropdown list
       setShowModal(true);
+
+      // ✅ If the event is completed, pre-fill the dropdown immediately
+      const selectedEvent = events.find((e) => e.id === eventId);
+      if (selectedEvent?.status === "completed") {
+        setSelectedStudentEmail(""); // reset previous email
+      }
     } else {
       alert("No registered students found.");
     }
@@ -157,11 +252,51 @@ const handleViewRegisteredStudents = async (eventId) => {
 };
 
 
+
   const normalizeDate = (date) => {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
   return d;
 };
+const fetchCompletedEventStudents = async (eventId) => {
+  try {
+    const token = localStorage.getItem("userToken");
+    const res = await axios.get(
+      `http://localhost:5000/api/calendar/${eventId}/registered-students`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    setRegisteredStudents(res.data.data || []);
+  } catch (err) {
+    console.error("Error fetching completed event students:", err);
+  }
+};
+
+const handleSelectStudent = async (eventId) => {
+  if (!selectedStudentEmail) return alert("Select a student first");
+  if (mailSent) return alert("Mail & notification already sent!");
+
+  try {
+    const token = localStorage.getItem("userToken");
+    const res = await axios.put(
+      `http://localhost:5000/api/calendar/${eventId}/select-student`,
+      { studentEmail: selectedStudentEmail },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
+    if (res.data.success) {
+      alert("✅ Student marked and mail sent!");
+      setMailSent(true);
+      fetchEvents(); // ✅ refresh list
+      setShowSelectModal(false); // ✅ close modal
+    } else {
+      alert(res.data.message);
+    }
+  } catch (err) {
+    console.error("Error selecting student:", err);
+    alert("Failed to mark student as selected");
+  }
+};
+
 
   // Fetch all events
 const fetchEvents = async () => {
@@ -254,111 +389,134 @@ const getEventsForDate = (date) => {
   });
 };
 
+const fetchRegisteredStudents = async (eventId) => {
+  try {
+    const res = await axios.get(
+      `http://localhost:5000/api/calendar/${eventId}/registered-students`,
+      { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+    );
+    setRegisteredStudents(res.data.students);
+  } catch (err) {
+    console.error("Error fetching students:", err);
+  }
+};
 
 
-const handleDateClick = (date) => {
-  const clickedDate = normalizeDate(date); // remove time
-  const today = normalizeDate(new Date());
-  const dayEvents = getEventsForDate(clickedDate);
+// safe date click handler — prevents crash and only opens form if no event exists for that date
+// ✅ Updated Date Click Handler
+const handleDateClick = (day) => {
+  const formattedDate = day.toDateString();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-  setSelectedDate(clickedDate);
-  setSelectedDateEvents(dayEvents);
-    // 🧩 Auto-detect target group for this date
-// 🧩 Auto-detect target group for new event creation only
-if (dayEvents.length === 0) {
-  setTargetGroup("both");
-} else {
-  // Check if both CRT and Non-CRT events exist
-  const hasCRT = dayEvents.some(e => e.targetGroup === "crt");
-  const hasNonCRT = dayEvents.some(e => e.targetGroup === "non-crt");
+  setSelectedDate(day);
+  setSelectedDateLabel(day.toDateString());
 
-  if (hasCRT && !hasNonCRT) setTargetGroup("crt");
-  else if (!hasCRT && hasNonCRT) setTargetGroup("non-crt");
-  else setTargetGroup("both");
-}
+  // Get events for the clicked day
+  const eventsForDay = events.filter(
+    (e) => new Date(e.startDate).toDateString() === formattedDate
+  );
 
-  const isPast = clickedDate < today;
-  const allCompleted = dayEvents.length > 0 && dayEvents.every((e) => e.status === "completed");
+  setSelectedDateEvents(eventsForDay);
 
-  if (isPast || allCompleted) {
+  // If there are events for the day → show them
+  if (eventsForDay.length > 0) {
+    setShowForm(false);
+    setSelectedEventId(eventsForDay[0]?._id || null);
+    return;
+  }
+
+  // If there are NO events:
+  const isPast = day < today; // completed date
+  if (isPast) {
+    alert("⚠️ Cannot add a new event on a completed date.");
     setShowForm(false);
     return;
   }
-  // Auto-set targetGroup based on existing events of the date
-const existingGroup =
-  selectedDateEvents.length > 0
-    ? selectedDateEvents[0].targetGroup || "both"
-    : "both";
-setTargetGroup(existingGroup);
 
-  // Reset form for new date
+  // If it's ongoing or future date → open form
   setFormData({
     id: "",
     title: "",
     description: "",
-    startDate: clickedDate.toLocaleDateString("en-CA")
-,
-    endDate: clickedDate.toLocaleDateString("en-CA")
-,
+    startDate: day.toLocaleDateString("en-CA"),
+    endDate: day.toLocaleDateString("en-CA"),
     startTime: "",
     endTime: "",
     venue: "",
     isOnline: false,
     companyName: "",
-    companyFormLink: "https://companyform.com",
+    companyFormLink: "",
     eventType: "",
     status: "scheduled",
     participated: "",
-    placed: ""
+    placed: "",
+    companyDetails: {
+      externalLink: "",
+    },
   });
 
   setViewOnly(false);
   setShowForm(true);
 };
 
+
+
+
   // Edit event
   // Edit event
-const handleEditEvent = (event) => {
-  const isCompleted = event.status === "completed";
+// ✏️ Edit Event - open full form prefilled
+const handleEditEvent = async (event) => {
+  if (event.status === "completed" || event.status === "cancelled") return;
 
-  const eventStartDate = parseLocalDate(event.startDate);
-  const eventEndDate = parseLocalDate(event.endDate);
+  try {
+    const token = localStorage.getItem("userToken");
+    const response = await axios.get(
+      `http://localhost:5000/api/calendar/${event.id}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
 
-setFormData({
-    id: event.id || "",
-    title: event.title || "",
-    description: event.description || "",
-    startDate: event.startDate?.split("T")[0] || "",
-    endDate: event.endDate?.split("T")[0] || "",
-    startTime: event.startTime || "",
-    endTime: event.endTime || "",
-    venue: event.venue || "",
-    isOnline: event.isOnline || false,
-    companyName: event.company || "",
-    companyFormLink: event.companyFormLink || "",
-    eventType: event.eventType || "",
-    status: event.status || "scheduled",
-    participated: event.participated || "0",
-    placed: event.placed || "0",
-    companyDetails: { // ✅ Properly nested
-      externalLink: event.companyDetails?.externalLink || event.externalLink || ""
-    },
+    const e = response.data.data || response.data; // adjust if API returns {data:{data:...}}
 
+    // ✅ Prefill form with event data
+    setFormData({
+      id: e._id,
+      title: e.title || "",
+      description: e.description || "",
+      startDate: e.startDate
+        ? new Date(e.startDate).toISOString().split("T")[0]
+        : "",
+      endDate: e.endDate
+        ? new Date(e.endDate).toISOString().split("T")[0]
+        : "",
+      startTime: e.startTime || "",
+      endTime: e.endTime || "",
+      venue: e.venue || "",
+      isOnline: e.isOnline || false,
+      companyName: e.companyDetails?.companyName || "",
+      companyFormLink: e.companyDetails?.companyFormLink || "",
+      eventType: e.eventType || "",
+      status: e.status || "scheduled",
+      participated: e.eventSummary?.totalAttendees || "",
+      placed: e.eventSummary?.selectedStudents || "",
+      companyDetails: {
+        externalLink:
+          e.companyDetails?.externalLink ||
+          e.externalLink ||
+          "",
+      },
+    });
 
-  });
-setTargetGroup(event.targetGroup || "both");
+    // ✅ Set target group if available
+    setTargetGroup(e.targetGroup || "both");
 
-console.log("Loaded external link:", event.companyDetails?.externalLink);
-
-
-;
-
-  // ✅ Instead of only this event, show all events of the date
-  const eventsOfTheDate = getEventsForDate(eventStartDate);
-  setSelectedDateEvents(eventsOfTheDate);
-
-  setViewOnly(isCompleted);
-  setShowForm(true);
+    // ✅ Show form modal in edit mode
+    setViewOnly(false);
+    setShowForm(true);
+  } catch (error) {
+    console.error("Error loading event for edit:", error);
+    alert("Failed to load event details for editing");
+  }
 };
 
 
@@ -450,6 +608,9 @@ companyDetails: {                            // ✅ fixed
   // Submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+  if (isSubmitting) return; // 🛑 Prevent multiple rapid submissions
+  setIsSubmitting(true);
     if (!tpoId) return alert("TPO ID is missing");
 
     // Always include event summary for completed events
@@ -565,28 +726,26 @@ const uniqueStudents = registeredStudents.filter(
       }`}
     >
       <span className="text-sm font-medium text-gray-700 mb-2">{day.getDate()}</span>
-      {dateEvents.length > 0 ? (
-        <div className="space-y-1">
-          {dateEvents.map((ev) => {
-            const eventDate = normalizeDate(parseLocalDate(ev.startDate));
-            const isPast = eventDate < today;
-            return (
-              <div
-                key={ev.id}
-                className={`px-2 py-1 rounded text-xs truncate ${
-                  isPast
-                    ? "bg-green-100 text-green-700"
-                    : "bg-purple-100 text-purple-700"
-                }`}
-              >
-                {ev.title}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <span className="text-xs text-gray-400 mt-auto">No Events</span>
-      )}
+{dateEvents.length > 0 ? (
+  <div className="flex flex-wrap gap-1 mt-1">
+    {dateEvents.map((ev) => (
+      <span
+        key={ev.id}
+        className={`inline-block w-3 h-3 rounded-full ${
+          ev.status === "completed"
+            ? "bg-green-500"
+            : ev.status === "cancelled"
+            ? "bg-red-500"
+            : "bg-purple-500"
+        }`}
+        title={`${ev.status.charAt(0).toUpperCase() + ev.status.slice(1)}`}
+      ></span>
+    ))}
+  </div>
+) : (
+  <span className="text-xs text-gray-400 mt-auto">No Events</span>
+)}
+
     </div>
   );
 })}
@@ -596,6 +755,12 @@ const uniqueStudents = registeredStudents.filter(
 
       {/* Selected Date Event Details */}
       <div className="mt-8 bg-white rounded-xl shadow-lg p-6">
+{selectedDateLabel && (
+  <h2 className="text-xl font-bold text-purple-700 mt-6 mb-2">
+    {selectedDateLabel}
+  </h2>
+)}
+
         <div className="flex justify-between items-center mb-4">
   <h2 className="text-xl font-bold text-purple-700">
     Events on {selectedDate.toDateString()}
@@ -619,18 +784,28 @@ const uniqueStudents = registeredStudents.filter(
 
         {selectedDateEvents.length > 0 ? (
   <div className="grid gap-4">
-    {selectedDateEvents.map((event) => (
-      <div
-        key={event.id}
-        onClick={() => handleEditEvent(event)}
-        className={`border rounded-lg p-4 hover:shadow-md transition-all cursor-pointer ${
-          event.status === "completed"
-            ? "bg-green-50 border-green-400"
-            : event.status === "cancelled"
-            ? "bg-red-50 border-red-400"
-            : "bg-white"
-        }`}
-      >
+    {selectedDateEvents?.filter(Boolean).map((event) => (
+<div
+  key={event.id}
+  onClick={(e) => {
+    e.stopPropagation(); // prevent bubbling
+    // 🚫 Stop form from opening when event card clicked
+    setHighlightedEventId(event.id); // still highlight the card
+    console.log("Event card clicked — form will not open.");
+  }}
+  className={`border rounded-lg p-4 transition-all cursor-pointer ${
+    highlightedEventId === event.id
+      ? "ring-2 ring-purple-600 shadow-lg"
+      : "hover:shadow-md"
+  } ${
+    event?.status === "completed"
+      ? "bg-green-50 border-green-400"
+      : event.status === "cancelled"
+      ? "bg-red-50 border-red-400"
+      : "bg-white"
+  }`}
+>
+
         <div className="flex justify-between items-center">
           <h3 className="font-semibold text-gray-800 text-lg">
             {event.status === "completed" ? "✅ " : ""}
@@ -638,7 +813,7 @@ const uniqueStudents = registeredStudents.filter(
           </h3>
           <span
             className={`text-sm font-medium ${
-              event.status === "completed"
+              event?.status === "completed"
                 ? "text-green-700"
                 : event.status === "cancelled"
                 ? "text-red-700"
@@ -674,6 +849,17 @@ const uniqueStudents = registeredStudents.filter(
             <strong>Description:</strong> {event.description}
           </div>
         )}
+{event.targetGroup && (
+  <p className="text-sm text-purple-700 mt-1">
+    🎯 <strong>Target Group:</strong>{" "}
+    {event.targetGroup === "crt"
+      ? "CRT Students Only"
+      : event.targetGroup === "non-crt"
+      ? "Non-CRT Students Only"
+      : "Both CRT & Non-CRT"}
+  </p>
+)}
+
         {event.startTime && event.endTime && (
           <p className="text-sm text-gray-600 mt-1">
             <strong>Time:</strong> {event.startTime} - {event.endTime}
@@ -693,25 +879,227 @@ const uniqueStudents = registeredStudents.filter(
 )}
 
         {/* Only show for ongoing or scheduled events */}
-        {event.status !== "completed" && event.status !== "cancelled" && (
-<button
-  type="button"
-  onClick={(e) => {
-    e.stopPropagation();
-    handleViewRegisteredStudents(event.id);
-  }}
-  className="mt-3 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
->
-  View Registered Students
-</button>
+{/* ✅ Show "View Registered Students" for both completed and not completed events */}
+{/* ✅ Show "View Registered Students" for both completed and not completed events */}
+{event.status !== "cancelled" && (
+  <div className="mt-3 flex flex-wrap items-center gap-3">
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        handleViewRegisteredStudents(event.id);
+      }}
+      className={`px-4 py-2 rounded-lg text-white transition-all ${
+        event?.status === "completed"
+          ? "bg-green-600 hover:bg-green-700"
+          : "bg-purple-600 hover:bg-purple-700"
+      }`}
+    >
+      {event?.status === "completed"
+        ? "View Registered Students (Completed)"
+        : "View Registered Students"}
+    </button>
+
+    {/* ✅ Add Selected Students & Selected Students buttons — side by side */}
+{event.status === "completed" && (
+  <div className="flex flex-col gap-3 mt-3">
+    <div className="flex gap-3 items-center">
+      {/* ➕ Add Selected Students */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setSelectedEventId(event.id);
+          setShowSelectModal(true);
+        }}
+        className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+      >
+        ➕ Add Selected Students
+      </button>
+
+      {/* 🎯 View Selected Students */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleViewSelectedStudents(event.id); // Function to fetch and show modal
+        }}
+        className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
+      >
+        🎯 Selected Students
+      </button>
+    </div>
+
+    {/* 🎯 Selected Students Modal */}
+    {showSelectedStudentsModal && (
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        onClick={() => setShowSelectedStudentsModal(false)}
+      >
+        <div
+          className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 relative"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => setShowSelectedStudentsModal(false)}
+            className="absolute top-3 right-3 text-gray-600 hover:text-black text-xl font-bold"
+          >
+            ✕
+          </button>
+
+          <h2 className="text-xl font-bold text-indigo-700 mb-4">
+            🎯 Selected Students ({selectedStudents.length})
+          </h2>
+
+          {selectedStudents.length === 0 ? (
+            <p className="text-gray-500 text-center">No selected students found.</p>
+          ) : (
+            <div className="overflow-x-auto max-h-[60vh] border rounded-lg">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-indigo-100 text-gray-800 sticky top-0">
+                  <tr>
+                    <th className="px-3 py-2 border">Full Name</th>
+                    <th className="px-3 py-2 border">Roll No</th>
+                    <th className="px-3 py-2 border">Email</th>
+                    <th className="px-3 py-2 border">Branch</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedStudents.map((s, i) => (
+                    <tr key={i} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 border">{s.name}</td>
+                      <td className="px-3 py-2 border">{s.rollNo}</td>
+                      <td className="px-3 py-2 border">{s.email}</td>
+                      <td className="px-3 py-2 border">{s.branch}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+)}
 
 
-        )}
+  </div>
+)}
 
 
-        {/* Only show cancel button if event is not completed */}
-        {event.status !== "completed" && (
-          <div className="flex gap-3 mt-3">
+{/* ✏️ Edit Event — only for not completed/cancelled */}
+{/* ✏️ Edit + 🗑️ Cancel & Delete — aligned side by side */}
+{/* ✏️ Edit + 🗑️ Cancel & Delete — aligned side by side */}
+{event.status !== "completed" && (
+  <div className="flex gap-3 mt-3 justify-start items-center">
+    {event.status !== "cancelled" && (
+      <>
+        {event.isEditing ? (
+          <div className="flex flex-col gap-2 w-full">
+            {/* Editable fields */}
+            <input
+              type="text"
+              value={event.editTitle ?? event.title}
+              onChange={(e) =>
+                setEvents((prev) =>
+                  prev.map((ev) =>
+                    ev.id === event.id
+                      ? { ...ev, editTitle: e.target.value }
+                      : ev
+                  )
+                )
+              }
+              className="border px-2 py-1 rounded w-full"
+              placeholder="Edit event title"
+            />
+            <textarea
+              value={event.editDescription ?? event.description}
+              onChange={(e) =>
+                setEvents((prev) =>
+                  prev.map((ev) =>
+                    ev.id === event.id
+                      ? { ...ev, editDescription: e.target.value }
+                      : ev
+                  )
+                )
+              }
+              className="border px-2 py-1 rounded w-full"
+              placeholder="Edit description"
+              rows={2}
+            ></textarea>
+
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  try {
+                    const token = localStorage.getItem("userToken");
+                    await axios.put(
+                      `http://localhost:5000/api/calendar/${event.id}`,
+                      {
+                        title: event.editTitle || event.title,
+                        description:
+                          event.editDescription || event.description,
+                      },
+                      {
+                        headers: { Authorization: `Bearer ${token}` },
+                      }
+                    );
+                    alert("✅ Event updated successfully!");
+                    fetchEvents(); // refresh backend data
+                  } catch (err) {
+                    console.error("Error updating event:", err);
+                    alert("❌ Failed to update event");
+                  } finally {
+                    // turn off edit mode
+                    setEvents((prev) =>
+                      prev.map((ev) =>
+                        ev.id === event.id
+                          ? { ...ev, isEditing: false }
+                          : ev
+                      )
+                    );
+                  }
+                }}
+                className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                💾 Save
+              </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEvents((prev) =>
+                    prev.map((ev) =>
+                      ev.id === event.id
+                        ? { ...ev, isEditing: false }
+                        : ev
+                    )
+                  );
+                }}
+                className="px-3 py-1 text-sm bg-gray-400 text-white rounded hover:bg-gray-500"
+              >
+                ✖ Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-3">
+            {event.status !== "completed" && event.status !== "cancelled" && (
+  <button
+    type="button"
+    onClick={(e) => {
+      e.stopPropagation();
+      handleEditEvent(event); // ✅ Opens form
+    }}
+    className="px-3 py-1 text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600"
+  >
+    ✏️ Edit
+  </button>
+)}
+
+
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -719,12 +1107,21 @@ const uniqueStudents = registeredStudents.filter(
               }}
               className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
             >
-              Cancel & Delete
+              🗑️ Cancel & Delete
             </button>
           </div>
         )}
+      </>
+    )}
+  </div>
+)}
+
       </div>
+
     ))}
+{/* ✅ Mark Selected Students for Completed Events */}
+
+
   </div>
 ) : (
   <div className="text-center text-gray-500">
@@ -747,7 +1144,9 @@ const uniqueStudents = registeredStudents.filter(
             <h2 className="text-xl font-bold mb-5 text-gray-800 text-center">
               {formData.id ? "Edit Event" : "Add Placement Event"}
             </h2>
-
+            <p className="text-center text-sm text-gray-500 mb-4">
+  Selected Date: {selectedDate.toDateString()}
+</p>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Title */}
               <div>
@@ -833,8 +1232,9 @@ const uniqueStudents = registeredStudents.filter(
     min="0"
     placeholder="Enter number of selected students"
   />
-</div>
 
+
+</div>
 
 
               {/* Description */}
@@ -1087,6 +1487,91 @@ const uniqueStudents = registeredStudents.filter(
     </div>
   </div>
 )}
+
+{showSelectModal && (
+  <div
+    className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+    onClick={() => setShowSelectModal(false)} // close when clicking outside
+  >
+    <div
+      className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative"
+      onClick={(e) => e.stopPropagation()} // prevent modal close on inside click
+    >
+      <h2 className="text-xl font-semibold text-gray-800 mb-4">
+        Mark Selected Students
+      </h2>
+
+      {/* 🔹 Email Search Field */}
+      <input
+        type="text"
+        placeholder="Search student by email..."
+        value={selectedStudentEmail}
+        onChange={(e) => {
+          setSelectedStudentEmail(e.target.value);
+          if (e.target.value.length > 3) {
+            fetchCompletedEventStudents(selectedEventId);
+          }
+        }}
+        className="w-full border rounded-lg px-3 py-2 mb-3"
+      />
+
+      {/* 🔹 Registered Students Dropdown */}
+      <select
+        value={selectedStudentEmail}
+        onChange={(e) => setSelectedStudentEmail(e.target.value)}
+        className="w-full border rounded-lg px-3 py-2 mb-3"
+      >
+        <option value="">-- Select Registered Student --</option>
+        {registeredStudents
+          .filter((s) =>
+            s.email.toLowerCase().includes(selectedStudentEmail.toLowerCase())
+          )
+          .map((s) => (
+            <option key={s.email} value={s.email}>
+              {s.name} ({s.rollNo}) - {s.branch}
+            </option>
+          ))}
+      </select>
+
+      {/* 🔹 Action Button */}
+      <button
+        onClick={() => handleSelectStudent(selectedEventId)}
+        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 w-full"
+      >
+        ✅ Mark Selected & Notify
+      </button>
+
+      {/* OR Upload Section */}
+      <div className="mt-6 flex flex-col items-start gap-3 border-t pt-4">
+        <p className="text-gray-700 font-medium">OR Upload Selected List</p>
+
+        <input
+          type="file"
+          accept=".pdf,.doc,.docx,.xls,.xlsx"
+          onChange={(e) => setSelectedFile(e.target.files[0])}
+          className="border p-2 rounded-md w-full cursor-pointer"
+        />
+
+        <button
+          onClick={handleUploadSelectedList}
+          disabled={!selectedFile || !selectedEventId}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 w-full"
+        >
+          Upload Selected List
+        </button>
+      </div>
+
+      {/* ❌ Close Button */}
+      <button
+        onClick={() => setShowSelectModal(false)}
+        className="absolute top-2 right-3 text-gray-600 hover:text-red-600 text-lg font-bold"
+      >
+        ✕
+      </button>
+    </div>
+  </div>
+)}
+
 
 
       {showStudentForm && (

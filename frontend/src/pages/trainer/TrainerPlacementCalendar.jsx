@@ -46,6 +46,8 @@ const TrainerPlacementCalendar = () => {
         date: e.startDate?.split("T")[0],
         participated: e.eventSummary?.totalAttendees || 0,
         placed: e.eventSummary?.selectedStudents || 0,
+targetGroup: e.targetGroup || "both",
+
       };
     });
 
@@ -144,25 +146,25 @@ const TrainerPlacementCalendar = () => {
               >
                 <span className="text-sm font-medium text-gray-700 mb-2">{day.getDate()}</span>
                 {dateEvents.length > 0 ? (
-                  <div className="space-y-1">
-                    {dateEvents.map((ev) => (
-                      <div
-                        key={ev.id}
-                        className={`px-2 py-1 rounded text-xs truncate ${
-                          ev.status === "completed"
-                            ? "bg-green-100 text-green-700"
-                            : ev.status === "cancelled"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-purple-100 text-purple-700"
-                        }`}
-                      >
-                        {ev.title}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-xs text-gray-400 mt-auto">No Events</span>
-                )}
+  <div className="flex flex-wrap gap-1 mt-2">
+    {dateEvents.map((ev) => (
+      <div
+        key={ev.id}
+        title={ev.title}
+        className={`w-3 h-3 rounded-full ${
+          ev.status === "completed"
+            ? "bg-green-500"
+            : ev.status === "cancelled"
+            ? "bg-red-500"
+            : "bg-purple-500"
+        }`}
+      ></div>
+    ))}
+  </div>
+) : (
+  <span className="text-xs text-gray-400 mt-auto">No Events</span>
+)}
+
               </div>
             );
           })}
@@ -212,6 +214,15 @@ const TrainerPlacementCalendar = () => {
                 <p className="text-sm text-gray-600 mt-1">
                   <strong>Status:</strong> {event.status}
                 </p>
+<p className="text-sm text-gray-600 mt-1">
+  <strong>Target Group:</strong>{" "}
+  {event.targetGroup === "crt"
+    ? "CRT Students"
+    : event.targetGroup === "non-crt"
+    ? "Non-CRT Students"
+    : "Both CRT & Non-CRT Students"}
+</p>
+
 
                 {/* Show participation stats for completed events */}
                 {event.status === "completed" && (

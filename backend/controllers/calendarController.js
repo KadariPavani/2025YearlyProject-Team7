@@ -4,6 +4,8 @@ const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 const asyncHandler = require("express-async-handler");
+const Trainer = require("../models/Trainer");
+const { notifyTrainerEventUpdate, notifyStudentEventUpdate } = require("./notificationController");
 
 // ---------------------- FILE UPLOAD SETUP ----------------------
 const multer = require("multer");
@@ -12,7 +14,9 @@ const Notification = require("../models/Notification");
 const upload = multer({ dest: "uploads/" });
 const createTransporter = require("../config/nodemailer");
 const transporter = createTransporter();
-
+const XLSX = require("xlsx");
+const pdfParse = require("pdf-parse");
+const mammoth = require("mammoth");
 
 const sendEmail = async (to, subject, htmlContent, attachments = []) => {
   try {
@@ -31,16 +35,19 @@ const sendEmail = async (to, subject, htmlContent, attachments = []) => {
 
 
 // ---------------------- CREATE EVENT ----------------------
+// ---------------------- CREATE EVENT ----------------------
+// ---------------------- CREATE EVENT ----------------------
 exports.createEvent = async (req, res) => {
-console.log("📦 Incoming Event Body:", req.body);
+  console.log("📦 Incoming Event Body:", req.body);
   try {
     const {
       title, description, startDate, endDate,
       startTime, endTime, venue, isOnline,
       companyDetails = {}, eventType, createdBy, createdByModel,
-      externalLink, targetGroup  // also capture root-level
+      externalLink, targetGroup
     } = req.body;
 
+    // 1️⃣ Create event
     const newEvent = new Calendar({
       title,
       description,
@@ -62,12 +69,55 @@ console.log("📦 Incoming Event Body:", req.body);
     });
 
     await newEvent.save();
+
+    // 2️⃣ Find students by target group
+    let studentFilter = {};
+    if (targetGroup === "crt") {
+      studentFilter = { $or: [{ batchType: "CRT" }, { crtInterested: true }] };
+    } else if (targetGroup === "non-crt") {
+      studentFilter = { $or: [{ batchType: "Non-CRT" }, { crtInterested: false }] };
+    }
+
+    const students = await Student.find(studentFilter, "_id name email");
+    console.log(`👩‍🎓 Found ${students.length} students for ${targetGroup}`);
+
+    // 3️⃣ Create student notifications
+    if (students.length > 0) {
+      const studentNotifications = students.map((student) => ({
+        title: "New Event Created",
+        message: `A new event "${title}" has been added to your placement calendar.`,
+        category: "Placement",
+        senderId: createdBy,
+        senderModel: createdByModel || "TPO",
+        recipients: [{ recipientId: student._id, recipientModel: "Student", isRead: false }],
+        relatedEntity: { entityId: newEvent._id, entityModel: "Event" },
+      }));
+
+      await Notification.insertMany(studentNotifications);
+      console.log(`🔔 ${studentNotifications.length} student notifications created.`);
+    }
+
+    // 4️⃣ Notify all trainers once (fixed)
+const trainerIds = (await Trainer.find({}, "_id")).map(t => t._id);
+if (trainerIds.length > 0) {
+  // 🔔 Notify trainers about the new placement event
+  await notifyTrainerEventUpdate(trainerIds, title, "Created", createdBy);
+
+  // 🔔 Notify all students about the new placement event
+  await notifyStudentEventUpdate(title, "Created", createdBy);
+
+  console.log(`📢 Trainer & Student notifications sent for new event "${title}"`);
+}
+
+
     res.status(201).json({ success: true, data: newEvent });
   } catch (error) {
     console.error("Error creating event:", error);
     res.status(400).json({ success: false, error: error.message });
   }
 };
+
+
 
 
 
@@ -249,7 +299,27 @@ exports.updateEvent = async (req, res) => {
       if (!excluded.includes(key)) event[key] = req.body[key];
     }
 
+
     await event.save();
+
+// 🔔 Notify both trainers & students once per update (unique per request)
+if (!req.notifiedOnce) {
+  const trainerIds = (await Trainer.find({}, "_id")).map(t => t._id);
+  const eventStatus = (req.body.status || event.status || "").toLowerCase();
+  const notifyAction =
+    ["cancelled", "deleted"].includes(eventStatus) ? "cancelled" : "updated";
+
+  // 🔔 Notify both trainers & students
+  await notifyTrainerEventUpdate(trainerIds, event.title, notifyAction, req.user._id);
+  await notifyStudentEventUpdate(event.title, notifyAction, req.user._id);
+
+  req.notifiedOnce = true;
+  console.log(`📢 Trainer & Students notified for "${event.title}" → ${notifyAction.toUpperCase()}`);
+}
+
+
+
+
 
     // 🧠 --------- TARGET GROUP CHANGE HANDLER ----------
     if (req.body.targetGroup && req.body.targetGroup !== oldTargetGroup) {
@@ -353,30 +423,64 @@ exports.updateEvent = async (req, res) => {
 };
 
 
-// ---------------------- DELETE EVENT (Soft Delete) ----------------------
+// ---------------------- DELETE EVENT ----------------------
 exports.deleteEvent = async (req, res) => {
   try {
     const event = await Calendar.findById(req.params.id);
     if (!event) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Event not found" });
+      return res.status(404).json({ success: false, message: "Event not found" });
     }
 
-    // 🔄 Soft delete instead of removing from DB
+    // ✅ Soft delete
     event.status = "deleted";
     await event.save();
 
-    return res
-      .status(200)
-      .json({ success: true, message: "Event moved to Deleted", data: event });
+    // ✅ Fetch all trainers
+    const trainers = await Trainer.find({}, "_id");
+    const trainerIds = trainers.map(t => t._id);
+
+    // ✅ Notify trainers of deletion (always runs)
+if (trainerIds.length > 0) {
+  await notifyTrainerEventUpdate(trainerIds, event.title, "cancelled", req.user._id);
+  await notifyStudentEventUpdate(event.title, "cancelled", req.user._id);
+  console.log(`📢 Cancelled notifications sent to trainers & students for "${event.title}"`);
+}
+ else {
+      console.log("⚠️ No trainers found to notify about event deletion.");
+    }
+
+    // ✅ Optional: Notify students about deletion too
+    const students = await Student.find({}, "_id");
+    if (students.length > 0) {
+      const studentNotifications = students.map(s => ({
+        title: "Placement Event Cancelled",
+        message: `The placement event "${event.title}" has been cancelled by the TPO.`,
+        category: "Placement Calendar",
+        senderId: req.user?._id,
+        senderModel: "TPO",
+        recipients: [{ recipientId: s._id, recipientModel: "Student", isRead: false }],
+        status: "sent",
+        type: "info",
+        targetRoles: ["student"],
+        isGlobal: false,
+        priority: "medium",
+      }));
+      await Notification.insertMany(studentNotifications, { ordered: false });
+      console.log(`🎓 Notified ${students.length} students about event cancellation.`);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Event deleted and all trainers notified.",
+      data: event,
+    });
   } catch (error) {
     console.error("❌ Error deleting event:", error);
-    return res
-      .status(500)
-      .json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
 
 
 // ---------------------- UPDATE EVENT STATUS ----------------------
@@ -392,7 +496,25 @@ exports.updateEventStatus = async (req, res) => {
     if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
 
     event.status = status;
+
     await event.save();
+
+const trainerIds = (await Trainer.find({}, "_id")).map(t => t._id);
+// 🧠 Choose proper notification action
+const notifyAction =
+  status.toLowerCase() === "cancelled" ? "cancelled" :
+  status.toLowerCase() === "deleted" ? "cancelled" :
+  "updated";
+
+await notifyTrainerEventUpdate(trainerIds, event.title, notifyAction, req.user._id);
+
+if (req.body.eventSummary) {
+  event.eventSummary = {
+    ...event.eventSummary,
+    ...req.body.eventSummary,
+  };
+}
+
 
     res.json({ success: true, data: event });
   } catch (error) {
@@ -473,42 +595,140 @@ return res.status(200).json({
 
 
 
-// ---------------------- UPLOAD SELECTED STUDENTS WITH EMAIL TO TPO ----------------------
-exports.uploadSelectedStudents = async (req, res) => {
+// ---------------------- UPLOAD SELECTED STUDENTS ----------------------
+exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
   try {
-    const { selectedStudentsCount, files, tpoEmail } = req.body;
+    const { id: eventId } = req.params;
+    const file = req.file;
+    const { selectedEmails } = req.body;
 
-    const event = await Calendar.findById(req.params.id);
-    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    console.log("📤 Uploading selected students for event:", eventId);
+    console.log("👤 req.user:", req.user);
 
-    event.eventSummary.selectedStudents = selectedStudentsCount || event.eventSummary.selectedStudents;
-    if (files && files.length > 0) {
-      event.selectedListFiles = files; // array of {fileName, fileType, fileUrl}
+    if (!selectedEmails) {
+      return res.status(400).json({
+        success: false,
+        message: "No selected student emails provided.",
+      });
     }
 
+    const emails = JSON.parse(selectedEmails);
+    const event = await Calendar.findById(eventId);
+    if (!event)
+      return res.status(404).json({ success: false, message: "Event not found." });
+
+    const notifications = [];
+    const sentEmails = new Set();
+
+    // Collect already selected emails to avoid duplicates
+    const alreadySelectedEmails = new Set(
+      event.selectedStudents.map((s) => s.email?.toLowerCase())
+    );
+
+    for (const email of emails) {
+      const lowerEmail = email.toLowerCase();
+
+      // ✅ Only registered students are allowed
+      const registeredStudent = event.registrations.find(
+        (r) => r.personalInfo.email?.toLowerCase() === lowerEmail
+      );
+      if (!registeredStudent) {
+        console.log(`⚠️ Skipping ${email} — not registered for this event.`);
+        continue;
+      }
+
+      // ✅ Skip already selected students
+      if (alreadySelectedEmails.has(lowerEmail)) {
+        console.log(`⚠️ Skipping ${email} (already selected).`);
+        continue;
+      }
+
+      if (sentEmails.has(lowerEmail)) continue;
+      sentEmails.add(lowerEmail);
+
+      const student = registeredStudent.personalInfo;
+      const subject = `🎉 Congratulations! You have been selected for ${event.title}`;
+      const html = `
+        <h3>Dear ${student.name || "Student"},</h3>
+        <p>You have been <b>selected</b> in <b>${event.title}</b>!</p>
+        <p>Best wishes from the Placement Team!</p>
+      `;
+
+      try {
+        await sendEmail(student.email, subject, html);
+        console.log(`📧 Email sent to ${student.email}`);
+      } catch (err) {
+        console.error(`❌ Mail failed for ${student.email}:`, err.message);
+      }
+
+      // ✅ Create notification (always include category)
+      const notification = {
+        title: "Selection Update",
+        message: `You have been selected in "${event.title}". Congratulations! 🎉`,
+        category: "Placement", // ✅ REQUIRED FIX
+        senderId: req.user?._id || event.createdBy, // ✅ fallback for safety
+        senderModel: req.userType === "tpo" ? "TPO" : "Admin",
+        recipients: [
+          {
+            recipientId: registeredStudent.studentId,
+            recipientModel: "Student",
+            isRead: false,
+          },
+        ],
+        relatedEntity: { entityId: event._id, entityModel: "Event" },
+      };
+
+      notifications.push(notification);
+      console.log(`🔔 Notification prepared → ${student.email} | Category: ${notification.category}`);
+
+      event.selectedStudents.push({
+        studentId: registeredStudent.studentId,
+        name: student.name,
+        rollNo: student.rollNo,
+        email: student.email,
+        branch: student.branch,
+        selectedAt: new Date(),
+      });
+    }
+
+    console.log(`🟢 Notifications prepared for insertion: ${notifications.length}`);
+    notifications.forEach((n, i) => {
+      console.log(`   [${i + 1}] ${n.title} | ${n.category} | ${n.recipients[0]?.recipientId}`);
+    });
+
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
+      console.log("✅ Notifications successfully inserted into DB!");
+    }
+
+    // Update counts & save event
+    event.eventSummary.selectedStudents = event.selectedStudents.length;
+    if (file) {
+      event.selectedListFiles.push({
+        fileName: file.originalname,
+        fileUrl: file.path,
+      });
+    }
     await event.save();
 
-    // Send email to TPO with attachments
-    if(tpoEmail) {
-      const attachments = files?.map(f => ({
-        filename: f.fileName,
-        path: path.join(__dirname, '..', 'uploads', f.fileName) // ensure files are saved in 'uploads' folder
-      })) || [];
-
-      const tpoEmailContent = `
-        <h3>Selected Students Uploaded for ${event.title}</h3>
-        <p>Total Selected: ${event.eventSummary.selectedStudents}</p>
-        ${files && files.length > 0 ? `<p>Files attached:</p>` : ''}
-      `;
-      await sendEmail(tpoEmail, `Selected Students Uploaded: ${event.title}`, tpoEmailContent, attachments);
-    }
-
-    res.json({ success: true, data: event });
+    res.status(200).json({
+      success: true,
+      message: "✅ Selected students processed successfully (with category & notifications).",
+      newlyNotified: notifications.length,
+      totalSelected: event.selectedStudents.length,
+    });
   } catch (error) {
-    console.error("Error uploading selected students:", error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error("❌ Error in uploadSelectedStudents:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while uploading selected students.",
+      error: error.message,
+    });
   }
-};
+});
+
+
+
 exports.getStudentById = async (req, res) => {
   try {
     const student = await Student.findById(req.params.id);
@@ -519,48 +739,477 @@ exports.getStudentById = async (req, res) => {
   }
 };
 // calendarController.js
-// calendarController.js
-// calendarController.js
-// ---------------------- GET EVENT REGISTRATIONS ----------------------
-// ---------------------- GET EVENT REGISTRATIONS (for TPO view) ----------------------
-exports.getEventRegistrations = async (req, res) => {
+
+// ✅ Upload selected students (adds to DB + sends mails & notifications once)
+exports.uploadSelectedStudents = async (req, res) => {
   try {
-    const eventId = req.params.id;
-    const event = await Calendar.findById(eventId)
-      .populate("registrations.studentId", "name rollNo email branch academics.btechCGPA");
+    const selectedStudentsCount = req.body?.selectedStudentsCount || 0;
+    const tpoEmail = req.body?.tpoEmail || null;
+    let selectedEmails = req.body?.selectedEmails || [];
 
-    if (!event) {
-      return res.status(404).json({ success: false, message: "Event not found" });
+    // Parse JSON string if it was sent as string
+    if (typeof selectedEmails === "string") {
+      try {
+        selectedEmails = JSON.parse(selectedEmails);
+      } catch {
+        selectedEmails = [];
+      }
     }
 
-    // Only TPO or Admin should see this
-    if (req.userType !== "tpo" && req.userType !== "admin") {
-      return res.status(403).json({ success: false, message: "Access denied" });
+    const files = req.file
+      ? [
+          {
+            fileName: req.file.originalname,
+            fileUrl: req.file.path,
+            fileType: req.file.mimetype,
+          },
+        ]
+      : req.body?.files || [];
+
+    const event = await Calendar.findById(req.params.id);
+    if (!event) return res.status(404).json({ success: false, message: "Event not found" });
+
+    // ✅ Store selected student details
+    const selectedStudentDetails = [];
+    for (const email of selectedEmails) {
+      const student = await Student.findOne({ email: email.toLowerCase().trim() });
+      if (student) {
+        selectedStudentDetails.push({
+          studentId: student._id,
+          name: student.name,
+          email: student.email,
+          branch: student.branch,
+          rollNo: student.rollNo,
+        });
+      }
     }
 
-    const registrations = event.registrations.map((r) => ({
-  name: r.personalInfo?.name || r.studentId?.name,
-  rollNo: r.personalInfo?.rollNo || r.studentId?.rollNo,
-  email: r.personalInfo?.email || r.studentId?.email,
-  phonenumber: r.personalInfo?.phonenumber || r.studentId?.phonenumber,
-  college: r.personalInfo?.college || r.studentId?.college,
-  branch: r.personalInfo?.branch || r.studentId?.branch,
-  gender: r.personalInfo?.gender || r.studentId?.gender,
-  dob: r.personalInfo?.dob || r.studentId?.dob,
-  currentLocation: r.personalInfo?.currentLocation || r.studentId?.currentLocation,
-  hometown: r.personalInfo?.hometown || r.studentId?.hometown,
-  backlogs: r.personalInfo?.backlogs || r.studentId?.backlogs,
-  techStack: r.personalInfo?.techStack || r.studentId?.techStack,
-  resumeUrl: r.personalInfo?.resumeUrl || r.studentId?.resumeUrl,
-  externalLink: r.personalInfo?.externalLink || "",
-  status: r.status,
-  registeredAt: r.registeredAt,
-}));
+    // ✅ Update event document
+    event.selectedStudents = selectedStudentDetails;
+    event.eventSummary.selectedStudents =
+      selectedStudentsCount || selectedStudentDetails.length;
+    if (files?.length > 0) {
+      event.selectedListFiles = files.map((f) => ({
+        fileName: f.fileName,
+        fileUrl: f.fileUrl,
+        uploadedAt: new Date(),
+      }));
+    }
+    await event.save();
 
-    res.status(200).json({ success: true, data: registrations });
+    // ✅ Send email & notification ONCE to each student
+    const notifications = [];
+    const sentEmails = new Set();
+    for (const student of selectedStudentDetails) {
+      if (sentEmails.has(student.email)) continue;
+      sentEmails.add(student.email);
+
+      const subject = `🎉 Congratulations! You have been selected for ${event.title}`;
+      const html = `
+        <h3>Dear ${student.name || "Student"},</h3>
+        <p>You have been <b>selected</b> in <b>${event.title}</b>!</p>
+        <p>Best wishes from the Placement Team!</p>
+      `;
+      try {
+        await sendEmail(student.email, subject, html);
+      } catch (err) {
+        console.error(`Mail failed for ${student.email}:`, err.message);
+      }
+
+      notifications.push({
+        title: "Selection Update",
+        message: `You have been selected in "${event.title}". Congratulations! 🎉`,
+        senderId: req.user?._id,
+        senderModel: req.userType === "tpo" ? "TPO" : "Admin",
+        recipients: [
+          { recipientId: student.studentId, recipientModel: "Student", isRead: false },
+        ],
+        relatedEntity: { entityId: event._id, entityModel: "Event" },
+      });
+    }
+
+    if (notifications.length > 0) await Notification.insertMany(notifications);
+
+    return res.json({ success: true, message: "Selected list uploaded successfully.", data: event });
   } catch (error) {
-    console.error("Error fetching event registrations:", error);
+    console.error("Error uploading selected students:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
+// ✅ Get registered students of a completed event
+// ✅ Fetch registered students for a completed event
+// ✅ Fetch registered students for a completed event
+exports.getRegisteredStudentsForCompleted = async (req, res) => {
+  try {
+    const event = await Calendar.findById(req.params.id);
+
+    if (!event)
+      return res.status(404).json({ message: "Event not found" });
+
+    // 🧠 Map registered students info (safe access)
+    const registeredStudents = event.registrations?.map((r) => ({
+      name: r.personalInfo?.name || r.studentId?.name,
+      rollNo: r.personalInfo?.rollNo || r.studentId?.rollNo,
+      email: r.personalInfo?.email || r.studentId?.email,
+      branch: r.personalInfo?.branch || r.studentId?.branch,
+      phonenumber: r.personalInfo?.phonenumber || r.studentId?.phonenumber,
+      college: r.personalInfo?.college || r.studentId?.college,
+      status: r.status || "registered",
+      registeredAt: r.registeredAt,
+    })) || [];
+
+    res.status(200).json({ success: true, data: registeredStudents });
+  } catch (err) {
+    console.error("❌ Error fetching students:", err);
+    res.status(500).json({ success: false, message: "Error fetching students", error: err.message });
+  }
+};
+
+
+// ✅ Mark student as selected for event
+// ---------------------- SELECT STUDENT FOR EVENT ----------------------
+exports.selectStudentForEvent = asyncHandler(async (req, res) => {
+  try {
+    const { id: eventId } = req.params;
+    const { studentEmail } = req.body;
+
+    if (!studentEmail) {
+      return res.status(400).json({ success: false, message: "Student email is required" });
+    }
+
+    const event = await Calendar.findById(eventId);
+    if (!event) return res.status(404).json({ success: false, message: "Event not found" });
+
+    // ✅ Only registered students are eligible
+    const registeredStudent = event.registrations.find(
+      (r) => r.personalInfo.email.toLowerCase() === studentEmail.toLowerCase()
+    );
+    if (!registeredStudent)
+      return res.status(400).json({
+        success: false,
+        message: "Student not registered for this event",
+      });
+
+    // ✅ Check if already selected
+    const alreadySelected = event.selectedStudents.some(
+      (s) => s.email.toLowerCase() === studentEmail.toLowerCase()
+    );
+    if (alreadySelected)
+      return res.status(400).json({
+        success: false,
+        message: "This student has already been notified as selected.",
+      });
+
+    // ✅ Prepare student info
+    const studentInfo = {
+      studentId: registeredStudent.studentId,
+      name: registeredStudent.personalInfo.name,
+      rollNo: registeredStudent.personalInfo.rollNo,
+      email: registeredStudent.personalInfo.email,
+      branch: registeredStudent.personalInfo.branch,
+      selectedAt: new Date(),
+    };
+
+    // ✅ Add to selected list
+    event.selectedStudents.push(studentInfo);
+    event.eventSummary.selectedStudents = event.selectedStudents.length;
+
+    // ✅ Send email + notification
+    const subject = `🎉 Congratulations! You have been selected for ${event.title}`;
+    const html = `
+      <h3>Dear ${studentInfo.name || "Student"},</h3>
+      <p>You have been <b>selected</b> for <b>${event.title}</b>!</p>
+      <p>Best wishes from the Placement Team!</p>
+    `;
+
+    try {
+      await sendEmail(studentInfo.email, subject, html);
+    } catch (error) {
+      console.error(`❌ Failed to send email to ${studentInfo.email}:`, error.message);
+    }
+
+await Notification.create({
+  title: "Selection Update",
+  message: `You have been selected in "${event.title}". Congratulations! 🎉`,
+  category: "Placement", // ✅ Required for display
+  senderId: req.user?._id,
+  senderModel: req.userType === "tpo" ? "TPO" : "Admin",
+  recipients: [
+    { recipientId: studentInfo.studentId, recipientModel: "Student", isRead: false },
+  ],
+  relatedEntity: { entityId: event._id, entityModel: "Event" },
+});
+
+console.log(
+  `✅ Notification Created → ${studentInfo.email} | Category: Placement`
+);
+
+
+
+    await event.save();
+
+    res.status(200).json({
+      success: true,
+      message: `✅ Selection confirmed and mail sent to ${studentInfo.email}`,
+      student: studentInfo,
+    });
+  } catch (err) {
+    console.error("Error in selectStudentForEvent:", err);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: err.message,
+    });
+  }
+});
+
+// ---------------------- UPLOAD SELECTED STUDENTS ----------------------
+exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
+  try {
+    const { id: eventId } = req.params;
+    const file = req.file;
+    const { selectedEmails } = req.body;
+
+    if (!selectedEmails) {
+      return res.status(400).json({ success: false, message: "No selected student emails provided." });
+    }
+
+    const emails = JSON.parse(selectedEmails);
+    const event = await Calendar.findById(eventId);
+    if (!event) return res.status(404).json({ success: false, message: "Event not found." });
+
+    const notifications = [];
+    const sentEmails = new Set();
+
+    const alreadySelectedEmails = new Set(
+      event.selectedStudents.map((s) => s.email?.toLowerCase())
+    );
+
+    for (const email of emails) {
+      const lowerEmail = email.toLowerCase();
+
+      // ✅ Only registered students are allowed
+      const registeredStudent = event.registrations.find(
+        (r) => r.personalInfo.email?.toLowerCase() === lowerEmail
+      );
+      if (!registeredStudent) {
+        console.log(`⚠️ Skipping ${email} — not registered for this event.`);
+        continue;
+      }
+
+      // ✅ Skip already selected students
+      if (alreadySelectedEmails.has(lowerEmail)) {
+        console.log(`⚠️ Skipping ${email} (already selected).`);
+        continue;
+      }
+
+      if (sentEmails.has(lowerEmail)) continue;
+      sentEmails.add(lowerEmail);
+
+      const student = registeredStudent.personalInfo;
+      const subject = `🎉 Congratulations! You have been selected for ${event.title}`;
+      const html = `
+        <h3>Dear ${student.name || "Student"},</h3>
+        <p>You have been <b>selected</b> in <b>${event.title}</b>!</p>
+        <p>Best wishes from the Placement Team!</p>
+      `;
+
+      try {
+        await sendEmail(student.email, subject, html);
+        console.log(`📧 Sent mail to ${student.email}`);
+      } catch (err) {
+        console.error(`Mail failed for ${student.email}:`, err.message);
+      }
+
+      notifications.push({
+        title: "Selection Update",
+        message: `You have been selected in "${event.title}". Congratulations! 🎉`,
+        senderId: req.user?._id,
+        senderModel: req.userType === "tpo" ? "TPO" : "Admin",
+        recipients: [
+          { recipientId: registeredStudent.studentId, recipientModel: "Student", isRead: false },
+        ],
+        relatedEntity: { entityId: event._id, entityModel: "Event" },
+      });
+
+      event.selectedStudents.push({
+        studentId: registeredStudent.studentId,
+        name: student.name,
+        rollNo: student.rollNo,
+        email: student.email,
+        branch: student.branch,
+        selectedAt: new Date(),
+      });
+    }
+
+    if (notifications.length > 0) await Notification.insertMany(notifications);
+    event.eventSummary.selectedStudents = event.selectedStudents.length;
+
+    if (file) {
+      event.selectedListFiles.push({
+        fileName: file.originalname,
+        fileUrl: file.path,
+      });
+    }
+
+    await event.save();
+
+    res.status(200).json({
+      success: true,
+      message: "✅ Selected students processed (only registered & unique).",
+      newlyNotified: notifications.length,
+      totalSelected: event.selectedStudents.length,
+    });
+  } catch (error) {
+    console.error("Error in uploadSelectedStudents:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while uploading selected students.",
+      error: error.message,
+    });
+  }
+});
+
+
+// ✅ Get all selected students for event
+exports.getSelectedStudentsForEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const event = await Calendar.findById(id);
+    if (!event)
+      return res.status(404).json({ success: false, message: "Event not found" });
+
+    return res.status(200).json({
+      success: true,
+      data: event.selectedStudents || [],
+    });
+  } catch (error) {
+    console.error("Error fetching selected students:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ Upload Selected Students File and Update Count
+exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
+  try {
+    const { id: eventId } = req.params;
+    const file = req.file;
+    const { selectedEmails } = req.body;
+
+    if (!selectedEmails) {
+      return res.status(400).json({ success: false, message: "No selected student emails provided." });
+    }
+
+    const emails = JSON.parse(selectedEmails);
+    const event = await Calendar.findById(eventId);
+    if (!event) return res.status(404).json({ success: false, message: "Event not found." });
+
+    const notifications = [];
+    const sentEmails = new Set();
+
+    const alreadySelectedEmails = new Set(
+      event.selectedStudents.map((s) => s.email?.toLowerCase())
+    );
+
+    for (const email of emails) {
+      const lowerEmail = email.toLowerCase();
+
+      // ✅ Only registered students are allowed
+      const registeredStudent = event.registrations.find(
+        (r) => r.personalInfo.email?.toLowerCase() === lowerEmail
+      );
+      if (!registeredStudent) {
+        console.log(`⚠️ Skipping ${email} — not registered for this event.`);
+        continue;
+      }
+
+      // ✅ Skip already selected students
+      if (alreadySelectedEmails.has(lowerEmail)) {
+        console.log(`⚠️ Skipping ${email} (already selected).`);
+        continue;
+      }
+
+      if (sentEmails.has(lowerEmail)) continue;
+      sentEmails.add(lowerEmail);
+
+      const student = registeredStudent.personalInfo;
+      const subject = `🎉 Congratulations! You have been selected for ${event.title}`;
+      const html = `
+        <h3>Dear ${student.name || "Student"},</h3>
+        <p>You have been <b>selected</b> in <b>${event.title}</b>!</p>
+        <p>Best wishes from the Placement Team!</p>
+      `;
+
+      try {
+        await sendEmail(student.email, subject, html);
+        console.log(`📧 Sent mail to ${student.email}`);
+      } catch (err) {
+        console.error(`Mail failed for ${student.email}:`, err.message);
+      }
+
+notifications.push({
+  title: "Selection Update",
+  message: `You have been selected in "${event.title}". Congratulations! 🎉`,
+  category: "Placement", // ✅ REQUIRED FIELD (Fixes missing category)
+  senderId: req.user?._id,
+  senderModel: req.userType === "tpo" ? "TPO" : "Admin",
+  recipients: [
+    {
+      recipientId: student.studentId,
+      recipientModel: "Student",
+      isRead: false,
+    },
+  ],
+  relatedEntity: { entityId: event._id, entityModel: "Event" },
+});
+
+console.log(
+  `✅ Notification Created → Student: ${student.email} | Category: Placement | Event: ${event.title}`
+);
+
+
+      event.selectedStudents.push({
+        studentId: registeredStudent.studentId,
+        name: student.name,
+        rollNo: student.rollNo,
+        email: student.email,
+        branch: student.branch,
+        selectedAt: new Date(),
+      });
+    }
+
+    if (notifications.length > 0) await Notification.insertMany(notifications);
+    event.eventSummary.selectedStudents = event.selectedStudents.length;
+
+    if (file) {
+      event.selectedListFiles.push({
+        fileName: file.originalname,
+        fileUrl: file.path,
+      });
+    }
+
+    await event.save();
+
+    res.status(200).json({
+      success: true,
+      message: "✅ Selected students processed (only registered & unique).",
+      newlyNotified: notifications.length,
+      totalSelected: event.selectedStudents.length,
+    });
+  } catch (error) {
+    console.error("Error in uploadSelectedStudents:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error while uploading selected students.",
+      error: error.message,
+    });
+  }
+});
+
+
+
+
 

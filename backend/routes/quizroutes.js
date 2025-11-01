@@ -7,7 +7,8 @@ const Student = require('../models/Student');
 const Trainer = require('../models/Trainer');
 const generalAuth = require('../middleware/generalAuth');
 const mongoose = require('mongoose');
-
+// ✅ Add this block before sending response
+const { createNotification } = require("../controllers/notificationController");
 // Helper function to get trainer's assigned placement batches
 const getTrainerPlacementBatches = async (trainerId) => {
   try {
@@ -15,7 +16,7 @@ const getTrainerPlacementBatches = async (trainerId) => {
       'assignedTrainers.trainer': trainerId,
       isActive: true
     }).select('_id batchNumber techStack year colleges students');
-    
+
     return batches.map(batch => ({
       _id: batch._id,
       name: `${batch.batchNumber} - ${batch.techStack} (${batch.year})`,
@@ -63,18 +64,18 @@ const getTrainerSubject = async (trainerId) => {
 router.get('/batches', generalAuth, async (req, res) => {
   try {
     const trainerId = req.user.id;
-    
+
     const [regularBatches, placementBatches] = await Promise.all([
       getTrainerRegularBatches(trainerId),
       getTrainerPlacementBatches(trainerId)
     ]);
-    
+
     const allBatches = {
       regular: regularBatches,
       placement: placementBatches,
       all: [...regularBatches, ...placementBatches]
     };
-    
+
     res.json(allBatches);
   } catch (error) {
     console.error('Error fetching batches:', error);
@@ -131,7 +132,7 @@ router.post('/', generalAuth, async (req, res) => {
 
     if (batchType === 'regular' || batchType === 'both') {
       if (assignedBatches && assignedBatches.length > 0) {
-        validatedRegularBatches = assignedBatches.filter(id => 
+        validatedRegularBatches = assignedBatches.filter(id =>
           mongoose.Types.ObjectId.isValid(id)
         );
       }
@@ -139,7 +140,7 @@ router.post('/', generalAuth, async (req, res) => {
 
     if (batchType === 'placement' || batchType === 'both') {
       if (assignedPlacementBatches && assignedPlacementBatches.length > 0) {
-        validatedPlacementBatches = assignedPlacementBatches.filter(id => 
+        validatedPlacementBatches = assignedPlacementBatches.filter(id =>
           mongoose.Types.ObjectId.isValid(id)
         );
       }
@@ -167,7 +168,7 @@ router.post('/', generalAuth, async (req, res) => {
     });
 
     const savedQuiz = await quiz.save();
-    
+
     // Populate batch information for response
     await savedQuiz.populate([
       { path: 'assignedBatches', select: 'name' },
@@ -175,6 +176,42 @@ router.post('/', generalAuth, async (req, res) => {
     ]);
 
     res.status(201).json(savedQuiz);
+
+
+// Notify placement batches
+if (validatedPlacementBatches.length > 0) {
+  await createNotification(
+    {
+      body: {
+        title: `New Quiz: ${title}`,
+        message: `A new quiz "${title}" has been created by ${req.user.name}. Check your Available Quizzes section for details.`,
+        category: "Available Quizzes",
+        targetBatchIds: validatedPlacementBatches,
+        type: "quiz",
+      },
+      user: req.user,
+    },
+    { status: () => ({ json: () => {} }) } // dummy res object to satisfy the function
+  );
+}
+
+// Notify regular batches
+if (validatedRegularBatches.length > 0) {
+  await createNotification(
+    {
+      body: {
+        title: `New Quiz: ${title}`,
+        message: `A new quiz "${title}" has been created by ${req.user.name}. Check your Available Quizzes section for details.`,
+        category: "Available Quizzes",
+        targetBatchIds: validatedRegularBatches,
+        type: "quiz",
+      },
+      user: req.user,
+    },
+    { status: () => ({ json: () => {} }) }
+  );
+}
+
   } catch (error) {
     console.error('Error creating quiz:', error);
     res.status(400).json({ message: error.message || 'Failed to create quiz' });
@@ -224,11 +261,11 @@ router.get('/:id', generalAuth, async (req, res) => {
 router.get('/student/list', generalAuth, async (req, res) => {
   try {
     const studentId = req.user.id;
-    
+
     // Get student information to check their batch assignments
     const student = await Student.findById(studentId)
       .select('batchId placementTrainingBatchId');
-      
+
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
@@ -270,7 +307,7 @@ router.get('/student/list', generalAuth, async (req, res) => {
 
     // For each quiz, check if the student has submitted
     const quizList = quizzes.map(quiz => {
-      const submission = quiz.submissions.find(sub => 
+      const submission = quiz.submissions.find(sub =>
         sub.studentId.toString() === studentId
       );
 
@@ -307,7 +344,7 @@ router.get('/student/:id', generalAuth, async (req, res) => {
   try {
     const studentId = req.user.id;
     const quizId = req.params.id;
-    
+
     const [quiz, student] = await Promise.all([
       Quiz.findById(quizId),
       Student.findById(studentId).select('batchId placementTrainingBatchId')
@@ -375,7 +412,7 @@ router.post('/:id/submit', generalAuth, async (req, res) => {
     }
 
     // Check if student has already submitted (if retakes are not allowed)
-    const existingSubmission = quiz.submissions.find(sub => 
+    const existingSubmission = quiz.submissions.find(sub =>
       sub.studentId.toString() === studentId
     );
 
@@ -409,7 +446,7 @@ router.post('/:id/submit', generalAuth, async (req, res) => {
     });
 
     const percentage = (score / quiz.totalMarks) * 100;
-    
+
     let performanceCategory;
     if (percentage >= 80) performanceCategory = 'green';
     else if (percentage >= 60) performanceCategory = 'yellow';
@@ -544,9 +581,9 @@ router.get('/:id/batch-progress', generalAuth, async (req, res) => {
 
     const stats = {
       totalSubmissions: progress.length,
-      averageScore: progress.length > 0 ? 
+      averageScore: progress.length > 0 ?
         progress.reduce((acc, p) => acc + p.score, 0) / progress.length : 0,
-      averagePercentage: progress.length > 0 ? 
+      averagePercentage: progress.length > 0 ?
         progress.reduce((acc, p) => acc + p.percentage, 0) / progress.length : 0,
       passedCount: progress.filter(p => p.passed).length,
       failedCount: progress.filter(p => !p.passed).length,
