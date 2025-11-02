@@ -27,6 +27,7 @@ import {
   updateProfile,
   checkPasswordChange,
 } from "../../services/generalAuthService";
+import axios from "axios";
 
 const backendURL = 'http://localhost:5000';
 
@@ -111,11 +112,27 @@ const StudentProfile = () => {
   const [selectedCRTBatch, setSelectedCRTBatch] = useState("");
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [availableCRTOptions, setAvailableCRTOptions] = useState([]);
+  const [availableTechStacks, setAvailableTechStacks] = useState([]);
 
   useEffect(() => {
     fetchProfile();
     checkPasswordStatus();
     fetchPendingApprovals();
+  }, []);
+
+  useEffect(() => {
+    const fetchAvailableTechStacks = async () => {
+      try {
+        const response = await axios.get('/api/student/available-crt-options');
+        if (response.data.success) {
+          setAvailableTechStacks(response.data.data.batchAllowedTechStacks);
+        }
+      } catch (error) {
+        console.error('Error fetching tech stacks:', error);
+      }
+    };
+
+    fetchAvailableTechStacks();
   }, []);
 
   const fetchProfile = async () => {
@@ -329,7 +346,8 @@ const StudentProfile = () => {
     setSelectedCRTBatch(newBatch);
     setFormData((prev) => ({
       ...prev,
-      crtBatchChoice: newBatch
+      crtBatchChoice: newBatch,
+      techStack: availableTechStacks.includes(newBatch) ? [newBatch] : prev.techStack
     }));
   };
 

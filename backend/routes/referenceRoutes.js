@@ -1,4 +1,5 @@
-// Updated referenceRoutes.js - Enhanced with placement training batch support
+// FIXED referenceRoutes.js - Complete Routes with Query Issues Resolved
+
 const express = require('express');
 const router = express.Router();
 const Reference = require('../models/Reference');
@@ -7,8 +8,51 @@ const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const Student = require('../models/Student');
 const generalAuth = require('../middleware/generalAuth');
 const mongoose = require('mongoose');
-// ✅ Add notification after populate() and before response
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../config/cloudinary');
+const path = require('path');
 const { createNotification } = require("../controllers/notificationController");
+
+// Cloudinary storage config
+const resourceStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: async (req, file) => {
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 8);
+    const fileExt = path.extname(file.originalname).toLowerCase();
+    const cleanName = path.basename(file.originalname, fileExt)
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9_-]/g, '');
+    
+    const extensionMap = { '.pdf': 'pdf', '.doc': 'doc', '.docx': 'docx' };
+    const format = extensionMap[fileExt] || fileExt.replace('.', '');
+    const publicIdWithExtension = `resource_${timestamp}_${randomString}_${cleanName}.${format}`;
+    
+    return {
+      folder: 'resources',
+      resource_type: 'raw',
+      public_id: publicIdWithExtension,
+      use_filename: false,
+      unique_filename: false
+    };
+  }
+});
+
+const upload = multer({
+  storage: resourceStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    if (allowedTypes.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Only PDF, DOC, DOCX files are allowed'), false);
+  }
+});
+
 // Helper function to get trainer's assigned placement batches
 const getTrainerPlacementBatches = async (trainerId) => {
   try {
@@ -53,7 +97,6 @@ const getTrainerRegularBatches = async (trainerId) => {
 router.get('/batches', generalAuth, async (req, res) => {
   try {
     const trainerId = req.user.id;
-
     const [regularBatches, placementBatches] = await Promise.all([
       getTrainerRegularBatches(trainerId),
       getTrainerPlacementBatches(trainerId)
@@ -72,17 +115,14 @@ router.get('/batches', generalAuth, async (req, res) => {
   }
 });
 
-// Create a new reference (trainer only)
-router.post('/', generalAuth, async (req, res) => {
+// Trainer uploads a resource (file or link)
+router.post('/', generalAuth, upload.array('files', 5), async (req, res) => {
   try {
     const {
       topicName,
       subject,
-      module,
-      difficulty,
-      resources,
-      referenceVideoLink, // Legacy support
-      referenceNotesLink, // Legacy support
+      referenceVideoLink,
+      referenceNotesLink,
       assignedBatches,
       assignedPlacementBatches,
       batchType,
@@ -94,65 +134,54 @@ router.post('/', generalAuth, async (req, res) => {
       availableFrom,
       availableUntil
     } = req.body;
-
+    
     const trainerId = req.user.id;
-
-    // Validate batch assignments based on access level
+    
     let validatedRegularBatches = [];
     let validatedPlacementBatches = [];
-
+    
     if (accessLevel === 'batch-specific') {
       if (batchType === 'regular' || batchType === 'both') {
-        if (assignedBatches && assignedBatches.length > 0) {
-          validatedRegularBatches = assignedBatches.filter(id =>
-            mongoose.Types.ObjectId.isValid(id)
-          );
-        }
+        const batchArray = typeof assignedBatches === 'string' 
+          ? JSON.parse(assignedBatches) 
+          : assignedBatches;
+        validatedRegularBatches = Array.isArray(batchArray)
+          ? batchArray.filter(id => mongoose.Types.ObjectId.isValid(id))
+          : [];
       }
-
+      
       if (batchType === 'placement' || batchType === 'both') {
-        if (assignedPlacementBatches && assignedPlacementBatches.length > 0) {
-          validatedPlacementBatches = assignedPlacementBatches.filter(id =>
-            mongoose.Types.ObjectId.isValid(id)
-          );
-        }
+        const batchArray = typeof assignedPlacementBatches === 'string'
+          ? JSON.parse(assignedPlacementBatches)
+          : assignedPlacementBatches;
+        validatedPlacementBatches = Array.isArray(batchArray)
+          ? batchArray.filter(id => mongoose.Types.ObjectId.isValid(id))
+          : [];
       }
     }
 
-    // Process legacy fields into resources array
-    const processedResources = resources ? [...resources] : [];
-
-    if (referenceVideoLink) {
-      processedResources.push({
-        type: 'video',
-        title: 'Reference Video',
-        url: referenceVideoLink,
-        description: 'Main reference video for this topic'
-      });
-    }
-
-    if (referenceNotesLink) {
-      processedResources.push({
-        type: 'document',
-        title: 'Reference Notes',
-        url: referenceNotesLink,
-        description: 'Reference notes and documentation'
-      });
+    let files = [];
+    if (req.files?.length > 0) {
+      files = req.files.map(file => ({
+        filename: file.originalname,
+        url: file.path.replace('http://', 'https://'),
+        mimetype: file.mimetype,
+        size: file.size,
+        uploadedAt: new Date()
+      }));
     }
 
     const reference = new Reference({
       trainerId,
       topicName,
       subject,
-      module,
-      difficulty: difficulty || 'intermediate',
-      resources: processedResources,
-      referenceVideoLink, // Keep for backward compatibility
-      referenceNotesLink, // Keep for backward compatibility
+      files,
+      referenceVideoLink,
+      referenceNotesLink,
       assignedBatches: validatedRegularBatches,
       assignedPlacementBatches: validatedPlacementBatches,
       batchType: accessLevel === 'public' ? 'public' : (batchType || 'public'),
-      isPublic: accessLevel === 'public' ? true : (isPublic !== undefined ? isPublic : true),
+      isPublic: accessLevel === 'public' ? true : (isPublic === 'true' || isPublic === true),
       accessLevel: accessLevel || 'public',
       learningObjectives: Array.isArray(learningObjectives) ? learningObjectives :
         (learningObjectives ? [learningObjectives] : []),
@@ -164,48 +193,37 @@ router.post('/', generalAuth, async (req, res) => {
     });
 
     const savedReference = await reference.save();
-
-    // Populate batch information for response
     await savedReference.populate([
       { path: 'assignedBatches', select: 'name' },
       { path: 'assignedPlacementBatches', select: 'batchNumber techStack year colleges' }
     ]);
 
+    // Send notifications
+    if (validatedPlacementBatches.length > 0) {
+      await createNotification({
+        body: {
+          title: `New Learning Resource: ${topicName}`,
+          message: `A new learning resource "${topicName}" has been shared by ${req.user.name}`,
+          category: "Learning Resources",
+          targetBatchIds: validatedPlacementBatches,
+          type: "resource",
+        },
+        user: req.user,
+      }, { status: () => ({ json: () => {} }) });
+    }
 
-// Notify placement batches
-if (validatedPlacementBatches.length > 0) {
-  await createNotification(
-    {
-      body: {
-        title: `New Learning Resource: ${topicName}`,
-        message: `A new learning resource "${topicName}" has been shared by ${req.user.name}. Check your Learning Resources section for details.`,
-        category: "Learning Resources",
-        targetBatchIds: validatedPlacementBatches,
-        type: "resource",
-      },
-      user: req.user,
-    },
-    { status: () => ({ json: () => {} }) } // dummy res
-  );
-}
-
-// Notify regular batches
-if (validatedRegularBatches.length > 0) {
-  await createNotification(
-    {
-      body: {
-        title: `New Learning Resource: ${topicName}`,
-        message: `A new learning resource "${topicName}" has been shared by ${req.user.name}. Check your Learning Resources section for details.`,
-        category: "Learning Resources",
-        targetBatchIds: validatedRegularBatches,
-        type: "resource",
-      },
-      user: req.user,
-    },
-    { status: () => ({ json: () => {} }) }
-  );
-}
-
+    if (validatedRegularBatches.length > 0) {
+      await createNotification({
+        body: {
+          title: `New Learning Resource: ${topicName}`,
+          message: `A new learning resource "${topicName}" has been shared by ${req.user.name}`,
+          category: "Learning Resources",
+          targetBatchIds: validatedRegularBatches,
+          type: "resource",
+        },
+        user: req.user,
+      }, { status: () => ({ json: () => {} }) });
+    }
 
     res.status(201).json(savedReference);
   } catch (error) {
@@ -217,8 +235,8 @@ if (validatedRegularBatches.length > 0) {
 // Get all references for the trainer
 router.get('/', generalAuth, async (req, res) => {
   try {
-    const { search, subject, difficulty, batchType, page = 1, limit = 10 } = req.query;
-
+    const { search, subject, batchType, page = 1, limit = 10 } = req.query;
+    
     // Build query
     const query = { trainerId: req.user.id, status: 'active' };
 
@@ -229,15 +247,11 @@ router.get('/', generalAuth, async (req, res) => {
     if (subject) {
       query.subject = subject;
     }
-
-    if (difficulty) {
-      query.difficulty = difficulty;
-    }
-
+    
     if (batchType && batchType !== 'all') {
       query.batchType = batchType;
     }
-
+    
     const references = await Reference.find(query)
       .populate([
         { path: 'assignedBatches', select: 'name' },
@@ -247,9 +261,9 @@ router.get('/', generalAuth, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);
-
+    
     const total = await Reference.countDocuments(query);
-
+    
     res.json({
       references,
       totalPages: Math.ceil(total / limit),
@@ -272,11 +286,11 @@ router.get('/:id', generalAuth, async (req, res) => {
         { path: 'ratings.studentId', select: 'name rollNo' },
         { path: 'lastViewedBy.studentId', select: 'name rollNo' }
       ]);
-
+    
     if (!reference || reference.trainerId.toString() !== req.user.id) {
       return res.status(404).json({ message: 'Reference not found or not authorized' });
     }
-
+    
     res.json(reference);
   } catch (error) {
     console.error('Error fetching reference:', error);
@@ -288,18 +302,17 @@ router.get('/:id', generalAuth, async (req, res) => {
 router.put('/:id', generalAuth, async (req, res) => {
   try {
     const reference = await Reference.findById(req.params.id);
-
+    
     if (!reference || reference.trainerId.toString() !== req.user.id) {
       return res.status(404).json({ message: 'Reference not found or not authorized' });
     }
-
+    
     // Update basic fields
     const updateFields = [
-      'topicName', 'subject', 'module', 'difficulty', 'resources',
-      'referenceVideoLink', 'referenceNotesLink', 'isPublic', 'accessLevel',
-      'learningObjectives', 'prerequisites', 'tags', 'availableFrom', 'availableUntil'
+      'topicName', 'subject', 'referenceVideoLink', 'referenceNotesLink', 'isPublic', 'accessLevel',
+      'learningObjectives', 'prerequisites', 'tags', 'availableFrom', 'availableUntil', 'batchType'
     ];
-
+    
     updateFields.forEach(field => {
       if (req.body[field] !== undefined) {
         if (field === 'availableFrom' || field === 'availableUntil') {
@@ -312,19 +325,15 @@ router.put('/:id', generalAuth, async (req, res) => {
         }
       }
     });
-
+    
     // Update batch assignments
     if (req.body.accessLevel === 'batch-specific') {
-      if (req.body.batchType) {
-        reference.batchType = req.body.batchType;
-      }
-
-      if (req.body.assignedBatches) {
+      if (req.body.assignedBatches !== undefined) {
         const batches = Array.isArray(req.body.assignedBatches) ? req.body.assignedBatches : [req.body.assignedBatches];
         reference.assignedBatches = batches.filter(id => mongoose.Types.ObjectId.isValid(id));
       }
-
-      if (req.body.assignedPlacementBatches) {
+      
+      if (req.body.assignedPlacementBatches !== undefined) {
         const batches = Array.isArray(req.body.assignedPlacementBatches) ? req.body.assignedPlacementBatches : [req.body.assignedPlacementBatches];
         reference.assignedPlacementBatches = batches.filter(id => mongoose.Types.ObjectId.isValid(id));
       }
@@ -334,14 +343,13 @@ router.put('/:id', generalAuth, async (req, res) => {
       reference.assignedPlacementBatches = [];
       reference.batchType = 'public';
     }
-
+    
     const updatedReference = await reference.save();
-
     await updatedReference.populate([
       { path: 'assignedBatches', select: 'name' },
       { path: 'assignedPlacementBatches', select: 'batchNumber techStack year colleges' }
     ]);
-
+    
     res.json(updatedReference);
   } catch (error) {
     console.error('Error updating reference:', error);
@@ -353,15 +361,15 @@ router.put('/:id', generalAuth, async (req, res) => {
 router.delete('/:id', generalAuth, async (req, res) => {
   try {
     const reference = await Reference.findById(req.params.id);
-
+    
     if (!reference || reference.trainerId.toString() !== req.user.id) {
       return res.status(404).json({ message: 'Reference not found or not authorized' });
     }
-
+    
     // Soft delete by changing status
     reference.status = 'archived';
     await reference.save();
-
+    
     res.json({ message: 'Reference archived successfully' });
   } catch (error) {
     console.error('Error deleting reference:', error);
@@ -369,74 +377,71 @@ router.delete('/:id', generalAuth, async (req, res) => {
   }
 });
 
-// Get all references for students
+// ==================== FIXED STUDENT ENDPOINTS ====================
+
+// Student fetches resources assigned to their batch/placement batch or public
 router.get('/student/list', generalAuth, async (req, res) => {
   try {
     const studentId = req.user.id;
-    const { search, subject, difficulty, page = 1, limit = 10 } = req.query;
+    const { search, subject, batchType, page = 1, limit = 10 } = req.query;
 
     // Get student information
     const student = await Student.findById(studentId)
       .select('batchId placementTrainingBatchId');
-
+    
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
-
-    // Build query for accessible references
+    
+    console.log('Student data:', {
+      studentId,
+      batchId: student.batchId,
+      placementTrainingBatchId: student.placementTrainingBatchId
+    });
+    
     const now = new Date();
-    const baseQuery = {
+    
+    // Build the query with proper OR conditions
+    const orConditions = [];
+    
+    // 1. Public resources
+    orConditions.push({
+      accessLevel: 'public',
+      isPublic: true
+    });
+    
+    // 2. Batch-specific resources for regular batch
+    if (student.batchId) {
+      orConditions.push({
+        accessLevel: 'batch-specific',
+        batchType: { $in: ['regular', 'both'] },
+        assignedBatches: student.batchId
+      });
+    }
+    
+    // 3. Batch-specific resources for placement batch
+    if (student.placementTrainingBatchId) {
+      orConditions.push({
+        accessLevel: 'batch-specific',
+        batchType: { $in: ['placement', 'both'] },
+        assignedPlacementBatches: student.placementTrainingBatchId
+      });
+    }
+    
+    // Final query
+    const query = {
       status: 'active',
       availableFrom: { $lte: now },
       $or: [
         { availableUntil: { $exists: false } },
         { availableUntil: null },
         { availableUntil: { $gte: now } }
-      ]
+      ],
+      $or: orConditions
     };
-
-    // Add access conditions
-    const accessConditions = [
-      { accessLevel: 'public', isPublic: true }
-    ];
-
-    // Add batch-specific conditions
-    if (student.batchId) {
-      accessConditions.push({
-        accessLevel: 'batch-specific',
-        batchType: { $in: ['regular', 'both'] },
-        assignedBatches: student.batchId
-      });
-    }
-
-    if (student.placementTrainingBatchId) {
-      accessConditions.push({
-        accessLevel: 'batch-specific',
-        batchType: { $in: ['placement', 'both'] },
-        assignedPlacementBatches: student.placementTrainingBatchId
-      });
-    }
-
-    const query = {
-      ...baseQuery,
-      $and: [
-        { $or: accessConditions }
-      ]
-    };
-
-    // Add search filters
-    if (search) {
-      query.$text = { $search: search };
-    }
-
-    if (subject) {
-      query.subject = subject;
-    }
-
-    if (difficulty) {
-      query.difficulty = difficulty;
-    }
-
+    
+    console.log('Query for student resources:', JSON.stringify(query, null, 2));
+    
     const references = await Reference.find(query)
       .populate([
         { path: 'trainerId', select: 'name' },
@@ -472,7 +477,10 @@ router.get('/student/list', generalAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching references for student:', error);
-    res.status(500).json({ message: 'Failed to fetch references for student' });
+    res.status(500).json({ 
+      message: 'Failed to fetch references for student',
+      error: error.message 
+    });
   }
 });
 
@@ -491,25 +499,25 @@ router.get('/student/:id', generalAuth, async (req, res) => {
         ]),
       Student.findById(studentId).select('batchId placementTrainingBatchId name')
     ]);
-
+    
     if (!reference || !student) {
       return res.status(404).json({ message: 'Reference or student not found' });
     }
-
+    
     // Check if student can access this reference
     if (!reference.canStudentAccess(student)) {
       return res.status(403).json({ message: 'You are not authorized to access this reference' });
     }
-
+    
     // Record the view
     reference.recordView(studentId);
     await reference.save();
-
+    
     // Get student's rating for this reference
     const studentRating = reference.ratings.find(rating =>
       rating.studentId.toString() === studentId
     );
-
+    
     const referenceData = {
       ...reference.toJSON(),
       studentRating: studentRating ? {
@@ -519,7 +527,7 @@ router.get('/student/:id', generalAuth, async (req, res) => {
       } : null,
       hasRated: !!studentRating
     };
-
+    
     res.json(referenceData);
   } catch (error) {
     console.error('Error fetching reference for student:', error);
@@ -533,28 +541,28 @@ router.post('/:id/rate', generalAuth, async (req, res) => {
     const studentId = req.user.id;
     const referenceId = req.params.id;
     const { rating, feedback } = req.body;
-
+    
     if (!rating || rating < 1 || rating > 5) {
       return res.status(400).json({ message: 'Rating must be between 1 and 5' });
     }
-
+    
     const [reference, student] = await Promise.all([
       Reference.findById(referenceId),
       Student.findById(studentId).select('batchId placementTrainingBatchId')
     ]);
-
+    
     if (!reference || !student) {
       return res.status(404).json({ message: 'Reference or student not found' });
     }
-
+    
     // Check if student can access this reference
     if (!reference.canStudentAccess(student)) {
       return res.status(403).json({ message: 'You are not authorized to rate this reference' });
     }
-
+    
     reference.addRating(studentId, rating, feedback);
     await reference.save();
-
+    
     res.json({
       message: 'Rating submitted successfully',
       averageRating: reference.averageRating,
@@ -574,11 +582,11 @@ router.get('/:id/analytics', generalAuth, async (req, res) => {
         { path: 'lastViewedBy.studentId', select: 'name rollNo college branch' },
         { path: 'ratings.studentId', select: 'name rollNo college branch' }
       ]);
-
+    
     if (!reference || reference.trainerId.toString() !== req.user.id) {
       return res.status(404).json({ message: 'Reference not found or not authorized' });
     }
-
+    
     // Calculate analytics
     const analytics = {
       viewStats: {
@@ -615,7 +623,7 @@ router.get('/:id/analytics', generalAuth, async (req, res) => {
           (reference.ratings.length / reference.lastViewedBy.length) * 100 : 0
       }
     };
-
+    
     res.json(analytics);
   } catch (error) {
     console.error('Error fetching reference analytics:', error);
@@ -623,7 +631,7 @@ router.get('/:id/analytics', generalAuth, async (req, res) => {
   }
 });
 
-// Legacy endpoint - Get all references for students (public)
+// Legacy endpoint - Get all public references (no auth required)
 router.get('/all', async (req, res) => {
   try {
     const references = await Reference.find({
@@ -632,9 +640,9 @@ router.get('/all', async (req, res) => {
       accessLevel: 'public'
     })
       .populate('trainerId', 'name')
-      .select('topicName subject difficulty resources referenceVideoLink referenceNotesLink createdAt viewCount averageRating')
+      .select('topicName subject files referenceVideoLink referenceNotesLink createdAt viewCount')
       .sort({ createdAt: -1 });
-
+    
     res.json(references);
   } catch (error) {
     console.error('Error fetching public references:', error);

@@ -14,6 +14,7 @@ const ExcelJS = require('exceljs');
 const sendEmail = require('../utils/sendEmail');
 const notificationController = require("../controllers/notificationController");
 
+const { getAvailableTechStacks, getTechStackColor } = require('../utils/techStackUtils');
 
 // GET TPO Profile
 router.get('/profile', generalAuth, async (req, res) => {
@@ -271,17 +272,18 @@ router.get('/placement-training-batches', generalAuth, async (req, res) => {
       });
     });
 
+    // Update stats calculation to be dynamic
+    const techStackStats = await PlacementTrainingBatch.getStatsByTechStack();
+    
     const stats = {
       totalBatches,
       totalStudents,
       totalYears: Object.keys(organized).length,
       totalColleges: [...new Set(batches.flatMap(b => b.colleges))].length,
-      techStackDistribution: {
-        Java: batches.filter(b => b.techStack === 'Java').length,
-        Python: batches.filter(b => b.techStack === 'Python').length,
-        'AIML': batches.filter(b => b.techStack === 'AIML').length,
-        NonCRT: batches.filter(b => b.techStack === 'NonCRT').length
-      }
+      techStackDistribution: techStackStats.reduce((acc, stat) => ({
+        ...acc,
+        [stat.techStack]: stat.batchCount
+      }), {})
     };
 
     res.json({
@@ -613,39 +615,25 @@ router.get('/schedule-timetable', generalAuth, async (req, res) => {
       };
     });
 
-    // Calculate summary statistics
+
+    // Calculate dynamic tech stack stats
+    const techStacks = [...new Set(batches.map(b => b.techStack))];
+    const techStackStats = {};
+    techStacks.forEach(tech => {
+      techStackStats[tech] = batches.filter(b => b.techStack === tech).length;
+    });
+
     const stats = {
       totalBatches: batches.length,
       totalStudents: batches.reduce((acc, batch) => acc + batch.students.length, 0),
-      totalClasses: batches.reduce((acc, batch) => {
-        return acc + (batch.assignedTrainers?.reduce((trainerAcc, trainer) => {
-          return trainerAcc + (trainer.schedule?.length || 0);
-        }, 0) || 0);
-      }, 0),
-      assignedTrainers: [...new Set(batches.flatMap(batch =>
+      assignedTrainers: [...new Set(batches.flatMap(batch => 
         batch.assignedTrainers?.map(t => t.trainer?._id.toString()) || []
       ))].length,
-      batchesByTechStack: {
-        Java: batches.filter(b => b.techStack === 'Java').length,
-        Python: batches.filter(b => b.techStack === 'Python').length,
-        'AIML': batches.filter(b => b.techStack === 'AIML').length,
-        NonCRT: batches.filter(b => b.techStack === 'NonCRT').length
-      },
+      batchesByTechStack: techStackStats,
       batchesByCollege: {
         KIET: batches.filter(b => b.colleges.includes('KIET')).length,
         KIEK: batches.filter(b => b.colleges.includes('KIEK')).length,
         KIEW: batches.filter(b => b.colleges.includes('KIEW')).length
-      },
-      timeSlotDistribution: {
-        morning: batches.reduce((acc, batch) => {
-          return acc + (batch.assignedTrainers?.filter(t => t.timeSlot === 'morning').length || 0);
-        }, 0),
-        afternoon: batches.reduce((acc, batch) => {
-          return acc + (batch.assignedTrainers?.filter(t => t.timeSlot === 'afternoon').length || 0);
-        }, 0),
-        evening: batches.reduce((acc, batch) => {
-          return acc + (batch.assignedTrainers?.filter(t => t.timeSlot === 'evening').length || 0);
-        }, 0)
       }
     };
 
@@ -2214,6 +2202,39 @@ router.get('/attendance/download-excel', generalAuth, async (req, res) => {
       success: false,
       message: 'Error generating Excel file',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Add new endpoint to get available tech stacks
+router.get('/tech-stacks', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const techStacks = await getAvailableTechStacks();
+    const stats = await PlacementTrainingBatch.getStatsByTechStack();
+
+    res.json({
+      success: true,
+      data: {
+        techStacks,
+        stats,
+        colors: techStacks.reduce((acc, tech) => ({
+          ...acc,
+          [tech]: getTechStackColor(tech)
+        }), {})
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching tech stacks:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 });

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Calendar, Clock, User, BookOpen, Filter, Search, RefreshCw, FileSpreadsheet, Eye, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
-
+import axios from 'axios';
 
 const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
   const [selectedWeek, setSelectedWeek] = useState('current');
@@ -12,6 +12,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showScheduleDetail, setShowScheduleDetail] = useState(false);
   const [selectedScheduleItem, setSelectedScheduleItem] = useState(null);
+  const [techStackColors, setTechStackColors] = useState({});
 
 
   // Get current week dates
@@ -222,14 +223,26 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
   };
 
 
-  const getTechStackColor = (techStack) => {
-    const colors = {
-      Java: 'bg-red-100 text-red-700 border-red-200',
-      Python: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      'AIML': 'bg-purple-100 text-purple-700 border-purple-200',
-      NonCRT: 'bg-slate-100 text-slate-700 border-slate-200',
+  useEffect(() => {
+    const fetchTechStackColors = async () => {
+      try {
+        const response = await axios.get('/api/tpo/tech-stacks', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (response.data.success) {
+          setTechStackColors(response.data.data.colors);
+        }
+      } catch (error) {
+        console.error('Error fetching tech stack colors:', error);
+      }
     };
-    return colors[techStack] || 'bg-blue-100 text-blue-700 border-blue-200';
+    
+    fetchTechStackColors();
+  }, []);
+
+
+  const getTechStackColor = (techStack) => {
+    return techStackColors[techStack] || 'bg-gray-100 text-gray-700 border-gray-200';
   };
 
 

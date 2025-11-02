@@ -23,10 +23,9 @@ router.get('/', auth, async (req, res) => {
 
     batches.forEach(batch => {
       const year = batch.year;
-      
       batch.colleges.forEach(college => {
         const techStack = batch.techStack;
-
+        
         // Initialize nested structure
         if (!organized[year]) organized[year] = {};
         if (!organized[year][college]) organized[year][college] = {};
@@ -57,7 +56,6 @@ router.get('/', auth, async (req, res) => {
         organized[year][college][techStack].totalStudents += batch.students.length;
         organized[year][college][techStack].totalBatches += 1;
 
-        // Update overall stats
         totalBatches += 1;
         totalStudents += batch.students.length;
         if (techStack !== 'NonCRT') crtBatches += 1;
@@ -65,17 +63,21 @@ router.get('/', auth, async (req, res) => {
       });
     });
 
+    // Get unique tech stacks from batches
+    const uniqueTechStacks = [...new Set(batches.map(b => b.techStack))];
+
+    // Dynamic tech stack stats
+    const batchesByTech = uniqueTechStacks.reduce((acc, tech) => ({
+      ...acc,
+      [tech]: batches.filter(b => b.techStack === tech).length
+    }), {});
+
     const stats = {
       totalBatches,
       totalStudents,
       crtBatches,
       nonCrtBatches,
-      batchesByTech: {
-        Java: batches.filter(b => b.techStack === 'Java').length,
-        Python: batches.filter(b => b.techStack === 'Python').length,
-        'AIML': batches.filter(b => b.techStack === 'AI/AIML').length,
-        NonCRT: batches.filter(b => b.techStack === 'NonCRT').length
-      },
+      batchesByTech,
       batchesByCollege: {
         KIET: batches.filter(b => b.colleges.includes('KIET')).length,
         KIEK: batches.filter(b => b.colleges.includes('KIEK')).length,

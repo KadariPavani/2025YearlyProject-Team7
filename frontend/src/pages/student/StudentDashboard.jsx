@@ -15,8 +15,9 @@ import StudentResources from './StudentResources';
 import StudentAttendanceView from './StudentAttendanceView';
 import StudentFeedback from '../student/StudentFeedback';
 import FeedbackPreview from '../../components/FeedbackPreview'; // Import feedback preview component
-
 // Keep placeholder components for the rest as in the first code
+
+
 const StudentSyllabus = () => (
   <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
     <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
@@ -121,6 +122,7 @@ const StudentDashboard = () => {
   const [assignments, setAssignments] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
   const [resources, setResources] = useState([]);
+  const [syllabi, setSyllabi] = useState([]);
   const [dashboardStats, setDashboardStats] = useState({
     quizzes: { total: 0, completed: 0, upcoming: 0, average: 0 },
     assignments: { total: 0, completed: 0, pending: 0, overdue: 0 },
@@ -180,6 +182,7 @@ useEffect(() => {
     fetchAssignments();
     fetchQuizzes();
     fetchResources();
+    fetchSyllabi();
     fetchPendingApprovals();
   }, []);
 
@@ -193,7 +196,8 @@ useEffect(() => {
     try {
       const token = localStorage.getItem('userToken');
       const response = await fetch('/api/auth/dashboard/student', {
-        headers: {
+        headers:
+         {
           'Authorization': `Bearer ${token}`
         }
       });
@@ -361,6 +365,18 @@ const markAsRead = async (id) => {
         console.error('Failed to fetch resources:', err);
         setResources([]);
       }
+    }
+  };
+
+  const fetchSyllabi = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await axios.get('/api/syllabi/student/list', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSyllabi(response.data || []);
+    } catch (err) {
+      setSyllabi([]);
     }
   };
 
@@ -921,6 +937,16 @@ const studentId = studentData?.user?._id || studentData?._id;
               >
                 Attendance
               </button>
+              <button
+                onClick={() => setActiveTab('syllabus')}
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
+                  activeTab === 'syllabus'
+                    ? 'border-blue-700 text-blue-700 bg-blue-100'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                Syllabus
+              </button>
 
               <button
                 onClick={() => setActiveTab('assignments')}
@@ -1229,62 +1255,6 @@ const studentId = studentData?.user?._id || studentData?._id;
                   </div>
                 )}
               </div>
-
-              {/* Quick Actions from first code */}
-              <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <button
-                    onClick={() => setActiveTab('assignments')}
-                    className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 text-center group"
-                  >
-                    <PlusCircle className="h-12 w-12 text-gray-400 group-hover:text-blue-500 mx-auto mb-3 transition-colors" />
-                    <p className="text-gray-600 group-hover:text-blue-600 font-medium">View Assignments</p>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab('quizzes')}
-                    className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-300 text-center group"
-                  >
-                    <CheckSquare className="h-12 w-12 text-gray-400 group-hover:text-green-500 mx-auto mb-3 transition-colors" />
-                    <p className="text-gray-600 group-hover:text-green-600 font-medium">Take Quizzes</p>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab('progress')}
-                    className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all duration-300 text-center group"
-                  >
-                    <TrendingUp className="h-12 w-12 text-gray-400 group-hover:text-purple-500 mx-auto mb-3 transition-colors" />
-                    <p className="text-gray-600 group-hover:text-purple-600 font-medium">View Progress</p>
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab('resources')}
-                    className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all duration-300 text-center group"
-                  >
-                    <FileText className="h-12 w-12 text-gray-400 group-hover:text-orange-500 mx-auto mb-3 transition-colors" />
-                    <p className="text-gray-600 group-hover:text-orange-600 font-medium">Study Resources</p>
-                  </button>
-
-
-                </div>
-              </div>
-
-              {/* Recent Feedback Section - New addition */}
-              <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">Recent Feedback</h3>
-                  <button
-                    onClick={() => navigate('/student/feedback')}
-                    className="text-blue-600 hover:text-blue-700 text-sm"
-                  >
-                    View All →
-                  </button>
-                </div>
-
-                {/* Add feedback preview content here */}
-                <FeedbackPreview role="student" />
-              </div>
             </div>
           )}
 
@@ -1426,7 +1396,123 @@ const studentId = studentData?.user?._id || studentData?._id;
           {activeTab === 'assignments' && <StudentAssignment />}
           {activeTab === 'quizzes' && <StudentQuiz />}
           {activeTab === 'resources' && <StudentResources />}
-          {activeTab === 'syllabus' && <StudentSyllabus />}
+{activeTab === 'syllabus' && (
+  <div className="space-y-12">
+
+    {/* ---------- No Syllabus ---------- */}
+    {syllabi.length === 0 ? (
+      <section className="bg-white rounded-2xl shadow border border-gray-200 p-10">
+        <header className="flex items-center gap-3 mb-6">
+          <BookOpen className="h-7 w-7 text-blue-600" />
+          <h2 className="text-2xl font-bold text-gray-900">Course Syllabus</h2>
+        </header>
+
+        <div className="text-center py-20 bg-gray-50 rounded-xl">
+          <BookOpen className="h-24 w-24 text-gray-400 mx-auto mb-5" />
+          <p className="text-lg font-medium text-gray-600">No syllabus available yet</p>
+          <p className="text-sm text-gray-400 mt-1">
+            Your trainers will upload the syllabus soon.
+          </p>
+        </div>
+      </section>
+    ) : (
+      /* ---------- Syllabus Cards ---------- */
+      syllabi.map((syllabus) => (
+        <section
+          key={syllabus._id}
+          className="bg-white rounded-2xl shadow-lg border border-gray-200 p-10 print:shadow-none print:border print:p-8 print:break-inside-avoid"
+        >
+          {/* ---- Print button for THIS syllabus only        */}
+          <div className="flex justify-end mb-4 print:hidden">
+            <button
+              onClick={() => {
+                const area = document.getElementById(`print-${syllabus._id}`);
+                const original = document.body.innerHTML;
+
+                document.body.innerHTML = area?.innerHTML ?? '';
+                window.print();
+
+                document.body.innerHTML = original;
+                window.location.reload(); // re-mount React
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
+            >
+              <FileText className="h-4 w-4" />
+              Print This Syllabus
+            </button>
+          </div>
+
+          {/* ---- Printable wrapper (unique id) ---- */}
+          <div id={`print-${syllabus._id}`} className="space-y-6">
+
+            {/* ---- Header ---- */}
+            <header className="border-b border-gray-300 pb-5">
+              <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                <BookOpen className="h-8 w-8 text-indigo-600" />
+                {syllabus.title}
+              </h2>
+              {syllabus.description && (
+                <p className="mt-3 text-base text-gray-600 leading-relaxed">
+                  {syllabus.description}
+                </p>
+              )}
+            </header>
+
+            {/* ---- Topics Table ---- */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gradient-to-r from-indigo-50 to-indigo-100">
+                  <tr>
+                    {['#', 'Topic', 'Description', 'Duration'].map((th) => (
+                      <th
+                        key={th}
+                        scope="col"
+                        className="px-6 py-4 text-left text-xs font-semibold text-indigo-800 uppercase tracking-wider"
+                      >
+                        {th}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {Array.isArray(syllabus.topics) && syllabus.topics.length > 0 ? (
+                    syllabus.topics.map((topic, idx) => (
+                      <tr key={idx} className="hover:bg-indigo-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {idx + 1}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                          {topic.topicName}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600 max-w-md">
+                          {topic.description || '—'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                            <Clock className="h-3.5 w-3.5" />
+                            {topic.duration}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-12 text-center text-gray-500 italic">
+                        No topics listed for this syllabus.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </section>
+      ))
+    )}
+  </div>
+)}
           {activeTab === 'progress' && <StudentProgress />}
           {activeTab === 'certificates' && <StudentCertificates />}
           {activeTab === 'attendance' && <StudentAttendanceView />}

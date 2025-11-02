@@ -37,75 +37,88 @@ async function getTPOForStudent(student) {
 
 // Assign student to a placement training batch and update crtBatchName
 async function assignStudentToPlacementTrainingBatch(student) {
-  if (!student.college) throw new Error('Student college is required');
+  try {
+    if (!student.college) {
+      throw new Error('Student college is required');
+    }
 
-  // Remove student from prior placement training batch if exists
-  if (student.placementTrainingBatchId) {
-    await PlacementTrainingBatch.findByIdAndUpdate(student.placementTrainingBatchId, {
-      $pull: { students: student._id }
-    });
-  }
+    // Only reassign if student is CRT interested
+    if (!student.crtInterested) {
+      if (student.placementTrainingBatchId) {
+        await PlacementTrainingBatch.findByIdAndUpdate(
+          student.placementTrainingBatchId,
+          { $pull: { students: student._id } }
+        );
+        await Student.findByIdAndUpdate(student._id, {
+          $unset: {
+            placementTrainingBatchId: 1,
+            crtBatchId: 1,
+            crtBatchName: 1
+          }
+        });
+      }
+      return null;
+    }
 
-  const tpo = await getTPOForStudent(student);
-  const admin = await Admin.findOne({ status: 'active' }).sort({ createdAt: 1 });
+    const tpo = await getTPOForStudent(student);
+    const admin = await Admin.findOne({ status: 'active' }).sort({ createdAt: 1 });
 
-  if (!tpo) throw new Error('No TPO found for student. Please contact administrator.');
-  if (!admin) throw new Error('No active Admin found in system. Please contact administrator.');
+    // Get tech stack from batch settings
+    let techStack = 'NonCRT';
+    if (student.crtInterested && student.techStack && student.techStack.length > 0) {
+      const availableTechStacks = await student.batchId.getAvailableCRTOptions();
+      const selectedTech = student.techStack.find(t => availableTechStacks.includes(t));
+      if (selectedTech) {
+        techStack = selectedTech;
+      }
+    }
 
-  const maxStudents = 80;
-  const year = student.yearOfPassing;
-
-  // Determine tech stack (default NonCRT)
-  let techStack = 'NonCRT';
-  if (student.crtInterested && student.techStack && student.techStack.length > 0) {
-    const validTechs = ['Java', 'Python', 'AIML'];
-    const selectedTech = student.techStack.find(t => validTechs.includes(t));
-    if (selectedTech) techStack = selectedTech;
-  }
-
-  // Find existing batch with capacity
-  let placementBatch = await PlacementTrainingBatch.findOne({
-    colleges: student.college,
-    techStack: techStack,
-    year: year,
-    $expr: { $lt: [{ $size: "$students" }, maxStudents] }
-  }).sort({ createdAt: 1 });
-
-  // Or create a new one
-  if (!placementBatch) {
-    const existingBatches = await PlacementTrainingBatch.countDocuments({
+    // Find or create batch
+    let placementBatch = await PlacementTrainingBatch.findOne({
       colleges: student.college,
       techStack: techStack,
-      year: year
+      year: student.yearOfPassing,
+      $expr: { $lt: [{ $size: "$students" }, 80] }
+    }).sort({ createdAt: 1 });
+
+    if (!placementBatch) {
+      const existingBatches = await PlacementTrainingBatch.countDocuments({
+        colleges: student.college,
+        techStack: techStack,
+        year: student.yearOfPassing
+      });
+
+      placementBatch = new PlacementTrainingBatch({
+        batchNumber: `${student.yearOfPassing}${student.college}${techStack}${existingBatches + 1}`,
+        colleges: [student.college],
+        techStack,
+        year: student.yearOfPassing,
+        tpoId: tpo._id,
+        createdBy: admin._id,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 180 * 24 * 3600 * 1000),
+        students: []
+      });
+      await placementBatch.save();
+    }
+
+    // Update batch and student
+    if (!placementBatch.students.includes(student._id)) {
+      placementBatch.students.push(student._id);
+      await placementBatch.save();
+    }
+
+    await Student.findByIdAndUpdate(student._id, {
+      placementTrainingBatchId: placementBatch._id,
+      crtBatchId: placementBatch._id,
+      crtBatchName: placementBatch.batchNumber
     });
 
-    const batchNumber = `PT_${year}_${student.college}_${techStack}_${existingBatches + 1}`;
-
-    placementBatch = new PlacementTrainingBatch({
-      batchNumber,
-      colleges: [student.college],
-      techStack,
-      year,
-      tpoId: tpo._id,
-      createdBy: admin._id,
-      startDate: new Date(),
-      endDate: new Date(Date.now() + 180 * 24 * 3600 * 1000),
-      students: []
-    });
-    await placementBatch.save();
+    return placementBatch;
+  } catch (error) {
+    console.error('Error in assignStudentToPlacementTrainingBatch:', error);
+    throw error;
   }
-
-  // Add student to batch if not present
-  if (!placementBatch.students.includes(student._id)) {
-    placementBatch.students.push(student._id);
-    await placementBatch.save();
-  }
-
-  // Update student references and crt batch name
-  student.placementTrainingBatchId = placementBatch._id;
-  student.crtBatchId = placementBatch._id; // compatibility
-  student.crtBatchName = placementBatch.batchNumber;
-  await student.save();
 }
 
 // @desc    Validate session token
@@ -143,30 +156,39 @@ const validateSession = async (req, res) => {
 const generalLogin = async (req, res) => {
   try {
     const { email, password, userType } = req.body;
-    console.log('Login attempt:', { email, userType });
 
     if (!userType || !isValidUserType(userType)) {
-      console.log('Invalid userType:', userType);
       return badRequest(res, 'Invalid userType');
     }
 
     const Model = getModelByUserType(userType);
-    const user = await Model.findOne({ email }).select('+password isActive status');
+    const user = await Model.findOne({ email }).select('+password isActive status batchId');
+
     if (!user) {
-      console.log('User not found:', email);
       return unauthorized(res, 'Invalid credentials');
     }
 
-    // Apply status check only for 'student'
+    // Special check for student login
     if (userType === 'student') {
-      if (user.isActive === false || (user.status && !['pursuing', 'placed', 'completed'].includes(user.status))) {
-        console.log('Student user inactive or suspended:', { isActive: user.isActive, status: user.status });
-        return unauthorized(res, 'Your account is inactive or suspended. Please contact administrator.');
+      // Check if student has a valid batch and is active
+      if (!user.batchId || !user.isActive) {
+        return unauthorized(res, 'Your account has been deactivated. Please contact your administrator.');
+      }
+
+      // Additional check to verify if batch exists
+      const Batch = require('../models/Batch');
+      const batch = await Batch.findById(user.batchId);
+      if (!batch) {
+        // If batch doesn't exist, deactivate student and deny login
+        await Model.findByIdAndUpdate(user._id, {
+          isActive: false,
+          status: 'inactive'
+        });
+        return unauthorized(res, 'Your batch has been deleted. Please contact your administrator.');
       }
     } else {
-      // For other userTypes apply previous status check if needed or just check isActive
+      // For other userTypes apply previous status check
       if (user.isActive === false || (user.status && user.status !== 'active')) {
-        console.log(`User inactive or suspended for userType ${userType}:`, { isActive: user.isActive, status: user.status });
         return unauthorized(res, 'Your account is inactive or suspended. Please contact administrator.');
       }
     }
@@ -200,8 +222,79 @@ const generalLogin = async (req, res) => {
   }
 };
 
+// @desc    Student Login
+// @route   POST /api/auth/student-login
+// @access  Public
+exports.studentLogin = async (req, res) => {
+  try {
+    const { username, password } = req.body;
 
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide username and password'
+      });
+    }
 
+    // Find student and include password field for comparison
+    const student = await Student.findOne({ username }).select('+password');
+
+    if (!student) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    // Check if student can login
+    if (!student.canLogin()) {
+      return res.status(401).json({
+        success: false,
+        message: 'Your account has been deactivated. Please contact your administrator.'
+      });
+    }
+
+    // Check password
+    const isMatch = await student.matchPassword(password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    // Update last login
+    student.lastLogin = new Date();
+    await student.save();
+
+    // Create token
+    const token = jwt.sign({ id: student._id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRE
+    });
+
+    res.status(200).json({
+      success: true,
+      token,
+      student: {
+        id: student._id,
+        name: student.name,
+        email: student.email,
+        rollNo: student.rollNo,
+        college: student.college,
+        branch: student.branch,
+        batchId: student.batchId,
+        placementTrainingBatchId: student.placementTrainingBatchId
+      }
+    });
+
+  } catch (error) {
+    console.error('Student login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
 
 // @desc    General Dashboard
 // @route   GET /api/auth/dashboard/:userType

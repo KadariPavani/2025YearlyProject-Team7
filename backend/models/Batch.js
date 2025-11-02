@@ -73,6 +73,49 @@ BatchSchema.methods.getAvailableCRTOptions = function() {
   return options;
 };
 
+// Add pre-remove middleware for cascading deletion
+BatchSchema.pre('remove', async function(next) {
+  try {
+    const PlacementTrainingBatch = mongoose.model('PlacementTrainingBatch');
+    const Student = mongoose.model('Student');
+
+    // Get all students in this batch
+    const students = await Student.find({ batchId: this._id });
+    const studentIds = students.map(s => s._id);
+
+    // First delete all related placement training batches
+    const placementBatches = await PlacementTrainingBatch.find({
+      students: { $in: studentIds }
+    });
+
+    // Remove each placement batch
+    for (const batch of placementBatches) {
+      await batch.remove();
+    }
+
+    // Update all affected students - set isActive to false and remove references
+    await Student.updateMany(
+      { _id: { $in: studentIds } },
+      { 
+        $unset: { 
+          batchId: 1,
+          placementTrainingBatchId: 1,
+          crtBatchId: 1,
+          crtBatchName: 1
+        },
+        $set: {
+          isActive: false,
+          status: 'inactive'
+        }
+      }
+    );
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
 BatchSchema.set('toJSON', { virtuals: true });
 
 module.exports = mongoose.model('Batch', BatchSchema);

@@ -6,8 +6,10 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Calendar, Clock, Users, CheckCircle, XCircle, AlertCircle, 
-  User, Save, RefreshCw, Filter, Download, Eye, UserCheck 
+  User, Save, RefreshCw, Filter, Download, Eye, X,UserCheck 
 } from 'lucide-react';
+import { saveAs } from 'file-saver';
+import * as XLSX from 'xlsx';
 
 const AttendanceMarking = () => {
   const [loading, setLoading] = useState(false);
@@ -23,52 +25,75 @@ const AttendanceMarking = () => {
   const [view, setView] = useState('mark'); // 'mark', 'history'
   const [attendanceHistory, setAttendanceHistory] = useState([]);
   const [dateFilter, setDateFilter] = useState({ startDate: '', endDate: '' });
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [detailedAttendance, setDetailedAttendance] = useState([]);
+  const [techStackColors, setTechStackColors] = useState({});
+  const [availableTechStacks, setAvailableTechStacks] = useState([]);
 
   // Fetch today's sessions and students on component mount
   useEffect(() => {
     fetchTodaySessions();
   }, []);
 
-const fetchTodaySessions = async () => {
-  try {
-    setLoading(true);
-    const token = localStorage.getItem('token'); // Get actual token
-    
-    const response = await axios.get('/api/coordinator/attendance/today-sessions', {
-      headers: {
-        Authorization: `Bearer ${token}` // Send actual token, not 'Present'
+  useEffect(() => {
+    const fetchTechStacks = async () => {
+      try {
+        const response = await axios.get('/api/tpo/tech-stacks', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (response.data.success) {
+          setAvailableTechStacks(response.data.data.techStacks);
+          setTechStackColors(response.data.data.colors);
+        }
+      } catch (error) {
+        console.error('Error fetching tech stacks:', error);
       }
-    });
+    };
+    
+    fetchTechStacks();
+  }, []);
 
-    if (response.data.success) {
-      setTodaySessions(response.data.data.todaySessions);
-      setStudents(response.data.data.students);
-      setBatchInfo({
-        batchId: response.data.data.batchId,
-        batchNumber: response.data.data.batchNumber
+  const fetchTodaySessions = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token'); // Get actual token
+      
+      const response = await axios.get('/api/coordinator/attendance/today-sessions', {
+        headers: {
+          Authorization: `Bearer ${token}` // Send actual token, not 'Present'
+        }
       });
 
-      // Initialize attendance data
-      const initialAttendance = {};
-      response.data.data.students.forEach(student => {
-        initialAttendance[student._id] = {
-          studentId: student._id,
-          status: 'not_marked',
-          remarks: ''
-        };
+      if (response.data.success) {
+        setTodaySessions(response.data.data.todaySessions);
+        setStudents(response.data.data.students);
+        setBatchInfo({
+          batchId: response.data.data.batchId,
+          batchNumber: response.data.data.batchNumber
+        });
+
+        // Initialize attendance data
+        const initialAttendance = {};
+        response.data.data.students.forEach(student => {
+          initialAttendance[student._id] = {
+            studentId: student._id,
+            status: 'not_marked',
+            remarks: ''
+          };
+        });
+        setAttendanceData(initialAttendance);
+      }
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.message || 'Failed to load sessions'
       });
-      setAttendanceData(initialAttendance);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching sessions:', error);
-    setMessage({
-      type: 'error',
-      text: error.response?.data?.message || 'Failed to load sessions'
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 
   const handleStudentStatusChange = (studentId, status) => {
@@ -117,131 +142,131 @@ const fetchTodaySessions = async () => {
     setTimeout(() => setMessage({ type: '', text: '' }), 3000);
   };
 
-const handleSubmitAttendance = async () => {
-  if (!selectedSession) {
-    setMessage({ type: 'error', text: 'Please select a session first' });
-    return;
-  }
+  const handleSubmitAttendance = async () => {
+    if (!selectedSession) {
+      setMessage({ type: 'error', text: 'Please select a session first' });
+      return;
+    }
 
-  const markedCount = Object.values(attendanceData).filter(
-    a => a.status !== 'not_marked'
-  ).length;
+    const markedCount = Object.values(attendanceData).filter(
+      a => a.status !== 'not_marked'
+    ).length;
 
-  if (markedCount === 0) {
-    setMessage({ type: 'error', text: 'Please mark attendance for at least one student' });
-    return;
-  }
+    if (markedCount === 0) {
+      setMessage({ type: 'error', text: 'Please mark attendance for at least one student' });
+      return;
+    }
 
-  // ✅ Time validation
-  const now = new Date();
-  const start = new Date();
-  const end = new Date();
-  const [startHour, startMinute] = selectedSession.startTime.split(':').map(Number);
-  const [endHour, endMinute] = selectedSession.endTime.split(':').map(Number);
-  start.setHours(startHour, startMinute, 0, 0);
-  end.setHours(endHour, endMinute, 0, 0);
+    // ✅ Time validation
+    const now = new Date();
+    const start = new Date();
+    const end = new Date();
+    const [startHour, startMinute] = selectedSession.startTime.split(':').map(Number);
+    const [endHour, endMinute] = selectedSession.endTime.split(':').map(Number);
+    start.setHours(startHour, startMinute, 0, 0);
+    end.setHours(endHour, endMinute, 0, 0);
 
-  if (now < start || now > end) {
-    setMessage({
-      type: 'error',
-      text: `⏰ Attendance can only be marked between ${selectedSession.startTime} and ${selectedSession.endTime}`
-    });
-    return;
-  }
+    if (now < start || now > end) {
+      setMessage({
+        type: 'error',
+        text: `⏰ Attendance can only be marked between ${selectedSession.startTime} and ${selectedSession.endTime}`
+      });
+      return;
+    }
 
-  try {
-    setLoading(true);
-    const token = localStorage.getItem('token'); // Get actual token
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token'); // Get actual token
 
-    const payload = {
-      batchId: batchInfo.batchId,
-      sessionDate: new Date().toISOString().split('T')[0],
-      timeSlot: selectedSession.timeSlot,
-      startTime: selectedSession.startTime,
-      endTime: selectedSession.endTime,
-      trainerId: selectedSession.trainerId,
-      subject: selectedSession.subject,
-      trainerStatus: trainerStatus,
-      trainerRemarks: trainerRemarks,
-      studentAttendance: Object.values(attendanceData),
-      sessionNotes: sessionNotes
-    };
+      const payload = {
+        batchId: batchInfo.batchId,
+        sessionDate: new Date().toISOString().split('T')[0],
+        timeSlot: selectedSession.timeSlot,
+        startTime: selectedSession.startTime,
+        endTime: selectedSession.endTime,
+        trainerId: selectedSession.trainerId,
+        subject: selectedSession.subject,
+        trainerStatus: trainerStatus,
+        trainerRemarks: trainerRemarks,
+        studentAttendance: Object.values(attendanceData),
+        sessionNotes: sessionNotes
+      };
 
-    const response = await axios.post(
-      '/api/coordinator/attendance/mark',
-      payload,
-      {
+      const response = await axios.post(
+        '/api/coordinator/attendance/mark',
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}` // Send actual token, not 'Present'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        setMessage({
+          type: 'success',
+          text: '✅ Attendance marked successfully!'
+        });
+
+        // Reset form
+        setSelectedSession(null);
+        setTrainerStatus('not_marked');
+        setTrainerRemarks('');
+        setSessionNotes('');
+        
+        const initialAttendance = {};
+        students.forEach(student => {
+          initialAttendance[student._id] = {
+            studentId: student._id,
+            status: 'not_marked',
+            remarks: ''
+          };
+        });
+        setAttendanceData(initialAttendance);
+
+        fetchTodaySessions();
+        setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+      }
+    } catch (error) {
+      console.error('Error marking attendance:', error);
+      setMessage({
+        type: 'error',
+        text: error.response?.data?.message || 'Failed to mark attendance'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAttendanceHistory = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token'); // Get actual token
+      
+      const params = {};
+      if (dateFilter.startDate) params.startDate = dateFilter.startDate;
+      if (dateFilter.endDate) params.endDate = dateFilter.endDate;
+
+      const response = await axios.get('/api/coordinator/attendance/history', {
+        params,
         headers: {
           Authorization: `Bearer ${token}` // Send actual token, not 'Present'
         }
-      }
-    );
+      });
 
-    if (response.data.success) {
+      if (response.data.success) {
+        setAttendanceHistory(response.data.data.records);
+      }
+    } catch (error) {
+      console.error('Error fetching history:', error);
       setMessage({
-        type: 'success',
-        text: '✅ Attendance marked successfully!'
+        type: 'error',
+        text: 'Failed to load attendance history'
       });
-
-      // Reset form
-      setSelectedSession(null);
-      setTrainerStatus('not_marked');
-      setTrainerRemarks('');
-      setSessionNotes('');
-      
-      const initialAttendance = {};
-      students.forEach(student => {
-        initialAttendance[student._id] = {
-          studentId: student._id,
-          status: 'not_marked',
-          remarks: ''
-        };
-      });
-      setAttendanceData(initialAttendance);
-
-      fetchTodaySessions();
-      setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error marking attendance:', error);
-    setMessage({
-      type: 'error',
-      text: error.response?.data?.message || 'Failed to mark attendance'
-    });
-  } finally {
-    setLoading(false);
-  }
-};
-
-const fetchAttendanceHistory = async () => {
-  try {
-    setLoading(true);
-    const token = localStorage.getItem('token'); // Get actual token
-    
-    const params = {};
-    if (dateFilter.startDate) params.startDate = dateFilter.startDate;
-    if (dateFilter.endDate) params.endDate = dateFilter.endDate;
-
-    const response = await axios.get('/api/coordinator/attendance/history', {
-      params,
-      headers: {
-        Authorization: `Bearer ${token}` // Send actual token, not 'Present'
-      }
-    });
-
-    if (response.data.success) {
-      setAttendanceHistory(response.data.data.records);
-    }
-  } catch (error) {
-    console.error('Error fetching history:', error);
-    setMessage({
-      type: 'error',
-      text: 'Failed to load attendance history'
-    });
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 
   useEffect(() => {
@@ -259,6 +284,83 @@ const fetchAttendanceHistory = async () => {
     notMarked: Object.values(attendanceData).filter(a => a.status === 'not_marked').length
   };
 
+  const handleViewDetails = async (record) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`/api/coordinator/attendance/student-details/${record._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        setDetailedAttendance(response.data.data);
+        setSelectedRecord(record);
+        setShowDetailsModal(true);
+      }
+    } catch (error) {
+      console.error('Error fetching details:', error);
+      setMessage({
+        type: 'error',
+        text: 'Failed to load attendance details'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadAttendanceReport = (data, type = 'all') => {
+    try {
+      let reportData = [];
+      
+      if (type === 'all') {
+        // Format all attendance records
+        reportData = attendanceHistory.map(record => ({
+          Date: new Date(record.sessionDate).toLocaleDateString(),
+          TimeSlot: record.timeSlot,
+          Subject: record.subject,
+          Trainer: record.trainerId?.name || 'N/A',
+          'Total Students': record.totalStudents,
+          Present: record.presentCount,
+          Absent: record.absentCount,
+          'Attendance %': record.attendancePercentage
+        }));
+      } else {
+        // Format detailed student attendance
+        reportData = detailedAttendance.map(student => ({
+          'Student Name': student.name,
+          'Roll No': student.rollNo,
+          'Total Sessions': student.totalSessions,
+          'Sessions Present': student.sessionsPresent,
+          'Sessions Absent': student.sessionsAbsent,
+          'Attendance %': student.attendancePercentage,
+          'Last Updated': new Date(student.lastUpdated).toLocaleDateString()
+        }));
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(reportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Attendance Report");
+      
+      // Generate Excel file
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      
+      // Download file
+      saveAs(data, `attendance_report_${new Date().toISOString().split('T')[0]}.xlsx`);
+      
+      setMessage({
+        type: 'success',
+        text: 'Report downloaded successfully!'
+      });
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      setMessage({
+        type: 'error',
+        text: 'Failed to download report'
+      });
+    }
+  };
+
   if (loading && students.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -269,6 +371,10 @@ const fetchAttendanceHistory = async () => {
       </div>
     );
   }
+
+  const getTechStackColor = (techStack) => {
+    return techStackColors[techStack] || 'bg-gray-100 text-gray-700 border-gray-200';
+  };
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -682,10 +788,112 @@ const fetchAttendanceHistory = async () => {
                       </span>
                     </div>
                   </div>
+
+                  <div className="mt-3 flex justify-end space-x-2">
+                    <button
+                      onClick={() => handleViewDetails(record)}
+                      className="px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 flex items-center gap-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      View Details
+                    </button>
+                    <button
+                      onClick={() => downloadAttendanceReport(record, 'detail')}
+                      className="px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200 flex items-center gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download Report
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {showDetailsModal && selectedRecord && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold">
+                Detailed Attendance - {new Date(selectedRecord.sessionDate).toLocaleDateString()}
+              </h3>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="text-sm text-blue-600">Subject</div>
+                  <div className="font-semibold">{selectedRecord.subject}</div>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <div className="text-sm text-green-600">Present</div>
+                  <div className="font-semibold">{selectedRecord.presentCount} students</div>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <div className="text-sm text-red-600">Absent</div>
+                  <div className="font-semibold">{selectedRecord.absentCount} students</div>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Student</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Roll No</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {detailedAttendance.map((student) => (
+                      <tr key={student._id}>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            <div>
+                              <div className="font-medium text-gray-900">{student.name}</div>
+                              <div className="text-sm text-gray-500">{student.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">{student.rollNo}</td>
+                        <td className="px-6 py-4">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            student.status === 'present' 
+                              ? 'bg-green-100 text-green-800'
+                              : student.status === 'absent'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {student.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">{student.remarks || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={() => downloadAttendanceReport(detailedAttendance, 'detail')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Download Details
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

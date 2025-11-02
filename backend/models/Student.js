@@ -602,4 +602,19 @@ StudentSchema.methods.handleApprovalResponse = async function(approvalId, isAppr
   }
 };
 
+// Add new method before module.exports
+StudentSchema.methods.canLogin = function() {
+  // Student must have batchId or be a passed out student
+  if (!this.batchId && !this.passedOutBatchId) {
+    return false;
+  }
+
+  // Student must be active
+  if (!this.isActive) {
+    return false;
+  }
+
+  return true;
+};
+
 module.exports = mongoose.model('Student', StudentSchema);

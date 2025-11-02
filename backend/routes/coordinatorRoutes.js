@@ -7,6 +7,7 @@ const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const Student = require('../models/Student');
 const Trainer = require('../models/Trainer');
 const Attendance = require('../models/Attendance');
+const { getTechStackColor } = require('../utils/techStackUtils');
 
 // ============================================
 // COORDINATOR PROFILE & DASHBOARD
@@ -78,10 +79,20 @@ router.get('/dashboard', generalAuth, async (req, res) => {
       })
       .select('-password');
 
+    // Get tech stack statistics
+    const techStackStats = await PlacementTrainingBatch.getStatsByTechStack();
+    
     res.json({
       success: true,
       message: 'Dashboard data fetched successfully',
-      data: { user: coordinator }
+      data: { 
+        user: coordinator,
+        techStackStats,
+        techStackColors: techStackStats.reduce((acc, stat) => ({
+          ...acc,
+          [stat.techStack]: getTechStackColor(stat.techStack)
+        }), {})
+      }
     });
   } catch (error) {
     console.error('Error fetching dashboard:', error);
@@ -487,6 +498,74 @@ router.get('/attendance/summary', generalAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching summary:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
+// GET Detailed Student Attendance
+router.get('/attendance/student-details/:attendanceId', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'coordinator') {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Access denied' 
+      });
+    }
+
+    const attendance = await Attendance.findById(req.params.attendanceId)
+      .populate('studentAttendance.studentId', 'name rollNo email')
+      .populate('trainerId', 'name email');
+
+    if (!attendance) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendance record not found'
+      });
+    }
+
+    // Get all attendance records for these students to calculate overall stats
+    const allAttendance = await Attendance.find({
+      batchId: attendance.batchId,
+      sessionDate: { $lte: attendance.sessionDate }
+    });
+
+    // Calculate cumulative statistics for each student
+    const detailedStats = attendance.studentAttendance.map(record => {
+      const studentAttendance = allAttendance.map(a => 
+        a.studentAttendance.find(s => 
+          s.studentId._id.toString() === record.studentId._id.toString()
+        )
+      ).filter(Boolean);
+
+      const totalSessions = studentAttendance.length;
+      const sessionsPresent = studentAttendance.filter(a => 
+        a.status === 'present' || a.status === 'late'
+      ).length;
+
+      return {
+        _id: record.studentId._id,
+        name: record.studentId.name,
+        rollNo: record.studentId.rollNo,
+        email: record.studentId.email,
+        status: record.status,
+        remarks: record.remarks,
+        totalSessions,
+        sessionsPresent,
+        sessionsAbsent: totalSessions - sessionsPresent,
+        attendancePercentage: Math.round((sessionsPresent / totalSessions) * 100) || 0,
+        lastUpdated: attendance.sessionDate
+      };
+    });
+
+    res.json({
+      success: true,
+      data: detailedStats
+    });
+  } catch (error) {
+    console.error('Error fetching student details:', error);
     res.status(500).json({ 
       success: false, 
       message: 'Server error' 

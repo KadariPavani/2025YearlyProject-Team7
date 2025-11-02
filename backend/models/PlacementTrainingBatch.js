@@ -16,7 +16,7 @@ const PlacementTrainingBatchSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true
-    // Removed enum - accepts any tech stack from batch configuration
+    // Removed enum to make it dynamic
   },
   year: {
     type: String,
@@ -118,6 +118,34 @@ PlacementTrainingBatchSchema.virtual('timeSlotDistribution').get(function() {
     return acc;
   }, { morning: 0, afternoon: 0, evening: 0 });
 });
+
+// Add method to get batch statistics by tech stack
+PlacementTrainingBatchSchema.statics.getStatsByTechStack = async function() {
+  const stats = await this.aggregate([
+    {
+      $group: {
+        _id: '$techStack',
+        count: { $sum: 1 },
+        totalStudents: { $sum: { $size: '$students' } }
+      }
+    },
+    {
+      $project: {
+        techStack: '$_id',
+        batchCount: '$count',
+        studentCount: '$totalStudents',
+        _id: 0
+      }
+    }
+  ]);
+  return stats;
+};
+
+// Add static method to get available tech stacks
+PlacementTrainingBatchSchema.statics.getAvailableTechStacks = async function() {
+  const techStacks = await this.distinct('techStack');
+  return techStacks.filter(tech => tech && tech !== 'NonCRT');
+};
 
 PlacementTrainingBatchSchema.set('toJSON', { virtuals: true });
 

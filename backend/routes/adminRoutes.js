@@ -36,7 +36,7 @@ const XLSX = require('xlsx');
 const bcrypt = require('bcryptjs');
 const { excelUploadMiddleware } = require('../middleware/fileUpload'); // Import the middleware
 const router = express.Router();
-
+const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 // Public routes
 router.post('/super-admin-login', superAdminLogin);
 router.post('/verify-otp', verifyOTP);
@@ -182,6 +182,63 @@ router.put('/batches/:batchId', auth, async (req, res) => {
   }
 });
 
+router.delete('/batches/:batchId', auth, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.batchId);
+    if (!batch) {
+      return res.status(404).json({ success: false, message: 'Batch not found' });
+    }
+
+    // Find all students in this batch
+    const students = await Student.find({ batchId: batch._id });
+    const studentIds = students.map(s => s._id);
+
+    // Find and delete all placement training batches
+    const ptBatches = await PlacementTrainingBatch.find({
+      students: { $in: studentIds }
+    });
+
+    // Delete placement training batches one by one using findByIdAndDelete
+    await Promise.all(
+      ptBatches.map(ptBatch => 
+        PlacementTrainingBatch.findByIdAndDelete(ptBatch._id)
+      )
+    );
+
+    // Update all students to remove references
+    await Student.updateMany(
+      { batchId: batch._id },
+      { 
+        $unset: { 
+          batchId: 1,
+          placementTrainingBatchId: 1,
+          crtBatchId: 1,
+          crtBatchName: 1
+        }
+      }
+    );
+
+    // Finally delete the main batch
+    await Batch.findByIdAndDelete(batch._id);
+
+    res.json({
+      success: true,
+      message: 'Batch and related data deleted successfully',
+      deletedCount: {
+        placementBatches: ptBatches.length,
+        affectedStudents: studentIds.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error deleting batch:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error deleting batch',
+      error: error.message
+    });
+  }
+});
 
 // POST /api/admin/crt-batch - Create CRT batch with dynamic tech stacks
 router.post('/crt-batch', auth, excelUploadMiddleware, async (req, res) => {

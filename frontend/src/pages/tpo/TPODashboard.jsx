@@ -13,6 +13,7 @@ import TrainerAssignment from './TrainerAssignment';
 import ScheduleTimetable from './ScheduleTimetable';
 import TPOAttendanceView from './TPOAttendanceView';
 import PlacementCalendar from "./PlacementCalendar";
+import axios from 'axios';
 
 const TPODashboard = () => {
   const [tpoData, setTpoData] = useState(null);
@@ -87,6 +88,9 @@ const notificationRef = useRef(null);
   const [assignmentError, setAssignmentError] = useState('');
   const navigate = useNavigate();
 
+  // Add state for tech stack colors
+  const [techStackColors, setTechStackColors] = useState({});
+
   useEffect(() => {
     fetchDashboard();
     fetchAssignedBatches();
@@ -108,6 +112,24 @@ const notificationRef = useRef(null);
       fetchPendingApprovals();
     }
   }, [activeTab]);
+
+  // Add effect to fetch tech stack colors
+  useEffect(() => {
+    const fetchTechStackColors = async () => {
+      try {
+        const response = await axios.get('/api/tpo/tech-stacks', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (response.data.success) {
+          setTechStackColors(response.data.data.colors);
+        }
+      } catch (error) {
+        console.error('Error fetching tech stack colors:', error);
+      }
+    };
+    
+    fetchTechStackColors();
+  }, []);
 
   const fetchDashboard = async () => {
     try {
@@ -939,24 +961,15 @@ const markAsRead = async (id) => {
     setSelectedBatchForAssignment(null);
   };
 
+  // Replace hardcoded getTechStackColor function
   const getTechStackColor = (techStack) => {
-    const colors = {
-      Java: 'bg-blue-50 text-blue-700 border-blue-200',
-      Python: 'bg-green-50 text-green-700 border-green-200',
-      'AIML': 'bg-blue-50 text-blue-700 border-blue-200',
-      NonCRT: 'bg-gray-50 text-gray-700 border-gray-200',
-    };
-    return colors[techStack] || 'bg-blue-50 text-blue-700 border-blue-200';
+    return techStackColors[techStack] || 'bg-gray-100 text-gray-700 border-gray-200';
   };
 
+  // Replace hardcoded getTechStackBadgeColor function
   const getTechStackBadgeColor = (techStack) => {
-    const colors = {
-      Java: 'bg-blue-500',
-      Python: 'bg-green-500',
-      'AIML': 'bg-blue-600',
-      NonCRT: 'bg-gray-500',
-    };
-    return colors[techStack] || 'bg-blue-500';
+    const colorClass = techStackColors[techStack] || 'bg-gray-500';
+    return colorClass.replace('text-', 'bg-').split(' ')[0];
   };
 
   const getTrainerAssignmentStatus = (batch) => {
@@ -2118,111 +2131,6 @@ const getRequestTypeColor = (type) => {
           <div className="bg-green-50 p-3 rounded-lg border border-green-200">
             <p className="text-xs font-medium text-green-700 mb-1">Start Date</p>
             <p className="text-base font-bold text-green-900">{new Date(selectedBatch.startDate).toLocaleDateString()}</p>
-            <div className="p-6 space-y-5">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                  <p className="text-xs font-medium text-blue-700 mb-1">Tech Stack</p>
-                  <p className="text-base font-bold text-blue-900">{selectedBatch.techStack}</p>
-                </div>
-                <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                  <p className="text-xs font-medium text-green-700 mb-1">Total Students</p>
-                  <p className="text-base font-bold text-green-900">{selectedBatch.studentCount}</p>
-                </div>
-                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                  <p className="text-xs font-medium text-blue-700 mb-1">TPO</p>
-                  <p className="text-base font-bold text-blue-900">{selectedBatch.tpoId?.name || 'Not assigned'}</p>
-                </div>
-                <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-                  <p className="text-xs font-medium text-green-700 mb-1">Start Date</p>
-                  <p className="text-base font-bold text-green-900">{new Date(selectedBatch.startDate).toLocaleDateString()}</p>
-                </div>
-              </div>
-
-              {selectedBatch.assignedTrainers && selectedBatch.assignedTrainers.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-5">
-                  <h4 className="text-base font-semibold text-gray-900 mb-3">Assigned Trainers</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {selectedBatch.assignedTrainers.map((assignment, index) => (
-                      <div key={index} className="bg-white rounded-lg p-3 border border-gray-200">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold">
-                            {assignment.trainer?.name?.charAt(0) || 'T'}
-                          </div>
-                          <div>
-                            <h5 className="font-semibold text-gray-900 text-sm">{assignment.trainer?.name || 'Unknown'}</h5>
-                            <p className="text-gray-700 text-xs">{assignment.subject}</p>
-                          </div>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className={`px-2 py-1 rounded-lg ${
-                            assignment.timeSlot === 'morning' ? 'bg-blue-100 text-blue-800' :
-                            assignment.timeSlot === 'afternoon' ? 'bg-green-100 text-green-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {assignment.timeSlot}
-                          </span>
-                          <span className="text-gray-500">
-                            {assignment.schedule?.length || 0} time slots
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-<div className="border border-gray-200 rounded-lg overflow-hidden">
-  <div className="overflow-x-auto max-h-96">
-    <table className="min-w-full divide-y divide-gray-200">
-      <thead className="bg-gradient-to-r from-blue-50 to-green-50 sticky top-0">
-        <tr>
-          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Name</th>
-          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Roll No</th>
-          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">College</th>
-          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Branch</th>
-          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tech Stack</th>
-          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>  {/* New column */}
-        </tr>
-      </thead>
-      <tbody className="bg-white divide-y divide-gray-100">
-        {selectedBatch.students.map((student, idx) => (
-          <tr key={student._id} className={`hover:bg-blue-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-            <td className="px-6 py-3 whitespace-nowrap">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                  {student.name.charAt(0)}
-                </div>
-                <span className="font-medium text-gray-900 text-sm">{student.name}</span>
-              </div>
-            </td>
-            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 font-mono">{student.rollNo}</td>
-            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.college}</td>
-            <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.branch}</td>
-            <td className="px-6 py-3 whitespace-nowrap">
-              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium border border-blue-200">
-                {student.techStack?.join(', ') || 'Not specified'}
-              </span>
-            </td>
-            <td className="px-6 py-3 whitespace-nowrap">  {/* New actions cell */}
-              <button
-                onClick={() => handleAssignCoordinator(student._id)}
-                disabled={assigningCoordinator}
-                className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                  assigningCoordinator
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-green-500 hover:bg-green-600 text-white'
-                }`}
-              >
-                {assigningCoordinator ? 'Assigning...' : 'Make Coordinator'}
-              </button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
-            </div>
           </div>
         </div>
 
@@ -2269,7 +2177,7 @@ const getRequestTypeColor = (type) => {
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">College</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Branch</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tech Stack</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>  {/* New column */}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
@@ -2291,7 +2199,7 @@ const getRequestTypeColor = (type) => {
                         {student.techStack?.join(', ') || 'Not specified'}
                       </span>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">
+                    <td className="px-6 py-3 whitespace-nowrap">  {/* New actions cell */}
                       <button
                         onClick={() => handleAssignCoordinator(student._id)}
                         disabled={assigningCoordinator}

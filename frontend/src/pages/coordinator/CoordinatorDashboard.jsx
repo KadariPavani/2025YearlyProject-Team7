@@ -92,7 +92,7 @@ const CoordinatorDashboard = () => {
 
   useEffect(() => {
     fetchDashboard();
-    fetchFeedbackPreview();
+    // fetchFeedbackPreview();
   }, []);
 
   const fetchDashboard = async () => {

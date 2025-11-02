@@ -92,12 +92,27 @@ const BatchListPage = () => {
   };
 
   const handleDelete = async () => {
+    if (!selectedBatch) return;
+
+    const confirmMessage = `Are you sure you want to delete this batch?\n\nThis will also delete:\n` +
+      `- All placement training batches created from this batch\n` +
+      `- All student batch assignments\n` +
+      `- All related data\n\n` +
+      `This action cannot be undone.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    setLoading(true);
     try {
       await deleteBatch(selectedBatch._id);
       setShowDeleteConfirm(false);
-      fetchBatches();
-    } catch {
-      setError('Failed to delete batch');
+      showToast('success', 'Batch and all related data deleted successfully');
+      fetchBatches(); // This will refresh the list
+    } catch (error) {
+      setError('Failed to delete batch and related data');
+      showToast('error', 'Failed to delete batch and related data');
+    } finally {
+      setLoading(false);
     }
   };
 

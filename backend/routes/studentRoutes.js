@@ -38,18 +38,13 @@ async function assignStudentToPlacementTrainingBatch(student) {
       throw new Error('Student college is required');
     }
 
-    console.log(`Reassigning placement batch for student: ${student.name} (${student._id})`);
-
-    // Only reassign if student is CRT interested
+    // Remove from existing placement batch if not CRT interested
     if (!student.crtInterested) {
-      // Remove from any existing CRT batch
       if (student.placementTrainingBatchId) {
         await PlacementTrainingBatch.findByIdAndUpdate(
           student.placementTrainingBatchId,
           { $pull: { students: student._id } }
         );
-        
-        // Update student to remove CRT batch references
         await Student.findByIdAndUpdate(student._id, {
           $unset: {
             placementTrainingBatchId: 1,
@@ -61,38 +56,25 @@ async function assignStudentToPlacementTrainingBatch(student) {
       return null;
     }
 
-    // Get TPO and Admin
     const tpo = await getTPOForStudent(student);
     const admin = await Admin.findOne({ status: 'active' }).sort({ createdAt: 1 });
 
-    if (!tpo) {
-      throw new Error('No TPO found for student. Please contact administrator.');
-    }
-    if (!admin) {
-      throw new Error('No active Admin found in system. Please contact administrator.');
-    }
-
-    const maxStudents = 80;
-    const year = student.yearOfPassing;
-
-    // Determine tech stack for placement training
+    // Get tech stack from batch settings
     let techStack = 'NonCRT';
     if (student.crtInterested && student.techStack && student.techStack.length > 0) {
-      const validTechs = ['Java', 'Python', 'AIML'];
-      const selectedTech = student.techStack.find(t => validTechs.includes(t));
+      const batchTechStacks = await student.batchId.getAvailableCRTOptions();
+      const selectedTech = student.techStack.find(t => batchTechStacks.includes(t));
       if (selectedTech) {
         techStack = selectedTech;
       }
     }
 
-    console.log(`Looking for batch with: College=${student.college}, TechStack=${techStack}, Year=${year}`);
-
-    // Find existing placement training batch with room
+    // Find or create placement batch
     let placementBatch = await PlacementTrainingBatch.findOne({
       colleges: student.college,
       techStack: techStack,
-      year: year,
-      $expr: { $lt: [{ $size: "$students" }, maxStudents] }
+      year: student.yearOfPassing,
+      $expr: { $lt: [{ $size: "$students" }, 80] }
     }).sort({ createdAt: 1 });
 
     if (!placementBatch) {
@@ -100,16 +82,16 @@ async function assignStudentToPlacementTrainingBatch(student) {
       const existingBatches = await PlacementTrainingBatch.countDocuments({
         colleges: student.college,
         techStack: techStack,
-        year: year
+        year: student.yearOfPassing
       });
 
-      const batchNumber = `PT${year}${student.college}${techStack}${existingBatches + 1}`;
+      const batchNumber = `PT${student.yearOfPassing}${student.college}${techStack}${existingBatches + 1}`;
 
       placementBatch = new PlacementTrainingBatch({
         batchNumber,
         colleges: [student.college],
         techStack,
-        year,
+        year: student.yearOfPassing,
         tpoId: tpo._id,
         createdBy: admin._id,
         startDate: new Date(),

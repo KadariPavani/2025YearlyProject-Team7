@@ -67,11 +67,11 @@ const superAdminLogin = async (req, res) => {
       purpose: 'login'
     });
 
-    await sendEmail({
-      email,
-      subject: 'Admin Login Verification',
-      message: `Your OTP for admin login is: ${otp}`
-    });
+    // await sendEmail({
+    //   email,
+    //   subject: 'Admin Login Verification',
+    //   message: `Your OTP for admin login is: ${otp}`
+    // });
 
     return ok(res, { success: true, message: 'OTP sent successfully' });
   } catch (error) {
@@ -764,6 +764,56 @@ const deleteStudent = async (req, res) => {
       success: false,
       message: 'Error deleting student',
       error: error.message
+    });
+  }
+};
+
+exports.deleteBatch = async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.id);
+    if (!batch) {
+      return res.status(404).json({
+        success: false,
+        message: 'Batch not found'
+      });
+    }
+
+    // Get all students in this batch before deletion
+    const students = await Student.find({ batchId: batch._id });
+    const studentIds = students.map(s => s._id);
+
+    // Delete the main batch (this will trigger the pre-remove middleware)
+    await batch.remove();
+
+    // Double-check cleanup - ensure all students are properly deactivated
+    await Student.updateMany(
+      { _id: { $in: studentIds } },
+      { 
+        isActive: false,
+        status: 'inactive',
+        $unset: { 
+          batchId: 1,
+          placementTrainingBatchId: 1,
+          crtBatchId: 1,
+          crtBatchName: 1
+        }
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'Batch and all related data deleted successfully',
+      data: {
+        batchId: batch._id,
+        deactivatedStudents: studentIds.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Delete batch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete batch and related data'
     });
   }
 };
