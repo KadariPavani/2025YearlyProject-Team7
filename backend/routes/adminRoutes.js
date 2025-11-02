@@ -189,44 +189,28 @@ router.delete('/batches/:batchId', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Batch not found' });
     }
 
-    // Find all students in this batch
+    // Step 1: Find all students in this batch
     const students = await Student.find({ batchId: batch._id });
     const studentIds = students.map(s => s._id);
 
-    // Find and delete all placement training batches
-    const ptBatches = await PlacementTrainingBatch.find({
+    // Step 2: Delete all placement training batches related to these students
+    const ptBatchesDeleted = await PlacementTrainingBatch.deleteMany({
       students: { $in: studentIds }
     });
 
-    // Delete placement training batches one by one using findByIdAndDelete
-    await Promise.all(
-      ptBatches.map(ptBatch => 
-        PlacementTrainingBatch.findByIdAndDelete(ptBatch._id)
-      )
-    );
+    // Step 3: Delete all students in this batch
+    const studentsDeleted = await Student.deleteMany({ batchId: batch._id });
 
-    // Update all students to remove references
-    await Student.updateMany(
-      { batchId: batch._id },
-      { 
-        $unset: { 
-          batchId: 1,
-          placementTrainingBatchId: 1,
-          crtBatchId: 1,
-          crtBatchName: 1
-        }
-      }
-    );
-
-    // Finally delete the main batch
+    // Step 4: Finally delete the main batch
     await Batch.findByIdAndDelete(batch._id);
 
     res.json({
       success: true,
-      message: 'Batch and related data deleted successfully',
+      message: 'Batch and all related data deleted successfully',
       deletedCount: {
-        placementBatches: ptBatches.length,
-        affectedStudents: studentIds.length
+        students: studentsDeleted.deletedCount,
+        placementBatches: ptBatchesDeleted.deletedCount,
+        batchId: batch._id
       }
     });
 

@@ -27,49 +27,29 @@ const StudentResources = () => {
   const fetchResources = async () => {
     try {
       setLoading(true);
-      setError("");
-      const token = localStorage.getItem('userToken') || localStorage.getItem('studentToken');
-      
+      const token = localStorage.getItem('userToken');
       if (!token) {
         setError('Please log in to view resources');
         return;
       }
 
+      // Use the correct endpoint
       const response = await axios.get('/api/references/student/list', {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      const data = response.data;
-      let refs = [];
-      
-      if (Array.isArray(data)) {
-        refs = data;
-      } else if (Array.isArray(data.references)) {
-        refs = data.references;
-      } else if (data && typeof data === 'object') {
-        refs = [data];
+      // Handle the response structure correctly
+      if (response.data && response.data.references) {
+        setResources(response.data.references);
+      } else if (Array.isArray(response.data)) {
+        setResources(response.data);
+      } else {
+        setResources([]);
       }
-
-      // Fetch detailed view for each resource to get full data
-      const detailedRefs = await Promise.all(
-        refs.map(async (ref) => {
-          try {
-            const detailRes = await axios.get(`/api/references/student/${ref._id}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            return detailRes.data;
-          } catch {
-            return ref; // fallback
-          }
-        })
-      );
-
-      setResources(detailedRefs);
-      setFilteredResources(detailedRefs);
     } catch (err) {
-      const errorMsg = err.response?.data?.message || 'Failed to fetch resources';
-      setError(errorMsg);
-      console.error('Error:', err);
+      setError(err.response?.data?.message || 'Failed to fetch resources');
+      console.error('Error fetching resources:', err);
+      setResources([]);
     } finally {
       setLoading(false);
     }
@@ -110,6 +90,7 @@ const StudentResources = () => {
       const file = resource.files[0];
       if (file.mimetype?.includes('pdf')) return <FileText className="w-5 h-5" />;
       if (file.mimetype?.includes('document')) return <File className="w-5 h-5" />;
+      if (file.mimetype?.includes('presentation')) return <File className="w-5 h-5" />;
       return <File className="w-5 h-5" />;
     }
     if (resource.referenceVideoLink) return <Video className="w-5 h-5" />;
@@ -318,7 +299,9 @@ const StudentResources = () => {
                                 <FileText className="w-5 h-5 text-blue-600" />
                                 <div>
                                   <p className="font-medium text-gray-900">{file.filename}</p>
-                                  <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB</p>
+                                  <p className="text-xs text-gray-500">
+                                    {file.size ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : 'File'}
+                                  </p>
                                 </div>
                               </div>
                               <Download className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />

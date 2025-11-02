@@ -83,32 +83,13 @@ BatchSchema.pre('remove', async function(next) {
     const students = await Student.find({ batchId: this._id });
     const studentIds = students.map(s => s._id);
 
-    // First delete all related placement training batches
-    const placementBatches = await PlacementTrainingBatch.find({
+    // Delete all related placement training batches
+    await PlacementTrainingBatch.deleteMany({
       students: { $in: studentIds }
     });
 
-    // Remove each placement batch
-    for (const batch of placementBatches) {
-      await batch.remove();
-    }
-
-    // Update all affected students - set isActive to false and remove references
-    await Student.updateMany(
-      { _id: { $in: studentIds } },
-      { 
-        $unset: { 
-          batchId: 1,
-          placementTrainingBatchId: 1,
-          crtBatchId: 1,
-          crtBatchName: 1
-        },
-        $set: {
-          isActive: false,
-          status: 'inactive'
-        }
-      }
-    );
+    // Delete all students
+    await Student.deleteMany({ batchId: this._id });
 
     next();
   } catch (error) {

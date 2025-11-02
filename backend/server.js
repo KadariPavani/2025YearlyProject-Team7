@@ -54,14 +54,13 @@ app.use('/api/trainer', trainerRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/coordinator', coordinatorRoutes);
 app.use('/api/quizzes', quizRoutes);
-app.use('/api/reference', referenceRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/syllabi', syllabusRoutes);
 app.use('/api/placement-training-batches', PlacementTrainingBatches);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/feedback', feedbackRoutes);
-
+app.use('/api/references', referenceRoutes);
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Server Error:', err.message, err.stack);

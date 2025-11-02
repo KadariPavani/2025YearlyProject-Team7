@@ -3,7 +3,7 @@ import axios from 'axios';
 import { 
   FileText, Trash2, Edit, PlusCircle, BookOpen, Eye, Star, Users, 
   Link, Video, File, GraduationCap, Download, Calendar, Tag, Award,
-  Search, X
+  Search, X, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 const Reference = ({ availableBatches }) => {
@@ -38,6 +38,7 @@ const Reference = ({ availableBatches }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSubject, setFilterSubject] = useState('');
   const [filterAccessLevel, setFilterAccessLevel] = useState('all');
+  const [expandedCards, setExpandedCards] = useState({}); // Track expanded cards
 
   useEffect(() => {
     fetchReferences();
@@ -193,8 +194,13 @@ const Reference = ({ availableBatches }) => {
       form.append('tags', JSON.stringify(formData.tags));
       form.append('assignedBatches', JSON.stringify(formData.assignedBatches));
       form.append('assignedPlacementBatches', JSON.stringify(formData.assignedPlacementBatches));
-      form.append('existingFiles', JSON.stringify(formData.existingFiles.map(f => f._id)));
+      
+      // Handle existing files for edit mode
+      if (editingId) {
+        form.append('existingFiles', JSON.stringify(formData.existingFiles.map(f => f._id)));
+      }
 
+      // Add new files
       newFileInputs.forEach(f => form.append('files', f));
 
       const url = editingId ? `/api/references/${editingId}` : '/api/references';
@@ -330,6 +336,10 @@ const Reference = ({ availableBatches }) => {
     );
   };
 
+  const toggleExpand = (id) => {
+    setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   if (loading && activeTab === 'list') {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -427,7 +437,7 @@ const Reference = ({ availableBatches }) => {
               </div>
             </div>
 
-            {/* Grid */}
+            {/* Grid - Updated to expandable cards like student dashboard */}
             {filteredReferences.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm p-12 text-center">
                 <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -448,90 +458,200 @@ const Reference = ({ availableBatches }) => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredReferences.map(resource => (
-                  <div
-                    key={resource._id}
-                    className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer border border-gray-200"
-                  >
-                    <div className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-                            {getResourceIcon(resource)}
+              <div className="space-y-6">
+                {filteredReferences.map(resource => {
+                  const isExpanded = expandedCards[resource._id];
+                  
+                  return (
+                    <div
+                      key={resource._id}
+                      className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+                    >
+                      {/* Card Header */}
+                      <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-4">
+                            <div className="p-3 bg-white rounded-lg shadow-sm text-blue-600">
+                              {getResourceIcon(resource)}
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-bold text-gray-900">{resource.topicName}</h3>
+                              <p className="text-sm text-gray-600 mt-1">{resource.subject}</p>
+                              <p className="text-sm text-gray-500 mt-1">
+                                Created on {new Date(resource.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900 text-lg mb-1">
-                              {resource.topicName}
-                            </h3>
-                            <p className="text-sm text-gray-600">{resource.subject}</p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => startEdit(resource)}
+                              className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                              title="Edit"
+                            >
+                              <Edit className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => deleteReference(resource._id)}
+                              className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => toggleExpand(resource._id)}
+                              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                              {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                            </button>
                           </div>
                         </div>
-                        <div className="flex gap-1">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); startEdit(resource); }}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); deleteReference(resource._id); }}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                          {/* <button
-                            onClick={(e) => { e.stopPropagation(); fetchAnalytics(resource._id); }}
-                            className="p-1.5 text-green-600 hover:bg-green-50 rounded"
-                            title="Analytics"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button> */}
-                        </div>
-                      </div>
 
-                      <div className="flex items-center gap-4 mb-4 text-sm text-gray-500">
-                        <div className="flex items-center gap-1">
-                          <Eye className="w-4 h-4" />
-                          <span>{resource.viewCount || 0} views</span>
-                        </div>
-                        {resource.averageRating > 0 && (
+                        <div className="flex items-center gap-6 mt-4 text-sm">
                           <div className="flex items-center gap-1">
-                            {renderStars(Math.round(resource.averageRating))}
-                            <span>{resource.averageRating.toFixed(1)}</span>
+                            <Eye className="w-4 h-4 text-gray-500" />
+                            <span>{resource.viewCount || 0} views</span>
+                          </div>
+                          {resource.averageRating > 0 && (
+                            <div className="flex items-center gap-1">
+                              {renderStars(Math.round(resource.averageRating))}
+                              <span className="ml-1 text-gray-600">{resource.averageRating.toFixed(1)}</span>
+                            </div>
+                          )}
+                          <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                            resource.accessLevel === 'public' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {resource.accessLevel === 'public' ? 'Public' : 'Batch'}
+                          </span>
+                          <span className="text-gray-500">
+                            {(resource.files?.length || 0) + 
+                             (resource.referenceVideoLink ? 1 : 0) + 
+                             (resource.referenceNotesLink ? 1 : 0)} resource(s)
+                          </span>
+                        </div>
+
+                        {resource.tags && resource.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {resource.tags.slice(0, 5).map((tag, i) => (
+                              <span key={i} className="px-2 py-1 bg-white text-gray-600 text-xs rounded-full">#{tag}</span>
+                            ))}
                           </div>
                         )}
                       </div>
 
-                      {resource.tags && resource.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {resource.tags.slice(0, 3).map((tag, idx) => (
-                            <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                              #{tag}
-                            </span>
-                          ))}
+                      {/* Expandable Content */}
+                      {isExpanded && (
+                        <div className="p-6 space-y-6 border-t border-gray-100">
+                          {/* Learning Objectives */}
+                          {resource.learningObjectives && resource.learningObjectives.length > 0 && (
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                                <Award className="w-5 h-5 text-blue-600" />
+                                Learning Objectives
+                              </h4>
+                              <ul className="list-disc list-inside space-y-1 text-gray-700 text-sm">
+                                {resource.learningObjectives.map((obj, i) => <li key={i}>{obj}</li>)}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Prerequisites */}
+                          {resource.prerequisites && resource.prerequisites.length > 0 && (
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-2">Prerequisites</h4>
+                              <ul className="list-disc list-inside space-y-1 text-gray-700 text-sm">
+                                {resource.prerequisites.map((pr, i) => <li key={i}>{pr}</li>)}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Files */}
+                          {resource.files && resource.files.length > 0 && (
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-3">Uploaded Files</h4>
+                              <div className="space-y-2">
+                                {resource.files.map((file, i) => (
+                                  <a
+                                    key={i}
+                                    href={file.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group"
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <FileText className="w-5 h-5 text-blue-600" />
+                                      <div>
+                                        <p className="font-medium text-gray-900">{file.filename}</p>
+                                        <p className="text-xs text-gray-500">
+                                          {file.size ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : 'File'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <Download className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Video Link */}
+                          {resource.referenceVideoLink && (
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-3">Video Resource</h4>
+                              <a
+                                href={resource.referenceVideoLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg hover:bg-blue-100 text-blue-700"
+                              >
+                                <Video className="w-5 h-5" />
+                                <span>Watch Video</span>
+                              </a>
+                            </div>
+                          )}
+
+                          {/* Notes Link */}
+                          {resource.referenceNotesLink && (
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-3">Reference Notes</h4>
+                              <a
+                                href={resource.referenceNotesLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 p-3 bg-green-50 rounded-lg hover:bg-green-100 text-green-700"
+                              >
+                                <Link className="w-5 h-5" />
+                                <span>View Notes</span>
+                              </a>
+                            </div>
+                          )}
+
+                          {/* Batch Information */}
+                          {resource.accessLevel === 'batch-specific' && (
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-3">Assigned Batches</h4>
+                              <div className="space-y-2">
+                                {resource.assignedBatches?.length > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-blue-800 bg-blue-100 px-3 py-1 rounded-full">
+                                      Regular: {resource.assignedBatches.map(b => b.name).join(', ')}
+                                    </span>
+                                  </div>
+                                )}
+                                {resource.assignedPlacementBatches?.length > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-green-800 bg-green-100 px-3 py-1 rounded-full">
+                                      Placement: {resource.assignedPlacementBatches.map(b => `${b.batchNumber} - ${b.techStack}`).join(', ')}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
-
-                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          resource.accessLevel === 'public'
-                            ? 'bg-green-50 text-green-700'
-                            : 'bg-blue-50 text-blue-700'
-                        }`}>
-                          {resource.accessLevel === 'public' ? 'Public' : 'Batch Specific'}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {(resource.files?.length || 0) +
-                            (resource.referenceVideoLink ? 1 : 0) +
-                            (resource.referenceNotesLink ? 1 : 0)} file(s)
-                        </span>
-                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>
