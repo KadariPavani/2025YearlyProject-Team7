@@ -14,7 +14,7 @@ import ScheduleTimetable from './ScheduleTimetable';
 import TPOAttendanceView from './TPOAttendanceView';
 import PlacementCalendar from "./PlacementCalendar";
 import axios from 'axios';
-
+import StudentActivity from './StudentActivity';
 const TPODashboard = () => {
   const [tpoData, setTpoData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -1525,6 +1525,16 @@ const getRequestTypeColor = (type) => {
                 Attendance
               </button>
               <button
+                onClick={() => setActiveTab('student-activity')}
+                className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
+                  activeTab === 'student-activity'
+                    ? 'border-blue-600 text-blue-700 bg-blue-50'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                Student Activity
+              </button>
+              <button
                 onClick={() => setActiveTab('statistics')}
                 className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
                   activeTab === 'statistics'
@@ -1928,6 +1938,7 @@ const getRequestTypeColor = (type) => {
             </div>
           )}
           {activeTab === 'attendance' && <TPOAttendanceView />}
+{activeTab === 'student-activity' && <StudentActivity />}
 
 
           {/* Schedule Tab */}

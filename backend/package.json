@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "seed": "node seeders/authSeeder.js -i",
+    "seed": "node scripts/seedDatabase.js --reset",
+    "seed:data": "node scripts/seedDatabase.js --seed",
+    "seed:clear": "node scripts/seedDatabase.js --clear",
+    "seed:stats": "node scripts/seedDatabase.js --stats",
     "seed:delete": "node seeders/authSeeder.js -d"
   },
   "keywords": [],

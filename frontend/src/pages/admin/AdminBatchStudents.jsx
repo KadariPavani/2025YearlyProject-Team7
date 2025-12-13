@@ -192,7 +192,7 @@ const AdminBatchStudents = () => {
                     className="border border-gray-300 rounded-lg p-2"
                   >
                     <option value="">All Branches</option>
-                    <option value="CSE">AID</option>
+                    <option value="AID">AID</option>
                     <option value="CSM">CSM</option>
                     <option value="CAI">CAI</option>
                     <option value="CSD">CSD</option>

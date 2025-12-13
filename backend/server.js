@@ -44,7 +44,7 @@ const syllabusRoutes = require('./routes/syllabusRoutes');
 const PlacementTrainingBatches = require('./routes/placementTrainingRoutes');
 const calendarRoutes = require('./routes/calendarRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
-
+const studentActivityRoutes = require('./routes/studentActivityRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -61,6 +61,8 @@ app.use('/api/calendar', calendarRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/references', referenceRoutes);
+app.use('/api/student-activity', studentActivityRoutes);
+
 // Global error handler
 app.use((err, req, res, next) => {
   console.error('Server Error:', err.message, err.stack);

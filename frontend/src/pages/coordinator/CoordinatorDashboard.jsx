@@ -1,4 +1,4 @@
-// CoordinatorDashboard.jsx - COMPLETE WITH TEXT LOGIC + ORIGINAL UI MAINTAINED
+// CoordinatorDashboard.jsx - COMPLETE WITH TEXT LOGIC + ORIGINAL UI MAINTAINED + FIXED STUDENT ACTIVITY TAB
 // Replace your CoordinatorDashboard.jsx with this
 
 import React, { useState, useEffect } from 'react';
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import PasswordChangeNotification from '../../components/common/PasswordChangeNotification';
 import AttendanceMarking from '../coordinator/AttandanceMarking';
+import CoordinatorStudentActivity from './CoordinatorStudentActivity';
 
 // TEXT LOGIC - All UI strings in one place for consistency
 const TEXT = {
@@ -26,6 +27,7 @@ const TEXT = {
   tabs: {
     dashboard: 'Dashboard',
     attendance: 'Attendance',
+    studentActivity: 'Student Activity', // Fixed: Added missing label
   },
   welcome: {
     title: (name) => `Welcome, ${name || 'Coordinator'}!`,
@@ -92,7 +94,6 @@ const CoordinatorDashboard = () => {
 
   useEffect(() => {
     fetchDashboard();
-    // fetchFeedbackPreview();
   }, []);
 
   const fetchDashboard = async () => {
@@ -241,13 +242,23 @@ const CoordinatorDashboard = () => {
             >
               {TEXT.tabs.attendance}
             </button>
+            <button
+              onClick={() => setActiveTab('student-activity')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'student-activity'
+                  ? 'border-orange-500 text-orange-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              {TEXT.tabs.studentActivity}
+            </button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'dashboard' ? (
+        {activeTab === 'dashboard' && (
           <>
             {/* Welcome Section */}
             <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
@@ -308,15 +319,17 @@ const CoordinatorDashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {coordinatorData.user.assignedPlacementBatch.students?.map((student) => (
-                        <tr key={student._id}>
-                          <td className="px-6 py-4 whitespace-nowrap">{student.name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{student.rollNo}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{student.email}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{student.college}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">{student.branch}</td>
-                        </tr>
-                      )) || (
+                      {coordinatorData.user.assignedPlacementBatch.students?.length > 0 ? (
+                        coordinatorData.user.assignedPlacementBatch.students.map((student) => (
+                          <tr key={student._id}>
+                            <td className="px-6 py-4 whitespace-nowrap">{student.name}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">{student.rollNo}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">{student.email}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">{student.college}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">{student.branch}</td>
+                          </tr>
+                        ))
+                      ) : (
                         <tr>
                           <td colSpan="5" className="px-6 py-4 text-center text-gray-500">{TEXT.batch.students.noStudents}</td>
                         </tr>
@@ -399,9 +412,11 @@ const CoordinatorDashboard = () => {
               </div>
             </div>
           </>
-        ) : (
-          <AttendanceMarking />
         )}
+
+        {activeTab === 'attendance' && <AttendanceMarking />}
+
+        {activeTab === 'student-activity' && <CoordinatorStudentActivity />}
       </main>
     </div>
   );

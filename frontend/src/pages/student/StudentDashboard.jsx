@@ -14,6 +14,8 @@ import StudentAssignment from './StudentAssignment';
 import StudentResources from './StudentResources';
 import StudentAttendanceView from './StudentAttendanceView';
 import StudentFeedback from '../student/StudentFeedback';
+import StudentActivityView from './StudentActivityView';
+
 import FeedbackPreview from '../../components/FeedbackPreview'; // Import feedback preview component
 // Keep placeholder components for the rest as in the first code
 
@@ -961,6 +963,17 @@ const studentId = studentData?.user?._id || studentData?._id;
               </button>
 
               <button
+                onClick={() => setActiveTab('student-activity')}
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
+                  activeTab === 'student-activity'
+                    ? 'border-blue-700 text-blue-700 bg-blue-100'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                Student Activity
+              </button>
+
+              <button
                 onClick={() => setActiveTab('quizzes')}
                 className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
                   activeTab === 'quizzes'
@@ -1513,11 +1526,13 @@ const studentId = studentData?.user?._id || studentData?._id;
     )}
   </div>
 )}
+
+
           {activeTab === 'progress' && <StudentProgress />}
           {activeTab === 'certificates' && <StudentCertificates />}
           {activeTab === 'attendance' && <StudentAttendanceView />}
           {activeTab === "calendar" && <StudentPlacementCalendar />}
-
+          {activeTab === 'student-activity' && <StudentActivityView />}
           {activeTab === 'feedback' && <StudentFeedback />}
         </div>
       </div>

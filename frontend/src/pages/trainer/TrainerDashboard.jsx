@@ -17,7 +17,7 @@ import Assignment from '../trainer/Assignment';
 import Syllabus from '../trainer/Syllabus';
 import TrainerAttendanceView from './TrainerAttendanceView';
 import FeedbackWidget from '../../components/FeedbackWidget';
-
+import TrainerStudentActivity from './TrainerStudentActivity';
 const TrainerDashboard = () => {
   const [trainerData, setTrainerData] = useState(null);
   const [feedbackStats, setFeedbackStats] = useState(null);
@@ -720,6 +720,16 @@ const markAsRead = async (id) => {
               >
                 Regular Batches
               </button>
+              <button 
+              onClick={()=> setActiveTab('student-activity')}
+              className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'student-activity'
+                  ? 'border-blue-700 text-blue-700 bg-blue-100'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                Student Activity
+              </button>
+
               <button
                 onClick={() => setActiveTab('students')}
                 className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'students'
@@ -979,6 +989,9 @@ const markAsRead = async (id) => {
               </div>
             </div>
           )}
+
+          {activeTab === 'student-activity' && <TrainerStudentActivity />}
+
 
 
           {/* Classes Tab */}
