@@ -148,24 +148,42 @@ exports.notifyTrainerAssignment = async (batchId, tpoName) => {
     console.error("❌ Error sending trainer assignment notifications:", error);
   }
 };
-// 🔔 Auto notification when a new assignment is created by a trainer
-exports.notifyAssignmentCreated = async (batchId, trainerName, assignmentTitle) => {
+// 🔹 Send notifications to all students when a trainer creates an assignment
+exports.notifyAssignmentCreated = async (batchId, trainerName, assignmentTitle, trainerId) => {
   try {
-    const PlacementTrainingBatch = require("../models/PlacementTrainingBatch");
+    const mongoose = require("mongoose");
     const Notification = require("../models/Notification");
+    const Student = require("../models/Student");
 
-    const batch = await PlacementTrainingBatch.findById(batchId)
-      .populate("students", "_id name");
+    console.log("📘 [notifyAssignmentCreated] Batch ID:", batchId);
+    console.log("👨‍🏫 Trainer:", trainerName, "Assignment:", assignmentTitle);
 
-    if (!batch || !batch.students.length) {
-      console.log("⚠️ No students found in batch for assignment notification.");
+    // ✅ Validate trainer ID
+    const validTrainerId = mongoose.Types.ObjectId.isValid(trainerId)
+      ? new mongoose.Types.ObjectId(trainerId)
+      : null;
+    if (!validTrainerId) {
+      console.error("❌ Invalid trainerId:", trainerId);
       return;
     }
 
-    const notifications = batch.students.map((student) => ({
+    // ✅ Fetch students who belong to this batch
+    let students = await Student.find({ placementTrainingBatchId: batchId }).select("_id name email");
+    console.log(`🧾 Found ${students.length} students for batch ${batchId}`);
+
+    if (!students.length) {
+      students = await Student.find({ batchId: batchId }).select("_id name email");
+
+      console.warn("⚠️ No students found for placementTrainingBatchId:", batchId);
+      return;
+    }
+
+    // ✅ Prepare notifications
+    const notifications = students.map((student) => ({
       title: `New Assignment: ${assignmentTitle}`,
-      message: `A new assignment "${assignmentTitle}" has been created by ${trainerName}. Please check your My Assignments section for details.`,
+      message: `A new assignment "${assignmentTitle}" has been created by ${trainerName}.`,
       category: "My Assignments",
+      senderId: validTrainerId,
       senderModel: "Trainer",
       targetBatches: [batchId],
       targetRoles: ["student"],
@@ -175,14 +193,13 @@ exports.notifyAssignmentCreated = async (batchId, trainerName, assignmentTitle) 
       ],
     }));
 
+    // ✅ Insert notifications in bulk
     await Notification.insertMany(notifications);
-    console.log(`📘 Sent 'My Assignments' notifications to ${batch.students.length} students.`);
+    console.log(`✅ Inserted ${notifications.length} notifications successfully.`);
   } catch (error) {
-    console.error("❌ Error sending assignment notifications:", error);
+    console.error("❌ Error in notifyAssignmentCreated:", error);
   }
 };
-
-
 
 // ✅ Get all notifications for the logged-in student (with proper filters + logs)
 exports.getStudentNotifications = asyncHandler(async (req, res) => {
@@ -498,6 +515,176 @@ exports.notifyStudentReschedule = async (batchId, updatedBy) => {
     console.log(`📢 Reschedule notifications sent to ${notifications.length} students`);
   } catch (error) {
     console.error("❌ Error sending student reschedule notifications:", error);
+  }
+};
+// 🔔 Notify students when an assignment is deleted/cancelled
+exports.notifyAssignmentDeleted = async (batchId, trainerName, assignmentTitle, trainerId) => {
+  try {
+    const mongoose = require("mongoose");
+    const Notification = require("../models/Notification");
+    const Student = require("../models/Student");
+
+    console.log("🗑️ [notifyAssignmentDeleted] Batch ID:", batchId);
+    console.log("👨‍🏫 Trainer:", trainerName, "Assignment:", assignmentTitle);
+
+    const validTrainerId = mongoose.Types.ObjectId.isValid(trainerId)
+      ? new mongoose.Types.ObjectId(trainerId)
+      : null;
+    if (!validTrainerId) {
+      console.error("❌ Invalid trainerId:", trainerId);
+      return;
+    }
+
+    // Find students linked to the batch (placement or regular)
+    let students = await Student.find({ placementTrainingBatchId: batchId }).select("_id name email");
+
+    if (!students.length) {
+      students = await Student.find({ batchId }).select("_id name email");
+      if (!students.length) {
+        console.warn("⚠️ No students found for batch:", batchId);
+        return;
+      }
+    }
+
+    const notifications = students.map((student) => ({
+      title: `Assignment Cancelled: ${assignmentTitle}`,
+      message: `The assignment "${assignmentTitle}" created by ${trainerName} has been cancelled.`,
+      category: "My Assignments",
+      senderId: validTrainerId,
+      senderModel: "Trainer",
+      targetBatches: [batchId],
+      targetRoles: ["student"],
+      status: "sent",
+      type: "warning",
+      recipients: [
+        { recipientId: student._id, recipientModel: "Student", isRead: false },
+      ],
+    }));
+
+    await Notification.insertMany(notifications);
+    console.log(`🚮 Sent cancellation notifications to ${notifications.length} students.`);
+  } catch (error) {
+    console.error("❌ Error in notifyAssignmentDeleted:", error);
+  }
+};
+
+exports.sendNotificationToBatches = async (data) => {
+  const { title, message, category, targetBatchIds = [], type, user } = data;
+
+  try {
+    let targetStudents = [];
+
+    if (targetBatchIds.length > 0) {
+      targetStudents = await Student.find({
+        $or: [
+          { batchId: { $in: targetBatchIds } },
+          { placementTrainingBatchId: { $in: targetBatchIds } }
+        ]
+      }).select("_id name");
+    }
+
+    if (!targetStudents.length) {
+      console.log("⚠️ No students found for notification");
+      return;
+    }
+
+    const notification = new Notification({
+      title,
+      message,
+      category: category || (type === "quiz" ? "Available Quizzes" : "My Assignments"),
+      senderId: user.id,
+      senderModel: user.role || "Trainer",
+      recipients: targetStudents.map(s => ({
+        recipientId: s._id,
+        recipientModel: "Student",
+        isRead: false
+      })),
+      targetBatches: targetBatchIds,
+      targetRoles: ["student"],
+      status: "sent",
+      type: type || "info"
+    });
+
+    await notification.save();
+    console.log(`📩 Notification sent to ${targetStudents.length} students`);
+  } catch (error) {
+    console.error("❌ Error creating notification:", error);
+  }
+};
+
+
+// ✅ Notify students if a quiz is deleted
+exports.notifyQuizDeleted = async (batchId, trainerName, quizTitle, trainerId) => {
+  try {
+    let students = await Student.find({ placementTrainingBatchId: batchId }).select("_id name");
+    if (!students.length) students = await Student.find({ batchId }).select("_id name");
+    if (!students.length) return;
+
+    const notifications = students.map(s => ({
+      title: `Quiz Cancelled: ${quizTitle}`,
+      message: `The quiz "${quizTitle}" created by ${trainerName} has been cancelled.`,
+      category: "Available Quizzes",
+      senderId: trainerId,
+      senderModel: "Trainer",
+      recipients: [{ recipientId: s._id, recipientModel: "Student", isRead: false }],
+      targetBatches: [batchId],
+      targetRoles: ["student"],
+      status: "sent",
+      type: "warning"
+    }));
+
+    await Notification.insertMany(notifications);
+    console.log(`🚮 Sent cancellation notifications for quiz '${quizTitle}'`);
+  } catch (error) {
+    console.error("❌ Error in notifyQuizDeleted:", error);
+  }
+};
+
+// ✅ Notify students when a quiz is created
+exports.notifyQuizCreated = async (batchId, trainerName, quizTitle, trainerId) => {
+  try {
+    const Student = require("../models/Student");
+    let students = await Student.find({ placementTrainingBatchId: batchId }).select("_id name");
+    if (!students.length) students = await Student.find({ batchId }).select("_id name");
+    if (!students.length) return;
+
+    const notifications = students.map((s) => ({
+      title: `New Quiz Created: ${quizTitle}`,
+      message: `A new quiz "${quizTitle}" has been created by ${trainerName}.`,
+      category: "Available Quizzes",
+      senderId: trainerId,
+      senderModel: "Trainer",
+      recipients: [{ recipientId: s._id, recipientModel: "Student", isRead: false }],
+      targetBatches: [batchId],
+      targetRoles: ["student"],
+      status: "sent",
+      type: "info",
+      priority: "medium",
+    }));
+
+    await Notification.insertMany(notifications);
+    console.log(`🧠 Sent quiz creation notifications for '${quizTitle}'`);
+  } catch (error) {
+    console.error("❌ Error in notifyQuizCreated:", error);
+  }
+};
+
+// Notify students when trainer uploads a new resource
+const notifyBatches = async (batchIds, batchTypeLabel) => {
+  if (batchIds.length > 0) {
+    await createNotification(
+      {
+        body: {
+          title: `New Resource Added (${batchTypeLabel})`,
+          message: `A new resource "${topicName}" has been uploaded by ${req.user.name}.`,
+          category: "Learning Resources",
+          targetBatchIds: batchIds,
+          type: "resource",
+        },
+        user: req.user,
+      },
+      { status: () => ({ json: () => {} }) }
+    );
   }
 };
 

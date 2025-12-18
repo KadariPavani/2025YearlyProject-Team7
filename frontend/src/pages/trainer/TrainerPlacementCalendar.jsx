@@ -12,6 +12,12 @@ const TrainerPlacementCalendar = () => {
   useEffect(() => {
     fetchEvents();
   }, []);
+const normalizeDate = (d) => {
+  const date = new Date(d);
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
 
   const fetchEvents = async () => {
   setLoading(true);
@@ -21,15 +27,22 @@ const TrainerPlacementCalendar = () => {
     });
     const data = res.data?.data || [];
 
-    const now = new Date();
-    const processedEvents = data.map((e) => {
-      let computedStatus = e.status || "scheduled";
-      const endDate = new Date(e.endDate);
+    const today = normalizeDate(new Date());
 
-      // ✅ Mark completed if endDate has passed
-      if (computedStatus === "scheduled" && endDate < now) {
-        computedStatus = "completed";
-      }
+const processedEvents = data.map((e) => {
+  let computedStatus = e.status || "scheduled";
+
+  const start = normalizeDate(e.startDate);
+  const end = normalizeDate(e.endDate);
+
+  if (today < start) {
+    computedStatus = "upcoming";
+  } else if (today > end) {
+    computedStatus = "completed";
+  } else {
+    computedStatus = "ongoing";
+  }
+
 
       return {
         id: e._id,
@@ -54,7 +67,7 @@ targetGroup: e.targetGroup || "both",
     setEvents(processedEvents);
 
     // Update selected date events if there's a selected date
-    const currentDateStr = selectedDate.toISOString().split('T')[0];
+    const currentDateStr = selectedDate.toLocaleDateString("en-CA");
     const currentDateEvents = processedEvents.filter(e => e.date === currentDateStr);
     setSelectedDateEvents(currentDateEvents);
   } catch (err) {
@@ -83,7 +96,7 @@ targetGroup: e.targetGroup || "both",
   const days = getDaysInMonth(currentYear, currentMonth);
 
   const getEventsForDate = (date) => {
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = date.toLocaleDateString("en-CA"); // YYYY-MM-DD
     return events.filter((e) => e.date === dateStr);
   };
 
@@ -152,12 +165,17 @@ targetGroup: e.targetGroup || "both",
         key={ev.id}
         title={ev.title}
         className={`w-3 h-3 rounded-full ${
-          ev.status === "completed"
-            ? "bg-green-500"
-            : ev.status === "cancelled"
-            ? "bg-red-500"
-            : "bg-purple-500"
-        }`}
+  ev.status === "completed"
+    ? "bg-green-500"
+    : ev.status === "ongoing"
+    ? "bg-orange-500"
+    : ev.status === "upcoming"
+    ? "bg-blue-500"
+    : ev.status === "cancelled"
+    ? "bg-red-500"
+    : "bg-purple-500"
+}`}
+
       ></div>
     ))}
   </div>

@@ -348,7 +348,7 @@ router.put('/:id', generalAuth, upload.array('files', 5), async (req, res) => {
     if (req.body.existingFiles) {
       try {
         const existingFileIds = JSON.parse(req.body.existingFiles);
-        existingFilesToKeep = reference.files.filter(f => 
+        existingFilesToKeep = reference.files.filter(f =>
           existingFileIds.includes(f._id.toString())
         );
       } catch (err) {
@@ -442,19 +442,43 @@ router.put('/:id', generalAuth, upload.array('files', 5), async (req, res) => {
 router.delete('/:id', generalAuth, async (req, res) => {
   try {
     const reference = await Reference.findById(req.params.id);
+
     if (!reference || reference.trainerId.toString() !== req.user.id) {
-      return res
-        .status(404)
-        .json({ message: 'Reference not found or not authorized' });
+      return res.status(404).json({ message: 'Reference not found or not authorized' });
     }
+
     reference.status = 'archived';
     await reference.save();
-    res.json({ message: 'Reference archived successfully' });
+
+    // ✅ Notify students about deleted resource
+    const allBatchIds = [
+      ...(reference.assignedBatches || []),
+      ...(reference.assignedPlacementBatches || [])
+    ];
+
+    if (allBatchIds.length > 0) {
+      await createNotification(
+        {
+          body: {
+            title: `Resource Removed`,
+            message: `The resource "${reference.topicName}" has been removed by ${req.user.name}.`,
+            category: "Learning Resources",
+            targetBatchIds: allBatchIds,
+            type: "resource",
+          },
+          user: req.user,
+        },
+        { status: () => ({ json: () => {} }) }
+      );
+    }
+
+    res.json({ message: 'Reference archived successfully and notification sent.' });
   } catch (error) {
     console.error('Error deleting reference:', error);
     res.status(500).json({ message: 'Failed to delete reference' });
   }
 });
+
 
 // ==================== STUDENT ENDPOINTS ====================
 

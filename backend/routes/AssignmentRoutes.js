@@ -18,7 +18,7 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('../config/cloudinary');
 const path = require('path');
 // ✅ Add this code right below the populate()
-const { createNotification } = require("../controllers/notificationController");
+const { createNotification,notifyAssignmentCreated  } = require("../controllers/notificationController");
 // ============================================
 // CRITICAL FIX: CloudinaryStorage Configuration
 // Include extension IN the public_id itself!
@@ -323,31 +323,19 @@ router.post('/', generalAuth, conditionalUpload, handleMulterError, async (req, 
     ]);
 
 
+
 if (validatedPlacementBatches.length > 0) {
-  await createNotification({
-    body: {
-      title: `New Assignment: ${title}`,
-      message: `A new assignment "${title}" has been created by ${req.user.name}. Check your My Assignments section for details.`,
-      category: "My Assignments",
-      targetBatchIds: validatedPlacementBatches,
-      type: "assignment",
-    },
-    user: req.user,
-  }, { status: () => ({ json: () => {} }) }); // dummy res
+  for (const batchId of validatedPlacementBatches) {
+    await notifyAssignmentCreated(batchId, req.user.name, title, req.user.id || req.user.userId);
+  }
 }
 
 if (validatedRegularBatches.length > 0) {
-  await createNotification({
-    body: {
-      title: `New Assignment: ${title}`,
-      message: `A new assignment "${title}" has been created by ${req.user.name}. Check your My Assignments section for details.`,
-      category: "My Assignments",
-      targetBatchIds: validatedRegularBatches,
-      type: "assignment",
-    },
-    user: req.user,
-  }, { status: () => ({ json: () => {} }) }); // dummy res
+  for (const batchId of validatedRegularBatches) {
+    await notifyAssignmentCreated(batchId, req.user.name, title, req.user.id || req.user.userId);
+  }
 }
+
 
 
     res.status(201).json(savedAssignment);
@@ -380,6 +368,7 @@ router.delete('/:id', generalAuth, async (req, res) => {
       return res.status(404).json({ message: 'Assignment not found or unauthorized' });
     }
 
+    // 🧹 Delete all attachments from Cloudinary
     for (const attachment of assignment.attachments) {
       try {
         const resourceType = attachment.mimeType?.startsWith('image/') ? 'image' : 'raw';
@@ -389,6 +378,7 @@ router.delete('/:id', generalAuth, async (req, res) => {
       }
     }
 
+    // 🧹 Delete all submitted files from Cloudinary
     for (const submission of assignment.submissions) {
       for (const file of submission.files) {
         try {
@@ -400,12 +390,32 @@ router.delete('/:id', generalAuth, async (req, res) => {
       }
     }
 
+    // 🗑️ Send cancellation notifications before deleting
+    const { notifyAssignmentDeleted } = require("../controllers/notificationController");
+
+    // Notify placement batch students
+    if (assignment.assignedPlacementBatches?.length > 0) {
+      for (const batchId of assignment.assignedPlacementBatches) {
+        await notifyAssignmentDeleted(batchId, req.user.name, assignment.title, req.user.id || req.user.userId);
+      }
+    }
+
+    // Notify regular batch students
+    if (assignment.assignedBatches?.length > 0) {
+      for (const batchId of assignment.assignedBatches) {
+        await notifyAssignmentDeleted(batchId, req.user.name, assignment.title, req.user.id || req.user.userId);
+      }
+    }
+
     await Assignment.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Assignment deleted successfully' });
+
+    res.json({ message: 'Assignment deleted successfully and students notified' });
   } catch (error) {
+    console.error("❌ Error deleting assignment:", error);
     res.status(500).json({ message: 'Failed to delete assignment', error: error.message });
   }
 });
+
 
 router.get('/student/list', generalAuth, async (req, res) => {
   try {

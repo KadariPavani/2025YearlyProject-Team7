@@ -180,6 +180,34 @@ const handleUploadSelectedList = async () => {
     fetchTpoId();
     fetchEvents();
   }, []);
+const autoSelectOngoingDate = (eventsList) => {
+  const today = normalizeDate(new Date());
+
+  // 1️⃣ Find ongoing events
+  const ongoingEvents = eventsList.filter(
+    (e) =>
+      e.status === "ongoing" &&
+      normalizeDate(e.startDate) <= today &&
+      normalizeDate(e.endDate) >= today
+  );
+
+  if (ongoingEvents.length > 0) {
+    setSelectedDate(today);
+    setSelectedDateLabel(today.toDateString());
+    setSelectedDateEvents(ongoingEvents);
+    return;
+  }
+
+  // 2️⃣ Fallback: today's events (scheduled)
+  const todayEvents = eventsList.filter(
+    (e) => normalizeDate(e.startDate).getTime() === today.getTime()
+  );
+
+  setSelectedDate(today);
+  setSelectedDateLabel(today.toDateString());
+  setSelectedDateEvents(todayEvents);
+};
+
 useEffect(() => {
   const handleStudentRegistered = () => {
     console.log("🔄 Student registered — refreshing events...");
@@ -307,53 +335,56 @@ const fetchEvents = async () => {
     });
     const data = res.data?.data || [];
 
-    // 🗂️ Separate deleted and active events
-    const deletedEvents = data.filter((e) => e.status === "cancelled" || e.status === "deleted");
+    // Separate deleted and active events
+    const deletedEvents = data.filter(
+      (e) => e.status === "cancelled" || e.status === "deleted"
+    );
     const activeEvents = data.filter((e) => e.status !== "deleted");
 
-    // 🧠 Convert & compute active events (same as before)
-    setEvents(
-      activeEvents.map((e) => {
-        const now = new Date();
-        const endDate = new Date(e.endDate);
-        endDate.setHours(23, 59, 59, 999);
-        let computedStatus = e.status || "scheduled";
+    // Map & compute active events
+    const mappedEvents = activeEvents.map((e) => {
+      let computedStatus = e.status || "scheduled";
 
-        if (computedStatus === "scheduled" && endDate < now) {
-          computedStatus = "completed";
-        }
+      const startDate = normalizeDate(e.startDate);
+      const today = normalizeDate(new Date());
+      const end = normalizeDate(e.endDate);
 
-        return {
-          id: e._id,
-          title: e.title || "",
-          description: e.description || "",
-          startDate: e.startDate || "",
-          endDate: e.endDate || "",
-          startTime: e.startTime || "",
-          endTime: e.endTime || "",
-          venue: e.venue || "",
-          isOnline: e.isOnline || false,
-          company: e.companyDetails?.companyName || "",
-          companyFormLink: e.companyDetails?.companyFormLink || "",
-          targetGroup: e.targetGroup || "both",
-          eventType: e.eventType || "",
-          status: computedStatus,
-          date: e.startDate?.split("T")[0] || "",
-          participated: e.eventSummary?.totalAttendees || "",
-          placed: e.eventSummary?.selectedStudents || "",
-          externalLink: e.companyDetails?.externalLink || "",
-        };
-      })
-    );
+      if (end < today) computedStatus = "completed";
+      else if (startDate <= today && today <= end) computedStatus = "ongoing";
+      else computedStatus = "scheduled";
 
-    // 🧩 Optionally store deleted events separately if you want to show them later
+      return {
+        id: e._id,
+        title: e.title || "",
+        description: e.description || "",
+        startDate: e.startDate || "",
+        endDate: e.endDate || "",
+        startTime: e.startTime || "",
+        endTime: e.endTime || "",
+        venue: e.venue || "",
+        isOnline: e.isOnline || false,
+        company: e.companyDetails?.companyName || "",
+        companyFormLink: e.companyDetails?.companyFormLink || "",
+        targetGroup: e.targetGroup || "both",
+        eventType: e.eventType || "",
+        status: computedStatus,
+        date: e.startDate?.split("T")[0] || "",
+        participated: e.eventSummary?.totalAttendees || "",
+        placed: e.eventSummary?.selectedStudents || "",
+        externalLink: e.companyDetails?.externalLink || "",
+      };
+    });
+
+    // ✅ Update state and handle deleted events
+    setEvents(mappedEvents);
     setDeletedEvents(deletedEvents);
-
+    autoSelectOngoingDate(mappedEvents);
   } catch (err) {
     console.error("Error fetching events:", err);
   }
   setLoading(false);
 };
+
 
 
   // Calendar navigation
@@ -732,12 +763,15 @@ const uniqueStudents = registeredStudents.filter(
       <span
         key={ev.id}
         className={`inline-block w-3 h-3 rounded-full ${
-          ev.status === "completed"
-            ? "bg-green-500"
-            : ev.status === "cancelled"
-            ? "bg-red-500"
-            : "bg-purple-500"
-        }`}
+  ev.status === "completed"
+    ? "bg-green-500"
+    : ev.status === "ongoing"
+    ? "bg-orange-500"
+    : ev.status === "cancelled"
+    ? "bg-red-500"
+    : "bg-purple-500"   // upcoming / scheduled
+}`}
+
         title={`${ev.status.charAt(0).toUpperCase() + ev.status.slice(1)}`}
       ></span>
     ))}
@@ -793,17 +827,16 @@ const uniqueStudents = registeredStudents.filter(
     setHighlightedEventId(event.id); // still highlight the card
     console.log("Event card clicked — form will not open.");
   }}
-  className={`border rounded-lg p-4 transition-all cursor-pointer ${
-    highlightedEventId === event.id
-      ? "ring-2 ring-purple-600 shadow-lg"
-      : "hover:shadow-md"
-  } ${
-    event?.status === "completed"
-      ? "bg-green-50 border-green-400"
-      : event.status === "cancelled"
-      ? "bg-red-50 border-red-400"
-      : "bg-white"
-  }`}
+className={`border rounded-lg p-4 transition-all cursor-pointer ${
+  event.status === "completed"
+    ? "bg-green-50 border-green-400"
+    : event.status === "ongoing"
+    ? "bg-orange-50 border-orange-400"
+    : event.status === "cancelled"
+    ? "bg-red-50 border-red-400"
+    : "bg-white"
+}`}
+
 >
 
         <div className="flex justify-between items-center">

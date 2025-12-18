@@ -5,7 +5,7 @@ const {
   markNotificationAsRead, getTrainerNotifications,
 } = require("../controllers/notificationController");
 const generalAuth = require('../middleware/generalAuth');
-
+const Notification = require("../models/Notification"); 
 // 🔹 Get all notifications for the logged-in student
 router.get("/student", generalAuth, getStudentNotifications);
 

@@ -8,7 +8,7 @@ const Trainer = require('../models/Trainer');
 const generalAuth = require('../middleware/generalAuth');
 const mongoose = require('mongoose');
 // ✅ Add this block before sending response
-const { createNotification } = require("../controllers/notificationController");
+const { sendNotificationToBatches, notifyQuizDeleted } = require("../controllers/notificationController");
 // Helper function to get trainer's assigned placement batches
 const getTrainerPlacementBatches = async (trainerId) => {
   try {
@@ -174,43 +174,44 @@ router.post('/', generalAuth, async (req, res) => {
       { path: 'assignedBatches', select: 'name' },
       { path: 'assignedPlacementBatches', select: 'batchNumber techStack year colleges' }
     ]);
+const { notifyQuizCreated } = require("../controllers/notificationController");
+const Trainer = require("../models/Trainer");
 
-    res.status(201).json(savedQuiz);
+// Fetch trainer details for notification
+const trainer = await Trainer.findById(trainerId).select("name");
 
-
-// Notify placement batches
+// Notify placement batch students
 if (validatedPlacementBatches.length > 0) {
-  await createNotification(
-    {
-      body: {
-        title: `New Quiz: ${title}`,
-        message: `A new quiz "${title}" has been created by ${req.user.name}. Check your Available Quizzes section for details.`,
-        category: "Available Quizzes",
-        targetBatchIds: validatedPlacementBatches,
-        type: "quiz",
-      },
-      user: req.user,
-    },
-    { status: () => ({ json: () => {} }) } // dummy res object to satisfy the function
-  );
+  for (const batchId of validatedPlacementBatches) {
+    await notifyQuizCreated(batchId, trainer?.name || "Trainer", title, trainerId);
+  }
 }
+
+// Notify regular batch students
+if (validatedRegularBatches.length > 0) {
+  for (const batchId of validatedRegularBatches) {
+    await notifyQuizCreated(batchId, trainer?.name || "Trainer", title, trainerId);
+  }
+}
+
+console.log("✅ Quiz notifications sent to all assigned batches.");
+
 
 // Notify regular batches
-if (validatedRegularBatches.length > 0) {
-  await createNotification(
-    {
-      body: {
-        title: `New Quiz: ${title}`,
-        message: `A new quiz "${title}" has been created by ${req.user.name}. Check your Available Quizzes section for details.`,
-        category: "Available Quizzes",
-        targetBatchIds: validatedRegularBatches,
-        type: "quiz",
-      },
-      user: req.user,
-    },
-    { status: () => ({ json: () => {} }) }
-  );
+const allTargetBatches = [...validatedRegularBatches, ...validatedPlacementBatches];
+
+if (allTargetBatches.length > 0) {
+  await sendNotificationToBatches({
+    title: `New Quiz: ${title}`,
+    message: `A new quiz "${title}" has been created by ${req.user.name}. Check your Available Quizzes section.`,
+    category: "Available Quizzes",
+    targetBatchIds: allTargetBatches,
+    type: "quiz",
+    user: req.user
+  });
 }
+
+res.status(201).json(savedQuiz);
 
   } catch (error) {
     console.error('Error creating quiz:', error);
@@ -540,13 +541,33 @@ router.delete('/:id', generalAuth, async (req, res) => {
       return res.status(404).json({ message: 'Quiz not found or not authorized' });
     }
 
+    // 🗑️ Notify students before deleting
+    const { notifyQuizDeleted } = require("../controllers/notificationController");
+
+    // Notify placement batch students
+    if (quiz.assignedPlacementBatches?.length > 0) {
+      for (const batchId of quiz.assignedPlacementBatches) {
+        await notifyQuizDeleted(batchId, req.user.name, quiz.title, req.user.id || req.user.userId);
+      }
+    }
+
+    // Notify regular batch students
+    if (quiz.assignedBatches?.length > 0) {
+      for (const batchId of quiz.assignedBatches) {
+        await notifyQuizDeleted(batchId, req.user.name, quiz.title, req.user.id || req.user.userId);
+      }
+    }
+
+    // Delete the quiz itself
     await Quiz.findByIdAndDelete(req.params.id);
-    res.json({ message: 'Quiz deleted successfully' });
+
+    res.json({ message: 'Quiz deleted successfully and students notified' });
   } catch (error) {
-    console.error('Error deleting quiz:', error);
-    res.status(500).json({ message: 'Failed to delete quiz' });
+    console.error("❌ Error deleting quiz:", error);
+    res.status(500).json({ message: 'Failed to delete quiz', error: error.message });
   }
 });
+
 
 // Get batch progress for a quiz (trainer)
 router.get('/:id/batch-progress', generalAuth, async (req, res) => {
