@@ -5,6 +5,8 @@ const connectDB = require('./config/database');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 
+
+
 dotenv.config();
 
 // Connect to database
@@ -22,7 +24,8 @@ app.use(
     origin: [
       process.env.FRONTEND_URL,
       'http://localhost:5173',
-      'http://localhost:5174'
+      'http://localhost:5174',
+      'http://localhost:5176'
     ].filter(Boolean),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -46,6 +49,8 @@ const calendarRoutes = require('./routes/calendarRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const studentActivityRoutes = require('./routes/studentActivityRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
+const contactRoutes = require("./routes/contactRoutes");
+
 // Mount routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -62,6 +67,9 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/references', referenceRoutes);
 app.use('/api/student-activity', studentActivityRoutes);
+app.use("/api", contactRoutes);
+
+
 
 // Global error handler
 app.use((err, req, res, next) => {

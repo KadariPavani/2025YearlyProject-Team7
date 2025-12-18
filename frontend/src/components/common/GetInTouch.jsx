@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { FaPhone, FaEnvelope } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 export default function GetInTouch() {
   const formRef = useRef(null);
   const mapRef = useRef(null);
@@ -34,6 +36,39 @@ export default function GetInTouch() {
     boxSizing: 'border-box',
   };
 
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  const name = e.target.name.value;
+  const email = e.target.email.value;
+  const phone = e.target.phone.value;
+
+  console.log("Sending 👉", { name, email, phone }); // 🧪 debug
+
+  try {
+    const response = await fetch("http://localhost:5000/api/contact", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, email, phone }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      alert("Saved successfully ✅");
+      e.target.reset();
+    } else {
+      alert(data.message || "Something went wrong ❌");
+    }
+  } catch (error) {
+    console.error("Frontend error 👉", error);
+    alert("Server error ❌");
+  }
+};
+
+  
   return (
     <section
       style={{
@@ -101,7 +136,7 @@ export default function GetInTouch() {
               molestie vel, ornare non id blandit netus.
             </p>
 
-            <form onSubmit={(e) => e.preventDefault()} style={{ maxWidth: 520 }}>
+            <form onSubmit={handleSubmit} style={{ maxWidth: 520 }}>
               <div style={{ marginBottom: 12 }}>
                 <input
                   name="name"
@@ -122,6 +157,7 @@ export default function GetInTouch() {
                 <input
                   name="phone"
                   placeholder="Phone number *"
+                  required
                   style={{ ...sharedInput, height: 46 }}
                 />
               </div>
