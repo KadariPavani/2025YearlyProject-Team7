@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "../../components/common/Navbar";
+import Header from "../../components/common/Header";
 import {
   Shield,
   Mail,
@@ -85,19 +86,41 @@ const AdminProfile = () => {
     </div>
   );
 
-  return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <Navbar />
-      {/* Back Button */}
-      <button
-        onClick={() => navigate("/admin-dashboard")}
-        className="flex items-center gap-2 text-gray-700 hover:text-red-600 transition-colors mb-6"
-      >
-        <ArrowLeft className="h-5 w-5" />
-        <span className="font-medium">Back to Dashboard</span>
-      </button>
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminData");
+    navigate("/super-admin-login");
+  };
 
-      <div className="max-w-5xl mx-auto">
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header
+        title="Admin Profile"
+        subtitle="View and manage your profile"
+        icon={Shield}
+        userData={profileData}
+        profileRoute="/admin-profile"
+        changePasswordRoute="/admin-change-password"
+        onLogout={handleLogout}
+        onIconClick={() => {
+          if (window.location.pathname === '/admin-dashboard') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            navigate('/admin-dashboard');
+          }
+        }}
+      />
+      
+      <main className="p-6 pt-24">
+        <button
+          onClick={() => navigate("/admin-dashboard")}
+          className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 transition-colors mb-6"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="font-medium">Back to Dashboard</span>
+        </button>
+
+        <div className="max-w-5xl mx-auto">
         {error ? (
           <div className="bg-red-50 border border-red-300 rounded-md p-6 text-center shadow">
             <p className="text-red-600 text-lg font-semibold">{error}</p>
@@ -185,7 +208,8 @@ const AdminProfile = () => {
             </div>
           </>
         )}
-      </div>
+        </div>
+      </main>
     </div>
   );
 };

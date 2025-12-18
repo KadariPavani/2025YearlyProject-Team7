@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef  } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import {
-  Users, Settings, LogOut, ChevronDown, Building, Calendar, Eye, ChevronRight,
+  Users, Building, Calendar, Eye, ChevronRight,
   Building2, Code2, GraduationCap, X, TrendingUp, Clock, MapPin, Award, Filter,
   Search, UserPlus, UserCheck, Download, CalendarDays, BookOpen, FileText,
   User, Phone, Mail, MapPin as Location, GraduationCap as Education, Briefcase,
@@ -15,11 +15,11 @@ import TPOAttendanceView from './TPOAttendanceView';
 import PlacementCalendar from "./PlacementCalendar";
 import axios from 'axios';
 import StudentActivity from './StudentActivity';
+import Header from '../../components/common/Header';
 const TPODashboard = () => {
   const [tpoData, setTpoData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [message, setMessage] = useState('');
 
   // Assigned Batches state
@@ -182,10 +182,9 @@ const fetchNotifications = async () => {
   }
 };
 
+// Initial fetch only - polling handled by Header component
 useEffect(() => {
   fetchNotifications();
-  const interval = setInterval(fetchNotifications, 30000);
-  return () => clearInterval(interval);
 }, []);
 
 const markAsRead = async (id) => {
@@ -1356,63 +1355,31 @@ const getRequestTypeColor = (type) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-3">
-              <div className="bg-white p-2 rounded-lg">
-                <Users className="h-7 w-7 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">TPO Dashboard</h1>
-                <p className="text-sm opacity-90">Training Placement Officer</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
+      <Header
+        title="TPO Dashboard"
+        subtitle="Training Placement Officer"
+        icon={Users}
+        userData={tpoData?.user || tpoData}
+        profileRoute="/tpo-profile"
+        changePasswordRoute="/tpo-change-password"
+        onLogout={handleLogout}
+        notifications={notifications}
+        onMarkAsRead={markAsRead}
+        fetchNotifications={fetchNotifications}
+        categoryUnread={categoryUnread}
+        unreadCount={unreadCount}
+        userType="tpo"
+        userId={tpoData?.user?._id || tpoData?._id}
+        onIconClick={() => {
+          if (window.location.pathname === '/tpo-dashboard') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            navigate('/tpo-dashboard');
+          }
+        }}
+      />
 
-
-              <div className="relative" >
-
-
-
-                {showSettingsDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-10">
-                    <button
-                      onClick={() => {
-                        setShowSettingsDropdown(false);
-                        navigate('/tpo-profile');
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      View Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowSettingsDropdown(false);
-                        navigate('/tpo-change-password');
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      Change Password
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-2 bg-white text-blue-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors font-medium"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto pt-20">
         {/* Header Section */}
         <div className="bg-white border-b border-gray-200 shadow-sm">
           <div className="px-6 py-5">

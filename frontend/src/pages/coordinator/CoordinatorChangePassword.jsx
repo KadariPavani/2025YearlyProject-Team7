@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, UserCheck
 } from 'lucide-react';
+import Header from '../../components/common/Header';
 
 const CoordinatorChangePassword = () => {
   const navigate = useNavigate();
@@ -68,37 +69,42 @@ const CoordinatorChangePassword = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("userToken");
+    localStorage.removeItem("coordinatorData");
+    navigate("/coordinator-login");
+  };
+
+  const coordinatorData = JSON.parse(localStorage.getItem('coordinatorData') || '{}');
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-orange-600 to-orange-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/coordinator-dashboard')}
-                className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-                <span>Back to Dashboard</span>
-              </button>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="bg-white p-2 rounded-lg">
-                <UserCheck className="h-8 w-8 text-orange-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Change Password</h1>
-                <p className="text-sm opacity-90">Coordinator Security Settings</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header
+        title="Change Password"
+        subtitle="Coordinator Security Settings"
+        icon={UserCheck}
+        userData={coordinatorData}
+        profileRoute="/coordinator-profile"
+        changePasswordRoute="/coordinator-change-password"
+        onLogout={handleLogout}
+        onIconClick={() => {
+          if (window.location.pathname === '/coordinator-dashboard') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            navigate('/coordinator-dashboard');
+          }
+        }}
+      />
 
       {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        <button
+          onClick={() => navigate('/coordinator-dashboard')}
+          className="flex items-center gap-2 text-gray-700 hover:text-orange-600 transition-colors mb-6"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="font-medium">Back to Dashboard</span>
+        </button>
         <div className="bg-white rounded-xl shadow-lg p-8">
           <div className="text-center mb-8">
             <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">

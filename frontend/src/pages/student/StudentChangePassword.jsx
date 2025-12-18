@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, GraduationCap
 } from 'lucide-react';
+import Header from '../../components/common/Header';
 
 const StudentChangePassword = () => {
   const navigate = useNavigate();
@@ -19,6 +20,14 @@ const StudentChangePassword = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem("userToken");
+    localStorage.removeItem("studentData");
+    navigate("/student-login");
+  };
+
+  const studentData = JSON.parse(localStorage.getItem('studentData') || '{}');
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
@@ -70,35 +79,33 @@ const StudentChangePassword = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/student-dashboard')}
-                className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-                <span>Back to Dashboard</span>
-              </button>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="bg-white p-2 rounded-lg">
-                <GraduationCap className="h-8 w-8 text-purple-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Change Password</h1>
-                <p className="text-sm opacity-90">Student Security Settings</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header
+        title="Change Password"
+        subtitle="Student Security Settings"
+        icon={GraduationCap}
+        userData={studentData}
+        profileRoute="/student-profile"
+        changePasswordRoute="/student-change-password"
+        onLogout={handleLogout}
+        onIconClick={() => {
+          if (window.location.pathname === '/student-dashboard') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            navigate('/student-dashboard');
+          }
+        }}
+      />
 
       {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        <button
+          onClick={() => navigate('/student-dashboard')}
+          className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors mb-6"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="font-medium">Back to Dashboard</span>
+        </button>
+        
         <div className="bg-white rounded-xl shadow-lg p-8">
           <div className="text-center mb-8">
             <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">

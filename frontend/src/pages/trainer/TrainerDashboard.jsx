@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Users, Settings, LogOut, Bell, ChevronDown, ChevronLeft, Calendar, Clock,
+  Users, UserCheck, Calendar, Clock,
   BookOpen, X, Award, Activity, GraduationCap, Phone, Mail,
-  UserCheck, Briefcase, School, Monitor, Building2, TrendingUp, MapPin,
+  Briefcase, School, Monitor, Building2, TrendingUp, MapPin,
   Filter, Search, PlusCircle, CheckSquare, FileText, User, Menu,
   MessageSquare
 } from 'lucide-react';
@@ -18,6 +18,7 @@ import Syllabus from '../trainer/Syllabus';
 import TrainerAttendanceView from './TrainerAttendanceView';
 import FeedbackWidget from '../../components/FeedbackWidget';
 import TrainerStudentActivity from './TrainerStudentActivity';
+import Header from '../../components/common/Header';
 const TrainerDashboard = () => {
   const [trainerData, setTrainerData] = useState(null);
   const [feedbackStats, setFeedbackStats] = useState(null);
@@ -34,7 +35,6 @@ const trainerId = trainerData?._id || trainerData?.id || null;
   const [batchProgress, setBatchProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard'); // Main tab navigation
   const [selectedBatch, setSelectedBatch] = useState(null);
 const [showNotifications, setShowNotifications] = useState(false);
@@ -46,10 +46,10 @@ const [selectedCategory, setSelectedCategory] = useState(null);
 const notificationRef = useRef(null);
 
   const navigate = useNavigate();
+
+// Initial fetch only - polling handled by Header component
 useEffect(() => {
   fetchTrainerNotifications();
-  const interval = setInterval(fetchTrainerNotifications, 30000);
-  return () => clearInterval(interval);
 }, []);
 
 const fetchTrainerNotifications = async () => {
@@ -437,170 +437,31 @@ const markAsRead = async (id) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <div className="bg-white p-2 rounded-lg">
-                <UserCheck className="h-8 w-8 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Trainer Dashboard</h1>
-                <p className="text-sm opacity-90">Training Management Portal</p>
-              </div>
-            </div>
-<div className="flex items-center space-x-6">
-  {/* 🔔 Notifications */}
-  <div className="relative" ref={notificationRef}>
-    <button
-      onClick={() => setShowNotifications(!showNotifications)}
-      className="relative p-2 text-white hover:text-gray-200 transition-colors"
-    >
-      <Bell className="h-6 w-6" />
-      {unreadCount > 0 && (
-        <span className="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full px-1">
-          {unreadCount}
-        </span>
-      )}
-    </button>
+      <Header
+        title="Trainer Dashboard"
+        subtitle="Training Management Portal"
+        icon={UserCheck}
+        userData={trainerData}
+        profileRoute="/trainer-profile"
+        changePasswordRoute="/trainer-change-password"
+        onLogout={handleLogout}
+        notifications={notifications}
+        onMarkAsRead={markAsRead}
+        fetchNotifications={fetchTrainerNotifications}
+        categoryUnread={categoryUnread}
+        unreadCount={unreadCount}
+        userType="trainer"
+        userId={trainerId}
+        onIconClick={() => {
+          if (window.location.pathname === '/trainer-dashboard') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            navigate('/trainer-dashboard');
+          }
+        }}
+      />
 
-    {/* 🔽 Dropdown */}
-    {showNotifications && (
-      <div className="absolute right-0 mt-3 w-96 z-50 backdrop-blur-xl bg-white/80 border border-white/20 shadow-2xl rounded-3xl p-4 space-y-3 max-h-[32rem] overflow-y-auto transition-all duration-300 hide-scrollbar">
-        {/* Header */}
-        <div className="flex justify-between items-center pb-2 border-b border-white/30">
-          <h3 className="text-blue-700 font-semibold flex items-center gap-2">
-            <Bell className="h-4 w-4 text-blue-600" /> Notifications
-          </h3>
-          <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
-            {unreadCount} unread
-          </span>
-        </div>
-
-        {/* CATEGORY VIEW */}
-        {!selectedCategory && (
-          <div className="space-y-3 mt-2">
-            {[
-              "My Classes",
-  "Placement Calendar",
-            ].map((category) => {
-              const unread = categoryUnread[category] > 0;
-              return (
-                <div
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className="flex justify-between items-center p-3 bg-white hover:bg-blue-50 rounded-xl border border-gray-200 cursor-pointer transition"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-blue-800">{category}</span>
-                    {unread && <span className="w-2 h-2 bg-red-500 rounded-full"></span>}
-                  </div>
-                  <span className="text-xs text-gray-500">
-                    {categoryUnread[category] > 0 ? `${categoryUnread[category]} new` : ""}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* CATEGORY NOTIFICATIONS VIEW */}
-        {selectedCategory && (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-              >
-                <ChevronLeft className="h-4 w-4" /> Back
-              </button>
-              <h4 className="text-blue-800 font-semibold">{selectedCategory}</h4>
-            </div>
-
-            {notifications.filter(n => n.category === selectedCategory).length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">No notifications</p>
-            ) : (
-              notifications
-                .filter(n => n.category === selectedCategory)
-                .map((n) => {
-                  const recipient = n.recipients?.find(
-                    (r) => r.recipientId?.toString() === trainerId?.toString()
-                  );
-                  const unread = recipient && !recipient.isRead;
-
-                  return (
-                    <div
-                      key={n._id}
-                      onClick={() => markAsRead(n._id)}
-                      className={`p-3 mb-2 rounded-lg cursor-pointer border transition ${
-                        unread ? "bg-blue-50 border-blue-300" : "bg-white hover:bg-gray-50"
-                      }`}
-                    >
-                      <p className="text-sm font-semibold text-gray-800">{n.title}</p>
-                      <p className="text-xs text-gray-600">{n.message}</p>
-                      <p className="text-[10px] text-gray-400 mt-1">
-                        {new Date(n.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                  );
-                })
-            )}
-          </div>
-        )}
-      </div>
-    )}
-  </div>
-
-  {/* ⚙️ Settings Dropdown */}
-  <div className="relative">
-    <button
-      onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-      className="flex items-center space-x-1 p-2 text-white hover:text-gray-200 transition-colors"
-    >
-      <Settings className="h-6 w-6" />
-      <ChevronDown className="h-4 w-4" />
-    </button>
-
-    {showSettingsDropdown && (
-      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-        <button
-          onClick={() => {
-            setShowSettingsDropdown(false);
-            navigate('/trainer-profile');
-          }}
-          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-        >
-          View Profile
-        </button>
-        <button
-          onClick={() => {
-            setShowSettingsDropdown(false);
-            navigate('/trainer-change-password');
-          }}
-          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-        >
-          Change Password
-        </button>
-      </div>
-    )}
-  </div>
-
-  {/* 🚪 Logout */}
-  <button
-    onClick={handleLogout}
-    className="flex items-center space-x-2 bg-white text-blue-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors font-medium"
-  >
-    <LogOut className="h-4 w-4" />
-    <span>Logout</span>
-  </button>
-</div>
-
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8 pt-24">
         {/* Stats cards row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {/* ... existing stat cards ... */}

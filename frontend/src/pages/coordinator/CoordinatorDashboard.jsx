@@ -4,13 +4,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  UserCheck, Settings, LogOut, User, Mail, Phone, Clock,
-  Calendar, BookOpen, ChevronDown, MapPin, Award, Users, Bell, 
-  FileText, CheckCircle, Star, Shield
+  UserCheck, User, Mail, Phone, Clock,
+  Calendar, BookOpen, MapPin, Award, Users, 
+  FileText, CheckCircle, Star, Shield, Bell, Settings, LogOut, ChevronDown
 } from 'lucide-react';
 import PasswordChangeNotification from '../../components/common/PasswordChangeNotification';
 import AttendanceMarking from '../coordinator/AttandanceMarking';
 import CoordinatorStudentActivity from './CoordinatorStudentActivity';
+import Header from '../../components/common/Header';
 
 // TEXT LOGIC - All UI strings in one place for consistency
 const TEXT = {
@@ -141,85 +142,25 @@ const CoordinatorDashboard = () => {
         onPasswordChange={() => navigate('/coordinator-profile')} 
       />
       
-      {/* Header */}
-      <header className="bg-gradient-to-r from-orange-600 to-orange-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <div className="bg-white p-2 rounded-lg">
-                <UserCheck className="h-8 w-8 text-orange-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">{TEXT.header.title}</h1>
-                <p className="text-sm opacity-90">{TEXT.header.subtitle}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-6">
-              {/* Notification Bell */}
-              <button className="relative p-2 text-white hover:text-gray-200 transition-colors">
-                <Bell className="h-6 w-6" />
-                <span className="absolute top-0 right-0 h-2 w-2 bg-yellow-400 rounded-full"></span>
-              </button>
-              
-              {/* Profile Button */}
-              <button
-                onClick={() => navigate('/coordinator-profile')}
-                className="flex items-center space-x-2 p-2 text-white hover:text-gray-200 transition-colors"
-              >
-                <User className="h-6 w-6" />
-                <span className="hidden sm:inline">{TEXT.header.profile}</span>
-              </button>
-              
-              {/* Settings Dropdown */}
-              <div className="relative">
-                <button 
-                  onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-                  className="flex items-center space-x-1 p-2 text-white hover:text-gray-200 transition-colors"
-                >
-                  <Settings className="h-6 w-6" />
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-                
-                {showSettingsDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                    <button
-                      onClick={() => {
-                        setShowSettingsDropdown(false);
-                        navigate('/coordinator-profile');
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      {TEXT.header.settings.viewProfile}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowSettingsDropdown(false);
-                        navigate('/coordinator-change-password');
-                      }}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      {TEXT.header.settings.changePassword}
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              {/* Logout Button */}
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-2 bg-white text-orange-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition-colors font-medium"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>{TEXT.header.logout}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header
+        title={TEXT.header.title}
+        subtitle={TEXT.header.subtitle}
+        icon={UserCheck}
+        userData={coordinatorData}
+        profileRoute="/coordinator-profile"
+        changePasswordRoute="/coordinator-change-password"
+        onLogout={handleLogout}
+        onIconClick={() => {
+          if (window.location.pathname === '/coordinator-dashboard') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            navigate('/coordinator-dashboard');
+          }
+        }}
+      />
 
       {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white border-b border-gray-200 mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
             <button
@@ -257,7 +198,7 @@ const CoordinatorDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
         {activeTab === 'dashboard' && (
           <>
             {/* Welcome Section */}

@@ -4,6 +4,7 @@ import {
   ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, Shield
 } from 'lucide-react';
 import { changeAdminPassword } from '../../services/adminService';
+import Header from '../../components/common/Header';
 
 const AdminChangePassword = () => {
   const navigate = useNavigate();
@@ -58,37 +59,40 @@ const AdminChangePassword = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminData");
+    navigate("/super-admin-login");
+  };
+
+  const adminData = JSON.parse(localStorage.getItem('adminData') || '{}');
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/admin-dashboard')}
-                className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-                <span>Back to Dashboard</span>
-              </button>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="bg-white p-2 rounded-lg">
-                <Shield className="h-8 w-8 text-red-600" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">Change Password</h1>
-                <p className="text-sm opacity-90">Admin Security Settings</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header
+        title="Change Password"
+        subtitle="Admin Security Settings"
+        icon={Lock}
+        userData={adminData}
+        profileRoute="/admin-profile"
+        changePasswordRoute="/admin-change-password"
+        onLogout={handleLogout}        onIconClick={() => {
+          if (window.location.pathname === '/admin-dashboard') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            navigate('/admin-dashboard');
+          }
+        }}      />
 
       {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        <button
+          onClick={() => navigate('/admin-dashboard')}
+          className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 transition-colors mb-6"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="font-medium">Back to Dashboard</span>
+        </button>
         <div className="bg-white rounded-xl shadow-lg p-8">
           <div className="text-center mb-8">
             <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">

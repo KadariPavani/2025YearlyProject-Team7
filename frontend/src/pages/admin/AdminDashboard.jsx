@@ -2,10 +2,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Shield,
-  Bell,
-  Settings,
-  LogOut,
-  ChevronDown,
   Users,
   GraduationCap,
   BarChart3,
@@ -20,6 +16,7 @@ import {
 import PlacementTrainingBatches from "./PlacementTrainingBatches";
 import CRTBatchSection from "./CRTBatchSection";
 import ToastNotification from "../../components/ui/ToastNotification";
+import Header from "../../components/common/Header";
 
 function LoadingSpinner() {
   return (
@@ -30,6 +27,7 @@ function LoadingSpinner() {
 }
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [adminData, setAdminData] = useState(null);
   const [dashboard, setDashboard] = useState({
     totalTPOs: 0,
@@ -63,8 +61,6 @@ const [adminPermissionFilter, setAdminPermissionFilter] = useState("");
 const [adminSortBy, setAdminSortBy] = useState("email");
 const [adminSortOrder, setAdminSortOrder] = useState("asc");
 
-  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
-  const navigate = useNavigate();
 
   const [toast, setToast] = useState(null);
 
@@ -239,7 +235,7 @@ const [adminSortOrder, setAdminSortOrder] = useState("asc");
   const handleLogout = () => {
     localStorage.removeItem("adminToken");
     localStorage.removeItem("adminData");
-    navigate("/");
+    navigate("/super-admin-login");
   };
 
   const filteredTrainers = useMemo(
@@ -443,89 +439,25 @@ const handleDelete = async (entityType, id) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      {/* Header */}
-    <header className="bg-gradient-to-r from-indigo-600 to-blue-500 text-white shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center py-3">
-          {/* Left Section - Logo and Title */}
-          <div className="flex items-center space-x-4">
-            <div className="bg-white p-2 rounded-xl shadow-sm">
-              <Shield className="h-8 w-8 text-indigo-600" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold">Welcome Admin..!</h1>
-              <p className="text-sm opacity-90">
-                Manage Trainers, Batches & Students
-              </p>
-            </div>
-          </div>
-
-          {/* Right Section - Actions */}
-          <div className="flex items-center space-x-6">
-            {/* Notification Icon */}
-            <button className="relative p-2 text-white hover:text-gray-100 transition-colors">
-              <Bell className="h-6 w-6" />
-              <span className="absolute top-0 right-0 h-2 w-2 bg-yellow-400 rounded-full"></span>
-            </button>
-
-            {/* Profile and Settings */}
-            <div className="relative">
-              <button
-                onClick={() => setShowSettingsDropdown(!showSettingsDropdown)}
-                className="flex items-center space-x-2 p-2 bg-white/10 rounded-lg hover:bg-white/20 transition"
-              >
-                <img
-                  src={adminData?.profileImage || "/default-avatar.png"}
-                  alt="Admin"
-                  className="h-8 w-8 rounded-full border border-white"
-                />
-                <span className="text-sm font-medium">
-                  {adminData?.name || "Admin"}
-                </span>
-                <ChevronDown className="h-4 w-4" />
-              </button>
-
-              {/* Dropdown */}
-              {showSettingsDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                  <button
-                    onClick={() => {
-                      setShowSettingsDropdown(false);
-                      navigate("/admin-profile");
-                    }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    View Profile
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowSettingsDropdown(false);
-                      navigate("/admin-change-password");
-                    }}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Change Password
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-2 bg-white text-indigo-600 hover:bg-gray-100 px-4 py-2 rounded-lg transition font-medium"
-            >
-              <LogOut className="h-4 w-4" />
-              <span>Logout</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </header>
+      <Header
+        title="Welcome Admin..!"
+        subtitle="Manage Trainers, Batches & Students"
+        icon={Shield}
+        userData={adminData}
+        profileRoute="/admin-profile"
+        changePasswordRoute="/admin-change-password"
+        onLogout={handleLogout}
+        onIconClick={() => {
+          if (window.location.pathname === '/admin-dashboard') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            navigate('/admin-dashboard');
+          }
+        }}
+      />
 
       {/* Main */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8 pt-24">
         {/* Analytics Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
           <div

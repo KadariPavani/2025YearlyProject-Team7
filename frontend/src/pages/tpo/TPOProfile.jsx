@@ -4,9 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { 
   User, Mail, Phone, Calendar, Users, 
   Edit3, Save, X, Lock, AlertCircle, CheckCircle,
-  Briefcase, Linkedin, Building, BookOpen, Target
+  Briefcase, Linkedin, Building, BookOpen, Target, ArrowLeft
 } from 'lucide-react';
 import { getProfile, updateProfile, checkPasswordChange } from '../../services/generalAuthService';
+import Header from '../../components/common/Header';
 
 const TPOProfile = () => {
   const navigate = useNavigate();
@@ -284,7 +285,7 @@ const TPOProfile = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Name */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
                     <User className="h-4 w-4 mr-1" />
                     Full Name *
                   </label>
@@ -302,7 +303,7 @@ const TPOProfile = () => {
 
                 {/* Email (Read-only) */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
                     <Mail className="h-4 w-4 mr-1" />
                     Email Address
                   </label>
@@ -321,7 +322,7 @@ const TPOProfile = () => {
 
                 {/* Phone */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
                     <Phone className="h-4 w-4 mr-1" />
                     Phone Number *
                   </label>
@@ -344,7 +345,7 @@ const TPOProfile = () => {
 
                 {/* Experience */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
                     <Calendar className="h-4 w-4 mr-1" />
                     Experience (Years)
                   </label>
@@ -362,7 +363,7 @@ const TPOProfile = () => {
 
                 {/* LinkedIn */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
                     <Linkedin className="h-4 w-4 mr-1" />
                     LinkedIn Profile
                   </label>
