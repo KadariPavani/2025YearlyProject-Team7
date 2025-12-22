@@ -596,6 +596,7 @@ return res.status(200).json({
 
 
 // ---------------------- UPLOAD SELECTED STUDENTS ----------------------
+// ✅ UPDATED: Upload selected students with batch details
 exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
   try {
     const { id: eventId } = req.params;
@@ -603,19 +604,23 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
     const { selectedEmails } = req.body;
 
     console.log("📤 Uploading selected students for event:", eventId);
-    console.log("👤 req.user:", req.user);
 
     if (!selectedEmails) {
-      return res.status(400).json({
-        success: false,
-        message: "No selected student emails provided.",
+      return res.status(400).json({ 
+        success: false, 
+        message: "No selected student emails provided." 
       });
     }
 
     const emails = JSON.parse(selectedEmails);
     const event = await Calendar.findById(eventId);
-    if (!event)
-      return res.status(404).json({ success: false, message: "Event not found." });
+    
+    if (!event) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Event not found." 
+      });
+    }
 
     const notifications = [];
     const sentEmails = new Set();
@@ -632,6 +637,7 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
       const registeredStudent = event.registrations.find(
         (r) => r.personalInfo.email?.toLowerCase() === lowerEmail
       );
+
       if (!registeredStudent) {
         console.log(`⚠️ Skipping ${email} — not registered for this event.`);
         continue;
@@ -647,10 +653,17 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
       sentEmails.add(lowerEmail);
 
       const student = registeredStudent.personalInfo;
+      
+      // ✅ FETCH STUDENT & BATCH DETAILS
+      const studentDoc = await Student.findOne({ email: lowerEmail })
+        .populate('placementTrainingBatchId', 'batchNumber colleges _id');
+
+      const batchInfo = studentDoc?.placementTrainingBatchId || null;
+
+      // ✅ Send email to selected student
       const subject = `🎉 Congratulations! You have been selected for ${event.title}`;
       const html = `
-        <h3>Dear ${student.name || "Student"},</h3>
-        <p>You have been <b>selected</b> in <b>${event.title}</b>!</p>
+        <h2>You have been <strong>selected</strong> in <strong>${event.title}</strong>!</h2>
         <p>Best wishes from the Placement Team!</p>
       `;
 
@@ -661,12 +674,12 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
         console.error(`❌ Mail failed for ${student.email}:`, err.message);
       }
 
-      // ✅ Create notification (always include category)
+      // ✅ Create notification with category
       const notification = {
         title: "Selection Update",
         message: `You have been selected in "${event.title}". Congratulations! 🎉`,
-        category: "Placement", // ✅ REQUIRED FIX
-        senderId: req.user?._id || event.createdBy, // ✅ fallback for safety
+        category: "Placement",  // ✅ REQUIRED FIELD
+        senderId: req.user?._id || event.createdBy,
         senderModel: req.userType === "tpo" ? "TPO" : "Admin",
         recipients: [
           {
@@ -675,25 +688,35 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
             isRead: false,
           },
         ],
-        relatedEntity: { entityId: event._id, entityModel: "Event" },
+        relatedEntity: {
+          entityId: event._id,
+          entityModel: "Event",
+        },
       };
-
       notifications.push(notification);
-      console.log(`🔔 Notification prepared → ${student.email} | Category: ${notification.category}`);
 
+      // ✅ ADD TO SELECTED STUDENTS WITH BATCH INFO
       event.selectedStudents.push({
         studentId: registeredStudent.studentId,
         name: student.name,
         rollNo: student.rollNo,
         email: student.email,
         branch: student.branch,
+        personalInfo: student,
+        batchId: batchInfo?._id || null,           // ✅ Store batch ID
+        batchNumber: batchInfo?.batchNumber || null, // ✅ Store batch number
+        colleges: batchInfo?.colleges || [],         // ✅ Store colleges
         selectedAt: new Date(),
       });
+
+      console.log(`✅ Added ${student.name} with batch: ${batchInfo?.batchNumber || 'N/A'}`);
     }
 
     console.log(`🟢 Notifications prepared for insertion: ${notifications.length}`);
     notifications.forEach((n, i) => {
-      console.log(`   [${i + 1}] ${n.title} | ${n.category} | ${n.recipients[0]?.recipientId}`);
+      console.log(
+        ` [${i + 1}] ${n.title} | ${n.category} | ${n.recipients[0]?.recipientId}`
+      );
     });
 
     if (notifications.length > 0) {
@@ -703,17 +726,19 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
 
     // Update counts & save event
     event.eventSummary.selectedStudents = event.selectedStudents.length;
+    
     if (file) {
       event.selectedListFiles.push({
         fileName: file.originalname,
         fileUrl: file.path,
       });
     }
+
     await event.save();
 
     res.status(200).json({
       success: true,
-      message: "✅ Selected students processed successfully (with category & notifications).",
+      message: "✅ Selected students processed successfully with batch details.",
       newlyNotified: notifications.length,
       totalSelected: event.selectedStudents.length,
     });
@@ -726,6 +751,7 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
     });
   }
 });
+
 
 
 
@@ -875,42 +901,79 @@ exports.selectStudentForEvent = asyncHandler(async (req, res) => {
     const { id: eventId } = req.params;
     const { studentEmail } = req.body;
 
+    // ✅ Debug logging
+    console.log("🔍 selectStudentForEvent called:", {
+      eventId,
+      studentEmail,
+      bodyKeys: Object.keys(req.body),
+      fullBody: req.body
+    });
+
     if (!studentEmail) {
+      console.log("❌ No studentEmail provided");
       return res.status(400).json({ success: false, message: "Student email is required" });
     }
 
     const event = await Calendar.findById(eventId);
-    if (!event) return res.status(404).json({ success: false, message: "Event not found" });
+    if (!event) {
+      console.log("❌ Event not found:", eventId);
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+
+    console.log(`✅ Event found: ${event.title}, Registrations: ${event.registrations?.length || 0}`);
 
     // ✅ Only registered students are eligible
     const registeredStudent = event.registrations.find(
       (r) => r.personalInfo.email.toLowerCase() === studentEmail.toLowerCase()
     );
-    if (!registeredStudent)
+    
+    if (!registeredStudent) {
+      console.log("❌ Student not registered for this event:", studentEmail);
+      console.log("📋 Registered emails:", event.registrations.map(r => r.personalInfo.email));
       return res.status(400).json({
         success: false,
         message: "Student not registered for this event",
       });
+    }
 
-    // ✅ Check if already selected
+    // ✅ Check if already selected FOR THIS EVENT ONLY (allow multiple company placements)
     const alreadySelected = event.selectedStudents.some(
       (s) => s.email.toLowerCase() === studentEmail.toLowerCase()
     );
     if (alreadySelected)
       return res.status(400).json({
         success: false,
-        message: "This student has already been notified as selected.",
+        message: "This student has already been selected for this event.",
       });
 
-    // ✅ Prepare student info
-    const studentInfo = {
-      studentId: registeredStudent.studentId,
-      name: registeredStudent.personalInfo.name,
-      rollNo: registeredStudent.personalInfo.rollNo,
-      email: registeredStudent.personalInfo.email,
-      branch: registeredStudent.personalInfo.branch,
-      selectedAt: new Date(),
-    };
+const studentDoc = await Student.findOne({ email: studentEmail.toLowerCase() })
+  .populate("placementTrainingBatchId", "batchNumber colleges _id");
+
+const batchInfo = studentDoc?.placementTrainingBatchId || null;
+
+const studentInfo = {
+  studentId: registeredStudent.studentId,
+  name: registeredStudent.personalInfo.name,
+  rollNo: registeredStudent.personalInfo.rollNo,
+  email: registeredStudent.personalInfo.email,
+  branch: registeredStudent.personalInfo.branch,
+  personalInfo: registeredStudent.personalInfo,
+
+  // PlacementTrainingBatch info
+  batchId: batchInfo?._id || null,
+  batchNumber: batchInfo?.batchNumber || null,
+  colleges: batchInfo?.colleges || [],
+
+  selectedAt: new Date(),
+};
+
+
+    console.log(`✅ Student Info Prepared:`, {
+      name: studentInfo.name,
+      email: studentInfo.email,
+      batchNumber: studentInfo.batchNumber,
+      colleges: studentInfo.colleges
+    });
 
     // ✅ Add to selected list
     event.selectedStudents.push(studentInfo);

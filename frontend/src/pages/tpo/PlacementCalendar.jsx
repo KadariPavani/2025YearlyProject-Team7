@@ -222,16 +222,31 @@ useEffect(() => {
 
 const selectStudent = async (email) => {
   try {
+    const token = localStorage.getItem("userToken");
+    
+    // ✅ Debug: Log what we're sending
+    console.log("🔍 Selecting student (quick select):", {
+      selectedEventId,
+      studentEmail: email,
+      hasToken: !!token
+    });
+    
     const res = await axios.put(
       `http://localhost:5000/api/calendar/${selectedEventId}/select-student`,
-      { email },
-      { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+      { studentEmail: email },  // ✅ Fix: Backend expects 'studentEmail', not 'email'
+      { headers: { Authorization: `Bearer ${token}` } }
     );
-    alert(res.data.message);
-    fetchRegisteredStudents(selectedEventId); // refresh list
+    if (res.data.success) {
+      alert(res.data.message || "✅ Student selected successfully!");
+      fetchRegisteredStudents(selectedEventId); // refresh list
+      fetchEvents(); // ✅ Also refresh events to update placed students tab
+    } else {
+      alert(res.data.message);
+    }
   } catch (err) {
-    console.error("Error selecting student:", err);
-    alert("Failed to update student selection");
+    console.error("❌ Error selecting student:", err);
+    console.error("❌ Error response:", err.response?.data);
+    alert(err.response?.data?.message || "Failed to update student selection");
   }
 };
 
@@ -305,6 +320,14 @@ const handleSelectStudent = async (eventId) => {
 
   try {
     const token = localStorage.getItem("userToken");
+    
+    // ✅ Debug: Log what we're sending
+    console.log("🔍 Selecting student:", {
+      eventId,
+      studentEmail: selectedStudentEmail,
+      hasToken: !!token
+    });
+    
     const res = await axios.put(
       `http://localhost:5000/api/calendar/${eventId}/select-student`,
       { studentEmail: selectedStudentEmail },
@@ -320,8 +343,9 @@ const handleSelectStudent = async (eventId) => {
       alert(res.data.message);
     }
   } catch (err) {
-    console.error("Error selecting student:", err);
-    alert("Failed to mark student as selected");
+    console.error("❌ Error selecting student:", err);
+    console.error("❌ Error response:", err.response?.data);
+    alert(err.response?.data?.message || "Failed to mark student as selected");
   }
 };
 
@@ -422,13 +446,15 @@ const getEventsForDate = (date) => {
 
 const fetchRegisteredStudents = async (eventId) => {
   try {
+    const token = localStorage.getItem("userToken");
     const res = await axios.get(
       `http://localhost:5000/api/calendar/${eventId}/registered-students`,
-      { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+      { headers: { Authorization: `Bearer ${token}` } }
     );
-    setRegisteredStudents(res.data.students);
+    setRegisteredStudents(res.data.students || []);
   } catch (err) {
     console.error("Error fetching students:", err);
+    setRegisteredStudents([]);
   }
 };
 
@@ -1199,8 +1225,8 @@ className={`border rounded-lg p-4 transition-all cursor-pointer ${
 
 >
   <option value="">Select Type</option>
-  <option value="company_visit">Company Visit</option>
-  <option value="seminar">Seminar</option>
+  <option value="Campus_Drive">Campus Drive</option>
+  <option value="Test">Test</option>
 </select>
 
               </div>

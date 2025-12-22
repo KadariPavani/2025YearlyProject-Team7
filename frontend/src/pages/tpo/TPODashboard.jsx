@@ -13,6 +13,7 @@ import TrainerAssignment from './TrainerAssignment';
 import ScheduleTimetable from './ScheduleTimetable';
 import TPOAttendanceView from './TPOAttendanceView';
 import PlacementCalendar from "./PlacementCalendar";
+import PlacedStudentsTab from './PlacedStudentsTab';
 import axios from 'axios';
 import StudentActivity from './StudentActivity';
 import Header from '../../components/common/Header';
@@ -1538,6 +1539,17 @@ const getRequestTypeColor = (type) => {
                 <CalendarDays className="h-4 w-4 inline mr-2" />
                 Overall Schedule
               </button>
+                <button
+    onClick={() => setActiveTab('placed-students')}
+    className={`px-4 py-3 font-medium transition ${
+      activeTab === 'placed-students'
+        ? 'border-b-2 border-teal-600 text-teal-600'
+        : 'text-gray-600 hover:text-gray-900'
+    }`}
+  >
+    <UserCheck className="inline mr-2" size={18} />
+    Placed Students
+  </button>
 
             {/* Approval Requests Tab */}
             <button
@@ -1928,6 +1940,8 @@ const getRequestTypeColor = (type) => {
             <PlacementCalendar />
           </div>
         )}
+        {activeTab === 'placed-students' && <PlacedStudentsTab />}
+
 
         {/* Approvals Tab */}
         {activeTab === 'approvals' && (

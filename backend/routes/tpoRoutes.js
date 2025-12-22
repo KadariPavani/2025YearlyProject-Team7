@@ -10,6 +10,7 @@ const Student = require('../models/Student');
 const Coordinator = require('../models/Coordinator');
 const generatePassword = require('../utils/generatePassword');
 const Attendance = require('../models/Attendance');
+const Calendar = require('../models/Calendar');
 const ExcelJS = require('exceljs');
 const sendEmail = require('../utils/sendEmail');
 const notificationController = require("../controllers/notificationController");
@@ -2238,5 +2239,319 @@ router.get('/tech-stacks', generalAuth, async (req, res) => {
     });
   }
 });
+
+// ============================================
+// 🎯 PLACED STUDENTS - FETCH ALL BY COMPANY
+// ============================================
+router.get('/placed-students', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({ success: false, message: 'Access denied. TPO route only.' });
+    }
+
+    const tpoId = req.user._id;
+
+    // Fetch all placement events created by this TPO with selected students (ALL STATUSES)
+    const events = await Calendar.find({
+      createdBy: tpoId,
+      'selectedStudents.0': { $exists: true }  // Only fetch events that have selected students
+    })
+    .populate({
+      path: 'selectedStudents.studentId',
+      select: 'name rollNo email phonenumber branch yearOfPassing'
+    })
+    .populate({
+      path: 'selectedStudents.batchId',
+      select: 'batchNumber colleges _id'
+    })
+    .lean();
+
+    if (!events || events.length === 0) {
+      return res.json({ 
+        success: true, 
+        message: 'No placed students found',
+        data: {
+          groupedByCompany: {},
+          totalCompanies: 0,
+          totalPlacedStudents: 0
+        }
+      });
+    }
+
+    // Group students by company
+    const groupedByCompany = {};
+    let totalPlacedStudents = 0;
+
+    events.forEach(event => {
+      const companyName = event.companyDetails?.companyName || event.title || 'Unknown Company';
+      
+      if (!groupedByCompany[companyName]) {
+        groupedByCompany[companyName] = {
+          companyName,
+          eventDate: event.startDate,
+          eventEndDate: event.endDate,
+          jobRole: event.eventType || 'Position Not Specified',
+          students: [],
+          totalSelected: 0
+        };
+      }
+
+      // Add selected students with batch details
+      if (event.selectedStudents && event.selectedStudents.length > 0) {
+        event.selectedStudents.forEach(selectedStudent => {
+          const student = {
+            studentId: selectedStudent.studentId?._id || selectedStudent.studentId,
+            name: selectedStudent.name || selectedStudent.studentId?.name,
+            rollNumber: selectedStudent.rollNo || selectedStudent.studentId?.rollNo,
+            email: selectedStudent.email || selectedStudent.studentId?.email,
+            phone: selectedStudent.personalInfo?.phonenumber || selectedStudent.studentId?.phonenumber || 'N/A',
+            branch: selectedStudent.branch || selectedStudent.studentId?.branch,
+            batch: selectedStudent.personalInfo?.yearOfPassing || selectedStudent.studentId?.yearOfPassing || 'N/A',
+            // ✅ ADD BATCH DETAILS - With fallback to batchId reference
+            batchNumber: selectedStudent.batchNumber || selectedStudent.batchId?.batchNumber || 'N/A',
+            colleges: selectedStudent.colleges?.length > 0 ? selectedStudent.colleges.join(', ') : (selectedStudent.batchId?.colleges?.length > 0 ? selectedStudent.batchId.colleges.join(', ') : 'N/A'),
+            selectionDate: selectedStudent.selectedAt
+          };
+
+          groupedByCompany[companyName].students.push(student);
+          groupedByCompany[companyName].totalSelected++;
+          totalPlacedStudents++;
+        });
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Placed students fetched successfully',
+      data: {
+        groupedByCompany,
+        totalCompanies: Object.keys(groupedByCompany).length,
+        totalPlacedStudents
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching placed students:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error while fetching placed students',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
+  }
+});
+
+// ============================================
+// 📥 PLACED STUDENTS - DOWNLOAD ALL COMPANIES
+// ============================================
+router.get('/placed-students/download-excel', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const tpoId = req.user._id;
+
+    const events = await Calendar.find({
+      createdBy: tpoId,
+      status: { $in: ['completed', 'ongoing'] }
+    })
+    .populate('selectedStudents.studentId', 'name rollNo email phonenumber branch yearOfPassing')
+    .populate('selectedStudents.batchId', 'batchNumber colleges _id')
+    .lean();
+
+    const ExcelJS = require('exceljs');
+    const workbook = new ExcelJS.Workbook();
+
+    // All companies export
+    const groupedByCompany = {};
+
+    events.forEach(event => {
+      const companyName = event.companyDetails?.companyName || event.title || 'Unknown';
+      if (!groupedByCompany[companyName]) {
+        groupedByCompany[companyName] = { event, students: [] };
+      }
+      if (event.selectedStudents) {
+        groupedByCompany[companyName].students = event.selectedStudents;
+      }
+    });
+
+    // Add summary sheet
+    const summarySheet = workbook.addWorksheet('Summary');
+    summarySheet.columns = [
+      { header: 'Company Name', key: 'company', width: 30 },
+      { header: 'Total Selected', key: 'count', width: 15 },
+      { header: 'Event Date', key: 'date', width: 15 },
+      { header: 'Position', key: 'role', width: 20 }
+    ];
+
+    summarySheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    summarySheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF208B3A' } };
+    summarySheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    let summaryRowNum = 2;
+    Object.entries(groupedByCompany).forEach(([companyName, data]) => {
+      const row = summarySheet.getRow(summaryRowNum++);
+      row.values = {
+        company: companyName,
+        count: data.students.length,
+        date: new Date(data.event.startDate).toLocaleDateString(),
+        role: data.event.eventType || 'N/A'
+      };
+    });
+
+    // Add detailed sheets per company
+    Object.entries(groupedByCompany).forEach(([companyName, data]) => {
+      const sheetName = companyName.substring(0, 31);
+      const sheet = workbook.addWorksheet(sheetName);
+
+      sheet.columns = [
+        { header: 'Student Name', key: 'name', width: 25 },
+        { header: 'Roll Number', key: 'rollNo', width: 15 },
+        { header: 'Branch', key: 'branch', width: 15 },
+        { header: 'Batch', key: 'batch', width: 12 },
+        { header: 'Batch Number', key: 'batchNumber', width: 18 },
+        { header: 'College', key: 'colleges', width: 20 },
+        { header: 'Email', key: 'email', width: 30 },
+        { header: 'Phone', key: 'phone', width: 15 },
+        { header: 'Selection Date', key: 'selectionDate', width: 15 }
+      ];
+
+      sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF208B3A' } };
+      sheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+      let rowNum = 2;
+      data.students.forEach(student => {
+        const row = sheet.getRow(rowNum++);
+        row.values = {
+          name: student.name || student.studentId?.name,
+          rollNo: student.rollNo || student.studentId?.rollNo,
+          branch: student.branch || student.studentId?.branch,
+          batch: student.personalInfo?.yearOfPassing || student.studentId?.yearOfPassing || 'N/A',
+          batchNumber: student.batchNumber || student.batchId?.batchNumber || 'N/A',
+          colleges: Array.isArray(student.colleges) ? student.colleges.join(', ') : (student.batchId?.colleges ? student.batchId.colleges.join(', ') : 'N/A'),
+          email: student.email || student.studentId?.email,
+          phone: student.personalInfo?.phonenumber || student.studentId?.phonenumber || 'N/A',
+          selectionDate: student.selectedAt ? new Date(student.selectedAt).toLocaleDateString() : 'N/A'
+        };
+      });
+    });
+
+    const filename = `All_Companies_Placed_Students_${Date.now()}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (error) {
+    console.error('Error generating Excel:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error generating Excel file',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
+  }
+});
+
+// ============================================
+// 📥 PLACED STUDENTS - DOWNLOAD BY COMPANY
+// ============================================
+router.get('/placed-students/download-company/:companyName', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const tpoId = req.user._id;
+    const companyName = decodeURIComponent(req.params.companyName);
+
+    const events = await Calendar.find({
+      createdBy: tpoId,
+      status: { $in: ['completed', 'ongoing'] }
+    })
+    .populate('selectedStudents.studentId', 'name rollNo email phonenumber branch yearOfPassing')
+    .populate('selectedStudents.batchId', 'batchNumber colleges _id')
+    .lean();
+
+    const ExcelJS = require('exceljs');
+    const workbook = new ExcelJS.Workbook();
+
+    // Single company export
+    const event = events.find(e => 
+      (e.companyDetails?.companyName || e.title) === companyName
+    );
+
+    if (!event || !event.selectedStudents?.length) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No data found for this company' 
+      });
+    }
+
+    const sheet = workbook.addWorksheet(companyName.substring(0, 31));
+    
+    sheet.columns = [
+      { header: 'Student Name', key: 'name', width: 25 },
+      { header: 'Roll Number', key: 'rollNo', width: 15 },
+      { header: 'Branch', key: 'branch', width: 15 },
+      { header: 'Batch', key: 'batch', width: 12 },
+      { header: 'Batch Number', key: 'batchNumber', width: 18 },
+      { header: 'College', key: 'colleges', width: 20 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'Phone', key: 'phone', width: 15 },
+      { header: 'Selection Date', key: 'selectionDate', width: 15 }
+    ];
+
+    // Style header
+    sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF208B3A' } };
+    sheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Add company info
+    sheet.insertRow(1, null);
+    sheet.insertRow(1, null);
+    const companyCell = sheet.getCell('A1');
+    companyCell.value = `Company: ${companyName}`;
+    companyCell.font = { bold: true, size: 14 };
+    sheet.getCell('B2').value = `Event Date: ${new Date(event.startDate).toLocaleDateString()}`;
+    sheet.getCell('B3').value = `Position: ${event.eventType || 'N/A'}`;
+
+    // Add student data
+    let rowNum = 5;
+    event.selectedStudents.forEach(student => {
+      const row = sheet.getRow(rowNum++);
+      row.values = {
+        name: student.name || student.studentId?.name,
+        rollNo: student.rollNo || student.studentId?.rollNo,
+        branch: student.branch || student.studentId?.branch,
+        batch: student.personalInfo?.yearOfPassing || student.studentId?.yearOfPassing || 'N/A',
+        batchNumber: student.batchNumber || student.batchId?.batchNumber || 'N/A',
+        colleges: Array.isArray(student.colleges) ? student.colleges.join(', ') : (student.batchId?.colleges ? student.batchId.colleges.join(', ') : 'N/A'),
+        email: student.email || student.studentId?.email,
+        phone: student.personalInfo?.phonenumber || student.studentId?.phonenumber || 'N/A',
+        selectionDate: student.selectedAt ? new Date(student.selectedAt).toLocaleDateString() : 'N/A'
+      };
+    });
+
+    const filename = `${companyName}_Placed_Students_${Date.now()}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (error) {
+    console.error('Error generating Excel:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error generating Excel file',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
+  }
+});
+
 
 module.exports = router;
