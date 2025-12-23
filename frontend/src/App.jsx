@@ -2,6 +2,10 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, createBrowserRouter } from 'react-router-dom';
 import axios from 'axios';
 
+// --- NEW IMPORT: Infoverse Loading Animation ---
+// Make sure this path matches where you saved InfoverseLoader.jsx
+import InfoverseLoader from '../src/components/ui/InfoverseLoader.jsx'; 
+
 // Import components
 import Landing from './pages/Landing';
 import SuperAdminLogin from './components/auth/SuperAdminLogin';
@@ -17,7 +21,6 @@ import ViewTrainersPage from './pages/admin/ViewTrainersPage';
 import AddAdmin from './pages/admin/AddAdmin';
 import ViewAdmins from './pages/admin/ViewAdmins';
 import ContactPage from "./pages/ContactPage";
-
 
 // Import the dashboard components
 import TPODashboard from './pages/tpo/TPODashboard';
@@ -49,9 +52,14 @@ import ViewStudentsPage from './pages/admin/ViewStudentsPage';
 // Import StudentQuiz
 import StudentQuiz from './pages/student/StudentQuiz';
 import StudentResources from './pages/student/StudentResources';
-import StudentSyllabus from './pages/student/StudentSyllabus'; // Add this import
-import StudentAssignment from './pages/student/StudentAssignment'; // Add this import
-import StudentFeedback from './pages/student/StudentFeedback'; // Add this import
+import StudentSyllabus from './pages/student/StudentSyllabus'; 
+import StudentAssignment from './pages/student/StudentAssignment'; 
+import StudentFeedback from './pages/student/StudentFeedback'; 
+
+// Use the dedicated component from components/auth
+import GeneralLogin from './components/auth/GeneralLogin';
+// InfoVerse / Placements contact form
+import GetInTouch from './components/common/GetInTouch';
 
 // Lazy-loaded trainer components
 const TrainerRegister = React.lazy(() => import('./pages/trainer/TrainerRegister').catch(() => ({
@@ -186,11 +194,6 @@ const LoadingSpinner = ({ color = 'green' }) => (
     <div className={`animate-spin rounded-full h-8 w-8 border-b-2 border-${color}-500`}></div>
   </div>
 );
-
-// Use the dedicated component from components/auth
-import GeneralLogin from './components/auth/GeneralLogin';
-// InfoVerse / Placements contact form
-import GetInTouch from './components/common/GetInTouch';
 
 // Protected Route Component for Admin
 const ProtectedAdminRoute = ({ children }) => {
@@ -606,6 +609,24 @@ const router = createBrowserRouter([
 });
 
 function App() {
+  // --- Animation State Logic ---
+  const [showIntro, setShowIntro] = useState(true);
+
+  useEffect(() => {
+    // Show the logo animation for 3.5 seconds
+    const timer = setTimeout(() => {
+      setShowIntro(false);
+    }, 3500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // If loading is active, show ONLY the animation
+  if (showIntro) {
+    return <InfoverseLoader />;
+  }
+  // --- End Animation Logic ---
+
   return (
     <ErrorBoundary>
       <Router>

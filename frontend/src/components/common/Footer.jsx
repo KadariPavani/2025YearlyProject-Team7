@@ -14,7 +14,7 @@ const Footer = () => {
                 aria-label="Super Admin Login"
               >
                 <img
-                  src="/Logo.png"
+                  src="/IFlogo.png"
                   alt="InfoVerse Logo"
                   className="h-20 w-20 object-contain cursor-pointer centered"
                 />

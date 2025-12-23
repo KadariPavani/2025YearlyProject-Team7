@@ -63,7 +63,7 @@ const Landing = () => {
                 aria-label="Super Admin Login"
               >
                 <img
-                  src="/Logo.png"
+                  src="/IFlogo.png"
                   alt="InfoVerse Logo"
                   className="h-16 w-16 object-contain cursor-pointer"
                 />
