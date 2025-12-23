@@ -2351,9 +2351,10 @@ router.get('/placed-students/download-excel', generalAuth, async (req, res) => {
 
     const tpoId = req.user._id;
 
+    // Include any events that have selected students (any status)
     const events = await Calendar.find({
       createdBy: tpoId,
-      status: { $in: ['completed', 'ongoing'] }
+      'selectedStudents.0': { $exists: true }
     })
     .populate('selectedStudents.studentId', 'name rollNo email phonenumber branch yearOfPassing')
     .populate('selectedStudents.batchId', 'batchNumber colleges _id')
@@ -2465,11 +2466,13 @@ router.get('/placed-students/download-company/:companyName', generalAuth, async 
     }
 
     const tpoId = req.user._id;
-    const companyName = decodeURIComponent(req.params.companyName);
+    // Use the raw param (Express already decodes params) and normalize for comparison
+    const companyName = (req.params.companyName || '').trim();
 
+    // Fetch events that actually have selected students (any status)
     const events = await Calendar.find({
       createdBy: tpoId,
-      status: { $in: ['completed', 'ongoing'] }
+      'selectedStudents.0': { $exists: true }
     })
     .populate('selectedStudents.studentId', 'name rollNo email phonenumber branch yearOfPassing')
     .populate('selectedStudents.batchId', 'batchNumber colleges _id')
@@ -2479,9 +2482,10 @@ router.get('/placed-students/download-company/:companyName', generalAuth, async 
     const workbook = new ExcelJS.Workbook();
 
     // Single company export
-    const event = events.find(e => 
-      (e.companyDetails?.companyName || e.title) === companyName
-    );
+    const event = events.find(e => {
+      const name = (e.companyDetails?.companyName || e.title || '').trim();
+      return name.toLowerCase() === (companyName || '').toLowerCase();
+    });
 
     if (!event || !event.selectedStudents?.length) {
       return res.status(404).json({ 
