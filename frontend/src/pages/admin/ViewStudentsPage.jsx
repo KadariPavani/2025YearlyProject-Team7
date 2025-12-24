@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Search, Filter, Download } from 'lucide-react';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
 const ViewStudentsPage = () => {
   const [students, setStudents] = useState([]);
@@ -72,11 +73,7 @@ const ViewStudentsPage = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   return (
@@ -103,7 +100,7 @@ const ViewStudentsPage = () => {
             placeholder="Search by name, email, or roll number..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 w-full rounded-lg border-gray-300 focus:border-green-500 focus:ring-green-500"
+            className="pl-10 w-full rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
 
@@ -112,7 +109,7 @@ const ViewStudentsPage = () => {
           <select
             value={filters.college}
             onChange={(e) => setFilters({ ...filters, college: e.target.value })}
-            className="rounded-lg border-gray-300 focus:border-green-500 focus:ring-green-500"
+            className="rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500"
           >
             <option value="">All Colleges</option>
             <option value="KIET">KIET</option>
@@ -123,7 +120,7 @@ const ViewStudentsPage = () => {
           <select
             value={filters.branch}
             onChange={(e) => setFilters({ ...filters, branch: e.target.value })}
-            className="rounded-lg border-gray-300 focus:border-green-500 focus:ring-green-500"
+            className="rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500"
           >
             <option value="">All Branches</option>
             <option value="AID">AID</option>
@@ -135,7 +132,7 @@ const ViewStudentsPage = () => {
 
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             <Download size={20} />
             Export CSV
@@ -208,7 +205,7 @@ const ViewStudentsPage = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       student.status === 'active' 
-                        ? 'bg-green-100 text-green-800'
+                        ? 'bg-blue-100 text-blue-800'
                         : 'bg-red-100 text-red-800'
                     }`}>
                       {student.status}

@@ -16,6 +16,11 @@ import {
 const Header = ({
   title = 'Dashboard',
   subtitle = 'Management Portal',
+  // When true, shows the title/subtitle inside the header. Default: false (title is rendered by pages)
+  showTitleInHeader = false,
+  // Prefer a logo image (use a public path or import). If not provided, falls back to Icon component.
+  logoSrc = '/IFlogo.png',
+  logoAlt = 'InfoVerse',
   icon: Icon,
   userData = null,
   profileRoute = '/profile',
@@ -80,24 +85,31 @@ const Header = ({
   const colors = { 
     from: '#2563eb',  // Dark blue (blue-900)
     to: '#60a5fa',    // Light blue (blue-400)
-    icon: '#2563eb'   // Medium blue (blue-600)
+    icon: '#374151'   // Dark gray for icons (gray-700)
   };
 
   return (
     <header 
-      className="fixed top-0 left-0 right-0 z-50 text-white shadow-lg"
+      className="fixed top-0 left-0 right-0 z-50 bg-white text-gray-900 shadow-sm"
       style={{
-        background: `linear-gradient(135deg, ${colors.from}b3 0%, ${colors.to}99 100%)`,
-        backdropFilter: 'blur(24px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.15)'
+        background: '#ffffff',
+        backdropFilter: 'none',
+        WebkitBackdropFilter: 'none',
+        borderBottom: '1px solid rgba(0, 0, 0, 0.06)'
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center py-3 md:py-4">
+        <div className="flex justify-between items-center py-2 md:py-3 min-h-[56px]">
           {/* Left Section */}
           <div className="flex items-center space-x-3 md:space-x-4">
-            {Icon && (
+            {logoSrc ? (
+              <div 
+                className={`p-1 md:p-1 rounded-md ${onIconClick ? 'cursor-pointer hover:bg-white/10 transition-colors duration-200' : ''}`}
+                onClick={onIconClick}
+              >
+                <img src={logoSrc} alt={logoAlt} className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+              </div>
+            ) : Icon && (
               <div 
                 className={`bg-white p-2 rounded-lg md:rounded-xl shadow-md ${
                   onIconClick ? 'cursor-pointer hover:shadow-lg transition-shadow duration-200' : ''
@@ -107,10 +119,12 @@ const Header = ({
                 <Icon className="h-6 w-6 md:h-8 md:w-8" style={{ color: colors.icon }} />
               </div>
             )}
-            <div>
-              <h1 className="text-lg md:text-2xl font-bold drop-shadow-md">{title}</h1>
-              <p className="text-xs md:text-sm opacity-95 hidden sm:block drop-shadow">{subtitle}</p>
-            </div>
+            {showTitleInHeader && (
+              <div>
+                <h1 className="text-base md:text-xl font-semibold text-gray-900">{title}</h1>
+                <p className="text-xs md:text-sm text-gray-600 hidden sm:block">{subtitle}</p>
+              </div>
+            )}
           </div>
 
           {/* Right Section */}
@@ -122,10 +136,10 @@ const Header = ({
                   setShowNotifications(!showNotifications);
                   setSelectedCategory(null);
                 }}
-                className="relative p-2 text-white hover:bg-white/20 rounded-lg transition-all duration-200"
+                className="relative p-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors duration-200"
                 aria-label="Notifications"
               >
-                <Bell className="h-5 w-5 md:h-6 md:w-6 drop-shadow-md" />
+                <Bell className="h-5 w-5 md:h-6 md:w-6 text-gray-700" />
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full px-1.5 min-w-[20px] h-5 flex items-center justify-center shadow-lg">
                     {unreadCount > 99 ? '99+' : unreadCount}
@@ -135,7 +149,7 @@ const Header = ({
 
               {/* Notification Dropdown - Mobile Optimized */}
               {showNotifications && (
-                <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto mt-3 sm:w-80 md:w-96 z-50 bg-white border border-gray-200 shadow-2xl rounded-2xl p-3 sm:p-4 space-y-3 max-h-[calc(100vh-100px)] sm:max-h-[28rem] md:max-h-[32rem] overflow-y-auto">
+                <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto mt-3 sm:w-80 md:w-96 z-50 bg-white/95 border border-white/10 shadow-lg rounded-xl p-3 sm:p-4 space-y-3 max-h-[calc(100vh-100px)] sm:max-h-[28rem] md:max-h-[32rem] overflow-y-auto">
                   <div className="flex justify-between items-center pb-2 border-b border-gray-200">
                     <h3 className="text-gray-900 font-semibold flex items-center gap-2 text-sm md:text-base">
                       <Bell className="h-4 w-4 text-gray-600" /> Notifications
@@ -222,29 +236,29 @@ const Header = ({
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                className="flex items-center space-x-2 p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-all duration-200"
+                className="flex items-center space-x-2 p-1 bg-transparent rounded-md hover:bg-gray-100 transition-colors duration-200 text-gray-700"
                 aria-label="Profile menu"
               >
                 {userData?.profileImage ? (
                   <img
                     src={userData.profileImage}
                     alt="Profile"
-                    className="h-7 w-7 md:h-8 md:w-8 rounded-full border-2 border-white object-cover shadow-md"
+                    className="h-7 w-7 md:h-8 md:w-8 rounded-full object-cover ring-1 ring-gray-200"
                   />
                 ) : (
-                  <div className="h-7 w-7 md:h-8 md:w-8 rounded-full border-2 border-white bg-white/30 flex items-center justify-center shadow-md">
-                    <User className="h-4 w-4 md:h-5 md:w-5" />
+                  <div className="h-7 w-7 md:h-8 md:w-8 rounded-full bg-gray-100 flex items-center justify-center">
+                    <User className="h-4 w-4 md:h-5 md:w-5 text-gray-700" />
                   </div>
                 )}
-                <span className="text-sm font-medium hidden md:inline-block drop-shadow-md">
+                <span className="text-sm font-medium hidden md:inline-block text-gray-800">
                   {userData?.name || 'User'}
                 </span>
-                <ChevronDown className="h-4 w-4 drop-shadow-md" />
+                <ChevronDown className="h-4 w-4 text-gray-700" />
               </button>
 
               {/* Profile Menu - Solid Background */}
               {showProfileDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-2 z-10 border border-gray-200">
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-sm py-2 z-10 border border-gray-200">
                   <button
                     onClick={handleProfileClick}
                     className="flex items-center w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"

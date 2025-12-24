@@ -107,7 +107,8 @@ router.get('/batches/:batchId/students', auth, async (req, res) => {
   try {
     console.log('Fetching students for batch:', req.params.batchId);
     
-    const batch = await Batch.findById(req.params.batchId);
+    // Populate tpoId so frontend receives assigned TPO details
+    const batch = await Batch.findById(req.params.batchId).populate('tpoId', 'name email');
     if (!batch) {
       return res.status(404).json({
         success: false,
@@ -133,7 +134,10 @@ router.get('/batches/:batchId/students', auth, async (req, res) => {
       data: students,
       batchDetails: {
         batchNumber: batch.batchNumber,
-        colleges: batch.colleges
+        colleges: batch.colleges,
+        tpoId: batch.tpoId || null,
+        startDate: batch.startDate || null,
+        endDate: batch.endDate || null
       }
     });
   } catch (error) {

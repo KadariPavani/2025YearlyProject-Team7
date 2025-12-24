@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, Shield
 } from 'lucide-react';
+import { Skeleton } from '../../components/ui/Skeleton';
 import { changeAdminPassword } from '../../services/adminService';
 import Header from '../../components/common/Header';
 
@@ -185,9 +186,9 @@ const AdminChangePassword = () => {
             </div>
 
             {successMessage && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center">
-                <Check className="h-5 w-5 text-green-600 mr-3" />
-                <span className="text-green-700">{successMessage}</span>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center">
+                <Check className="h-5 w-5 text-blue-600 mr-3" />
+                <span className="text-blue-700">{successMessage}</span>
               </div>
             )}
 
@@ -213,13 +214,13 @@ const AdminChangePassword = () => {
               >
                 {loading ? (
                   <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    <Skeleton className="h-4 w-4 rounded-full mr-2 bg-white/20" />
                     Updating...
                   </>
                 ) : (
                   'Update Password'
                 )}
-              </button>
+              </button> 
             </div>
           </form>
         </div>

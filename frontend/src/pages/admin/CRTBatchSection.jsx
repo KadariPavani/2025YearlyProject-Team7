@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, Users, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, AlertCircle, ChevronDown } from "lucide-react";
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 import { getAllBatches, updateBatch, deleteBatch, getAllTPOs } from "../../services/adminService";
 
 const CRTBatchSection = () => {
@@ -20,10 +21,18 @@ const CRTBatchSection = () => {
   });
 
   const navigate = useNavigate();
+  const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
     fetchBatches();
     fetchTPOs();
+  }, []);
+
+  // Listen for a simple event dispatched by the parent tab to refresh batches
+  useEffect(() => {
+    const handler = () => fetchBatches();
+    window.addEventListener("refreshCRT", handler);
+    return () => window.removeEventListener("refreshCRT", handler);
   }, []);
 
   const fetchBatches = async () => {
@@ -113,79 +122,94 @@ const CRTBatchSection = () => {
   };
 
   return (
-    <section className="bg-white rounded-xl shadow p-6 mt-12">
-      {/* Updated responsive header section */}
-      <div className="mb-6 space-y-4 md:space-y-0 md:flex md:justify-between md:items-center">
-        <div className="space-y-1">
-          <h2 className="text-xl font-bold text-gray-900">CRT Batches Management</h2>
-          <p className="text-gray-500 text-sm">Manage and view all CRT batches easily from here.</p>
-        </div>
-        <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-3">
-          <button 
-            onClick={() => navigate("/crt-management")} 
-            className="flex items-center justify-center bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow transition text-sm"
-          >
-            <Plus size={16} className="mr-2" /> Manage CRT Batches
-          </button>
-          <button 
-            onClick={fetchBatches} 
-            className="flex items-center justify-center border border-gray-300 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 text-sm" 
-            title="Refresh"
-          >
-            <RefreshCw size={16} className="mr-1" /> Refresh
-          </button>
-        </div>
-      </div>
-
+    
+    <>
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
       {loading ? (
-        <div className="py-12 flex justify-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-2 border-b-green-500"></div>
-        </div>
+        <LoadingSkeleton />
       ) : batches.length === 0 ? (
         <div className="text-center py-8 text-gray-500">No CRT batches found.</div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full border border-gray-200 rounded">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="px-4 py-2 border-b text-left">Batch Number</th>
-                <th className="px-4 py-2 border-b text-left">Colleges</th>
-                <th className="px-4 py-2 border-b text-left">TPO</th>
-                <th className="px-4 py-2 border-b text-left">Students</th>
-                <th className="px-4 py-2 border-b text-left">Status</th>
-                <th className="px-4 py-2 border-b text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {batches.map((batch) => {
-                const status = getBatchStatus(batch);
-                return (
-                  <tr key={batch._id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 border-b font-semibold">{batch.batchNumber}</td>
-                    <td className="px-4 py-2 border-b">{(batch.colleges || []).join(", ")}</td>
-                    <td className="px-4 py-2 border-b">{batch.tpoId?.name || "Not assigned"}</td>
-                    <td className="px-4 py-2 border-b">{(batch.students && batch.students.length) || 0}</td>
-                    <td className="px-4 py-2 border-b">
-                      <span className={status === "Ongoing" ? "text-green-600" : status === "Not Yet Started" ? "text-yellow-600" : "text-gray-600"}>{status}</span>
-                    </td>
-                    <td className="px-4 py-2 border-b flex gap-2">
-                      <button className="text-green-600 hover:bg-green-50 rounded p-2" onClick={() => handleViewStudents(batch._id)} title="View Students">
-                        <Users size={16} />
-                      </button>
-                      <button className="text-blue-600 hover:bg-blue-50 rounded p-2" onClick={() => openEditModal(batch)} title="Edit Batch">
-                        <Pencil size={16} />
-                      </button>
-                      <button className="text-gray-600 hover:bg-gray-50 rounded p-2" onClick={() => openDeleteConfirm(batch)} title="Delete Batch">
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <>
+          {/* Mobile cards */}
+          <div className="sm:hidden space-y-3">
+            {batches.map((batch) => {
+              const status = getBatchStatus(batch);
+              return (
+                <article key={batch._id} className="w-full overflow-hidden box-border bg-white border rounded-lg p-2 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm sm:text-base font-semibold leading-tight truncate">{batch.batchNumber}</h4>
+                      <p className="text-[11px] text-gray-500 mt-1 truncate">{batch.tpoId?.name || 'Not assigned'} • {(batch.students && batch.students.length) || 0}</p>
+                      <div className="mt-1">
+                        <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full ${status === "Ongoing" ? "bg-blue-100 text-blue-800" : status === "Not Yet Started" ? "bg-blue-50 text-blue-700" : "bg-gray-100 text-gray-700"}`}>{status}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                      <button className="w-7 h-7 flex items-center justify-center rounded-md text-blue-600 hover:bg-blue-50" onClick={() => handleViewStudents(batch._id)} title="View Students" aria-label="View Students"><Users size={14} /></button>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-md text-blue-600 hover:bg-blue-50" onClick={() => openEditModal(batch)} title="Edit" aria-label="Edit"><Pencil size={14} /></button>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-md text-gray-600 hover:bg-gray-50" onClick={() => openDeleteConfirm(batch)} title="Delete" aria-label="Delete"><Trash2 size={14} /></button>
+                      <button className="w-7 h-7 flex items-center justify-center rounded-md border text-gray-600 hover:bg-gray-50" onClick={() => setExpandedId(expandedId === batch._id ? null : batch._id)} title="Toggle details" aria-label="Toggle details"><ChevronDown size={14} /></button>
+                    </div>
+                  </div>
+
+                  {expandedId === batch._id && (
+                    <div className="mt-3 text-xs text-gray-700 space-y-1">
+                      <div><strong>Colleges:</strong> {(batch.colleges || []).join(', ') || '-'}</div>
+                      <div><strong>Start:</strong> {batch.startDate ? batch.startDate.slice(0,10): '-'}</div>
+                      <div><strong>End:</strong> {batch.endDate ? batch.endDate.slice(0,10): '-'}</div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="min-w-full border border-gray-200 rounded text-sm">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="px-3 py-1.5 border-b text-left">Batch</th>
+                  <th className="px-3 py-1.5 border-b text-left">Colleges</th>
+                  <th className="px-3 py-1.5 border-b text-left">TPO</th>
+                  <th className="px-3 py-1.5 border-b text-left">Students</th>
+                  <th className="px-3 py-1.5 border-b text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batches.map((batch) => {
+                  const status = getBatchStatus(batch);
+                  return (
+                    <tr key={batch._id} className="hover:bg-gray-50">
+                      <td className="px-3 py-1.5 border-b font-semibold">
+                        <div className="leading-tight">{batch.batchNumber}</div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          <span className={status === "Ongoing" ? "text-blue-600" : status === "Not Yet Started" ? "text-blue-600" : "text-gray-600"}>{status}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-1.5 border-b">{(batch.colleges || []).join(", ")}</td>
+                      <td className="px-3 py-1.5 border-b">{batch.tpoId?.name || "Not assigned"}</td>
+                      <td className="px-3 py-1.5 border-b">{(batch.students && batch.students.length) || 0}</td>
+                      <td className="px-3 py-3 pb-2.5 border-b flex gap-2">
+                        <button className="w-8 h-8 flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded" onClick={() => handleViewStudents(batch._id)} title="View Students" aria-label="View Students">
+                          <Users size={14} />
+                        </button>
+                        <button className="w-8 h-8 flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded" onClick={() => openEditModal(batch)} title="Edit Batch" aria-label="Edit Batch">
+                          <Pencil size={14} />
+                        </button>
+                        <button className="w-8 h-8 flex items-center justify-center text-gray-600 hover:bg-gray-50 rounded" onClick={() => openDeleteConfirm(batch)} title="Delete Batch" aria-label="Delete Batch">
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Edit Modal */}
@@ -205,7 +229,7 @@ const CRTBatchSection = () => {
                     onChange={(e) =>
                       setEditForm({ ...editForm, batchNumber: e.target.value })
                     }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -217,7 +241,7 @@ const CRTBatchSection = () => {
                           type="checkbox"
                           checked={editForm.colleges.includes(college)}
                           onChange={() => handleEditChange("colleges", college)}
-                          className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
                         <span className="ml-2">{college}</span>
                       </label>
@@ -231,7 +255,7 @@ const CRTBatchSection = () => {
                     onChange={(e) =>
                       setEditForm({ ...editForm, tpoId: e.target.value })
                     }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   >
                     <option value="">Select TPO</option>
                     {tpos.map((tpo) => (
@@ -249,7 +273,7 @@ const CRTBatchSection = () => {
                     onChange={(e) =>
                       setEditForm({ ...editForm, startDate: e.target.value })
                     }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -260,7 +284,7 @@ const CRTBatchSection = () => {
                     onChange={(e) =>
                       setEditForm({ ...editForm, endDate: e.target.value })
                     }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
                   <small className="text-xs text-gray-500">
                     You can extend the end date if needed
@@ -277,7 +301,7 @@ const CRTBatchSection = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                 >
                   Save Changes
                 </button>
@@ -309,7 +333,7 @@ const CRTBatchSection = () => {
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 };
 

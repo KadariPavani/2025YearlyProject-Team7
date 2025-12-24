@@ -11,8 +11,9 @@ import {
   Edit,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Skeleton } from '../../components/ui/Skeleton';
 import { getAdminProfile } from "../../services/adminService";
-
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 const AdminProfile = () => {
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -50,11 +51,7 @@ const AdminProfile = () => {
   }, [navigate]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-14 w-14 border-4 border-red-500 border-t-transparent"></div>
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   const permissions = profileData?.permissions || {};
@@ -75,7 +72,7 @@ const AdminProfile = () => {
             <span className="capitalize">{key}</span>
             <span
               className={`font-semibold px-2 rounded-md ${
-                value ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                value ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"
               }`}
             >
               {value ? "Enabled" : "Disabled"}
@@ -198,7 +195,7 @@ const AdminProfile = () => {
                   <span>View Activity Access</span>
                   <span
                     className={`font-semibold px-2 rounded-md ${
-                      canViewActivity ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                      canViewActivity ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"
                     }`}
                   >
                     {canViewActivity ? "Enabled" : "Disabled"}

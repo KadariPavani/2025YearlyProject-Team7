@@ -3,6 +3,7 @@ import {
   Users, Search, ChevronDown, ChevronRight, Filter,
   Download, Eye, Edit2, Trash2, Plus
 } from 'lucide-react';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 const AdminBatchStudents = () => {
   const [batches, setBatches] = useState([]);
@@ -111,11 +112,7 @@ const AdminBatchStudents = () => {
   };
 
   if (loading && !selectedBatch) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   return (

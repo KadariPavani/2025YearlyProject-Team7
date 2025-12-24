@@ -2,9 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Layers, Plus, X } from 'lucide-react';
+import { ArrowLeft, Layers, Plus, X, GraduationCap } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-
+import Header from '../../components/common/Header';
+import { Skeleton } from '../../components/ui/Skeleton';
 const CrtManagementPage = () => {
   const navigate = useNavigate();
   const [batchNumber, setBatchNumber] = useState('');
@@ -123,7 +124,6 @@ const CrtManagementPage = () => {
     }
 
     setLoading(true);
-    const loadingToastId = toast.loading('🔄 Creating CRT Batch... Please wait!', { duration: 0 });
 
     try {
       const formData = new FormData();
@@ -138,7 +138,6 @@ const CrtManagementPage = () => {
 
       const adminToken = localStorage.getItem('adminToken');
       if (!adminToken) {
-        toast.dismiss(loadingToastId);
         const errorMsg = 'Please login as admin first';
         setMessage(errorMsg);
         toast.error(errorMsg);
@@ -152,8 +151,6 @@ const CrtManagementPage = () => {
           Authorization: `Bearer ${adminToken}`,
         },
       });
-
-      toast.dismiss(loadingToastId);
 
       if (response.data.success) {
         const successMsg = `CRT Batch created successfully with ${allowedTechStacks.length} tech stack(s)! 🎉`;
@@ -174,7 +171,6 @@ const CrtManagementPage = () => {
         toast.error(errorMsg);
       }
     } catch (err) {
-      toast.dismiss(loadingToastId);
       const errorMessage =
         err.response?.data?.details || err.response?.data?.message || 'Server error while creating batch';
       setMessage(errorMessage);
@@ -200,37 +196,47 @@ const CrtManagementPage = () => {
   const truncateLabel = (label, maxLen = 32) =>
     label.length > maxLen ? label.slice(0, maxLen - 3) + '...' : label;
 
+  if (loading) {
+    return <LoadingSkeleton />;
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6">
+            <Header
+        title="Add Trainer"
+        subtitle="Create trainer profile"
+        showTitleInHeader={false}
+        icon={GraduationCap}
+        profileRoute="/admin-profile"
+        changePasswordRoute="/admin-change-password"
+        onIconClick={() => navigate('/admin-dashboard')}
+      />
       <Toaster position="top-center" reverseOrder={false} />
 
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
-          >
-            <ArrowLeft size={20} />
-            <span>Back</span>
-          </button>
+      <div className="max-w-3xl sm:max-w-4xl mx-auto px-2 sm:px-0">
+        {/* Unified Card (Header + Form) */}
+        <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8">
+          <div>
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 transition-colors"
+            >
+              <ArrowLeft size={20} />
+              <span>Back</span>
+            </button>
 
-          <div className="flex items-center gap-3">
-            <div className="bg-indigo-600 p-3 rounded-lg">
-              <Layers className="text-white" size={24} />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Create CRT Batch</h1>
-              <p className="text-gray-600 mt-1">
-                Configure batch details and allowed training tech stacks
-              </p>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="w-full">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 truncate">Create CRT Batch</h1>
+                <p className="text-sm sm:text-base text-gray-600 mt-1 ">
+                  Configure batch details and allowed training tech stacks
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Form */}
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="border-t border-gray-100 mt-6 pt-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
             {/* Batch Number */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -241,7 +247,7 @@ const CrtManagementPage = () => {
                 placeholder="e.g., 2025"
                 value={batchNumber}
                 onChange={(e) => setBatchNumber(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 required
               />
             </div>
@@ -251,13 +257,13 @@ const CrtManagementPage = () => {
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Select Colleges *
               </label>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-2">
                 {collegeOptions.map((college) => (
                   <button
                     key={college}
                     type="button"
                     onClick={() => toggleCollege(college)}
-                    className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                    className={`px-3 py-2 sm:px-6 sm:py-3 rounded-lg text-sm sm:text-base font-medium transition-all ${
                       colleges.includes(college)
                         ? 'bg-indigo-600 text-white shadow-md'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -278,14 +284,14 @@ const CrtManagementPage = () => {
               {/* Quick Add Predefined */}
               <div className="mb-4">
                 <p className="text-xs text-gray-500 mb-2">Quick add common tech stacks:</p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 items-center">
                   {commonTechStacks.map((tech) => (
                     <button
                       key={tech}
                       type="button"
                       onClick={() => addPredefinedTechStack(tech)}
                       disabled={allowedTechStacks.includes(tech)}
-                      className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${
+                      className={`px-2 py-0.5 rounded-md text-xs font-medium transition-all ${
                         allowedTechStacks.includes(tech)
                           ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                           : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
@@ -302,7 +308,7 @@ const CrtManagementPage = () => {
                 <button
                   type="button"
                   onClick={() => setShowTechStackInput(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
                 >
                   <Plus size={16} />
                   Add Custom Tech Stack
@@ -314,13 +320,13 @@ const CrtManagementPage = () => {
                     value={newTechStack}
                     onChange={(e) => setNewTechStack(e.target.value)}
                     placeholder="Enter custom tech stack name"
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    className="flex-1 px-3 py-2 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomTechStack())}
                   />
                   <button
                     type="button"
                     onClick={addCustomTechStack}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                   >
                     Add
                   </button>
@@ -330,7 +336,7 @@ const CrtManagementPage = () => {
                       setShowTechStackInput(false);
                       setNewTechStack('');
                     }}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                    className="px-3 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 text-sm"
                   >
                     Cancel
                   </button>
@@ -339,21 +345,21 @@ const CrtManagementPage = () => {
 
               {/* Selected Tech Stacks */}
               {allowedTechStacks.length > 0 && (
-                <div className="mt-4 p-4 bg-indigo-50 rounded-lg border-2 border-indigo-200">
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg border-2 border-blue-200">
                   <p className="text-sm font-semibold text-gray-700 mb-2">
                     Selected Tech Stacks ({allowedTechStacks.length}):
                   </p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 items-center justify-start">
                     {allowedTechStacks.map((tech) => (
                       <div
                         key={tech}
-                        className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg shadow"
+                        className="flex items-center gap-2 px-2 py-1 bg-blue-600 text-white rounded-md text-sm shadow-sm min-w-max"
                       >
                         <span className="font-medium">{tech}</span>
                         <button
                           type="button"
                           onClick={() => removeTechStack(tech)}
-                          className="hover:bg-indigo-700 rounded-full p-1 transition-colors"
+                          className="hover:bg-blue-700 rounded-full p-1 transition-colors"
                         >
                           <X size={14} />
                         </button>
@@ -388,7 +394,7 @@ const CrtManagementPage = () => {
             </div>
 
             {/* Date Range */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Start Date *
@@ -397,7 +403,7 @@ const CrtManagementPage = () => {
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   required
                 />
               </div>
@@ -409,7 +415,7 @@ const CrtManagementPage = () => {
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   required
                 />
               </div>
@@ -424,7 +430,7 @@ const CrtManagementPage = () => {
                 type="file"
                 accept=".xls,.xlsx"
                 onChange={onFileChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                className="w-full px-3 py-2 sm:px-4 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 required
               />
               <p className="text-xs text-gray-500 mt-2">
@@ -433,18 +439,18 @@ const CrtManagementPage = () => {
             </div>
 
             {/* Buttons */}
-            <div className="flex gap-4 pt-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 items-stretch">
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                className="w-full sm:flex-1 bg-blue-600 text-white py-2 sm:py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm sm:text-base"
               >
                 {loading ? 'Creating Batch...' : 'Create Batch'}
               </button>
               <button
                 type="button"
                 onClick={handleReset}
-                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
+                className="w-full sm:w-auto sm:px-6 sm:py-3 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
               >
                 Reset
               </button>
@@ -453,7 +459,8 @@ const CrtManagementPage = () => {
         </div>
       </div>
     </div>
+  </div>
   );
-};
+} ;
 
 export default CrtManagementPage;

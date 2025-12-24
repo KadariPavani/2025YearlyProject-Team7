@@ -16,10 +16,9 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminProfile from './pages/admin/AdminProfile';
 import AddTrainerPage from './pages/admin/AddTrainerPage';
 import AddTPOPage from './pages/admin/AddTPOPage';
-import ViewTPOsPage from './pages/admin/ViewTPOsPage';
-import ViewTrainersPage from './pages/admin/ViewTrainersPage';
+// import ViewTPOsPage from './pages/admin/ViewTPOsPage';
 import AddAdmin from './pages/admin/AddAdmin';
-import ViewAdmins from './pages/admin/ViewAdmins';
+// import ViewAdmins from './pages/admin/ViewAdmins';
 import ContactPage from "./pages/ContactPage";
 
 // Import the dashboard components
@@ -42,7 +41,7 @@ import StudentChangePassword from './pages/student/StudentChangePassword';
 import CoordinatorChangePassword from './pages/coordinator/CoordinatorChangePassword';
 
 // Import admin components
-import BatchListPage from './pages/admin/BatchListPage';
+// import BatchListPage from './pages/admin/BatchListPage';
 import BatchStudentsPage from './pages/admin/BatchStudentsPage';
 import GeneralForgotPassword from './components/auth/GeneralForgotPassword';
 import GeneralResetPassword from './components/auth/GeneralResetPassword';
@@ -325,22 +324,19 @@ const router = createBrowserRouter([
     path: "/add-tpo",
     element: <AddTPOPage />,
   },
-  {
-    path: "/view-tpos",
-    element: <ViewTPOsPage />,
-  },
-  {
-    path: "/view-trainers",
-    element: <ViewTrainersPage />,
-  },
+  // {
+  //   path: "/view-tpos",
+  //   element: <ViewTPOsPage />,
+  // },
+
   {
     path: "/add-admin",
     element: <AddAdmin />,
   },
-  {
-    path: "/view-admins",
-    element: <ViewAdmins />,
-  },
+  // {
+  //   path: "/view-admins",
+  //   element: <ViewAdmins />,
+  // },
   {
     path: "/contact",
     element: <ContactPage />,
@@ -437,14 +433,14 @@ const router = createBrowserRouter([
       </ProtectedAdminRoute>
     ),
   },
-  {
-    path: "/admin/batches",
-    element: (
-      <ProtectedAdminRoute>
-        <BatchListPage />
-      </ProtectedAdminRoute>
-    ),
-  },
+  // {
+  //   path: "/admin/batches",
+  //   element: (
+  //     <ProtectedAdminRoute>
+  //       <BatchListPage />
+  //     </ProtectedAdminRoute>
+  //   ),
+  // },
   {
     path: "/admin/batches/:batchId/students",
     element: (
@@ -642,10 +638,9 @@ function App() {
               <Route path="/admin-reset-password" element={<AdminResetPassword />} />
               <Route path="/add-trainer" element={<AddTrainerPage />} />
               <Route path="/add-tpo" element={<AddTPOPage />} />
-              <Route path="/view-tpos" element={<ViewTPOsPage />} />
-              <Route path="/view-trainers" element={<ViewTrainersPage />} />
+              {/* <Route path="/view-tpos" element={<ViewTPOsPage />} /> */}
               <Route path="/add-admin" element={<AddAdmin />} />
-              <Route path="/view-admins" element={<ViewAdmins />} />
+              {/* <Route path="/view-admins" element={<ViewAdmins />} /> */}
               <Route path="/contact" element={<ContactPage />} />
               <Route
                 path="/admin/students"
@@ -704,14 +699,14 @@ function App() {
 
               {/* Protected Trainer Routes */}
               {/* Batch Management Routes */}
-              <Route
+              {/* <Route
                 path="/admin/batches"
                 element={
                   <ProtectedAdminRoute>
                     <BatchListPage />
                   </ProtectedAdminRoute>
                 }
-              />
+              /> */}
               <Route
                 path="/admin/batches/:batchId/students"
                 element={

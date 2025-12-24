@@ -12,19 +12,31 @@ import {
   AlertCircle,
   Trash2,
   Slash,
+  Home,
+  MessageSquare,
+  Search,
+  Briefcase,
+  BookOpen,
+  Plus,
+  RefreshCw,
+  ChevronUp,
+  ChevronDown
 } from "lucide-react";
 import PlacementTrainingBatches from "./PlacementTrainingBatches";
 import CRTBatchSection from "./CRTBatchSection";
 import ToastNotification from "../../components/ui/ToastNotification";
 import Header from "../../components/common/Header";
+import TrainersTab from "./tabs/TrainersTab";
+import TpoTab from "./tabs/TpoTab";
+import AdminsTab from "./tabs/AdminsTab";
 
-function LoadingSpinner() {
-  return (
-    <div className="flex justify-center items-center min-h-[100px]">
-      <div className="animate-spin h-8 w-8 border-b-2 border-green-600 rounded-full"></div>
-    </div>
-  );
-}
+
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+
+const Skeleton = ({ className = "h-4 bg-gray-200 rounded" }) => (
+  <div className={`animate-pulse ${className}`} />
+);
+
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -422,7 +434,7 @@ const handleDelete = async (entityType, id) => {
     fetchDashboardAnalytics();
   };
 
-  if (!adminData || analyticsLoading) return <LoadingSpinner />;
+  if (!adminData || analyticsLoading) return <LoadingSkeleton />;
 
   const tabs = [
     { id: "overview", label: "Overview", icon: BarChart3 },
@@ -430,15 +442,15 @@ const handleDelete = async (entityType, id) => {
     { id: "tpos", label: "TPOs", icon: Users },
     { id: "admins", label: "Admins", icon: Shield },
     { id: "actions", label: "Actions", icon: AlertCircle },
-    { id: "crt-batches", label: "CRT Batches", icon: GraduationCap },
-    { id: "placement-batches", label: "Placement Batches", icon: Users },
+    { id: "crt-batches", label: "CRT Batches", icon: BookOpen },
+    { id: "placement-batches", label: "Placement Batches", icon: Briefcase },
   ];
 
   const totalUsers =
     dashboard.totalTrainers + dashboard.totalTPOs + dashboard.totalAdmins;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-gray-50">
       <Header
         title="Welcome Admin..!"
         subtitle="Manage Trainers, Batches & Students"
@@ -457,15 +469,27 @@ const handleDelete = async (entityType, id) => {
       />
 
       {/* Main */}
-      <main className="max-w-7xl mx-auto px-4 py-8 pt-24">
-        {/* Analytics Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+      <main className="max-w-7xl mx-auto px-4 py-8 pt-24 pb-[220px] sm:pb-8">
+        {/* Page header (moved out of Header component) */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{`Welcome, ${adminData?.name  || 'Admin'}`}</h1>
+              <p className="text-sm text-gray-600 mt-1">Manage Trainers, Batches & Students</p>
+            </div>
+          </div>
+        </div>
+
+        
+        {/* Analytics Summary Cards: desktop grid + compact mobile scroller */}
+        {/* Desktop: 3 cards */}
+        <div className="hidden sm:grid grid-cols-3 gap-6 mb-8">
           <div
             className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
             onClick={() => handleTabChange("trainers")}
           >
-            <div className="bg-green-100 p-3 rounded-full">
-              <GraduationCap className="h-8 w-8 text-green-600" />
+            <div className="bg-blue-50 p-3 rounded-full">
+              <GraduationCap className="h-8 w-8 text-blue-600" />
             </div>
             <div>
               <div className="text-gray-900 text-lg font-bold">
@@ -492,8 +516,8 @@ const handleDelete = async (entityType, id) => {
             className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
             onClick={() => handleTabChange("admins")}
           >
-            <div className="bg-purple-100 p-3 rounded-full">
-              <Shield className="h-8 w-8 text-purple-600" />
+            <div className="bg-blue-100 p-3 rounded-full">
+              <Shield className="h-8 w-8 text-blue-600" />
             </div>
             <div>
               <div className="text-gray-900 text-lg font-bold">
@@ -504,10 +528,40 @@ const handleDelete = async (entityType, id) => {
           </div>
         </div>
 
+        {/* Mobile: compact non-scrolling metrics bar (icon above text) */}
+        <div className="sm:hidden flex gap-2 mb-6">
+          <button onClick={() => handleTabChange("trainers")} className="flex-1 flex flex-col items-center gap-1 bg-white rounded-lg py-2 px-2 shadow-sm min-w-0">
+            <div className="bg-blue-50 p-2 rounded-full flex-shrink-0">
+              <GraduationCap className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="text-center min-w-0">
+              <div className="text-gray-900 font-semibold text-sm truncate">{dashboard.totalTrainers} <span className="text-[11px] text-gray-500">Trainers</span></div>
+            </div>
+          </button>
+
+          <button onClick={() => handleTabChange("tpos")} className="flex-1 flex flex-col items-center gap-1 bg-white rounded-lg py-2 px-2 shadow-sm min-w-0">
+            <div className="bg-blue-100 p-2 rounded-full flex-shrink-0">
+              <Users className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="text-center min-w-0">
+              <div className="text-gray-900 font-semibold text-sm truncate">{dashboard.totalTPOs} <span className="text-[11px] text-gray-500">TPOs</span></div>
+            </div>
+          </button>
+
+          <button onClick={() => handleTabChange("admins")} className="flex-1 flex flex-col items-center gap-1 bg-white rounded-lg py-2 px-2 shadow-sm min-w-0">
+            <div className="bg-blue-100 p-2 rounded-full flex-shrink-0">
+              <Shield className="h-5 w-5 text-blue-600" />
+            </div>
+            <div className="text-center min-w-0">
+              <div className="text-gray-900 font-semibold text-sm truncate">{dashboard.totalAdmins} <span className="text-[11px] text-gray-500">Admins</span></div>
+            </div>
+          </button>
+        </div>
+
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-md mb-6">
           <div className="border-b border-gray-200">
-            <nav className="flex overflow-x-auto">
+            <nav className="hidden sm:flex overflow-x-auto">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -516,7 +570,7 @@ const handleDelete = async (entityType, id) => {
                     onClick={() => handleTabChange(tab.id)}
                     className={`flex items-center space-x-2 px-6 py-4 text-sm font-medium whitespace-nowrap transition-colors ${
                       activeTab === tab.id
-                        ? "border-b-2 border-red-600 text-red-600"
+                        ? "border-b-2 border-blue-700 text-blue-700"
                         : "border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300"
                     }`}
                   >
@@ -541,7 +595,27 @@ const handleDelete = async (entityType, id) => {
                 </h2>
 
                 {/* Key Metrics Row */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                {/* Mobile compact metrics (2 per row, icon above, single-line label) */}
+                <div className="sm:hidden grid grid-cols-2 gap-2 mb-4">
+                  <button onClick={() => handleTabChange('overview')} className="flex flex-col items-center bg-white rounded-lg p-2 shadow-sm">
+                    <Users className="h-5 w-5 text-blue-600 mb-1" />
+                    <div className="text-center text-sm font-semibold text-gray-900 truncate">{totalUsers} <span className="text-[11px] text-gray-500">Users</span></div>
+                  </button>
+                  <button onClick={() => handleTabChange('overview')} className="flex flex-col items-center bg-white rounded-lg p-2 shadow-sm">
+                    <Activity className="h-5 w-5 text-blue-600 mb-1" />
+                    <div className="text-center text-sm font-semibold text-gray-900 truncate">{statistics.totalActive || 0} <span className="text-[11px] text-gray-500">Active</span></div>
+                  </button>
+                  <button onClick={() => handleTabChange('overview')} className="flex flex-col items-center bg-white rounded-lg p-2 shadow-sm">
+                    <TrendingUp className="h-5 w-5 text-blue-600 mb-1" />
+                    <div className="text-center text-sm font-semibold text-gray-900 truncate">{((statistics.userGrowth?.trainers||0)+(statistics.userGrowth?.tpos||0)+(statistics.userGrowth?.admins||0))} <span className="text-[11px] text-gray-500">New</span></div>
+                  </button>
+                  <button onClick={() => handleTabChange('overview')} className="flex flex-col items-center bg-white rounded-lg p-2 shadow-sm">
+                    <UserPlus className="h-5 w-5 text-blue-600 mb-1" />
+                    <div className="text-center text-sm font-semibold text-gray-900 truncate">{totalUsers>0?`${Math.round((((statistics.userGrowth?.trainers||0)+(statistics.userGrowth?.tpos||0)+(statistics.userGrowth?.admins||0))/totalUsers)*100)}%`:'0%'} <span className="text-[11px] text-gray-500">Growth</span></div>
+                  </button>
+                </div>
+
+                <div className="hidden sm:grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                   <MetricCard
                     icon={<Users className="h-6 w-6 text-blue-600" />}
                     title="Total Users"
@@ -549,23 +623,23 @@ const handleDelete = async (entityType, id) => {
                     bgColor="bg-blue-50"
                   />
                   <MetricCard
-                    icon={<Activity className="h-6 w-6 text-green-600" />}
+                    icon={<Activity className="h-6 w-6 text-blue-600" />}
                     title="Active Users (7d)"
                     value={statistics.totalActive || 0}
-                    bgColor="bg-green-50"
+                    bgColor="bg-blue-50"
                   />
                   <MetricCard
-                    icon={<TrendingUp className="h-6 w-6 text-purple-600" />}
+                    icon={<TrendingUp className="h-6 w-6 text-blue-600" />}
                     title="New Users (30d)"
                     value={
                       (statistics.userGrowth?.trainers || 0) +
                       (statistics.userGrowth?.tpos || 0) +
                       (statistics.userGrowth?.admins || 0)
                     }
-                    bgColor="bg-purple-50"
+                    bgColor="bg-blue-50"
                   />
                   <MetricCard
-                    icon={<UserPlus className="h-6 w-6 text-orange-600" />}
+                    icon={<UserPlus className="h-6 w-6 text-blue-600" />}
                     title="Growth Rate"
                     value={
                       totalUsers > 0
@@ -578,7 +652,7 @@ const handleDelete = async (entityType, id) => {
                           )}%`
                         : "0%"
                     }
-                    bgColor="bg-orange-50"
+                    bgColor="bg-blue-50"
                     isPercentage={true}
                   />
                 </div>
@@ -596,7 +670,7 @@ const handleDelete = async (entityType, id) => {
                         label="Trainers"
                         value={dashboard.totalTrainers}
                         total={totalUsers}
-                        color="bg-green-500"
+                        color="bg-blue-500"
                       />
                       <DistributionBar
                         label="TPOs"
@@ -608,15 +682,15 @@ const handleDelete = async (entityType, id) => {
                         label="Admins"
                         value={dashboard.totalAdmins}
                         total={totalUsers}
-                        color="bg-purple-500"
+                        color="bg-blue-500"
                       />
                     </div>
                   </div>
 
                   {/* Active Users Breakdown */}
-                  <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 border border-green-200">
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                      <Activity className="h-5 w-5 mr-2 text-green-700" />
+                      <Activity className="h-5 w-5 mr-2 text-blue-700" />
                       Active Users (Last 7 Days)
                     </h3>
                     <div className="space-y-4">
@@ -625,7 +699,7 @@ const handleDelete = async (entityType, id) => {
                         value={statistics.activeUsers?.trainers || 0}
                         total={dashboard.totalTrainers}
                         icon={
-                          <GraduationCap className="h-5 w-5 text-green-600" />
+                          <GraduationCap className="h-5 w-5 text-blue-600" />
                         }
                       />
                       <ActiveUserStat
@@ -638,7 +712,7 @@ const handleDelete = async (entityType, id) => {
                         label="Active Admins"
                         value={statistics.activeUsers?.admins || 0}
                         total={dashboard.totalAdmins}
-                        icon={<Shield className="h-5 w-5 text-purple-600" />}
+                        icon={<Shield className="h-5 w-5 text-blue-600" />}
                       />
                     </div>
                   </div>
@@ -652,53 +726,63 @@ const handleDelete = async (entityType, id) => {
                       Recent Login Activity
                     </h3>
                   </div>
-                  <div className="divide-y divide-gray-200">
-                    {statistics.recentLogins &&
-                    statistics.recentLogins.length > 0 ? (
+
+                  {/* Desktop list (sm+) */}
+                  <div className="hidden sm:block divide-y divide-gray-200">
+                    {statistics.recentLogins && statistics.recentLogins.length > 0 ? (
                       statistics.recentLogins.map((user, idx) => (
-                        <div
-                          key={idx}
-                          className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition"
-                        >
+                        <div key={idx} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition">
                           <div className="flex items-center space-x-4">
-                            <div
-                              className={`p-2 rounded-full ${
-                                user.role === "Trainer"
-                                  ? "bg-green-100"
-                                  : user.role === "TPO"
-                                  ? "bg-blue-100"
-                                  : "bg-purple-100"
-                              }`}
-                            >
+                            <div className={`p-2 rounded-full ${user.role === "Trainer" ? "bg-blue-100" : user.role === "TPO" ? "bg-blue-100" : "bg-blue-100"}`}>
                               {user.role === "Trainer" ? (
-                                <GraduationCap className="h-5 w-5 text-green-600" />
+                                <GraduationCap className="h-5 w-5 text-blue-600" />
                               ) : user.role === "TPO" ? (
                                 <Users className="h-5 w-5 text-blue-600" />
                               ) : (
-                                <Shield className="h-5 w-5 text-purple-600" />
+                                <Shield className="h-5 w-5 text-blue-600" />
                               )}
                             </div>
                             <div>
-                              <p className="font-medium text-gray-900">
-                                {user.name || user.email}
-                              </p>
-                              <p className="text-sm text-gray-500">
-                                {user.role}
-                              </p>
+                              <p className="font-medium text-gray-900">{user.name || user.email}</p>
+                              <p className="text-sm text-gray-500">{user.role}</p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-gray-600">
-                              {new Date(user.lastLogin).toLocaleDateString()}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {new Date(user.lastLogin).toLocaleTimeString()}
-                            </p>
+                            <p className="text-sm text-gray-600">{new Date(user.lastLogin).toLocaleDateString()}</p>
+                            <p className="text-xs text-gray-500">{new Date(user.lastLogin).toLocaleTimeString()}</p>
                           </div>
                         </div>
                       ))
                     ) : (
                       <div className="px-6 py-8 text-center text-gray-500">
+                        <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                        <p>No recent login activity</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mobile compact list (icon left + two-line summary) */}
+                  <div className="sm:hidden">
+                    {statistics.recentLogins && statistics.recentLogins.length > 0 ? (
+                      statistics.recentLogins.map((user, idx) => (
+                        <div key={idx} className="py-3 px-3 border-b border-gray-100 flex items-center">
+                          <div className="mr-3 flex-shrink-0">
+                            {user.role === "Trainer" ? (
+                              <GraduationCap className="h-6 w-6 text-blue-600" />
+                            ) : user.role === "TPO" ? (
+                              <Users className="h-6 w-6 text-blue-600" />
+                            ) : (
+                              <Shield className="h-6 w-6 text-blue-600" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate">{user.name || user.email}</div>
+                            <div className="text-xs text-gray-500 truncate">{user.role} • {new Date(user.lastLogin).toLocaleDateString()}</div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-6 text-center text-gray-500">
                         <AlertCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
                         <p>No recent login activity</p>
                       </div>
@@ -710,459 +794,174 @@ const handleDelete = async (entityType, id) => {
           )}
 
           {activeTab === "trainers" && (
-            <div>
-              <div className="mb-6 flex justify-end">
-                {adminData.permissions?.trainerControls?.add && (
-                  <button
-                    onClick={() => navigate("/add-trainer")}
-                    className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md shadow-sm font-semibold"
-                  >
-                    <UserPlus className="h-5 w-5 mr-2" /> Add Trainer
-                  </button>
-                )}
-              </div>
-              <SectionTable
-                title="Trainer Details"
-                loading={trainersLoading}
-                searchValue={trainerSearch}
-                onSearchChange={setTrainerSearch}
-                data={filteredTrainers}
-                columns={[
-                  { label: "Name", key: "name" },
-                  { label: "Email", key: "email" },
-                  { label: "Phone", key: "phone" },
-                  { label: "Employee ID", key: "employeeId" },
-                  { label: "Experience", key: "experience" },
-                  { label: "Subject", key: "subjectDealing" },
-                  { label: "Category", key: "category" },
-                  { label: "LinkedIn", key: "linkedIn" },
-                  { label: "Status", key: "status" },
-                ]}
-                actions={(trainer) => (
-                  <>
-                    {/* {adminData.permissions?.trainerControls?.edit && (
-            <button
-              onClick={() => navigate(`/edit-trainer/${trainer._id}`)}
-              className="mr-2 text-blue-600 hover:text-blue-800"
-              title="Edit"
-            >
-              <Eye className="h-5 w-5" />
-            </button>
-          )} */}
-                    {adminData.permissions?.trainerControls?.suspend && (
-                      <button
-                        onClick={() =>
-                          handleSuspendToggle("trainers", trainer._id)
-                        }
-                        className={`mr-2 ${
-                          trainer.status === "active"
-                            ? "text-red-600"
-                            : "text-green-600"
-                        } hover:text-opacity-80`}
-                        title={
-                          trainer.status === "active" ? "Suspend" : "Activate"
-                        }
-                      >
-                        <Slash className="h-5 w-5" />
-                      </button>
-                    )}
-                    {adminData.permissions?.trainerControls?.delete && (
-                      <button
-                        onClick={() => handleDelete("trainers", trainer._id)}
-                        className="text-red-600 hover:text-red-800"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    )}
-                  </>
-                )}
+            trainersLoading ? (
+              <LoadingSkeleton />
+            ) : (
+              <TrainersTab
+                adminData={adminData}
+                trainersLoading={trainersLoading}
+                trainerSearch={trainerSearch}
+                setTrainerSearch={setTrainerSearch}
+                filteredTrainers={filteredTrainers}
+                navigate={navigate}
+                handleSuspendToggle={handleSuspendToggle}
+                handleDelete={handleDelete}
+                SectionTable={SectionTable}
               />
-            </div>
+            )
           )}
 
           {activeTab === "tpos" && (
-            <div>
-              <div className="mb-6 flex justify-end">
-                {adminData.permissions?.tpoControls?.add && (
-                  <button
-                    onClick={() => navigate("/add-tpo")}
-                    className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md shadow-sm font-semibold"
-                  >
-                    <UserPlus className="h-5 w-5 mr-2" /> Add TPO
-                  </button>
-                )}
-              </div>
-              <SectionTable
-                title="TPO Details"
-                loading={tposLoading}
-                searchValue={tpoSearch}
-                onSearchChange={setTpoSearch}
-                data={filteredTpos}
-                columns={[
-                  { label: "Name", key: "name" },
-                  { label: "Email", key: "email" },
-                  { label: "Phone", key: "phone" },
-                  { label: "Experience", key: "experience" },
-                  { label: "LinkedIn", key: "linkedIn" },
-                  { label: "Status", key: "status" },
-                  { label: "Last Login", key: "lastLogin" },
-                ]}
-                actions={(tpo) => (
-                  <>
-                    {/* {adminData.permissions?.tpoControls?.edit && (
-            <button
-              onClick={() => navigate(`/edit-tpo/${tpo._id}`)}
-              className="mr-2 text-blue-600 hover:text-blue-800"
-              title="Edit"
-            >
-              <Eye className="h-5 w-5" />
-            </button>
-          )} */}
-                    {adminData.permissions?.tpoControls?.suspend && (
-                      <button
-                        onClick={() => handleSuspendToggle("tpos", tpo._id)}
-                        className={`mr-2 ${
-                          tpo.status === "active"
-                            ? "text-red-600"
-                            : "text-green-600"
-                        } hover:text-opacity-80`}
-                        title={tpo.status === "active" ? "Suspend" : "Activate"}
-                      >
-                        <Slash className="h-5 w-5" />
-                      </button>
-                    )}
-                    {adminData.permissions?.tpoControls?.delete && (
-                      <button
-                        onClick={() => handleDelete("tpos", tpo._id)}
-                        className="text-red-600 hover:text-red-800"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    )}
-                  </>
-                )}
+            tposLoading ? (
+              <LoadingSkeleton />
+            ) : (
+              <TpoTab
+                adminData={adminData}
+                tposLoading={tposLoading}
+                tpoSearch={tpoSearch}
+                setTpoSearch={setTpoSearch}
+                filteredTpos={filteredTpos}
+                navigate={navigate}
+                handleSuspendToggle={handleSuspendToggle}
+                handleDelete={handleDelete}
+                SectionTable={SectionTable}
               />
-            </div>
+            )
           )}
 
           {activeTab === "actions" && (
-            <div className="space-y-12">
-              <SectionTable
-                title="Suspended Trainers"
-                loading={trainersLoading}
-                searchValue={trainerSearch}
-                onSearchChange={setTrainerSearch}
-                data={trainers.filter((t) => t.status === "inactive")}
-                columns={[
-                  { label: "Name", key: "name" },
-                  { label: "Email", key: "email" },
-                  { label: "Phone", key: "phone" },
-                  { label: "Employee ID", key: "employeeId" },
-                  { label: "Experience", key: "experience" },
-                  { label: "Subject", key: "subjectDealing" },
-                  { label: "Category", key: "category" },
-                  { label: "LinkedIn", key: "linkedIn" },
-                  { label: "Status", key: "status" },
-                ]}
-                actions={(trainer) => (
-                  <>
-                    {adminData.permissions?.canSuspendTrainer && (
-                      <button
-                        onClick={() =>
-                          handleSuspendToggle("trainers", trainer._id)
-                        }
-                        className="mr-4 text-green-600 hover:underline"
-                      >
-                        Activate
-                      </button>
-                    )}
-                    {adminData.permissions?.canDeleteTrainer && (
-                      <button
-                        onClick={() => handleDelete("trainers", trainer._id)}
-                        className="text-red-600 hover:underline"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </>
-                )}
-              />
-              <SectionTable
-                title="Suspended TPOs"
-                loading={tposLoading}
-                searchValue={tpoSearch}
-                onSearchChange={setTpoSearch}
-                data={tpos.filter((t) => t.status === "inactive")}
-                columns={[
-                  { label: "Name", key: "name" },
-                  { label: "Email", key: "email" },
-                  { label: "Phone", key: "phone" },
-                  { label: "Experience", key: "experience" },
-                  { label: "LinkedIn", key: "linkedIn" },
-                  { label: "Status", key: "status" },
-                  { label: "Last Login", key: "lastLogin" },
-                ]}
-                actions={(tpo) => (
-                  <>
-                    {adminData.permissions?.canSuspendTPO && (
-                      <button
-                        onClick={() => handleSuspendToggle("tpos", tpo._id)}
-                        className="mr-4 text-green-600 hover:underline"
-                      >
-                        Activate
-                      </button>
-                    )}
-                    {adminData.permissions?.canDeleteTPO && (
-                      <button
-                        onClick={() => handleDelete("tpos", tpo._id)}
-                        className="text-red-600 hover:underline"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </>
-                )}
-              />
-            </div>
+            (trainersLoading || tposLoading) ? (
+              <LoadingSkeleton />
+            ) : (
+              <div className="space-y-12">
+                <SectionTable
+                  title="Suspended Trainers"
+                  loading={trainersLoading}
+                  searchValue={trainerSearch}
+                  onSearchChange={setTrainerSearch}
+                  data={trainers.filter((t) => t.status === "inactive")}
+                  columns={[
+                    { label: "Name", key: "name" },
+                    { label: "Email", key: "email" },
+                    { label: "Phone", key: "phone" },
+                    { label: "Employee ID", key: "employeeId" },
+                    { label: "Experience", key: "experience" },
+                    { label: "Subject", key: "subjectDealing" },
+                    { label: "Category", key: "category" },
+                    { label: "LinkedIn", key: "linkedIn" },
+                    { label: "Status", key: "status" },
+                  ]}
+                  actions={(trainer) => (
+                    <>
+                      {adminData.permissions?.canSuspendTrainer && (
+                        <button
+                          onClick={() =>
+                            handleSuspendToggle("trainers", trainer._id)
+                          }
+                          className="mr-4 text-blue-600 hover:underline"
+                        >
+                          Activate
+                        </button>
+                      )}
+                      {adminData.permissions?.canDeleteTrainer && (
+                        <button
+                          onClick={() => handleDelete("trainers", trainer._id)}
+                          className="text-red-600 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </>
+                  )}
+                />
+                <SectionTable
+                  title="Suspended TPOs"
+                  loading={tposLoading}
+                  searchValue={tpoSearch}
+                  onSearchChange={setTpoSearch}
+                  data={tpos.filter((t) => t.status === "inactive")}
+                  columns={[
+                    { label: "Name", key: "name" },
+                    { label: "Email", key: "email" },
+                    { label: "Phone", key: "phone" },
+                    { label: "Experience", key: "experience" },
+                    { label: "LinkedIn", key: "linkedIn" },
+                    { label: "Status", key: "status" },
+                    { label: "Last Login", key: "lastLogin" },
+                  ]}
+                  actions={(tpo) => (
+                    <>
+                      {adminData.permissions?.canSuspendTPO && (
+                        <button
+                          onClick={() => handleSuspendToggle("tpos", tpo._id)}
+                          className="mr-4 text-blue-600 hover:underline"
+                        >
+                          Activate
+                        </button>
+                      )}
+                      {adminData.permissions?.canDeleteTPO && (
+                        <button
+                          onClick={() => handleDelete("tpos", tpo._id)}
+                          className="text-red-600 hover:underline"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </>
+                  )}
+                />
+              </div>
+            )
           )}
 
 {activeTab === "admins" && (
-  <div>
-    <div className="mb-6 flex justify-between items-center">
-      <h2 className="text-2xl font-bold text-gray-900">Admin Management</h2>
-      {adminData?.permissions?.adminControls?.add && (
-        <button 
-          onClick={() => navigate('/add-admin')}
-          className="bg-purple-700 hover:bg-purple-800 text-white py-2 px-5 rounded-md shadow-md font-semibold transition"
-        >
-          Add Admin
-        </button>
-      )}
-    </div>
-
-    {/* Advanced Filters */}
-    <div className="mb-6 bg-gray-50 p-4 rounded-lg border">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Search Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-          <input
-            type="search"
-            placeholder="Search by email or role"
-            className="border border-gray-300 rounded px-3 py-2 w-full"
-            value={adminSearch}
-            onChange={(e) => setAdminSearch(e.target.value)}
-          />
-        </div>
-
-        {/* Role Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-          <select
-            value={adminRoleFilter}
-            onChange={(e) => setAdminRoleFilter(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 w-full"
-          >
-            <option value="">All Roles</option>
-            <option value="super_admin">Super Admin</option>
-            <option value="admin_level_1">Admin Level 1</option>
-            <option value="admin_level_2">Admin Level 2</option>
-            <option value="admin_level_3">Admin Level 3</option>
-          </select>
-        </div>
-
-        {/* Status Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-          <select
-            value={adminStatusFilter}
-            onChange={(e) => setAdminStatusFilter(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 w-full"
-          >
-            <option value="">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </div>
-
-        {/* Permission Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Permissions</label>
-          <select
-            value={adminPermissionFilter}
-            onChange={(e) => setAdminPermissionFilter(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-2 w-full"
-          >
-            <option value="">All Permissions</option>
-            <option value="can_add_admin">Can Add Admin</option>
-            <option value="can_edit_admin">Can Edit Admin</option>
-            <option value="can_delete_admin">Can Delete Admin</option>
-            <option value="can_add_trainer">Can Add Trainer</option>
-            <option value="can_edit_trainer">Can Edit Trainer</option>
-            <option value="can_delete_trainer">Can Delete Trainer</option>
-            <option value="can_add_tpo">Can Add TPO</option>
-            <option value="can_edit_tpo">Can Edit TPO</option>
-            <option value="can_delete_tpo">Can Delete TPO</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Sort and View Options */}
-      <div className="flex flex-wrap items-center justify-between mt-4 gap-4">
-        <div className="flex items-center space-x-4">
-          {/* Sort By */}
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-700">Sort by:</label>
-            <select
-              value={adminSortBy}
-              onChange={(e) => setAdminSortBy(e.target.value)}
-              className="border border-gray-300 rounded px-2 py-1 text-sm"
-            >
-              <option value="email">Email</option>
-              <option value="role">Role</option>
-              <option value="status">Status</option>
-              <option value="createdAt">Created Date</option>
-              <option value="lastLogin">Last Login</option>
-            </select>
-          </div>
-
-          {/* Sort Order */}
-          <button
-            onClick={() => setAdminSortOrder(adminSortOrder === 'asc' ? 'desc' : 'asc')}
-            className="flex items-center space-x-1 px-2 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50"
-          >
-            <span>{adminSortOrder === 'asc' ? '↑' : '↓'}</span>
-            <span>{adminSortOrder === 'asc' ? 'Ascending' : 'Descending'}</span>
-          </button>
-
-          {/* Clear Filters */}
-          <button
-            onClick={clearAdminFilters}
-            className="px-3 py-1 text-sm text-red-600 hover:text-red-800 hover:underline"
-          >
-            Clear All Filters
-          </button>
-        </div>
-
-        {/* Results Count */}
-        <div className="text-sm text-gray-600">
-          Showing {filteredAndSortedAdmins.length} of {admins.length} admins
-        </div>
-      </div>
-    </div>
-
-    {/* Admin Cards Grid */}
-    <div className="grid gap-6">
-      {filteredAndSortedAdmins.length === 0 ? (
-        <div className="text-center text-gray-600 py-8">
-          <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-lg font-medium">No admins found</p>
-          <p className="text-sm">Try adjusting your filters or search criteria</p>
-        </div>
-      ) : (
-        filteredAndSortedAdmins.map((admin) => (
-          <div key={admin._id} className="bg-white border rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
-            {/* Admin Header */}
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex-1">
-                <div className="flex items-center space-x-3 mb-2">
-                  <h3 className="text-lg font-semibold text-gray-900">{admin.email}</h3>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    admin.status === 'active' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {admin.status}
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
-                  <p className="capitalize">
-                    <strong>Role:</strong> {admin.role.replace(/_/g, " ")}
-                  </p>
-                  <p>
-                    <strong>Created:</strong> {new Date(admin.createdAt).toLocaleDateString()}
-                  </p>
-                  {admin.lastLogin && (
-                    <p>
-                      <strong>Last Login:</strong> {new Date(admin.lastLogin).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="flex flex-col space-y-2">
-                {adminData?.permissions?.adminControls?.edit && (
-                  <button 
-                    className="text-indigo-600 hover:text-indigo-800 hover:underline text-sm font-medium" 
-                    onClick={() => handleEditAdmin(admin)}
-                  >
-                    ✏️ Edit
-                  </button>
-                )}
-                {adminData?.permissions?.adminControls?.delete && admin._id !== adminData?._id && (
-                  <button 
-                    className="text-red-600 hover:text-red-800 hover:underline text-sm font-medium" 
-                    onClick={() => handleDeleteAdmin(admin._id)}
-                  >
-                    🗑️ Delete
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Permissions Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Admin Controls */}
-              <PermissionGroup 
-                title="Admin Controls" 
-                permissions={admin.permissions.adminControls} 
-                color="purple" 
-              />
-              
-              {/* TPO Controls */}
-              <PermissionGroup 
-                title="TPO Controls" 
-                permissions={admin.permissions.tpoControls} 
-                color="blue" 
-              />
-              
-              {/* Trainer Controls */}
-              <PermissionGroup 
-                title="Trainer Controls" 
-                permissions={admin.permissions.trainerControls} 
-                color="green" 
-              />
-            </div>
-
-            {/* View Activity Permission */}
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-gray-700">Additional Permissions</h4>
-                <Badge 
-                  label="Can View Activity" 
-                  enabled={admin.permissions.canViewActivity} 
-                  color="gray" 
-                />
-              </div>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  </div>
+  adminsLoading ? (
+    <LoadingSkeleton />
+  ) : (
+    <AdminsTab
+      adminData={adminData}
+      adminSearch={adminSearch}
+      setAdminSearch={setAdminSearch}
+      adminRoleFilter={adminRoleFilter}
+      setAdminRoleFilter={setAdminRoleFilter}
+      adminStatusFilter={adminStatusFilter}
+      setAdminStatusFilter={setAdminStatusFilter}
+      adminPermissionFilter={adminPermissionFilter}
+      setAdminPermissionFilter={setAdminPermissionFilter}
+      adminSortBy={adminSortBy}
+      setAdminSortBy={setAdminSortBy}
+      adminSortOrder={adminSortOrder}
+      setAdminSortOrder={setAdminSortOrder}
+      clearAdminFilters={clearAdminFilters}
+      filteredAndSortedAdmins={filteredAndSortedAdmins}
+      admins={admins}
+      handleEditAdmin={handleEditAdmin}
+      handleDeleteAdmin={handleDeleteAdmin}
+      navigate={navigate}
+    />
+  )
 )}
 
 
-
-
-
-
           {activeTab === "crt-batches" && (
-            <div>
+            <div className="mb-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <h3 className="text-lg font-semibold text-gray-900 ">CRT Batches Management</h3>
+                </div>
+
+                <div className="flex items-center gap-2 p-4">
+                  <button
+                    onClick={() => navigate('/crt-management')}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white shadow-md focus:outline-none flex-shrink-0"
+                    aria-label="Add CRT Batch"
+                    title="Add CRT Batch"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
               <CRTBatchSection />
             </div>
           )}
@@ -1174,6 +973,11 @@ const handleDelete = async (entityType, id) => {
               />
             </div>
           )}
+
+          {/* Mobile bottom navigation (visible on small screens only) */}
+          <div className="sm:hidden">
+            <BottomNav tabs={tabs} active={activeTab} onChange={handleTabChange} />
+          </div>
         </div>
       </main>
 
@@ -1190,12 +994,90 @@ const handleDelete = async (entityType, id) => {
 
 // New Component: Metric Card
 const MetricCard = ({ icon, title, value, bgColor, isPercentage }) => (
-  <div className={`${bgColor} rounded-lg p-4 border border-gray-200`}>
+  <div className={`rounded-xl p-4 border border-gray-100 bg-gradient-to-br from-indigo-50 to-white shadow-sm`}> 
     <div className="flex items-center justify-between mb-2">{icon}</div>
     <p className="text-2xl font-bold text-gray-900">{value}</p>
     <p className="text-sm text-gray-600 mt-1">{title}</p>
   </div>
 );
+
+// Mobile Bottom Navigation (rounded compact floating pill with expand)
+const BottomNav = ({ tabs = [], active, onChange = () => {} }) => {
+  const [expanded, setExpanded] = useState(false);
+  const primary = tabs.slice(0, 4);
+  const more = tabs.slice(4);
+
+  return (
+    <nav
+      className={`fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 rounded-t-2xl shadow-lg z-40 overflow-hidden transition-all duration-300 ease-out`}
+      style={{ height: expanded ? '20vh' : '72px' }}
+    >
+      <div className={`max-w-3xl mx-auto px-4 h-full flex flex-col`}> 
+        {/* Top row of icons - vertically centered */}
+        <div className="w-full flex items-center justify-around h-16">
+          {primary.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = active === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onChange(tab.id)}
+                aria-label={tab.label}
+                className={`flex flex-col items-center justify-center w-9 h-9 rounded-lg transition-colors transform-gpu ${isActive ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-800'}`}>
+                <Icon className={`h-5 w-5 antialiased ${isActive ? 'text-indigo-600' : ''}`} style={{transform: 'translateZ(0)', backfaceVisibility: 'hidden', willChange: 'transform'}} />
+                <span className={`mt-1 block h-1 w-1 rounded-full ${isActive ? 'bg-indigo-600' : 'bg-transparent'}`} />
+              </button>
+            );
+          })}
+
+          {/* Chevron toggle */}
+          <button
+            onClick={() => setExpanded((s) => !s)}
+            aria-label={expanded ? 'Collapse' : 'Expand'}
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-transparent border border-gray-200 text-gray-600 transition-colors transform-gpu hover:text-gray-800 z-50"
+          >
+            <ChevronUp
+              className="h-5 w-5 transition-transform"
+              style={{
+                transform: expanded ? 'translateZ(0) rotate(180deg)' : 'translateZ(0)',
+                backfaceVisibility: 'hidden',
+                willChange: 'transform',
+                transformOrigin: 'center'
+              }}
+            />
+            {/* placeholder dot to match visual height of other buttons */}
+            <span className="mt-1 block h-1 w-1 rounded-full bg-transparent" />
+          </button>
+        </div>
+
+        <div
+          className={`mt-2 w-full transition-all ${expanded ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}
+          style={{
+            maxHeight: expanded ? 'calc(33vh - 88px)' : 0,
+            overflowY: expanded ? 'auto' : 'hidden'
+          }}
+        >
+          <div className="w-full flex items-center justify-around">
+            {more.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = active === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => onChange(tab.id)}
+                  aria-label={tab.label}
+                  className={`flex flex-col items-center justify-center w-8 h-8 rounded-lg transition-colors transform-gpu ${isActive ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-800'}`}>
+                  <Icon className={`h-5 w-5 antialiased ${isActive ? 'text-indigo-600' : ''}`} style={{transform: 'translateZ(0)', backfaceVisibility: 'hidden', willChange: 'transform'}} />
+                  <span className={`mt-1 block h-1 w-1 rounded-full ${isActive ? 'bg-indigo-600' : 'bg-transparent'}`} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+};
 
 // New Component: Distribution Bar
 const DistributionBar = ({ label, value, total, color }) => {
@@ -1244,103 +1126,125 @@ const SectionTable = ({
   onSearchChange,
   actions,
 }) => {
-  if (loading) return <LoadingSpinner />;
+  const [expandedId, setExpandedId] = useState(null);
+
+  // Use the unified LoadingSkeleton for all table and card loading states
+  if (loading) return <LoadingSkeleton />;
 
   const getNestedValue = (obj, key) =>
     key.split(".").reduce((o, k) => (o ? o[k] : undefined), obj);
 
   return (
-    <section className="max-w-full overflow-x-auto">
+    <section className="max-w-full">
       <h2 className="text-xl font-semibold mb-4">{title}</h2>
-      <input
-        type="search"
-        className="border border-gray-300 rounded px-3 py-2 mb-4 max-w-sm w-full"
-        placeholder="Search..."
-        value={searchValue}
-        onChange={(e) => onSearchChange(e.target.value)}
-      />
+
       {data.length === 0 ? (
         <p className="text-center text-gray-600">No records found.</p>
       ) : (
-        <table className="min-w-full border-collapse border border-gray-200">
-          <thead>
-            <tr className="bg-gray-100">
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-700"
-                >
-                  {col.label}
-                </th>
-              ))}
-              {actions && (
-                <th className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-700">
-                  Actions
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((item) => (
-              <tr key={item._id || item.email} className="hover:bg-gray-50">
-                {columns.map((col) => {
-                  let val = getNestedValue(item, col.key);
-                  if (col.type === "boolean") val = val ? "✔️" : "❌";
-                  else if (col.key === "lastLogin" && val)
-                    val = new Date(val).toLocaleString();
-                  else if (val === undefined || val === null) val = "-";
-                  return (
-                    <td
+        <>
+          {/* Desktop table */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="min-w-full border-collapse border border-gray-200">
+              <thead>
+                <tr className="bg-gray-100">
+                  {columns.map((col) => (
+                    <th
                       key={col.key}
-                      className="border border-gray-300 px-4 py-2"
+                      className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-700"
                     >
-                      {val}
-                    </td>
-                  );
-                })}
-                {actions && (
-                  <td className="border border-gray-300 px-4 py-2">
-                    {actions(item)}
-                  </td>
+                      {col.label}
+                    </th>
+                  ))}
+                  {actions && (
+                    <th className="border border-gray-300 px-4 py-2 text-left font-semibold text-gray-700">
+                      Actions
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((item) => (
+                  <tr key={item._id || item.email} className="hover:bg-gray-50">
+                    {columns.map((col) => {
+                      let val = getNestedValue(item, col.key);
+                      if (col.type === "boolean") val = val ? "✔️" : "❌";
+                      else if (col.key === "lastLogin" && val)
+                        val = new Date(val).toLocaleString();
+                      else if (val === undefined || val === null) val = "-";
+                      return (
+                        <td
+                          key={col.key}
+                          className="border border-gray-300 px-4 py-2"
+                        >
+                          {val}
+                        </td>
+                      );
+                    })}
+                    {actions && (
+                      <td className="border border-gray-300 px-4 py-2">
+                        {actions(item)}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile stacked cards with collapsible details */}
+          <div className="sm:hidden space-y-4">
+            {data.map((item) => (
+              <article key={item._id || item.email} className="w-full overflow-hidden box-border bg-white border rounded-lg p-2 shadow-sm">                <div className="flex items-center justify-between w-full">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-gray-900 truncate">{getNestedValue(item, columns[0].key) ?? (item.name || item.email)}</h3>
+                    <div className="mt-2 flex items-center gap-3 text-xs">
+                      {(getNestedValue(item, 'status') || item.status) && (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${(getNestedValue(item, 'status') || item.status) === 'active' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>{(getNestedValue(item, 'status') || item.status)}</span>
+                      )}
+
+                      <div className="flex items-center space-x-2 ml-2 text-gray-600 text-xs flex-shrink-0">
+                        {actions && actions(item)}
+                      </div>
+
+                      <div className="ml-auto">
+                        <button
+                          onClick={() => setExpandedId(expandedId === (item._id || item.email) ? null : (item._id || item.email))}
+                          aria-expanded={expandedId === (item._id || item.email)}
+                          className="p-1 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                          title="Toggle details"
+                        >
+                          {expandedId === (item._id || item.email) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {expandedId === (item._id || item.email) && (
+                  <div className="mt-3 border-t pt-3 grid grid-cols-1 gap-2 text-xs text-gray-700">
+                    {columns.slice(1).map((col) => {
+                      const raw = getNestedValue(item, col.key);
+                      let display = raw === undefined || raw === null ? '-' : raw;
+                      if (col.key === 'lastLogin' && raw) display = new Date(raw).toLocaleString();
+                      return (
+                        <div key={col.key} className="truncate">
+                          <div className="text-[10px] text-gray-500 uppercase mb-0">{col.label}</div>
+                          <div className="text-sm text-gray-800">{String(display)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
-              </tr>
+              </article>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </>
       )}
     </section>
   );
 };
 
 
-// Permissions Group Component
-const PermissionGroup = ({ title, permissions, color }) => (
-  <div>
-    <h4 className={`mb-2 font-semibold text-${color}-600`}>{title}</h4>
-    <div className="flex flex-wrap gap-2">
-      {["add", "edit", "delete", "suspend"].map((perm) => (
-        permissions && permissions.hasOwnProperty(perm) ? (
-          <Badge key={perm} label={perm.charAt(0).toUpperCase() + perm.slice(1)} enabled={permissions[perm]} color={color} />
-        ) : null
-      ))}
-    </div>
-  </div>
-);
 
-// Badge Component
-const Badge = ({ label, enabled, color }) => {
-  const baseColor = {
-    purple: "purple",
-    blue: "blue",
-    green: "green",
-    gray: "gray",
-  }[color] || "gray";
-
-  return (
-    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold select-none bg-${baseColor}-100 text-${baseColor}-800`}>
-      {enabled ? "✔️" : "✖️"} {label}
-    </span>
-  );
-};
 
 export default AdminDashboard;

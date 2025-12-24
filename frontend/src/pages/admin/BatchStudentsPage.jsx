@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getBatchStudents, updateStudent, deleteStudent } from '../../services/adminService';
-import { ArrowLeft, Pencil, Trash2, Search, Filter, ChevronUp, ChevronDown, AlertCircle, X } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, Search, ChevronUp, ChevronDown, AlertCircle, X } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
 const BatchStudentsPage = () => {
   const { batchId } = useParams();
@@ -25,6 +26,18 @@ const BatchStudentsPage = () => {
     yearOfPassing: '',
     college: ''
   });
+  const [expandedId, setExpandedId] = useState(null);
+
+  // Compute batch status (mobile-friendly summary)
+  const getBatchStatus = (batch) => {
+    if (!batch) return 'Unknown';
+    const now = new Date();
+    const start = batch.startDate ? new Date(batch.startDate) : null;
+    const end = batch.endDate ? new Date(batch.endDate) : null;
+    if (start && now < start) return 'Not Yet Started';
+    if (end && now > end) return 'Completed';
+    return 'Ongoing';
+  };
 
   useEffect(() => {
     fetchBatchStudents();
@@ -135,8 +148,23 @@ const BatchStudentsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white rounded-lg p-4 shadow">
+            <Skeleton className="h-8 w-1/4 mb-4" />
+            <div className="space-y-3">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="grid grid-cols-6 gap-4 items-center">
+                  <Skeleton className="h-6 col-span-2" />
+                  <Skeleton className="h-6 col-span-1" />
+                  <Skeleton className="h-6 col-span-1" />
+                  <Skeleton className="h-6 col-span-1" />
+                  <Skeleton className="h-6 col-span-1" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -157,94 +185,90 @@ const BatchStudentsPage = () => {
           },
         }}
       />
-      {/* Header Section */}
-      <div className="flex items-center mb-6">
-        <button
-          onClick={() => navigate('/admin/batches')}
-          className="mr-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-            Batch {batchDetails?.batchNumber} Students
-          </h1>
-          <p className="text-gray-600 mt-1 text-sm sm:text-base">
-            Colleges: {batchDetails?.colleges.join(', ')} • Total Students: {filteredStudents.length}
-            {searchQuery && ` (${filteredStudents.length} of ${students.length} shown)`}
-          </p>
-        </div>
-      </div>
+      {/* Header Section - compact, mobile-first */}
+      <div className="mb-6">
+        <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-gray-900 truncate">Batch {batchDetails?.batchNumber}</h1>
+              <div className="mt-1 text-xs text-gray-600 flex flex-wrap gap-3 items-center">
+                <span className="truncate"><strong>TPO:</strong> {batchDetails?.tpoId?.name || 'Not assigned'}</span>
+                <span>•</span>
+                <span className="truncate"><strong>Status:</strong> {getBatchStatus(batchDetails)}</span>
+                <span>•</span>
+                <span className="truncate"><strong>Students:</strong> {filteredStudents.length}</span>
+                <select
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  className="ml-2 px-2 py-1 text-xs border rounded-md bg-white"
+                >
+                  <option value="all">All</option>
+                  <option value="name">Name</option>
+                  <option value="email">Email</option>
+                  <option value="branch">Branch</option>
+                  <option value="rollNo">Roll Number</option>
+                </select>
 
-      {/* Search Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-          {/* Search Input - Fixed Focus Styles */}
-          <div className="relative flex-1 max-w-md">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
+                {/* Inline desktop search (appears next to filter on sm+) */}
+                <div className="hidden sm:inline-flex items-center ml-3">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                      <Search className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search students..."
+                      className="pl-8 pr-8 py-1 text-sm border rounded-md"
+                    />
+                    {searchQuery && (
+                      <button onClick={clearSearch} className="absolute inset-y-0 right-0 pr-1 flex items-center">
+                        <X className="h-4 w-4 text-gray-400" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search students..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all duration-200"
-            />
-            {searchQuery && (
+
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
-                onClick={clearSearch}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                onClick={() => navigate(-1)}
+                className="px-2 py-1 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+                title="Go back"
               >
-                <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                Back
               </button>
-            )}
+            </div>
           </div>
 
-          {/* Search Filter Dropdown - Fixed Focus Styles */}
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-gray-500" />
-            <select
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all duration-200 text-sm"
-            >
-              <option value="all">Search All Fields</option>
-              <option value="name">Name Only</option>
-              <option value="email">Email Only</option>
-              <option value="branch">Branch Only</option>
-              <option value="rollNo">Roll Number Only</option>
-            </select>
+          {/* Mobile small search under header */}
+          <div className="sm:hidden mt-3">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search students..."
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+              {searchQuery && (
+                <button onClick={clearSearch} className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                  <X className="h-4 w-4 text-gray-400" />
+                </button>
+              )}
+            </div>
           </div>
-
-          {/* Clear Search Button */}
-          {searchQuery && (
-            <button
-              onClick={clearSearch}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              Clear Search
-            </button>
-          )}
         </div>
-
-        {/* Search Results Info */}
-        {searchQuery && (
-          <div className="mt-3 text-sm text-gray-600">
-            {filteredStudents.length > 0 ? (
-              <span>
-                Found <strong>{filteredStudents.length}</strong> student{filteredStudents.length !== 1 ? 's' : ''} 
-                {searchFilter !== 'all' ? ` in ${searchFilter}` : ''} matching "<strong>{searchQuery}</strong>"
-              </span>
-            ) : (
-              <span className="text-orange-600">
-                No students found matching "<strong>{searchQuery}</strong>"
-                {searchFilter !== 'all' ? ` in ${searchFilter}` : ''}
-              </span>
-            )}
-          </div>
-        )}
       </div>
+
+
+
+
 
       {/* Error Message */}
       {error && (
@@ -270,8 +294,8 @@ const BatchStudentsPage = () => {
         {/* Desktop View - Fixed Height with Scrollable Body */}
         <div className="hidden sm:block">
           {/* Fixed Header */}
-          <div className="bg-gray-50 px-6 py-3 border-b border-gray-200">
-            <div className="grid grid-cols-12 gap-100 text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+            <div className="grid grid-cols-12 gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
               <div className="col-span-3">Name</div>
               <div className="col-span-3">Email</div>
               <div className="col-span-2">Branch</div>
@@ -284,8 +308,8 @@ const BatchStudentsPage = () => {
           <div className="max-h-[450px] overflow-y-auto">
             {filteredStudents.length > 0 ? (
               filteredStudents.map((student) => (
-                <div key={student._id} className="px-6 py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                  <div className="grid grid-cols-12 gap-4 items-center">
+                <div key={student._id} className="px-4 py-2 border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <div className="grid grid-cols-12 gap-4 items-center text-sm">
                     {/* Name Column */}
                     <div className="col-span-3">
                       <div className="text-sm font-medium text-gray-900">
@@ -355,96 +379,56 @@ const BatchStudentsPage = () => {
           </div>
         </div>
 
-        {/* Mobile View - Horizontal Scroll Table */}
-        <div className="block sm:hidden overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200" style={{minWidth: '700px'}}>
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                  Name
-                </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                  Email
-                </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                  Branch
-                </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                  Roll Number
-                </th>
-                <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredStudents.length > 0 ? (
-                filteredStudents.map((student) => (
-                  <tr key={student._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {student.name}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {student.email}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {student.branch}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">
-                        {student.rollNo}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm">
-                      <div className="flex space-x-2">
-                        <button 
-                          onClick={() => handleEdit(student)}
-                          className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded transition-colors"
-                          disabled={loading}
-                          title="Edit Student"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(student)}
-                          className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded transition-colors"
-                          disabled={loading}
-                          title="Delete Student"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="5" className="px-4 py-12 text-center">
-                    <div className="text-gray-500">
-                      {searchQuery ? (
-                        <div>
-                          <Search className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                          <h3 className="text-sm font-medium text-gray-900 mb-1">No students found</h3>
-                          <p className="text-sm text-gray-500">Try adjusting your search terms or filters</p>
-                        </div>
-                      ) : (
-                        <div>
-                          <h3 className="text-sm font-medium text-gray-900 mb-1">No students in this batch</h3>
-                          <p className="text-sm text-gray-500">Students will appear here once added</p>
-                        </div>
-                      )}
+        {/* Mobile stacked cards - compact, mobile-first */}
+        <div className="sm:hidden space-y-3">
+          {filteredStudents.length > 0 ? (
+            filteredStudents.map((student) => (
+              <article key={student._id} className="w-full overflow-hidden box-border bg-white border rounded-lg p-3 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-gray-900 truncate">{student.name}</h4>
+                    <p className="text-xs text-gray-500 mt-1 truncate">{student.email}</p>
+                    <div className="mt-2 text-xs text-gray-600 flex flex-wrap gap-3">
+                      <span className="truncate">{student.branch || '-'}</span>
+                      <span>•</span>
+                      <span className="truncate">Roll: {student.rollNo || '-'}</span>
                     </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                  </div>
+
+                  <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                    <button onClick={() => handleEdit(student)} className="p-1 rounded text-blue-600" title="Edit"><Pencil size={16} /></button>
+                    <button onClick={() => handleDelete(student)} className="p-1 rounded text-red-600" title="Delete"><Trash2 size={16} /></button>
+                    <button onClick={() => setExpandedId(expandedId === student._id ? null : student._id)} className="p-1 rounded border text-gray-600" title="Toggle details"><ChevronDown size={16} /></button>
+                  </div>
+                </div>
+
+                {expandedId === student._id && (
+                  <div className="mt-3 text-xs text-gray-700 space-y-1">
+                    <div><strong>College:</strong> {student.college || '-'}</div>
+                    <div><strong>Year:</strong> {student.yearOfPassing || '-'}</div>
+                    <div><strong>Email:</strong> {student.email}</div>
+                  </div>
+                )}
+              </article>
+            ))
+          ) : (
+            <div className="px-4 py-12 text-center">
+              <div className="text-gray-500">
+                {searchQuery ? (
+                  <div>
+                    <Search className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                    <h3 className="text-sm font-medium text-gray-900 mb-1">No students found</h3>
+                    <p className="text-sm text-gray-500">Try adjusting your search terms or filters</p>
+                  </div>
+                ) : (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900 mb-1">No students in this batch</h3>
+                    <p className="text-sm text-gray-500">Students will appear here once added</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -460,7 +444,7 @@ const BatchStudentsPage = () => {
                   type="text"
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
               <div>
@@ -469,7 +453,7 @@ const BatchStudentsPage = () => {
                   type="text"
                   value={editForm.rollNo}
                   onChange={(e) => setEditForm({ ...editForm, rollNo: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
               <div>
@@ -478,7 +462,7 @@ const BatchStudentsPage = () => {
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
               <div>
@@ -486,7 +470,7 @@ const BatchStudentsPage = () => {
                 <select
                   value={editForm.branch}
                   onChange={(e) => setEditForm({ ...editForm, branch: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
                   {['AID', 'CSM', 'CAI', 'CSC', 'CSD'].map(branch => (
                     <option key={branch} value={branch}>{branch}</option>
@@ -499,7 +483,7 @@ const BatchStudentsPage = () => {
                   type="text"
                   value={editForm.yearOfPassing}
                   onChange={(e) => setEditForm({ ...editForm, yearOfPassing: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 />
               </div>
               <div>
@@ -507,7 +491,7 @@ const BatchStudentsPage = () => {
                 <select
                   value={editForm.college}
                   onChange={(e) => setEditForm({ ...editForm, college: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
                   {['KIET', 'KIEK', 'KIEW'].map(college => (
                     <option key={college} value={college}>{college}</option>
@@ -524,7 +508,7 @@ const BatchStudentsPage = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-200"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-200"
                 >
                   Save Changes
                 </button>

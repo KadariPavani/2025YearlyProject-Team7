@@ -13,6 +13,8 @@ import {
   UserPlus,
   ArrowLeft
 } from 'lucide-react';
+import Header from '../../components/common/Header';
+import Footer from '../../components/common/Footer';
 import ToastNotification from '../../components/ui/ToastNotification';
 
 const AddTrainerPage = () => {
@@ -72,59 +74,31 @@ const AddTrainerPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      {/* Mobile Header - Fixed at top for mobile */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 px-4 py-4 shadow-lg bg-blue-100">
-        <div className="flex items-center justify-between mb-3">
-          <button
-            onClick={() => navigate('/admin-dashboard')}
-            className="flex items-center text-blue-900 hover:text-blue-700 transition-colors"
-          >
-            <ArrowLeft className="h-6 w-6 mr-2 text-blue-900" />
-            <span className="font-medium">Back</span>
-          </button>
-        </div>
-        <div className="flex items-center justify-center">
-          <div className="bg-white/30 backdrop-blur-sm rounded-full p-3 mr-4">
-            <GraduationCap
-              size={32}
-              className="text-blue-900"
-              strokeWidth={1.5}
-            />
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <Header
+        title="Add Trainer"
+        subtitle="Create trainer profile"
+        showTitleInHeader={false}
+        icon={GraduationCap}
+        profileRoute="/admin-profile"
+        changePasswordRoute="/admin-change-password"
+        onIconClick={() => navigate('/admin-dashboard')}
+      />
+      <main className="flex-1 max-w-7xl mx-auto px-4 py-8 pt-24 w-full">
+
+
+      {/* Form Container - centered form only */}
+      <div className="flex-1 w-full flex items-center justify-center p-1 md:p-8">
+        <div className="w-full max-w-2xl mx-auto h-full md:h-auto">
+          <div className="mb-4">
+            <h1 className="text-base md:text-xl font-semibold text-gray-900">Add Trainer</h1>
+            <p className="text-sm text-gray-600 mt-1">Create trainer profile</p>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-blue-900">Add New Trainer</h1>
-            <p className="text-blue-700 text-sm">Create trainer profile</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Spacer - Pushes content below fixed header */}
-      <div className="md:hidden h-32"></div>
-
-      {/* Left side with icon - Only visible on desktop */}
-      <div className="hidden md:flex md:w-1/3 flex-col items-center justify-center p-12 shadow-lg rounded-r-3xl bg-blue-100">
-        <GraduationCap
-          size={120}
-          className="text-blue-900"
-          strokeWidth={1.5}
-        />
-        <h2 className="mt-6 text-2xl font-bold text-blue-900 text-center">
-          Add Trainer
-        </h2>
-        <p className="mt-2 text-center text-blue-800 max-w-xs">
-          Fill in the details below to create a new trainer account.
-        </p>
-      </div>
-
-      {/* Form Container - Scrollable area for mobile */}
-      <div className="flex-1 md:w-2/3 flex items-center justify-center md:p-8">
-        <div className="w-full max-w-3xl mx-auto h-full md:h-auto">
-          {/* Mobile scrollable container */}
-          <div className="md:hidden h-screen overflow-y-auto px-4 pb-6" style={{ height: 'calc(100vh - 8rem)' }}>
+          {/* Mobile container - compact, 2 fields per row */}
+          <div className="md:hidden px-1 pb-4">
             <form
               onSubmit={handleSubmit}
-              className="bg-white rounded-xl shadow-lg p-6 w-full"
+              className="bg-white rounded-xl shadow-sm px-2 py-2 w-full"
             >
               {toast && (
                 <ToastNotification
@@ -134,20 +108,14 @@ const AddTrainerPage = () => {
                 />
               )}
 
-              {/* Mobile Form Title */}
-              <div className="mb-8 text-center">
-                <h2 className="text-xl font-bold text-blue-900 mb-2">Trainer Details</h2>
-                <div className="w-16 h-1 bg-gradient-to-r from-blue-400 to-indigo-600 mx-auto rounded-full"></div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-2 gap-2">
                 {/* Full Name */}
                 <div className="flex flex-col">
-                  <label htmlFor="name" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
-                      <User className="h-4 w-4 text-blue-600" />
+                  <label htmlFor="name" className="flex items-center text-xs font-medium text-blue-800 mb-1">
+                    <div className="flex items-center justify-center w-7 h-7 bg-blue-50 rounded-full mr-2">
+                      <User className="h-3 w-3 text-blue-600" />
                     </div>
-                    <span>Full Name</span>
+                    <span className="text-xs">Full Name</span>
                     <span className="text-red-500 ml-1">*</span>
                   </label>
                   <input
@@ -158,17 +126,17 @@ const AddTrainerPage = () => {
                     placeholder="Enter full name"
                     value={trainerData.name}
                     onChange={handleChange}
-                    className="border border-blue-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
+                    className="border border-blue-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
                   />
                 </div>
 
                 {/* Email */}
                 <div className="flex flex-col">
-                  <label htmlFor="email" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
-                      <Mail className="h-4 w-4 text-blue-600" />
+                  <label htmlFor="email" className="flex items-center text-xs font-medium text-blue-800 mb-1">
+                    <div className="flex items-center justify-center w-7 h-7 bg-blue-50 rounded-full mr-2">
+                      <Mail className="h-3 w-3 text-blue-600" />
                     </div>
-                    <span>Email Address</span>
+                    <span className="text-xs">Email Address</span>
                     <span className="text-red-500 ml-1">*</span>
                   </label>
                   <input
@@ -179,17 +147,17 @@ const AddTrainerPage = () => {
                     placeholder="Enter email address"
                     value={trainerData.email}
                     onChange={handleChange}
-                    className="border border-blue-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
+                    className="border border-blue-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
                   />
                 </div>
 
                 {/* Phone */}
                 <div className="flex flex-col">
-                  <label htmlFor="phone" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
-                      <Phone className="h-4 w-4 text-blue-600" />
+                  <label htmlFor="phone" className="flex items-center text-xs font-medium text-blue-800 mb-1">
+                    <div className="flex items-center justify-center w-7 h-7 bg-blue-50 rounded-full mr-2">
+                      <Phone className="h-3 w-3 text-blue-600" />
                     </div>
-                    <span>Phone Number</span>
+                    <span className="text-xs">Phone Number</span>
                     <span className="text-red-500 ml-1">*</span>
                   </label>
                   <input
@@ -201,17 +169,17 @@ const AddTrainerPage = () => {
                     placeholder="10-digit phone"
                     value={trainerData.phone}
                     onChange={handleChange}
-                    className="border border-blue-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
+                    className="border border-blue-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
                   />
                 </div>
 
                 {/* Employee ID */}
                 <div className="flex flex-col">
-                  <label htmlFor="employeeId" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
-                      <BadgePercent className="h-4 w-4 text-blue-600" />
+                  <label htmlFor="employeeId" className="flex items-center text-xs font-medium text-blue-800 mb-1">
+                    <div className="flex items-center justify-center w-7 h-7 bg-blue-50 rounded-full mr-2">
+                      <BadgePercent className="h-3 w-3 text-blue-600" />
                     </div>
-                    <span>Employee ID</span>
+                    <span className="text-xs">Employee ID</span>
                     <span className="text-red-500 ml-1">*</span>
                   </label>
                   <input
@@ -222,17 +190,17 @@ const AddTrainerPage = () => {
                     placeholder="Enter employee ID"
                     value={trainerData.employeeId}
                     onChange={handleChange}
-                    className="border border-blue-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
+                    className="border border-blue-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
                   />
                 </div>
 
                 {/* Experience */}
                 <div className="flex flex-col">
-                  <label htmlFor="experience" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
-                      <Briefcase className="h-4 w-4 text-blue-600" />
+                  <label htmlFor="experience" className="flex items-center text-xs font-medium text-blue-800 mb-1">
+                    <div className="flex items-center justify-center w-7 h-7 bg-blue-50 rounded-full mr-2">
+                      <Briefcase className="h-3 w-3 text-blue-600" />
                     </div>
-                    <span>Experience (Years)</span>
+                    <span className="text-xs">Experience (Years)</span>
                   </label>
                   <input
                     id="experience"
@@ -242,17 +210,17 @@ const AddTrainerPage = () => {
                     placeholder="Years of experience"
                     value={trainerData.experience}
                     onChange={handleChange}
-                    className="border border-blue-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
+                    className="border border-blue-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
                   />
                 </div>
 
                 {/* LinkedIn */}
                 <div className="flex flex-col">
-                  <label htmlFor="linkedIn" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
-                      <Linkedin className="h-4 w-4 text-blue-600" />
+                  <label htmlFor="linkedIn" className="flex items-center text-xs font-medium text-blue-800 mb-1">
+                    <div className="flex items-center justify-center w-7 h-7 bg-blue-50 rounded-full mr-2">
+                      <Linkedin className="h-3 w-3 text-blue-600" />
                     </div>
-                    <span>LinkedIn Profile</span>
+                    <span className="text-xs">LinkedIn Profile</span>
                   </label>
                   <input
                     id="linkedIn"
@@ -261,17 +229,17 @@ const AddTrainerPage = () => {
                     placeholder="LinkedIn profile URL"
                     value={trainerData.linkedIn}
                     onChange={handleChange}
-                    className="border border-blue-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
+                    className="border border-blue-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
                   />
                 </div>
 
                 {/* Subject Specialization */}
                 <div className="flex flex-col">
-                  <label htmlFor="subjectDealing" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
-                      <Book className="h-4 w-4 text-blue-600" />
+                  <label htmlFor="subjectDealing" className="flex items-center text-xs font-medium text-blue-800 mb-1">
+                    <div className="flex items-center justify-center w-7 h-7 bg-blue-50 rounded-full mr-2">
+                      <Book className="h-3 w-3 text-blue-600" />
                     </div>
-                    <span>Subject Specialization</span>
+                    <span className="text-xs">Subject Specialization</span>
                     <span className="text-red-500 ml-1">*</span>
                   </label>
                   <input
@@ -282,17 +250,17 @@ const AddTrainerPage = () => {
                     placeholder="e.g. Python, Data Science"
                     value={trainerData.subjectDealing}
                     onChange={handleChange}
-                    className="border border-blue-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
+                    className="border border-blue-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all text-blue-900"
                   />
                 </div>
 
                 {/* Category */}
                 <div className="flex flex-col">
-                  <label htmlFor="category" className="flex items-center text-sm font-semibold text-blue-800 mb-2">
-                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 rounded-full mr-3">
-                      <Tag className="h-4 w-4 text-blue-600" />
+                  <label htmlFor="category" className="flex items-center text-xs font-medium text-blue-800 mb-1">
+                    <div className="flex items-center justify-center w-7 h-7 bg-blue-50 rounded-full mr-2">
+                      <Tag className="h-3 w-3 text-blue-600" />
                     </div>
-                    <span>Category</span>
+                    <span className="text-xs">Category</span>
                     <span className="text-red-500 ml-1">*</span>
                   </label>
                   <select
@@ -301,7 +269,7 @@ const AddTrainerPage = () => {
                     required
                     value={trainerData.category}
                     onChange={handleChange}
-                    className="border border-blue-200 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all bg-white text-blue-900"
+                    className="border border-blue-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all bg-white text-blue-900"
                   >
                     <option value="">Select trainer category</option>
                     <option value="technical">Technical</option>
@@ -311,13 +279,13 @@ const AddTrainerPage = () => {
               </div>
 
               {/* Submit Button */}
-              <div className="mt-8">
+              <div className="mt-3">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-4 bg-blue-600 text-white rounded-lg font-semibold w-full flex items-center gap-2 justify-center transition hover:bg-blue-700 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none disabled:opacity-70"
+                  className="px-2 py-1.5 bg-blue-600 text-white text-xs rounded-md font-medium w-full flex items-center gap-2 justify-center transition hover:bg-blue-700 disabled:opacity-70"
                 >
-                  <UserPlus className="h-5 w-5" />
+                  <UserPlus className="h-4 w-4" />
                   {loading ? 'Adding Trainer...' : 'Add Trainer'}
                 </button>
               </div>
@@ -327,7 +295,7 @@ const AddTrainerPage = () => {
           {/* Desktop form */}
           <form
             onSubmit={handleSubmit}
-            className="hidden md:block bg-white rounded-2xl shadow-2xl p-10 w-full"
+            className="hidden md:block bg-white rounded-2xl shadow-lg p-6 w-full"
           >
             {toast && (
               <ToastNotification
@@ -337,7 +305,7 @@ const AddTrainerPage = () => {
               />
             )}
 
-            <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Full Name */}
               <div className="flex flex-col">
                 <label htmlFor="name-desktop" className="flex items-center text-sm font-semibold text-blue-800 mb-1">
@@ -351,7 +319,7 @@ const AddTrainerPage = () => {
                   placeholder="Enter full name"
                   value={trainerData.name}
                   onChange={handleChange}
-                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
+                  className="border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
                 />
               </div>
               <div className="flex flex-col">
@@ -366,7 +334,7 @@ const AddTrainerPage = () => {
                   placeholder="Enter email address"
                   value={trainerData.email}
                   onChange={handleChange}
-                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
+                  className="border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
                 />
               </div>
               <div className="flex flex-col">
@@ -382,7 +350,7 @@ const AddTrainerPage = () => {
                   placeholder="10-digit phone"
                   value={trainerData.phone}
                   onChange={handleChange}
-                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
+                  className="border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
                 />
               </div>
               <div className="flex flex-col">
@@ -397,7 +365,7 @@ const AddTrainerPage = () => {
                   placeholder="Enter employee ID"
                   value={trainerData.employeeId}
                   onChange={handleChange}
-                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
+                  className="border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
                 />
               </div>
               <div className="flex flex-col">
@@ -412,7 +380,7 @@ const AddTrainerPage = () => {
                   placeholder="Years of experience"
                   value={trainerData.experience}
                   onChange={handleChange}
-                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
+                  className="border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
                 />
               </div>
               <div className="flex flex-col">
@@ -426,7 +394,7 @@ const AddTrainerPage = () => {
                   placeholder="LinkedIn profile URL"
                   value={trainerData.linkedIn}
                   onChange={handleChange}
-                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
+                  className="border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
                 />
               </div>
               <div className="flex flex-col col-span-2">
@@ -441,7 +409,7 @@ const AddTrainerPage = () => {
                   placeholder="e.g. Python, Data Science"
                   value={trainerData.subjectDealing}
                   onChange={handleChange}
-                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
+                  className="border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 text-blue-900"
                 />
               </div>
               <div className="flex flex-col col-span-2">
@@ -454,7 +422,7 @@ const AddTrainerPage = () => {
                   required
                   value={trainerData.category}
                   onChange={handleChange}
-                  className="border border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white text-blue-900"
+                  className="border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white text-blue-900"
                 >
                   <option value="">Select trainer category</option>
                   <option value="technical">Technical</option>
@@ -464,19 +432,19 @@ const AddTrainerPage = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-row justify-between mt-10 gap-4">
+            <div className="flex flex-row justify-between mt-6 gap-4">
               <button
                 type="button"
                 onClick={() => navigate('/admin-dashboard')}
                 disabled={loading}
-                className="px-7 py-3 bg-black text-white rounded-lg font-semibold w-1/2 transition hover:bg-gray-700"
+                className="px-4 py-2 text-sm bg-black text-white rounded-md font-semibold w-1/2 transition hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="px-7 py-3 bg-blue-600 text-white rounded-lg font-semibold w-1/2 flex items-center gap-2 justify-center transition hover:bg-blue-700"
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md font-semibold w-1/2 flex items-center gap-2 justify-center transition hover:bg-blue-700"
               >
                 <UserPlus className="h-5 w-5" />
                 {loading ? 'Adding...' : 'Add Trainer'}
@@ -485,7 +453,9 @@ const AddTrainerPage = () => {
           </form>
         </div>
       </div>
-    </div>
+      </main>
+      <Footer />
+    </div> 
   );
 };
 
