@@ -71,6 +71,7 @@ const TrainerStudentActivity = () => {
       'Coding Score': item.scores.totals.codingScore,
       'Coding Total': item.scores.totals.codingTotalMarks,
       'Coding %': item.scores.totals.codingPercentage,
+      'Mean %': item.scores.totals.meanPercentage,
       'Overall Score': item.scores.totals.overallScore,
       'Overall Total': item.scores.totals.overallTotalMarks,
       'Overall %': item.scores.totals.overallPercentage
@@ -168,7 +169,7 @@ const TrainerStudentActivity = () => {
                 <p className="text-sm text-green-600 font-medium">Class Average</p>
                 <p className="text-2xl font-bold text-green-900 mt-1">
                   {filteredData.length > 0
-                    ? (filteredData.reduce((sum, item) => sum + parseFloat(item.scores.totals.overallPercentage), 0) / filteredData.length).toFixed(2)
+                    ? (filteredData.reduce((sum, item) => sum + parseFloat(item.scores.totals.meanPercentage || 0), 0) / filteredData.length).toFixed(2)
                     : 0}%
                 </p>
               </div>
@@ -181,7 +182,7 @@ const TrainerStudentActivity = () => {
               <div>
                 <p className="text-sm text-yellow-600 font-medium">Top Scorer</p>
                 <p className="text-lg font-bold text-yellow-900 mt-1">
-                  {filteredData.length > 0 ? filteredData[0]?.student.name : 'N/A'}
+                  {filteredData.length > 0 ? [...filteredData].sort((a,b)=>parseFloat(b.scores.totals.meanPercentage||0)-parseFloat(a.scores.totals.meanPercentage||0))[0]?.student.name : 'N/A'}
                 </p>
               </div>
               <Award className="w-8 h-8 text-yellow-600" />
@@ -209,6 +210,7 @@ const TrainerStudentActivity = () => {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
                 <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase">Quiz %</th>
                 <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase">Assignment %</th>
+                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase">Coding %</th>
                 <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase">Overall %</th>
               </tr>
             </thead>
@@ -259,13 +261,24 @@ const TrainerStudentActivity = () => {
                       {item.scores.totals.assignmentPercentage}%
                     </span>
                   </td>
+
                   <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className={`px-3 py-1 text-sm font-bold rounded-full ${
-                      parseFloat(item.scores.totals.overallPercentage) >= 80 ? 'bg-green-100 text-green-800' :
-                      parseFloat(item.scores.totals.overallPercentage) >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      parseFloat(item.scores.totals.codingPercentage) >= 80 ? 'bg-green-100 text-green-800' :
+                      parseFloat(item.scores.totals.codingPercentage) >= 60 ? 'bg-yellow-100 text-yellow-800' :
                       'bg-red-100 text-red-800'
                     }`}>
-                      {item.scores.totals.overallPercentage}%
+                      {item.scores.totals.codingPercentage}%
+                    </span>
+                  </td>
+
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <span className={`px-3 py-1 text-sm font-bold rounded-full ${
+                      parseFloat(item.scores.totals.meanPercentage) >= 80 ? 'bg-green-100 text-green-800' :
+                      parseFloat(item.scores.totals.meanPercentage) >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {item.scores.totals.meanPercentage}%
                     </span>
                   </td>
                 </tr>

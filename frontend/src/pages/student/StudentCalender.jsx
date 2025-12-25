@@ -151,6 +151,22 @@ useEffect(() => {
 
   const days = getDaysInMonth(currentYear, currentMonth);
 
+  // Build fixed 6-row (42-cell) calendar grid for consistent square layout
+  const buildCalendarCells = (year, month) => {
+    const firstDay = new Date(year, month, 1);
+    const startDay = firstDay.getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells = [];
+
+    for (let i = 0; i < startDay; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+    while (cells.length < 42) cells.push(null);
+
+    return cells;
+  };
+
+  const calendarCells = buildCalendarCells(currentYear, currentMonth);
+
   const getEventsForDate = (date) => {
     const dateStr = date.toISOString().split("T")[0];
 // ✅ No need to filter by batch type here — backend already filters
@@ -270,59 +286,51 @@ const canRegisterForEvent = (eventStartDate) => {
       {loading ? (
         <p className="text-center text-gray-500">Loading events...</p>
       ) : (
-        <div className="grid grid-cols-7 gap-3">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-            <div key={day} className="text-center font-semibold text-gray-600">{day}</div>
-          ))}
+        <div className="w-full max-w-[520px] mx-auto">
+          <div className="grid grid-cols-7 gap-2 text-center font-semibold text-gray-600 mb-2">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div key={day} className="text-[10px] sm:text-xs">{day}</div>
+            ))}
+          </div>
 
-          {days.map((day) => {
-            const dateEvents = getEventsForDate(day);
-            const today = new Date();
-            const isPast = day < today && day.toDateString() !== today.toDateString();
+          <div className="aspect-square w-full grid grid-rows-6 grid-cols-7 gap-2">
+            {calendarCells.map((cellDate, idx) => {
+              if (!cellDate) return <div key={idx} className="bg-gray-50 border rounded-lg"></div>;
 
-            return (
-              <div
-                key={day}
-                onClick={() => {
-                  const dayEvents = getEventsForDate(day);
-                  setSelectedDate(day);
-                  setSelectedDateEvents(dayEvents);
-                }}
-                className={`border rounded-xl p-3 cursor-pointer transition-all ${
-                  selectedDate.toDateString() === day.toDateString()
-                    ? "bg-purple-100 border-purple-500 shadow-md"
-                    : "bg-white hover:shadow-md"
-                }`}
-              >
-                <span className="text-sm font-medium text-gray-700 mb-2">{day.getDate()}</span>
-                {dateEvents.length > 0 ? (
-  <div className="flex flex-wrap gap-1 mt-1">
-    {dateEvents.map((ev) => (
-      <div
-        key={ev.id}
-        title={ev.title} // tooltip on hover
-        className={`w-3 h-3 rounded-full ${
-          ev.status === "completed"
-            ? "bg-green-500"
-            : ev.status === "cancelled"
-            ? "bg-red-500"
-            : "bg-purple-500"
-        }`}
-      ></div>
-    ))}
-  </div>
-) : (
-  <span className="text-xs text-gray-400 mt-auto">No Events</span>
-)}
+              const dateEvents = getEventsForDate(cellDate);
+              const isSelected = selectedDate.toDateString() === cellDate.toDateString();
+              const isToday = new Date().toDateString() === cellDate.toDateString();
 
-              </div>
-            );
-          })}
+              return (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    const dayEvents = getEventsForDate(cellDate);
+                    setSelectedDate(cellDate);
+                    setSelectedDateEvents(dayEvents);
+                  }}
+                  className={`border rounded-lg p-2 cursor-pointer transition-all flex flex-col ${isSelected ? "bg-purple-100 border-purple-500 shadow-md" : "bg-white hover:shadow"} ${isToday ? "ring-2 ring-indigo-200" : ""}`}>
+
+                  <div className="flex items-start justify-between">
+                    <span className="text-xs font-medium text-gray-700">{cellDate.getDate()}</span>
+                    {dateEvents.length > 0 && <span className="text-[10px] px-1 py-0.5 rounded bg-purple-600 text-white">{dateEvents.length}</span>}
+                  </div>
+
+                  <div className="flex-1 mt-1 overflow-hidden">
+                    {dateEvents.slice(0, 2).map((ev) => (
+                      <div key={ev.id} className={`text-xs truncate rounded px-1 py-0.5 ${ev.status === "completed" ? "bg-green-50 text-green-700" : ev.status === "cancelled" ? "bg-red-50 text-red-700" : "bg-purple-50 text-purple-700"}`}>{ev.title.length > 24 ? ev.title.slice(0, 24) + "…" : ev.title}</div>
+                    ))}
+                    {dateEvents.length > 2 && <div className="text-[10px] text-gray-500">+{dateEvents.length - 2} more</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* Selected Date Details */}
-      <div className="mt-8 bg-white rounded-xl shadow-lg p-6">
+      <div className="mt-8 bg-white rounded-xl shadow-lg p-6 w-full max-w-[520px] mx-auto">
         <h2 className="text-xl font-bold text-purple-700 mb-4">
           Events on {selectedDate.toDateString()}
         </h2>

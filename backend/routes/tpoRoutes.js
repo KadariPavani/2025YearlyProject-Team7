@@ -204,6 +204,330 @@ router.get('/students-by-batch', generalAuth, async (req, res) => {
 });
 
 
+// TPO: Create a student inside an assigned batch
+router.post('/batches/:batchId/students', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') return res.status(403).json({ success: false, message: 'Access denied' });
+
+    const tpoId = req.user._id.toString();
+    const { batchId } = req.params;
+    const { name, email, rollNo, branch, college, phonenumber } = req.body;
+
+    if (!name || !email || !rollNo || !branch || !college || !phonenumber) {
+      return res.status(400).json({ success: false, message: 'Missing required student fields' });
+    }
+
+    const batch = await Batch.findById(batchId);
+    if (!batch) return res.status(404).json({ success: false, message: 'Batch not found' });
+
+    if (String(batch.tpoId) !== tpoId) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to add student to this batch' });
+    }
+
+    // Ensure college belongs to batch
+    if (!batch.colleges.includes(college)) {
+      return res.status(400).json({ success: false, message: 'Student college does not belong to this batch' });
+    }
+
+    // Check unique constraints
+    const existing = await Student.findOne({ $or: [{ email }, { rollNo }] });
+    if (existing) return res.status(400).json({ success: false, message: 'Student with same email or roll number already exists' });
+
+    const hashedPassword = await require('bcryptjs').hash(rollNo, 10);
+
+    const student = new Student({
+      name,
+      email,
+      username: rollNo,
+      rollNo,
+      branch,
+      college,
+      phonenumber,
+      password: hashedPassword,
+      batchId: batch._id,
+      yearOfPassing: batch.batchNumber
+    });
+
+    await student.save();
+
+    // Attach to batch
+    batch.students = batch.students || [];
+    batch.students.push(student._id);
+    await batch.save();
+
+    // Send credentials email (non-blocking)
+    try {
+      await require('../utils/sendEmail')({
+        email,
+        subject: 'Your student account created',
+        message: `Your student account has been created.\nEmail: ${email}\nPassword: ${rollNo}\nPlease login and change your password.`
+      });
+    } catch (err) {
+      console.error('Failed to send student creation email:', err.message || err);
+    }
+
+    return res.status(201).json({ success: true, message: 'Student created', data: { id: student._id, name: student.name, email: student.email, rollNo: student.rollNo, batchId: student.batchId } });
+  } catch (error) {
+    console.error('Error creating student by TPO:', error);
+    res.status(500).json({ success: false, message: 'Server error while creating student', error: error.message });
+  }
+});
+
+// TPO: Edit student (only for students in TPO's batches)
+router.put('/students/:id', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') return res.status(403).json({ success: false, message: 'Access denied' });
+
+    const tpoId = req.user._id.toString();
+    const studentId = req.params.id;
+    const updates = req.body;
+
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+
+    // Check TPO permissions: allow if any of the following is true:
+    // - The student's regular batch has tpoId === current TPO
+    // - The student's placementTrainingBatch has tpoId === current TPO
+    // - The TPO has this batch id in their assignedBatches
+
+    // Load TPO document to inspect assignedBatches
+    const tpo = await TPO.findById(tpoId);
+
+    const tpoAssigned = (tpo.assignedBatches || []).map(b => b.toString());
+
+    // Collect batch ids
+    const studentBatchId = student.batchId ? (student.batchId.toString ? student.batchId.toString() : String(student.batchId)) : null;
+    const placementBatchId = student.placementTrainingBatchId ? (student.placementTrainingBatchId.toString ? student.placementTrainingBatchId.toString() : String(student.placementTrainingBatchId)) : null;
+
+    // Check regular batch's tpo
+    let allowed = false;
+    if (studentBatchId) {
+      const batch = await Batch.findById(studentBatchId).select('tpoId');
+      if (batch && batch.tpoId && batch.tpoId.toString() === tpoId) allowed = true;
+      if (tpoAssigned.includes(studentBatchId)) allowed = true;
+    }
+
+    if (placementBatchId && !allowed) {
+      const pBatch = await PlacementTrainingBatch.findById(placementBatchId).select('tpoId');
+      if (pBatch && pBatch.tpoId && pBatch.tpoId.toString() === tpoId) allowed = true;
+      if (tpoAssigned.includes(placementBatchId)) allowed = true;
+    }
+
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'Not allowed to edit this student (TPO does not manage their batch)' });
+    }
+
+    // If rollNo or email updated, check for uniqueness
+    if (updates.rollNo && updates.rollNo !== student.rollNo) {
+      const exists = await Student.findOne({ rollNo: updates.rollNo, _id: { $ne: studentId } });
+      if (exists) return res.status(400).json({ success: false, message: 'Roll number already exists' });
+      student.username = updates.rollNo;
+      // Reset password to new rollNo
+      student.password = await require('bcryptjs').hash(updates.rollNo, 10);
+    }
+    if (updates.email && updates.email !== student.email) {
+      const exists = await Student.findOne({ email: updates.email, _id: { $ne: studentId } });
+      if (exists) return res.status(400).json({ success: false, message: 'Email already exists' });
+    }
+
+    // Apply allowed updates
+    const allowedFields = ['name','email','rollNo','branch','college','phonenumber','techStack','profileImageUrl','resumeUrl','resumeFileName','crtInterested'];
+    allowedFields.forEach(field => {
+      if (field in updates) student[field] = updates[field];
+    });
+
+    await student.save();
+
+    return res.json({ success: true, message: 'Student updated', data: student });
+  } catch (error) {
+    console.error('Error updating student by TPO:', error);
+    res.status(500).json({ success: false, message: 'Server error while updating student', error: error.message });
+  }
+});
+
+// TPO: Suspend a student (soft delete) - student cannot login when suspended
+router.patch('/students/:id/suspend', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') return res.status(403).json({ success: false, message: 'Access denied' });
+
+    const tpoId = req.user._id.toString();
+    const studentId = req.params.id;
+
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+
+    // Load TPO document to inspect assignedBatches
+    const tpo = await TPO.findById(tpoId);
+    const tpoAssigned = (tpo.assignedBatches || []).map(b => b.toString());
+
+    const studentBatchId = student.batchId ? (student.batchId.toString ? student.batchId.toString() : String(student.batchId)) : null;
+    const placementBatchId = student.placementTrainingBatchId ? (student.placementTrainingBatchId.toString ? student.placementTrainingBatchId.toString() : String(student.placementTrainingBatchId)) : null;
+
+    let allowed = false;
+    if (studentBatchId) {
+      const batch = await Batch.findById(studentBatchId).select('tpoId');
+      if (batch && batch.tpoId && batch.tpoId.toString() === tpoId) allowed = true;
+      if (tpoAssigned.includes(studentBatchId)) allowed = true;
+    }
+
+    if (placementBatchId && !allowed) {
+      const pBatch = await PlacementTrainingBatch.findById(placementBatchId).select('tpoId');
+      if (pBatch && pBatch.tpoId && pBatch.tpoId.toString() === tpoId) allowed = true;
+      if (tpoAssigned.includes(placementBatchId)) allowed = true;
+    }
+
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'Not allowed to suspend this student' });
+    }
+
+    student.isActive = false;
+    await student.save();
+
+    res.json({ success: true, message: 'Student suspended', data: { id: student._id } });
+  } catch (error) {
+    console.error('Error suspending student by TPO:', error);
+    res.status(500).json({ success: false, message: 'Server error while suspending student', error: error.message });
+  }
+});
+
+// TPO: Unsuspend a student
+router.patch('/students/:id/unsuspend', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') return res.status(403).json({ success: false, message: 'Access denied' });
+
+    const tpoId = req.user._id.toString();
+    const studentId = req.params.id;
+
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+
+    // Load TPO document to inspect assignedBatches
+    const tpo = await TPO.findById(tpoId);
+    const tpoAssigned = (tpo.assignedBatches || []).map(b => b.toString());
+
+    const studentBatchId = student.batchId ? (student.batchId.toString ? student.batchId.toString() : String(student.batchId)) : null;
+    const placementBatchId = student.placementTrainingBatchId ? (student.placementTrainingBatchId.toString ? student.placementTrainingBatchId.toString() : String(student.placementTrainingBatchId)) : null;
+
+    let allowed = false;
+    if (studentBatchId) {
+      const batch = await Batch.findById(studentBatchId).select('tpoId');
+      if (batch && batch.tpoId && batch.tpoId.toString() === tpoId) allowed = true;
+      if (tpoAssigned.includes(studentBatchId)) allowed = true;
+    }
+
+    if (placementBatchId && !allowed) {
+      const pBatch = await PlacementTrainingBatch.findById(placementBatchId).select('tpoId');
+      if (pBatch && pBatch.tpoId && pBatch.tpoId.toString() === tpoId) allowed = true;
+      if (tpoAssigned.includes(placementBatchId)) allowed = true;
+    }
+
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'Not allowed to unsuspend this student' });
+    }
+
+    student.isActive = true;
+    await student.save();
+
+    res.json({ success: true, message: 'Student unsuspended', data: { id: student._id } });
+  } catch (error) {
+    console.error('Error unsuspending student by TPO:', error);
+    res.status(500).json({ success: false, message: 'Server error while unsuspending student', error: error.message });
+  }
+});
+
+// TPO: Delete a student (permanent) - removes student and references from batches
+router.delete('/students/:id', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') return res.status(403).json({ success: false, message: 'Access denied' });
+
+    const tpoId = req.user._id.toString();
+    const studentId = req.params.id;
+
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+
+    // Load TPO document to inspect assignedBatches
+    const tpo = await TPO.findById(tpoId);
+    const tpoAssigned = (tpo.assignedBatches || []).map(b => b.toString());
+
+    const studentBatchId = student.batchId ? (student.batchId.toString ? student.batchId.toString() : String(student.batchId)) : null;
+    const placementBatchId = student.placementTrainingBatchId ? (student.placementTrainingBatchId.toString ? student.placementTrainingBatchId.toString() : String(student.placementTrainingBatchId)) : null;
+
+    let allowed = false;
+    if (studentBatchId) {
+      const batch = await Batch.findById(studentBatchId).select('tpoId');
+      if (batch && batch.tpoId && batch.tpoId.toString() === tpoId) allowed = true;
+      if (tpoAssigned.includes(studentBatchId)) allowed = true;
+    }
+
+    if (placementBatchId && !allowed) {
+      const pBatch = await PlacementTrainingBatch.findById(placementBatchId).select('tpoId');
+      if (pBatch && pBatch.tpoId && pBatch.tpoId.toString() === tpoId) allowed = true;
+      if (tpoAssigned.includes(placementBatchId)) allowed = true;
+    }
+
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'Not allowed to delete this student' });
+    }
+
+    // Remove from associated batches
+    if (studentBatchId) {
+      await Batch.updateOne({ _id: studentBatchId }, { $pull: { students: student._id } });
+    }
+    if (placementBatchId) {
+      await PlacementTrainingBatch.updateOne({ _id: placementBatchId }, { $pull: { students: student._id } });
+    }
+
+    await Student.deleteOne({ _id: student._id });
+
+    res.json({ success: true, message: 'Student deleted', data: { id: student._id } });
+  } catch (error) {
+    console.error('Error deleting student by TPO:', error);
+    res.status(500).json({ success: false, message: 'Server error while deleting student', error: error.message });
+  }
+});
+
+// TPO: Fetch suspended students in TPO assigned/owned batches
+router.get('/suspended-students', generalAuth, async (req, res) => {
+  try {
+    if (req.userType !== 'tpo') return res.status(403).json({ success: false, message: 'Access denied' });
+
+    const tpoId = req.user._id.toString();
+    const tpo = await TPO.findById(tpoId);
+    const tpoAssigned = (tpo.assignedBatches || []).map(id => id.toString());
+
+    // Include regular batches owned by this TPO
+    const ownedBatchIds = (await Batch.find({ tpoId }).select('_id')).map(b => b._id.toString());
+    // Include placement training batches owned by this TPO
+    const ownedPlacementIds = (await PlacementTrainingBatch.find({ tpoId }).select('_id')).map(b => b._id.toString());
+
+    const batchIds = Array.from(new Set([...tpoAssigned, ...ownedBatchIds]));
+    const placementIds = Array.from(new Set([...ownedPlacementIds, ...tpoAssigned])); // assigned may include placement ids too
+
+    const students = await Student.find({
+      isActive: false,
+      $or: [
+        { batchId: { $in: batchIds } },
+        { placementTrainingBatchId: { $in: placementIds } }
+      ]
+    })
+      .select('-password -__v')
+      .populate({ path: 'placementTrainingBatchId', select: 'batchNumber name techStack college' })
+      .sort({ name: 1 });
+
+    // Add placementBatchName client-friendly field
+    const payload = students.map(s => ({
+      ...s.toObject(),
+      placementBatchName: s.placementTrainingBatchId ? (s.placementTrainingBatchId.name || s.placementTrainingBatchId.batchNumber) : (s.crtBatchName || null)
+    }));
+
+    res.json({ success: true, message: 'Suspended students fetched', data: payload });
+  } catch (error) {
+    console.error('Error fetching suspended students:', error);
+    res.status(500).json({ success: false, message: 'Server error while fetching suspended students', error: error.message });
+  }
+});
+
 // GET Placement Training Batches for TPO
 router.get('/placement-training-batches', generalAuth, async (req, res) => {
   try {
@@ -223,6 +547,11 @@ router.get('/placement-training-batches', generalAuth, async (req, res) => {
       .populate({
         path: 'assignedTrainers.trainer',
         select: 'name email subjectDealing category experience'
+      })
+      .populate({
+        path: 'coordinators',
+        select: 'name email phone rollNo student',
+        populate: { path: 'student', select: 'name rollNo email phonenumber' }
       })
       .sort({ year: -1, college: 1, techStack: 1 });
 
@@ -262,7 +591,14 @@ router.get('/placement-training-batches', generalAuth, async (req, res) => {
           createdAt: batch.createdAt,
           tpoId: batch.tpoId,
           students: batch.students,
-          assignedTrainers: batch.assignedTrainers
+          assignedTrainers: batch.assignedTrainers,
+          coordinators: (batch.coordinators || []).map(coord => ({
+            _id: coord._id,
+            name: coord.name || (coord.student ? coord.student.name : null),
+            rollNo: coord.rollNo || (coord.student ? coord.student.rollNo : null),
+            email: coord.email || (coord.student ? coord.student.email : null),
+            phone: coord.phone || (coord.student ? coord.student.phonenumber : null)
+          }))
         });
 
         organized[year][college][techStack].totalBatches += 1;
@@ -1146,17 +1482,24 @@ router.post('/assign-coordinator', generalAuth, async (req, res) => {
       });
     }
 
-    // Check if student is already a coordinator for this batch
-    const existingCoordinator = await Coordinator.findOne({
-      rollNo: student.rollNo,
-      assignedPlacementBatch: batchId
-    });
+    // If there's already a coordinator for this batch, remove it (we keep a single coordinator per batch)
+    const existingCoordinatorForBatch = await Coordinator.findOne({ assignedPlacementBatch: batchId });
 
-    if (existingCoordinator) {
-      return res.status(400).json({
-        success: false,
-        message: 'Student is already assigned as coordinator for this batch'
-      });
+    if (existingCoordinatorForBatch) {
+      // If the same student is already a coordinator, do nothing
+      if (existingCoordinatorForBatch.student && existingCoordinatorForBatch.student.toString() === student._id.toString()) {
+        return res.status(400).json({ success: false, message: 'Student is already assigned as coordinator for this batch' });
+      }
+
+      // Remove old coordinator record and its reference from batch
+      try {
+        batch.coordinators = (batch.coordinators || []).filter(id => id.toString() !== existingCoordinatorForBatch._id.toString());
+        await batch.save();
+        await Coordinator.deleteOne({ _id: existingCoordinatorForBatch._id });
+        console.log(`Removed previous coordinator ${existingCoordinatorForBatch._id} for batch ${batchId}`);
+      } catch (err) {
+        console.error('Error removing previous coordinator:', err);
+      }
     }
 
     // Generate coordinator email
@@ -1193,6 +1536,10 @@ router.post('/assign-coordinator', generalAuth, async (req, res) => {
     batch.coordinators = batch.coordinators || [];
     batch.coordinators.push(coordinator._id);
     await batch.save();
+
+    // Populate batch coordinators with student info for the response
+    await batch.populate([{ path: 'coordinators', populate: { path: 'student', select: 'name rollNo email' } }]);
+
 
     // Send credentials email
     await sendEmail({
@@ -1610,13 +1957,17 @@ router.get('/attendance/complete-report', generalAuth, async (req, res) => {
       batchQuery._id = batchId;
     }
 
-    // Get all batches with complete student data
+    // Get all batches with complete student data (including assigned trainers)
     const batches = await PlacementTrainingBatch.find(batchQuery)
       .populate({
         path: 'students',
         select: 'name rollNo email phone college branch year section'
       })
       .populate('tpoId', 'name email')
+      .populate({
+        path: 'assignedTrainers.trainer',
+        select: 'name email phone subjectDealing'
+      })
       .lean();
 
     if (!batches || batches.length === 0) {
@@ -1783,6 +2134,108 @@ router.get('/attendance/complete-report', generalAuth, async (req, res) => {
       sessionWiseReport.push(sessionData);
     });
 
+    // ---------------------------
+    // Merge scheduled sessions
+    // ---------------------------
+    // Create a quick lookup map for existing attendance records by batch+date+timeSlot
+    const attendanceMap = {};
+    attendanceRecords.forEach(rec => {
+      const key = `${rec.batchId._id.toString()}_${new Date(rec.sessionDate).toISOString().split('T')[0]}_${rec.timeSlot}`;
+      attendanceMap[key] = rec;
+    });
+
+    // Determine date window: use query range if provided, else last 4 weeks up to next 1 week
+    const now = new Date();
+    const defaultStart = new Date(now.getTime() - (28 * 24 * 60 * 60 * 1000));
+    const defaultEnd = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+    const rangeStart = (startDate ? new Date(startDate) : defaultStart);
+    const rangeEnd = (endDate ? new Date(endDate) : defaultEnd);
+
+    const dayNameToIndex = {
+      'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
+      'Thursday': 4, 'Friday': 5, 'Saturday': 6
+    };
+
+    const getDatesForDayInRange = (dayName, start, end) => {
+      const dates = [];
+      const dayNum = dayNameToIndex[dayName];
+      if (dayNum === undefined) return dates;
+
+      const cur = new Date(start);
+      // Move to the first occurrence of that weekday on/after start
+      const diff = (dayNum + 7 - cur.getDay()) % 7;
+      cur.setDate(cur.getDate() + diff);
+      // Add weekly occurrences
+      while (cur <= end) {
+        dates.push(new Date(cur));
+        cur.setDate(cur.getDate() + 7);
+      }
+      return dates;
+    };
+
+    // For each batch and its assigned trainer schedules, generate occurrences and add if no attendance exists
+    batches.forEach(batch => {
+      (batch.assignedTrainers || []).forEach(assignment => {
+        const trainer = assignment.trainer || null;
+        const timeSlot = assignment.timeSlot;
+        const subject = assignment.subject || 'N/A';
+
+        (assignment.schedule || []).forEach(sch => {
+          const dates = getDatesForDayInRange(sch.day, rangeStart, rangeEnd);
+          dates.forEach(dt => {
+            const dateISO = dt.toISOString().split('T')[0];
+            const key = `${batch._id.toString()}_${dateISO}_${timeSlot}`;
+            if (!attendanceMap[key]) {
+              // No attendance recorded for this scheduled occurrence — include as unrecorded session
+              const sessionData = {
+                _id: `scheduled_${batch._id.toString()}_${dateISO}_${timeSlot}`,
+                date: new Date(dateISO),
+                day: dt.toLocaleDateString('en-US', { weekday: 'long' }),
+                timeSlot: timeSlot,
+                startTime: sch.startTime,
+                endTime: sch.endTime,
+                subject: subject,
+                batch: {
+                  _id: batch._id,
+                  batchNumber: batch.batchNumber,
+                  techStack: batch.techStack,
+                  year: batch.year
+                },
+                trainer: trainer ? {
+                  name: trainer.name,
+                  email: trainer.email,
+                  phone: trainer.phone,
+                  subject: trainer.subjectDealing
+                } : null,
+                trainerStatus: 'not_marked',
+                totalStudents: (batch.students || []).length,
+                presentCount: 0,
+                absentCount: 0,
+                attendancePercentage: null,
+                recorded: false,
+                markedBy: null,
+                students: []
+              };
+
+              sessionWiseReport.push(sessionData);
+            }
+          });
+        });
+      });
+    });
+
+    // ---------------------------
+    // End merge scheduled sessions
+    // ---------------------------
+
+    // Sort sessions by date desc, then timeSlot
+    sessionWiseReport.sort((a, b) => {
+      const ad = new Date(a.date);
+      const bd = new Date(b.date);
+      if (bd - ad !== 0) return bd - ad;
+      return (a.timeSlot || '').localeCompare(b.timeSlot || '');
+    });
+
     // Calculate percentages for each student
     Object.values(studentWiseReport).forEach(student => {
       student.percentage = student.totalSessions > 0
@@ -1825,9 +2278,9 @@ router.get('/attendance/complete-report', generalAuth, async (req, res) => {
       };
     });
 
-    // Overall summary
+    // Overall summary (count scheduled occurrences + recorded ones merged into sessionWiseReport)
     const totalStudents = studentArray.length;
-    const totalSessions = attendanceRecords.length;
+    const totalSessions = sessionWiseReport.length;
     const averageAttendance = totalStudents > 0
       ? Math.round(studentArray.reduce((sum, s) => sum + s.percentage, 0) / totalStudents)
       : 0;
@@ -2210,9 +2663,10 @@ router.get('/attendance/download-excel', generalAuth, async (req, res) => {
 // Add new endpoint to get available tech stacks
 router.get('/tech-stacks', generalAuth, async (req, res) => {
   try {
-    if (req.userType !== 'tpo') {
+    // Allow TPOs and Coordinators (and Trainers) to fetch the list of tech stacks for UI use
+    if (!['tpo','coordinator','trainer'].includes(req.userType)) {
       return res.status(403).json({ 
-        success: false, 
+        success: false,
         message: 'Access denied' 
       });
     }

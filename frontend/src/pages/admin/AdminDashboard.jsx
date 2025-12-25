@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Shield,
@@ -29,7 +29,7 @@ import Header from "../../components/common/Header";
 import TrainersTab from "./tabs/TrainersTab";
 import TpoTab from "./tabs/TpoTab";
 import AdminsTab from "./tabs/AdminsTab";
-
+import BottomNav from '../../components/common/BottomNav';
 
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
@@ -54,6 +54,54 @@ const AdminDashboard = () => {
   });
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [visibleTabsCount, setVisibleTabsCount] = useState(7);
+  const [showMoreDropdown, setShowMoreDropdown] = useState(false);
+  const moreRef = useRef(null);
+
+  useEffect(() => {
+    // Use matchMedia for exact breakpoint behavior (768, 1024, 1440)
+    const mq1440 = window.matchMedia('(min-width: 1440px)');
+    const mq1024 = window.matchMedia('(min-width: 1024px)');
+    const mq768 = window.matchMedia('(min-width: 768px)');
+
+    const setCountFromMQ = () => {
+      if (mq1440.matches) setVisibleTabsCount(7);
+      else if (mq1024.matches) setVisibleTabsCount(5);
+      else if (mq768.matches) setVisibleTabsCount(4);
+      else setVisibleTabsCount(3);
+    };
+
+    setCountFromMQ();
+    mq1440.addEventListener?.('change', setCountFromMQ);
+    mq1024.addEventListener?.('change', setCountFromMQ);
+    mq768.addEventListener?.('change', setCountFromMQ);
+
+    // Fallback for older browsers that only support addListener
+    if (typeof mq1440.addEventListener !== 'function' && typeof mq1440.addListener === 'function') {
+      mq1440.addListener(setCountFromMQ);
+      mq1024.addListener(setCountFromMQ);
+      mq768.addListener(setCountFromMQ);
+    }
+
+    return () => {
+      mq1440.removeEventListener?.('change', setCountFromMQ);
+      mq1024.removeEventListener?.('change', setCountFromMQ);
+      mq768.removeEventListener?.('change', setCountFromMQ);
+      if (typeof mq1440.removeEventListener !== 'function' && typeof mq1440.removeListener === 'function') {
+        mq1440.removeListener(setCountFromMQ);
+        mq1024.removeListener(setCountFromMQ);
+        mq768.removeListener(setCountFromMQ);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (moreRef.current && !moreRef.current.contains(e.target)) setShowMoreDropdown(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
 
   const [trainers, setTrainers] = useState([]);
   const [tpos, setTpos] = useState([]);
@@ -450,7 +498,7 @@ const handleDelete = async (entityType, id) => {
     dashboard.totalTrainers + dashboard.totalTPOs + dashboard.totalAdmins;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-gray-50">
+    <div className="min-h-screen bg-white">
       <Header
         title="Welcome Admin..!"
         subtitle="Manage Trainers, Batches & Students"
@@ -485,11 +533,11 @@ const handleDelete = async (entityType, id) => {
         {/* Desktop: 3 cards */}
         <div className="hidden sm:grid grid-cols-3 gap-6 mb-8">
           <div
-            className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
+            className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer  transition border border-blue-200"
             onClick={() => handleTabChange("trainers")}
           >
-            <div className="bg-blue-50 p-3 rounded-full">
-              <GraduationCap className="h-8 w-8 text-blue-600" />
+            <div className="bg-blue-600 p-3 rounded-full flex items-center justify-center text-white">
+              <GraduationCap className="h-6 w-6 text-white" />
             </div>
             <div>
               <div className="text-gray-900 text-lg font-bold">
@@ -499,11 +547,11 @@ const handleDelete = async (entityType, id) => {
             </div>
           </div>
           <div
-            className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
+            className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer transition border border-blue-200"
             onClick={() => handleTabChange("tpos")}
           >
-            <div className="bg-blue-100 p-3 rounded-full">
-              <Users className="h-8 w-8 text-blue-600" />
+            <div className="bg-blue-600 p-3 rounded-full flex items-center justify-center text-white">
+              <Users className="h-6 w-6 text-white" />
             </div>
             <div>
               <div className="text-gray-900 text-lg font-bold">
@@ -513,11 +561,11 @@ const handleDelete = async (entityType, id) => {
             </div>
           </div>
           <div
-            className="bg-white rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer hover:scale-105 transition"
+            className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow p-6 flex items-center space-x-4 cursor-pointer transition border border-blue-200"
             onClick={() => handleTabChange("admins")}
           >
-            <div className="bg-blue-100 p-3 rounded-full">
-              <Shield className="h-8 w-8 text-blue-600" />
+            <div className="bg-blue-600 p-3 rounded-full flex items-center justify-center text-white">
+              <Shield className="h-6 w-6 text-white" />
             </div>
             <div>
               <div className="text-gray-900 text-lg font-bold">
@@ -530,27 +578,27 @@ const handleDelete = async (entityType, id) => {
 
         {/* Mobile: compact non-scrolling metrics bar (icon above text) */}
         <div className="sm:hidden flex gap-2 mb-6">
-          <button onClick={() => handleTabChange("trainers")} className="flex-1 flex flex-col items-center gap-1 bg-white rounded-lg py-2 px-2 shadow-sm min-w-0">
-            <div className="bg-blue-50 p-2 rounded-full flex-shrink-0">
-              <GraduationCap className="h-5 w-5 text-blue-600" />
+          <button onClick={() => handleTabChange("trainers")} className="flex-1 flex flex-col items-center gap-1 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg py-2 px-2 shadow-sm min-w-0 border border-blue-200">
+            <div className="bg-blue-600 p-2 rounded-full flex-shrink-0 flex items-center justify-center text-white">
+              <GraduationCap className="h-5 w-5 text-white" />
             </div>
             <div className="text-center min-w-0">
               <div className="text-gray-900 font-semibold text-sm truncate">{dashboard.totalTrainers} <span className="text-[11px] text-gray-500">Trainers</span></div>
             </div>
           </button>
 
-          <button onClick={() => handleTabChange("tpos")} className="flex-1 flex flex-col items-center gap-1 bg-white rounded-lg py-2 px-2 shadow-sm min-w-0">
-            <div className="bg-blue-100 p-2 rounded-full flex-shrink-0">
-              <Users className="h-5 w-5 text-blue-600" />
+          <button onClick={() => handleTabChange("tpos")} className="flex-1 flex flex-col items-center gap-1 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg py-2 px-2 shadow-sm min-w-0 border border-blue-200">
+            <div className="bg-blue-600 p-2 rounded-full flex-shrink-0 flex items-center justify-center text-white">
+              <Users className="h-5 w-5 text-white" />
             </div>
             <div className="text-center min-w-0">
               <div className="text-gray-900 font-semibold text-sm truncate">{dashboard.totalTPOs} <span className="text-[11px] text-gray-500">TPOs</span></div>
             </div>
           </button>
 
-          <button onClick={() => handleTabChange("admins")} className="flex-1 flex flex-col items-center gap-1 bg-white rounded-lg py-2 px-2 shadow-sm min-w-0">
-            <div className="bg-blue-100 p-2 rounded-full flex-shrink-0">
-              <Shield className="h-5 w-5 text-blue-600" />
+          <button onClick={() => handleTabChange("admins")} className="flex-1 flex flex-col items-center gap-1 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg py-2 px-2 shadow-sm min-w-0 border border-blue-200">
+            <div className="bg-blue-600 p-2 rounded-full flex-shrink-0 flex items-center justify-center text-white">
+              <Shield className="h-5 w-5 text-white" />
             </div>
             <div className="text-center min-w-0">
               <div className="text-gray-900 font-semibold text-sm truncate">{dashboard.totalAdmins} <span className="text-[11px] text-gray-500">Admins</span></div>
@@ -561,24 +609,56 @@ const handleDelete = async (entityType, id) => {
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-md mb-6">
           <div className="border-b border-gray-200">
-            <nav className="hidden sm:flex overflow-x-auto">
-              {tabs.map((tab) => {
+            <nav className="hidden sm:flex items-center space-x-2">
+              {tabs.slice(0, visibleTabsCount).map((tab) => {
                 const Icon = tab.icon;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => handleTabChange(tab.id)}
-                    className={`flex items-center space-x-2 px-6 py-4 text-sm font-medium whitespace-nowrap transition-colors ${
+                    className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
                       activeTab === tab.id
                         ? "border-b-2 border-blue-700 text-blue-700"
                         : "border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300"
                     }`}
                   >
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-4 w-4" />
                     <span>{tab.label}</span>
                   </button>
                 );
               })}
+
+              {tabs.length > visibleTabsCount && (
+                <div className="relative" ref={moreRef}>
+                  <button
+                    onClick={() => setShowMoreDropdown((s) => !s)}
+                    aria-label="More"
+                    className="flex items-center space-x-2 px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 border-transparent rounded"
+                  >
+                    <span>More</span>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${showMoreDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  <div className={`absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 ${showMoreDropdown ? 'block' : 'hidden'}`}>
+                    <ul className="divide-y divide-gray-100">
+                      {tabs.slice(visibleTabsCount).map((tab) => {
+                        const Icon = tab.icon;
+                        return (
+                          <li key={tab.id}>
+                            <button
+                              onClick={() => { handleTabChange(tab.id); setShowMoreDropdown(false); }}
+                              className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 text-sm text-gray-700"
+                            >
+                              <Icon className="h-4 w-4" />
+                              <span>{tab.label}</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                </div>
+              )}
             </nav>
           </div>
         </div>
@@ -590,7 +670,7 @@ const handleDelete = async (entityType, id) => {
               {/* Professional Statistics Section */}
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                  <BarChart3 className="h-6 w-6 mr-2 text-red-600" />
+                  <BarChart3 className="h-6 w-6 mr-2 text-blue-700" />
                   System Statistics
                 </h2>
 
@@ -660,9 +740,9 @@ const handleDelete = async (entityType, id) => {
                 {/* Detailed Statistics Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                   {/* User Distribution */}
-                  <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-6 border border-gray-200">
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                      <BarChart3 className="h-5 w-5 mr-2 text-gray-700" />
+                      <BarChart3 className="h-5 w-5 mr-2 text-blue-700" />
                       User Distribution
                     </h3>
                     <div className="space-y-3">
@@ -994,90 +1074,14 @@ const handleDelete = async (entityType, id) => {
 
 // New Component: Metric Card
 const MetricCard = ({ icon, title, value, bgColor, isPercentage }) => (
-  <div className={`rounded-xl p-4 border border-gray-100 bg-gradient-to-br from-indigo-50 to-white shadow-sm`}> 
+  <div className={`rounded-xl p-4 border border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 shadow-sm`}>
     <div className="flex items-center justify-between mb-2">{icon}</div>
     <p className="text-2xl font-bold text-gray-900">{value}</p>
     <p className="text-sm text-gray-600 mt-1">{title}</p>
   </div>
 );
 
-// Mobile Bottom Navigation (rounded compact floating pill with expand)
-const BottomNav = ({ tabs = [], active, onChange = () => {} }) => {
-  const [expanded, setExpanded] = useState(false);
-  const primary = tabs.slice(0, 4);
-  const more = tabs.slice(4);
 
-  return (
-    <nav
-      className={`fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 rounded-t-2xl shadow-lg z-40 overflow-hidden transition-all duration-300 ease-out`}
-      style={{ height: expanded ? '20vh' : '72px' }}
-    >
-      <div className={`max-w-3xl mx-auto px-4 h-full flex flex-col`}> 
-        {/* Top row of icons - vertically centered */}
-        <div className="w-full flex items-center justify-around h-16">
-          {primary.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = active === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => onChange(tab.id)}
-                aria-label={tab.label}
-                className={`flex flex-col items-center justify-center w-9 h-9 rounded-lg transition-colors transform-gpu ${isActive ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-800'}`}>
-                <Icon className={`h-5 w-5 antialiased ${isActive ? 'text-indigo-600' : ''}`} style={{transform: 'translateZ(0)', backfaceVisibility: 'hidden', willChange: 'transform'}} />
-                <span className={`mt-1 block h-1 w-1 rounded-full ${isActive ? 'bg-indigo-600' : 'bg-transparent'}`} />
-              </button>
-            );
-          })}
-
-          {/* Chevron toggle */}
-          <button
-            onClick={() => setExpanded((s) => !s)}
-            aria-label={expanded ? 'Collapse' : 'Expand'}
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-transparent border border-gray-200 text-gray-600 transition-colors transform-gpu hover:text-gray-800 z-50"
-          >
-            <ChevronUp
-              className="h-5 w-5 transition-transform"
-              style={{
-                transform: expanded ? 'translateZ(0) rotate(180deg)' : 'translateZ(0)',
-                backfaceVisibility: 'hidden',
-                willChange: 'transform',
-                transformOrigin: 'center'
-              }}
-            />
-            {/* placeholder dot to match visual height of other buttons */}
-            <span className="mt-1 block h-1 w-1 rounded-full bg-transparent" />
-          </button>
-        </div>
-
-        <div
-          className={`mt-2 w-full transition-all ${expanded ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}
-          style={{
-            maxHeight: expanded ? 'calc(33vh - 88px)' : 0,
-            overflowY: expanded ? 'auto' : 'hidden'
-          }}
-        >
-          <div className="w-full flex items-center justify-around">
-            {more.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = active === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => onChange(tab.id)}
-                  aria-label={tab.label}
-                  className={`flex flex-col items-center justify-center w-8 h-8 rounded-lg transition-colors transform-gpu ${isActive ? 'text-indigo-600' : 'text-gray-600 hover:text-gray-800'}`}>
-                  <Icon className={`h-5 w-5 antialiased ${isActive ? 'text-indigo-600' : ''}`} style={{transform: 'translateZ(0)', backfaceVisibility: 'hidden', willChange: 'transform'}} />
-                  <span className={`mt-1 block h-1 w-1 rounded-full ${isActive ? 'bg-indigo-600' : 'bg-transparent'}`} />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </nav>
-  );
-};
 
 // New Component: Distribution Bar
 const DistributionBar = ({ label, value, total, color }) => {

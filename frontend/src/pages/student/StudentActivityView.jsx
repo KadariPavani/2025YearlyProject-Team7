@@ -62,12 +62,12 @@ const StudentActivityView = () => {
           <div className="flex items-center justify-between mb-4">
             <Target className="w-8 h-8 text-blue-600" />
             <span className="text-2xl font-bold text-gray-900">
-              {scores.totals.overallPercentage}%
+              {scores.totals.meanPercentage}%
             </span>
           </div>
-          <p className="text-sm font-medium text-gray-600">Overall Score</p>
+          <p className="text-sm font-medium text-gray-600">Overall Score (mean of Quiz/Assignment/Coding)</p>
           <p className="text-xs text-gray-500 mt-1">
-            {scores.totals.overallScore} / {scores.totals.overallTotalMarks}
+            Weighted: {scores.totals.overallPercentage}% ({scores.totals.overallScore} / {scores.totals.overallTotalMarks})
           </p>
         </div>
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Calendar, ChevronLeft, ChevronRight, RefreshCw, Plus, X } from "lucide-react";
+import { CalendarSkeleton, ListSkeleton } from '../../components/ui/LoadingSkeletons';
 
 import TPOEventRegistrations from "./TPOEventRegistrations";
 // Parse date in local timezone without timezone shift
@@ -42,6 +43,8 @@ const [showSelectedStudentsModal, setShowSelectedStudentsModal] = useState(false
 const [selectedStudents, setSelectedStudents] = useState([]);
 const [eventRegistrations, setEventRegistrations] = useState([]);
 const [isSubmitting, setIsSubmitting] = useState(false);
+// Which event has an open action menu (three dots)
+const [openMenuId, setOpenMenuId] = useState(null);
 
   const handleShowRegistrations = (eventId) => {
     setSelectedEventId(eventId);
@@ -53,6 +56,7 @@ const openCompanyRegistrationForm = (event) => {
   setShowStudentForm(true);
 };
 const handleViewSelectedStudents = async (eventId) => {
+  setSelectedEventId(eventId); // ensure modal has context for uploads/marking
   try {
     const token = localStorage.getItem("userToken");
     const res = await axios.get(
@@ -61,15 +65,20 @@ const handleViewSelectedStudents = async (eventId) => {
     );
 
     const students = res.data?.data || [];
-    if (students.length > 0) {
-      setSelectedStudents(students);
-      setShowSelectedStudentsModal(true);
-    } else {
-      alert("⚠️ No selected students found for this event.");
+    // Open modal even if there are no students so user can see 'no students' state
+    setSelectedStudents(students);
+    setShowSelectedStudentsModal(true);
+
+    if (!students || students.length === 0) {
+      // Inform the user but keep the modal open so they can upload or take action
+      console.info("No selected students found for this event.");
     }
   } catch (err) {
     console.error("Error fetching selected students:", err);
-    alert("Failed to load selected students");
+    // Open the modal with empty list to allow retry/upload flow; still notify the user
+    setSelectedStudents([]);
+    setShowSelectedStudentsModal(true);
+    alert("Failed to load selected students (network or server error). Please try again or upload a list.");
   }
 };
 
@@ -433,6 +442,25 @@ const fetchEvents = async () => {
   };
   const days = getDaysInMonth(currentYear, currentMonth);
 
+  // Build fixed 6-row (42-cell) calendar grid so the calendar stays square and consistent
+  const buildCalendarCells = (year, month) => {
+    const firstDay = new Date(year, month, 1);
+    const startDay = firstDay.getDay(); // 0 = Sunday
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const cells = [];
+
+    // leading empty cells
+    for (let i = 0; i < startDay; i++) cells.push(null);
+    // actual month days
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+    // trailing empty cells to fill 42
+    while (cells.length < 42) cells.push(null);
+
+    return cells;
+  };
+
+  const calendarCells = buildCalendarCells(currentYear, currentMonth);
+
 const getEventsForDate = (date) => {
   return events.filter((e) => {
     const eventDate = parseLocalDate(e.startDate);
@@ -734,478 +762,350 @@ const uniqueStudents = registeredStudents.filter(
     )
 );
 
+  const ordinal = (n) => {
+    const j = n % 10, k = n % 100;
+    if (j === 1 && k !== 11) return `${n}st`;
+    if (j === 2 && k !== 12) return `${n}nd`;
+    if (j === 3 && k !== 13) return `${n}rd`;
+    return `${n}th`;
+  };
+
   return (
-    <div className="p-8 bg-gradient-to-b from-gray-50 to-white min-h-screen">
+    <div className="p-2 bg-gradient-to-b from-gray-50 to-white min-h-screen">
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-3">
-          <Calendar className="text-purple-600 h-7 w-7" />
-          <h1 className="text-2xl font-bold text-gray-800">Placement Calendar</h1>
+          <Calendar className="text-blue-600 h-7 w-7" />
+          <h1 className="text-xl font-bold text-gray-800">Placement Calendar</h1>
         </div>
-        <div className="flex gap-3">
-          <button onClick={fetchEvents} className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all">
-            <RefreshCw className="h-4 w-4" /> Refresh
+        <div className="flex gap-2">
+          <button onClick={fetchEvents} className="flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all text-sm">
+            <RefreshCw className="h-4 w-4" /> <span className="hidden sm:inline">Refresh</span>
           </button>
+
+          <button onClick={handleNewEvent} className="flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all text-sm">
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Event</span>
+          </button>
+
+          <button onClick={() => setShowDeletedModal(true)} className="flex items-center gap-2 px-2 py-1 sm:px-4 sm:py-2 bg-red-100 text-red-700 rounded-xl border border-red-300 hover:bg-red-200 transition-all text-sm">
+            <span className="text-base">🗑</span> <span className="hidden sm:inline">Deleted</span>
+          </button>
+
         </div>
       </div>
 
-      {/* Month + Year Controls */}
-      <div className="flex justify-between items-center mb-4">
-        <button onClick={handlePrevMonth} className="p-2 bg-white border rounded-full hover:bg-purple-100"><ChevronLeft /></button>
-        <div onClick={handleYearClick} className="cursor-pointer text-lg font-semibold text-gray-800 hover:text-purple-600 transition-all">
-          {selectedDate.toLocaleString("default", { month: "long" })} {currentYear}
-        </div>
-        <button onClick={handleNextMonth} className="p-2 bg-white border rounded-full hover:bg-purple-100"><ChevronRight /></button>
-      </div>
+
 
       {/* Calendar Grid */}
       {loading ? (
-        <p className="text-center text-gray-500">Loading events...</p>
+        <CalendarSkeleton />
       ) : (
-        <div className="grid grid-cols-7 gap-3">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-            <div key={day} className="text-center font-semibold text-gray-600">{day}</div>
-          ))}
+        <div className="w-full max-w-[1200px] mx-auto">
+          <div className="flex flex-col sm:flex-row gap-6 items-start">
+            {/* Left: calendar (40%) */}
+            <div className="w-full sm:w-2/5">
+              {/* Month + Year Controls (centered above calendar column) */}
+              <div className="flex justify-center items-center mb-3">
+                <button onClick={handlePrevMonth} className="p-2 bg-white border rounded-full hover:bg-blue-100"><ChevronLeft /></button>
+                <div onClick={handleYearClick} className="mx-3 cursor-pointer text-base font-semibold text-gray-800 hover:text-blue-600 transition-all">
+                  {selectedDate.toLocaleString("default", { month: "long" })} {currentYear}
+                </div>
+                <button onClick={handleNextMonth} className="p-2 bg-white border rounded-full hover:bg-blue-100"><ChevronRight /></button>
+              </div>
 
-          {days.map((day) => {
-  const dateEvents = getEventsForDate(day);
-  const today = normalizeDate(new Date());
-  const dayNormalized = normalizeDate(day);
+              {/* Weekday headings (now visible on mobile as compact labels) */}
+              <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-blue-800 mb-2">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <div key={day} className="text-[10px] bg-blue-50 rounded-sm py-0.5">{day}</div>
+            ))}
+          </div>
 
-  return (
-    <div
-      key={day}
-      onClick={() => handleDateClick(dayNormalized)} // always pass normalized date
-      className={`border rounded-xl p-3 cursor-pointer flex flex-col transition-all ${
-        selectedDate.toDateString() === dayNormalized.toDateString()
-          ? "bg-purple-100 border-purple-500 shadow-md"
-          : "bg-white hover:shadow-md"
-      }`}
-    >
-      <span className="text-sm font-medium text-gray-700 mb-2">{day.getDate()}</span>
-{dateEvents.length > 0 ? (
-  <div className="flex flex-wrap gap-1 mt-1">
-    {dateEvents.map((ev) => (
-      <span
-        key={ev.id}
-        className={`inline-block w-3 h-3 rounded-full ${
-  ev.status === "completed"
-    ? "bg-green-500"
-    : ev.status === "ongoing"
-    ? "bg-orange-500"
-    : ev.status === "cancelled"
-    ? "bg-red-500"
-    : "bg-purple-500"   // upcoming / scheduled
-}`}
+          {/* Responsive calendar grid: always visible and square cells that fit the container (no horizontal scroll) */}
+          <div className="w-full bg-gradient-to-b from-blue-50 to-white rounded-md border border-blue-100 shadow-sm p-1">
+            <div className="w-full grid grid-rows-6 grid-cols-7 gap-0.5">
+              {calendarCells.map((cellDate, idx) => {
+                if (!cellDate) return <div key={idx} className="bg-white border border-blue-100 rounded-sm aspect-square"></div>; 
 
-        title={`${ev.status.charAt(0).toUpperCase() + ev.status.slice(1)}`}
-      ></span>
-    ))}
-  </div>
-) : (
-  <span className="text-xs text-gray-400 mt-auto">No Events</span>
-)}
+                const dateEvents = getEventsForDate(cellDate);
+                const dayNormalized = normalizeDate(cellDate);
+                const isSelected = selectedDate.toDateString() === dayNormalized.toDateString();
+                const isToday = normalizeDate(new Date()).getTime() === dayNormalized.getTime();
 
-    </div>
-  );
-})}
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => handleDateClick(dayNormalized)}
+                    className={`aspect-square min-h-0 overflow-hidden border border-blue-100 rounded-sm sm:rounded-md p-0.5 sm:p-0.5 cursor-pointer flex flex-col transition-all ${isSelected ? "bg-blue-200 border-blue-600 shadow-md" : "bg-white shadow-sm hover:shadow-md hover:bg-blue-50"} ${isToday ? "ring-2 ring-blue-200" : ""}`}>
 
+                    <div className="flex items-start justify-between px-1">
+                      <span className="text-[10px] sm:text-sm font-medium text-gray-600">{cellDate.getDate()}</span>
+                    </div>
+
+                    <div className="flex-1 mt-0 sm:mt-1 overflow-hidden px-1 flex flex-col justify-between h-full">
+                      {/* Mobile: show dots only (smaller) */}
+                      <div className="sm:hidden flex items-center justify-start gap-1 mt-0.5">
+                        <div className="flex items-start justify-start gap-0.5">
+                          {dateEvents.slice(0, 3).map((ev, i) => (
+                            <span key={i} className={`inline-block flex-shrink-0 w-1 h-1 rounded-full shadow-sm ${ev.status === "completed" ? "bg-green-500" : ev.status === "ongoing" ? "bg-orange-500" : ev.status === "cancelled" ? "bg-red-500" : "bg-blue-600"}`} />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="hidden sm:flex sm:flex-col sm:gap-1">
+                        {dateEvents.slice(0, 1).map((ev) => (
+                          <div
+                            key={ev.id}
+                            className={`text-[10px] rounded px-1 py-0.5 ${
+                              ev.status === "completed"
+                                ? "bg-green-50 text-green-700"
+                                : ev.status === "ongoing"
+                                ? "bg-orange-50 text-orange-700"
+                                : ev.status === "cancelled"
+                                ? "bg-red-50 text-red-700"
+                                : "bg-blue-100 text-blue-800 border border-blue-200"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1 min-w-0">
+                              <span className="inline-block truncate min-w-0" title={ev.title}>{ev.title}</span>
+                              {dateEvents.length > 1 && (
+                                <span className="hidden sm:inline text-[9px] text-gray-500 flex-shrink-0">+{Math.max(0, dateEvents.length - 1)}</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                        {dateEvents.length > 1 && (
+                          <div className="mt-1">
+                            <span className="hidden sm:inline text-[8px] text-gray-500">+{Math.max(0, dateEvents.length - 1)} more</span>
+                          </div>
+                        )}
+
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+            </div>
+            <aside className="hidden sm:block w-full sm:w-3/5 sticky top-20 self-start">
+              <div className="p-4 w-full border-l border-blue-50 pl-6">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="text-xs text-blue-500 font-medium">{selectedDateLabel ? 'Events on' : ''}</div>
+                    <div className="text-2xl font-bold text-blue-800">{selectedDate.toLocaleString('default', { weekday: 'long' })}, <span className="text-blue-600">{ordinal(selectedDate.getDate())}</span></div>
+                  </div>
+                </div>
+
+                <div className="h-px bg-blue-50 mb-2" />
+
+                {/* Show loading skeleton when events are still loading */}
+                {loading ? (
+                  <ListSkeleton />
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {selectedDateEvents.length > 0 ? (
+                      selectedDateEvents.map((event) => (
+                        <li key={event.id} className="flex items-center justify-between py-3 relative">
+                          <div className="flex items-start gap-3">
+                            <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : event.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`} />
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-gray-800 truncate">{event.title}</div>
+                              <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            {/* Only the kebab shows; actions are in the menu */}
+                            <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === event.id ? null : event.id);}} className="p-2 rounded-md hover:bg-gray-100 text-gray-600">⋮</button>
+
+                            {/* Action menu */}
+                            {openMenuId === event.id && (
+                              <div className="absolute right-4 top-8 z-50 bg-white border rounded shadow-md w-44">
+                                <ul>
+                                  <li>
+                                    <button onClick={(e)=>{e.stopPropagation(); handleViewRegisteredStudents(event.id); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">View Registered Students</button>
+                                  </li>
+
+                                  <li>
+                                    {event.status === 'completed' ? (
+                                      <button onClick={(e)=>{e.stopPropagation(); setSelectedEventId(event.id); setShowSelectModal(true); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">➕ Add Selected Students</button>
+                                    ) : (
+                                      <div className="w-full text-left px-3 py-2 text-sm text-gray-400">➕ Add Selected Students (only after completion)</div>
+                                    )}
+                                  </li>
+
+                                  <li>
+                                    <button onClick={(e)=>{e.stopPropagation(); handleViewSelectedStudents(event.id); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">View Selected Students</button>
+                                  </li>
+
+                                  <li>
+                                    {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'completed' && event.status !== 'cancelled' ? (
+                                      <button onClick={(e)=>{e.stopPropagation(); handleEditEvent(event); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Edit Event</button>
+                                    ) : (
+                                      <div className="w-full text-left px-3 py-2 text-sm text-gray-400">Edit (not available for past events)</div>
+                                    )}
+                                  </li>
+
+                                  <li>
+                                    {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'cancelled' ? (
+                                      <button onClick={(e)=>{e.stopPropagation(); handleCancelDeleteEvent(event.id); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50">Cancel & Delete</button>
+                                    ) : (
+                                      <div className="w-full text-left px-3 py-2 text-sm text-gray-400">Cancel & Delete (not available for past events)</div>
+                                    )}
+                                  </li>
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </li>
+                      ))
+                    ) : (
+                      <div className="text-sm text-gray-500 p-3">No events for this date.</div>
+                    )}
+                  </ul>
+                )}
+
+
+              </div>
+            </aside>
         </div>
+      </div>
       )}
 
-      {/* Selected Date Event Details */}
-      <div className="mt-8 bg-white rounded-xl shadow-lg p-6">
-{selectedDateLabel && (
-  <h2 className="text-xl font-bold text-purple-700 mt-6 mb-2">
-    {selectedDateLabel}
-  </h2>
-)}
-
-        <div className="flex justify-between items-center mb-4">
-  <h2 className="text-xl font-bold text-purple-700">
-    Events on {selectedDate.toDateString()}
-  </h2>
-  <div className="flex gap-3">
-    <button
-  onClick={() => setShowDeletedModal(true)}
-  className="bg-red-100 text-red-700 px-4 py-2 rounded-lg border border-red-300 hover:bg-red-200 transition-all"
->
-  🗑 Deleted Events
-</button>
-
-    <button
-      onClick={handleNewEvent}
-      className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all"
-    >
-      + New Event
-    </button>
-  </div>
-</div>
-
-        {selectedDateEvents.length > 0 ? (
-  <div className="grid gap-4">
-    {selectedDateEvents?.filter(Boolean).map((event) => (
-<div
-  key={event.id}
-  onClick={(e) => {
-    e.stopPropagation(); // prevent bubbling
-    // 🚫 Stop form from opening when event card clicked
-    setHighlightedEventId(event.id); // still highlight the card
-    console.log("Event card clicked — form will not open.");
-  }}
-className={`border rounded-lg p-4 transition-all cursor-pointer ${
-  event.status === "completed"
-    ? "bg-green-50 border-green-400"
-    : event.status === "ongoing"
-    ? "bg-orange-50 border-orange-400"
-    : event.status === "cancelled"
-    ? "bg-red-50 border-red-400"
-    : "bg-white"
-}`}
-
->
-
-        <div className="flex justify-between items-center">
-          <h3 className="font-semibold text-gray-800 text-lg">
-            {event.status === "completed" ? "✅ " : ""}
-            {event.title}
-          </h3>
-          <span
-            className={`text-sm font-medium ${
-              event?.status === "completed"
-                ? "text-green-700"
-                : event.status === "cancelled"
-                ? "text-red-700"
-                : "text-purple-700"
-            }`}
-          >
-            {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
-          </span>
-        </div>
-
-        {event.company && (
-          <p className="text-sm text-gray-600 mt-1">
-            <strong>Company:</strong>{" "}
-            {event.companyFormLink ? (
-              <a
-                href={event.companyFormLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 underline cursor-pointer"
-              >
-                {event.company}
-              </a>
-            ) : (
-              <span className="text-gray-700">{event.company}</span>
-            )}
-          </p>
-        )}
-
-
-
-        {event.description && (
-        <div className="text-sm text-gray-600 mt-1">
-            <strong>Description:</strong> {event.description}
-          </div>
-        )}
-{event.targetGroup && (
-  <p className="text-sm text-purple-700 mt-1">
-    🎯 <strong>Target Group:</strong>{" "}
-    {event.targetGroup === "crt"
-      ? "CRT Students Only"
-      : event.targetGroup === "non-crt"
-      ? "Non-CRT Students Only"
-      : "Both CRT & Non-CRT"}
-  </p>
-)}
-
-        {event.startTime && event.endTime && (
-          <p className="text-sm text-gray-600 mt-1">
-            <strong>Time:</strong> {event.startTime} - {event.endTime}
-          </p>
-        )}
-
-        {/* Show participation stats for completed events */}
-{event.status === "completed" && (
-  <>
-    <p className="text-sm text-green-600 mt-1">
-      <strong>Participated:</strong> {parseInt(event.participated) > 0 ? `${event.participated} students` : "Click to update"}
-    </p>
-    <p className="text-sm text-green-600 mt-1">
-      <strong>Placed:</strong> {parseInt(event.placed) > 0 ? `${event.placed} students` : "Click to update"}
-    </p>
-  </>
-)}
-
-        {/* Only show for ongoing or scheduled events */}
-{/* ✅ Show "View Registered Students" for both completed and not completed events */}
-{/* ✅ Show "View Registered Students" for both completed and not completed events */}
-{event.status !== "cancelled" && (
-  <div className="mt-3 flex flex-wrap items-center gap-3">
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        handleViewRegisteredStudents(event.id);
-      }}
-      className={`px-4 py-2 rounded-lg text-white transition-all ${
-        event?.status === "completed"
-          ? "bg-green-600 hover:bg-green-700"
-          : "bg-purple-600 hover:bg-purple-700"
-      }`}
-    >
-      {event?.status === "completed"
-        ? "View Registered Students (Completed)"
-        : "View Registered Students"}
-    </button>
-
-    {/* ✅ Add Selected Students & Selected Students buttons — side by side */}
-{event.status === "completed" && (
-  <div className="flex flex-col gap-3 mt-3">
-    <div className="flex gap-3 items-center">
-      {/* ➕ Add Selected Students */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setSelectedEventId(event.id);
-          setShowSelectModal(true);
-        }}
-        className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-      >
-        ➕ Add Selected Students
-      </button>
-
-      {/* 🎯 View Selected Students */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          handleViewSelectedStudents(event.id); // Function to fetch and show modal
-        }}
-        className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
-      >
-        🎯 Selected Students
-      </button>
-    </div>
-
-    {/* 🎯 Selected Students Modal */}
-    {showSelectedStudentsModal && (
-      <div
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-        onClick={() => setShowSelectedStudentsModal(false)}
-      >
-        <div
-          className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 relative"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            onClick={() => setShowSelectedStudentsModal(false)}
-            className="absolute top-3 right-3 text-gray-600 hover:text-black text-xl font-bold"
-          >
-            ✕
-          </button>
-
-          <h2 className="text-xl font-bold text-indigo-700 mb-4">
-            🎯 Selected Students ({selectedStudents.length})
-          </h2>
-
-          {selectedStudents.length === 0 ? (
-            <p className="text-gray-500 text-center">No selected students found.</p>
-          ) : (
-            <div className="overflow-x-auto max-h-[60vh] border rounded-lg">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-indigo-100 text-gray-800 sticky top-0">
-                  <tr>
-                    <th className="px-3 py-2 border">Full Name</th>
-                    <th className="px-3 py-2 border">Roll No</th>
-                    <th className="px-3 py-2 border">Email</th>
-                    <th className="px-3 py-2 border">Branch</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedStudents.map((s, i) => (
-                    <tr key={i} className="hover:bg-gray-50">
-                      <td className="px-3 py-2 border">{s.name}</td>
-                      <td className="px-3 py-2 border">{s.rollNo}</td>
-                      <td className="px-3 py-2 border">{s.email}</td>
-                      <td className="px-3 py-2 border">{s.branch}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    )}
-  </div>
-)}
-
-
-  </div>
-)}
-
-
-{/* ✏️ Edit Event — only for not completed/cancelled */}
-{/* ✏️ Edit + 🗑️ Cancel & Delete — aligned side by side */}
-{/* ✏️ Edit + 🗑️ Cancel & Delete — aligned side by side */}
-{event.status !== "completed" && (
-  <div className="flex gap-3 mt-3 justify-start items-center">
-    {event.status !== "cancelled" && (
-      <>
-        {event.isEditing ? (
-          <div className="flex flex-col gap-2 w-full">
-            {/* Editable fields */}
-            <input
-              type="text"
-              value={event.editTitle ?? event.title}
-              onChange={(e) =>
-                setEvents((prev) =>
-                  prev.map((ev) =>
-                    ev.id === event.id
-                      ? { ...ev, editTitle: e.target.value }
-                      : ev
-                  )
-                )
-              }
-              className="border px-2 py-1 rounded w-full"
-              placeholder="Edit event title"
-            />
-            <textarea
-              value={event.editDescription ?? event.description}
-              onChange={(e) =>
-                setEvents((prev) =>
-                  prev.map((ev) =>
-                    ev.id === event.id
-                      ? { ...ev, editDescription: e.target.value }
-                      : ev
-                  )
-                )
-              }
-              className="border px-2 py-1 rounded w-full"
-              placeholder="Edit description"
-              rows={2}
-            ></textarea>
-
-            <div className="flex gap-2 mt-2">
-              <button
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  try {
-                    const token = localStorage.getItem("userToken");
-                    await axios.put(
-                      `http://localhost:5000/api/calendar/${event.id}`,
-                      {
-                        title: event.editTitle || event.title,
-                        description:
-                          event.editDescription || event.description,
-                      },
-                      {
-                        headers: { Authorization: `Bearer ${token}` },
-                      }
-                    );
-                    alert("✅ Event updated successfully!");
-                    fetchEvents(); // refresh backend data
-                  } catch (err) {
-                    console.error("Error updating event:", err);
-                    alert("❌ Failed to update event");
-                  } finally {
-                    // turn off edit mode
-                    setEvents((prev) =>
-                      prev.map((ev) =>
-                        ev.id === event.id
-                          ? { ...ev, isEditing: false }
-                          : ev
-                      )
-                    );
-                  }
-                }}
-                className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                💾 Save
-              </button>
-
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEvents((prev) =>
-                    prev.map((ev) =>
-                      ev.id === event.id
-                        ? { ...ev, isEditing: false }
-                        : ev
-                    )
-                  );
-                }}
-                className="px-3 py-1 text-sm bg-gray-400 text-white rounded hover:bg-gray-500"
-              >
-                ✖ Cancel
-              </button>
-            </div>
-          </div>
+      {/* Selected Date Event Details (mobile only) */}
+      <div className="mt-8 bg-white rounded-lg shadow-lg p-3 w-full max-w-[560px] mx-auto border border-blue-100 block sm:hidden">
+        {loading ? (
+          <ListSkeleton />
         ) : (
-          <div className="flex gap-3">
-            {event.status !== "completed" && event.status !== "cancelled" && (
-  <button
-    type="button"
-    onClick={(e) => {
-      e.stopPropagation();
-      handleEditEvent(event); // ✅ Opens form
-    }}
-    className="px-3 py-1 text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600"
-  >
-    ✏️ Edit
-  </button>
-)}
+          <>
+            <div className="mb-3 text-center">
+              <div className="text-2xl font-bold text-blue-800">{selectedDate.toLocaleString('default', { weekday: 'long' })}, <span className="text-blue-600">{ordinal(selectedDate.getDate())}</span></div>
+            </div>
 
+            <ul className="divide-y divide-gray-100">
+              {selectedDateEvents.length > 0 ? (
+                selectedDateEvents.map((event) => (
+                  <li key={event.id} className="flex items-center justify-between py-3">
+                    <div className="flex items-start gap-3">
+                      <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : event.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`} />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-gray-800 truncate">{event.title}</div>
+                        <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>
+                      </div>
+                    </div>
 
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCancelDeleteEvent(event.id);
-              }}
-              className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-            >
-              🗑️ Cancel & Delete
-            </button>
-          </div>
+                    <div className="flex items-center gap-2">
+                      <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === event.id ? null : event.id);}} className="p-2 rounded-md hover:bg-gray-100 text-gray-600">⋮</button>
+
+                      {openMenuId === event.id && (
+                        <>
+                          {/* Desktop: inline absolute menu */}
+                          <div className="hidden sm:block absolute left-3 top-12 z-50 bg-white border rounded shadow-md w-44">
+                            <ul>
+                              <li>
+                                <button onClick={(e)=>{e.stopPropagation(); handleViewRegisteredStudents(event.id); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">View Registered Students</button>
+                              </li>
+
+                              <li>
+                                {event.status === 'completed' ? (
+                                  <button onClick={(e)=>{e.stopPropagation(); setSelectedEventId(event.id); setShowSelectModal(true); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">➕ Add Selected Students</button>
+                                ) : (
+                                  <div className="w-full text-left px-3 py-2 text-sm text-gray-400">➕ Add Selected Students (only after completion)</div>
+                                )}
+                              </li>
+
+                              <li>
+                                <button onClick={(e)=>{e.stopPropagation(); handleViewSelectedStudents(event.id); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">View Selected Students</button>
+                              </li>
+
+                              <li>
+                                {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'completed' && event.status !== 'cancelled' ? (
+                                  <button onClick={(e)=>{e.stopPropagation(); handleEditEvent(event); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Edit Event</button>
+                                ) : (
+                                  <div className="w-full text-left px-3 py-2 text-sm text-gray-400">Edit (not available for past events)</div>
+                                )}
+                              </li>
+
+                              <li>
+                                {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'cancelled' ? (
+                                  <button onClick={(e)=>{e.stopPropagation(); handleCancelDeleteEvent(event.id); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50">Cancel & Delete</button>
+                                ) : (
+                                  <div className="w-full text-left px-3 py-2 text-sm text-gray-400">Cancel & Delete (not available for past events)</div>
+                                )}
+                              </li>
+                            </ul>
+                          </div>
+
+                          {/* Mobile: centered modal (matches other mobile modals) */}
+                          <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black/50" onClick={() => setOpenMenuId(null)}>
+                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-4 mx-4 max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={`menu-title-${event.id}`}>
+                              <div className="flex items-center justify-between mb-3">
+                                <div>
+                                  <div id={`menu-title-${event.id}`} className="text-sm font-semibold truncate" title={event.title}>{event.title}</div>
+                                  <div className="text-xs text-gray-500">{event.startDate ? new Date(event.startDate).toLocaleDateString() : ''}{event.startTime ? ` • ${event.startTime}` : ''}</div>
+                                </div>
+                                <button onClick={() => setOpenMenuId(null)} aria-label="Close" className="p-1 text-gray-600">✕</button>
+                              </div>
+
+                              <ul className="space-y-2">
+                                <li>
+                                  <button onClick={() => { handleViewRegisteredStudents(event.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100">View Registered Students</button>
+                                </li>
+                                <li>
+                                  {event.status === 'completed' ? (
+                                    <button onClick={() => { setSelectedEventId(event.id); setShowSelectModal(true); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100">➕ Add Selected Students</button>
+                                  ) : (
+                                    <div className="w-full text-left px-4 py-3 text-sm text-gray-400 rounded-lg">➕ Add Selected Students (only after completion)</div>
+                                  )}
+                                </li>
+                                <li>
+                                  <button onClick={() => { handleViewSelectedStudents(event.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100">View Selected Students</button>
+                                </li>
+                                <li>
+                                  {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'completed' && event.status !== 'cancelled' ? (
+                                    <button onClick={() => { handleEditEvent(event); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100">Edit Event</button>
+                                  ) : (
+                                    <div className="w-full text-left px-4 py-3 text-sm text-gray-400 rounded-lg">Edit (not available for past events)</div>
+                                  )}
+                                </li>
+                                <li>
+                                  {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'cancelled' ? (
+                                    <button onClick={() => { handleCancelDeleteEvent(event.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-red-50 text-red-600 hover:bg-red-100">Cancel & Delete</button>
+                                  ) : (
+                                    <div className="w-full text-left px-4 py-3 text-sm text-gray-400 rounded-lg">Cancel & Delete (not available for past events)</div>
+                                  )}
+                                </li>
+                              </ul>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </li>
+                ))
+              ) : (
+                <div className="text-sm text-gray-500">No events for this date.</div>
+              )}
+            </ul>
+          </>
         )}
-      </>
-    )}
-  </div>
-)}
-
-      </div>
-
-    ))}
-{/* ✅ Mark Selected Students for Completed Events */}
-
-
-  </div>
-) : (
-  <div className="text-center text-gray-500">
-    <p>No events on this date.</p>
-  </div>
-)}
-
-
       </div>
 
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg relative animate-fadeIn max-h-[90vh] overflow-y-auto p-6">
+        <div className="fixed inset-0 z-50" onClick={() => setShowForm(false)}>
+          {/* Desktop anchored form on right */}
+          <div className="hidden sm:block fixed top-20 right-6 bottom-6 w-[44%] max-w-lg bg-white rounded-2xl shadow-2xl p-6 overflow-auto" onClick={(e)=>e.stopPropagation()}>
             <button onClick={() => setShowForm(false)} className="absolute top-3 right-3 text-gray-500 hover:text-gray-700">
               <X className="h-5 w-5" />
             </button>
 
-            <h2 className="text-xl font-bold mb-5 text-gray-800 text-center">
-              {formData.id ? "Edit Event" : "Add Placement Event"}
-            </h2>
-            <p className="text-center text-sm text-gray-500 mb-4">
-  Selected Date: {selectedDate.toDateString()}
-</p>
+            <h2 className="text-xl font-bold mb-5 text-gray-800">{formData.id ? "Edit Event" : "Add Placement Event"}</h2>
+            <p className="text-sm text-gray-500 mb-4">Selected Date: {selectedDate.toDateString()}</p>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Title */}
               <div>
@@ -1216,85 +1116,39 @@ className={`border rounded-lg p-4 transition-all cursor-pointer ${
               {/* Event Type */}
               <div>
                 <label className="block text-sm font-medium mb-1">Event Type</label>
-                <select
-  value={formData.eventType}
-  onChange={(e) => setFormData({ ...formData, eventType: e.target.value })}
-  required
-  className="w-full border rounded-lg px-3 py-2"
-  disabled={viewOnly}
-
->
-  <option value="">Select Type</option>
-  <option value="Campus_Drive">Campus Drive</option>
-  <option value="Test">Test</option>
-</select>
-
+                <select value={formData.eventType} onChange={(e) => setFormData({ ...formData, eventType: e.target.value })} required className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}>
+                  <option value="">Select Type</option>
+                  <option value="Campus_Drive">Campus Drive</option>
+                  <option value="Test">Test</option>
+                </select>
               </div>
-{/* 🔹 Target Group Dropdown */}
-<div>
-  <label className="block text-sm font-medium mb-1">
-    Target Group
-  </label>
-  <select
-    value={targetGroup}
-    onChange={(e) => setTargetGroup(e.target.value)}
-    className="w-full border rounded-lg px-3 py-2"
-    disabled={viewOnly}
-  >
-    <option value="both">Both CRT & Non-CRT Students</option>
-    <option value="crt">CRT Students Only</option>
-    <option value="non-crt">Non-CRT Students Only</option>
-  </select>
-</div>
+
+              {/* Target Group Dropdown */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Target Group</label>
+                <select value={targetGroup} onChange={(e) => setTargetGroup(e.target.value)} className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}>
+                  <option value="both">Both CRT & Non-CRT Students</option>
+                  <option value="crt">CRT Students Only</option>
+                  <option value="non-crt">Non-CRT Students Only</option>
+                </select>
+              </div>
 
               {/* Status */}
-              {/* Status */}
-<div>
-  <label className="block text-sm font-medium mb-1">Status</label>
-  <input
-    type="text"
-    value={formData.status}
-    disabled
-    className="w-full border rounded-lg px-3 py-2 bg-gray-100 text-gray-700"
-  />
-</div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <input type="text" value={formData.status} disabled className="w-full border rounded-lg px-3 py-2 bg-gray-100 text-gray-700" />
+              </div>
 
-              {/* Participated Students (Only editable for completed events) */}
-              {/* Number of Registered Students */}
-<div>
-  <label className="block text-sm font-medium mb-1 text-gray-700">
-    No. of Registered Students
-  </label>
-<input
-  type="number"
-  value={formData.participated}
-  onChange={(e) => setFormData({ ...formData, participated: e.target.value })}
-  className="w-full border rounded-lg px-3 py-2 bg-white"
-  disabled={formData.status !== "completed"} // editable only if event completed
-  min="0"
-  placeholder="Enter number of participants"
-/>
+              {/* Participated & Selected counts */}
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">No. of Registered Students</label>
+                <input type="number" value={formData.participated} onChange={(e) => setFormData({ ...formData, participated: e.target.value })} className="w-full border rounded-lg px-3 py-2 bg-white" disabled={formData.status !== "completed"} min="0" placeholder="Enter number of participants" />
+              </div>
 
-</div>
-
-{/* Number of Selected Students */}
-<div>
-  <label className="block text-sm font-medium mb-1 text-gray-700">
-    No. of Selected Students
-  </label>
-  <input
-    type="number"
-    value={formData.placed}
-    onChange={(e) => setFormData({ ...formData, placed: e.target.value })}
-    className="w-full border rounded-lg px-3 py-2 bg-white"
-    disabled={formData.status !== "completed"} // editable only if event completed
-    min="0"
-    placeholder="Enter number of selected students"
-  />
-
-
-</div>
-
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">No. of Selected Students</label>
+                <input type="number" value={formData.placed} onChange={(e) => setFormData({ ...formData, placed: e.target.value })} className="w-full border rounded-lg px-3 py-2 bg-white" disabled={formData.status !== "completed"} min="0" placeholder="Enter number of selected students" />
+              </div>
 
               {/* Description */}
               <div>
@@ -1302,100 +1156,171 @@ className={`border rounded-lg p-4 transition-all cursor-pointer ${
                 <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={2} className="w-full border rounded-lg px-3 py-2" placeholder="Short description" disabled={viewOnly}/>
               </div>
 
-              {/* Company Name */}
+              {/* Company Name & Link */}
               <div>
                 <label className="block text-sm font-medium mb-1">Company Name</label>
                 <input type="text" value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="Company Name" disabled={viewOnly}/>
               </div>
 
-              {/* ✅ Company Form Link */}
               <div>
-              <label className="block text-sm font-medium mb-1">Company Link</label>
-<input
-  type="url"
-  value={formData.companyFormLink}
-  onChange={(e) => setFormData({ ...formData, companyFormLink: e.target.value })}
-  className="w-full border rounded-lg px-3 py-2"
-  placeholder="https://company.com"
-  disabled={viewOnly}
-/>
-
-
+                <label className="block text-sm font-medium mb-1">Company Link</label>
+                <input type="url" value={formData.companyFormLink} onChange={(e) => setFormData({ ...formData, companyFormLink: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="https://company.com" disabled={viewOnly} />
               </div>
 
-
-              {/* Start Date */}
+              {/* Start / End Date & Time */}
               <div>
                 <label className="block text-sm font-medium mb-1">Start Date</label>
                 <input type="date" value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}/>
               </div>
 
-              {/* End Date */}
               <div>
                 <label className="block text-sm font-medium mb-1">End Date</label>
                 <input type="date" value={formData.endDate} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}/>
               </div>
 
-              {/* Start Time */}
               <div>
                 <label className="block text-sm font-medium mb-1">Start Time</label>
                 <input type="time" value={formData.startTime} onChange={(e) => setFormData({ ...formData, startTime: e.target.value })} className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}/>
               </div>
 
-              {/* End Time */}
               <div>
                 <label className="block text-sm font-medium mb-1">End Time</label>
                 <input type="time" value={formData.endTime} onChange={(e) => setFormData({ ...formData, endTime: e.target.value })} className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}/>
               </div>
 
-              {/* Venue */}
               <div>
                 <label className="block text-sm font-medium mb-1">Venue / Mode</label>
                 <input type="text" value={formData.venue} onChange={(e) => setFormData({ ...formData, venue: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="Auditorium or Online" disabled={viewOnly}/>
               </div>
-              {/* Company Website Link */}
 
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-1 text-gray-700">External Link (Optional)</label>
+                <input type="url" value={formData.companyDetails?.externalLink || ""} onChange={(e) => setFormData({ ...formData, companyDetails: { ...formData.companyDetails, externalLink: e.target.value } })} placeholder="https://your-company-form.com" className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-blue-300" disabled={viewOnly} />
+              </div>
 
-{/* External Registration Link */}
-{/* ✅ External Registration Link */}
-<div className="mb-4">
-  <label className="block text-sm font-medium mb-1 text-gray-700">
-    External Link (Optional)
-  </label>
-  <input
-    type="url"
-    value={formData.companyDetails?.externalLink || ""}
-    onChange={(e) =>
-      setFormData({
-        ...formData,
-        companyDetails: {
-          ...formData.companyDetails,
-          externalLink: e.target.value,
-        },
-      })
-    }
-    placeholder="https://your-company-form.com"
-    className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-purple-300"
-    disabled={viewOnly}
-  />
-</div>
-
-
-
-              {/* Online Checkbox */}
               <div className="flex items-center gap-2">
                 <input type="checkbox" checked={formData.isOnline} onChange={(e) => setFormData({ ...formData, isOnline: e.target.checked })} disabled={viewOnly}/>
                 <label>Is Online Event</label>
               </div>
 
-              {/* Submit button */}
-              <button type="submit" className="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 transition-all mt-4">
-                {formData.status === "completed" ? "Update Participation Details" : formData.id ? "Update Event" : "Create Event"}
-              </button>
+              <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all mt-4">{formData.status === "completed" ? "Update Participation Details" : formData.id ? "Update Event" : "Create Event"}</button>
             </form>
+          </div>
+
+          {/* Mobile centered overlay */}
+          <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setShowForm(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[92vw] max-h-[85vh] overflow-auto p-4 mx-2 text-sm" onClick={(e)=>e.stopPropagation()}>
+              <button onClick={() => setShowForm(false)} className="absolute top-2 right-2 text-gray-500 hover:text-gray-700">
+                <X className="h-4 w-4" />
+              </button>
+
+              <h2 className="text-lg font-bold mb-3 text-gray-800 text-center">{formData.id ? "Edit Event" : "Add Placement Event"}</h2>
+              <p className="text-center text-sm text-gray-500 mb-3">Selected Date: {selectedDate.toDateString()}</p>
+
+              <form onSubmit={handleSubmit} className="space-y-3">
+                {/* Title */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Title</label>
+                  <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required className="w-full border rounded-lg px-3 py-2" placeholder="Event Title" disabled={viewOnly}/>
+                </div>
+
+                {/* Event Type */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Event Type</label>
+                  <select value={formData.eventType} onChange={(e) => setFormData({ ...formData, eventType: e.target.value })} required className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}>
+                    <option value="">Select Type</option>
+                    <option value="Campus_Drive">Campus Drive</option>
+                    <option value="Test">Test</option>
+                  </select>
+                </div>
+
+                {/* Target Group */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Target Group</label>
+                  <select value={targetGroup} onChange={(e) => setTargetGroup(e.target.value)} className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}>
+                    <option value="both">Both CRT & Non-CRT Students</option>
+                    <option value="crt">CRT Students Only</option>
+                    <option value="non-crt">Non-CRT Students Only</option>
+                  </select>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Status</label>
+                  <input type="text" value={formData.status} disabled className="w-full border rounded-lg px-3 py-2 bg-gray-100 text-gray-700" />
+                </div>
+
+                {/* Participated */}
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">No. of Registered Students</label>
+                  <input type="number" value={formData.participated} onChange={(e) => setFormData({ ...formData, participated: e.target.value })} className="w-full border rounded-lg px-3 py-2 bg-white" disabled={formData.status !== "completed"} min="0" placeholder="Enter number of participants" />
+                </div>
+
+                {/* Selected */}
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-700">No. of Selected Students</label>
+                  <input type="number" value={formData.placed} onChange={(e) => setFormData({ ...formData, placed: e.target.value })} className="w-full border rounded-lg px-3 py-2 bg-white" disabled={formData.status !== "completed"} min="0" placeholder="Enter number of selected students" />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Description</label>
+                  <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={2} className="w-full border rounded-lg px-3 py-2" placeholder="Short description" disabled={viewOnly}/>
+                </div>
+
+                {/* Company */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Company Name</label>
+                  <input type="text" value={formData.companyName} onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="Company Name" disabled={viewOnly}/>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Company Link</label>
+                  <input type="url" value={formData.companyFormLink} onChange={(e) => setFormData({ ...formData, companyFormLink: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="https://company.com" disabled={viewOnly} />
+                </div>
+
+                {/* Dates & times */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Start Date</label>
+                  <input type="date" value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}/>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">End Date</label>
+                  <input type="date" value={formData.endDate} onChange={(e) => setFormData({ ...formData, endDate: e.target.value })} className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}/>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Start Time</label>
+                  <input type="time" value={formData.startTime} onChange={(e) => setFormData({ ...formData, startTime: e.target.value })} className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}/>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">End Time</label>
+                  <input type="time" value={formData.endTime} onChange={(e) => setFormData({ ...formData, endTime: e.target.value })} className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}/>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Venue / Mode</label>
+                  <input type="text" value={formData.venue} onChange={(e) => setFormData({ ...formData, venue: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="Auditorium or Online" disabled={viewOnly}/>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1 text-gray-700">External Link (Optional)</label>
+                  <input type="url" value={formData.companyDetails?.externalLink || ""} onChange={(e) => setFormData({ ...formData, companyDetails: { ...formData.companyDetails, externalLink: e.target.value } })} placeholder="https://your-company-form.com" className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-blue-300" disabled={viewOnly} />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" checked={formData.isOnline} onChange={(e) => setFormData({ ...formData, isOnline: e.target.checked })} disabled={viewOnly}/>
+                  <label>Is Online Event</label>
+                </div>
+
+                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all mt-4">{formData.status === "completed" ? "Update Participation Details" : formData.id ? "Update Event" : "Create Event"}</button>
+              </form>
+            </div>
           </div>
         </div>
       )}
+
+
+
 {showRegistrations && (
   <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
     <div className="bg-white p-6 rounded-lg max-w-5xl w-full max-h-[80vh] overflow-auto relative">
@@ -1415,25 +1340,17 @@ className={`border rounded-lg p-4 transition-all cursor-pointer ${
 
 
 {showModal && (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 relative">
-      <button
-        onClick={() => setShowModal(false)}
-        className="absolute top-3 right-3 text-gray-600 hover:text-black"
-      >
-        ✕
-      </button>
-
-      <h2 className="text-xl font-bold text-purple-700 mb-4">
-        Registered Students ({uniqueStudents.length})
-      </h2>
-
+  <div className="fixed inset-0 z-50" onClick={() => setShowModal(false)}>
+    {/* Desktop panel */}
+    <div className="hidden sm:block fixed top-24 right-6 bottom-6 w-[44%] max-w-2xl bg-white rounded-lg shadow-lg p-6 overflow-auto" onClick={(e) => e.stopPropagation()}>
+      <button onClick={() => setShowModal(false)} className="absolute top-3 right-3 text-gray-600 hover:text-black">✕</button>
+      <h2 className="text-xl font-bold text-blue-700 mb-4">Registered Students ({uniqueStudents.length})</h2>
       {uniqueStudents.length === 0 ? (
         <p className="text-gray-500 text-center">No students registered yet.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left border">
-            <thead className="bg-purple-100 text-gray-800">
+            <thead className="bg-blue-100 text-gray-800">
               <tr>
                 <th className="px-3 py-2 border">Full Name</th>
                 <th className="px-3 py-2 border">Roll No</th>
@@ -1448,7 +1365,6 @@ className={`border rounded-lg p-4 transition-all cursor-pointer ${
                 <th className="px-3 py-2 border">Backlogs</th>
                 <th className="px-3 py-2 border">Tech Stack</th>
                 <th className="px-3 py-2 border">Resume</th>
-
               </tr>
             </thead>
             <tbody>
@@ -1461,32 +1377,12 @@ className={`border rounded-lg p-4 transition-all cursor-pointer ${
                   <td className="px-3 py-2 border">{r.college}</td>
                   <td className="px-3 py-2 border">{r.branch}</td>
                   <td className="px-3 py-2 border">{r.gender}</td>
-                  <td className="px-3 py-2 border">
-                    {r.dob ? new Date(r.dob).toLocaleDateString() : ""}
-                  </td>
+                  <td className="px-3 py-2 border">{r.dob ? new Date(r.dob).toLocaleDateString() : ""}</td>
                   <td className="px-3 py-2 border">{r.currentLocation}</td>
                   <td className="px-3 py-2 border">{r.hometown}</td>
                   <td className="px-3 py-2 border">{r.backlogs}</td>
-                  <td className="px-3 py-2 border">
-                    {Array.isArray(r.techStack)
-                      ? r.techStack.join(", ")
-                      : r.techStack}
-                  </td>
-                  <td className="px-3 py-2 border">
-                    {r.resumeUrl ? (
-                      <a
-                        href={r.resumeUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 underline"
-                      >
-                        View
-                      </a>
-                    ) : (
-                      "N/A"
-                    )}
-                  </td>
-
+                  <td className="px-3 py-2 border">{Array.isArray(r.techStack) ? r.techStack.join(", ") : r.techStack}</td>
+                  <td className="px-3 py-2 border">{r.resumeUrl ? (<a href={r.resumeUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View</a>) : ("N/A")}</td>
                 </tr>
               ))}
             </tbody>
@@ -1494,21 +1390,49 @@ className={`border rounded-lg p-4 transition-all cursor-pointer ${
         </div>
       )}
     </div>
+
+    {/* Mobile: centered overlay */}
+    <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setShowModal(false)}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[92vw] max-h-[85vh] overflow-auto p-4 relative mx-2 text-sm" onClick={(e)=>e.stopPropagation()}>
+        <button onClick={() => setShowModal(false)} className="absolute top-2 right-2 text-gray-600 hover:text-black">✕</button>
+        <h2 className="text-lg font-bold text-blue-700 mb-3">Registered Students ({uniqueStudents.length})</h2>
+        {uniqueStudents.length === 0 ? (
+          <p className="text-gray-500 text-center">No students registered yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            {/* table content same as above */}
+            <table className="w-full text-sm text-left border">
+              <thead className="bg-blue-100 text-gray-800">
+                <tr>
+                  <th className="px-3 py-2 border">Full Name</th>
+                  <th className="px-3 py-2 border">Roll No</th>
+                  <th className="px-3 py-2 border">Email</th>
+                </tr>
+              </thead>
+              <tbody>
+                {uniqueStudents.map((r, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 border">{r.name}</td>
+                    <td className="px-3 py-2 border">{r.rollNo}</td>
+                    <td className="px-3 py-2 border">{r.email}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
   </div>
 )}
 {showDeletedModal && (
-  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl relative p-6 max-h-[80vh] overflow-y-auto">
-      <button
-        onClick={() => setShowDeletedModal(false)}
-        className="absolute top-3 right-3 text-gray-600 hover:text-black"
-      >
-        ✕
-      </button>
+  <div className="fixed inset-0 z-50" onClick={() => setShowDeletedModal(false)}>
 
-      <h2 className="text-xl font-bold text-red-600 mb-4">
-        🗑 Deleted Events ({deletedEvents.length})
-      </h2>
+    {/* Desktop: anchored panel on right */}
+    <div className="hidden sm:block fixed top-20 right-6 bottom-6 w-[44%] max-w-2xl bg-white rounded-lg shadow-lg p-6 overflow-auto" onClick={(e) => e.stopPropagation()}>
+      <button onClick={() => setShowDeletedModal(false)} className="absolute top-3 right-3 text-gray-600 hover:text-black">✕</button>
+
+      <h2 className="text-xl font-bold text-red-600 mb-4">🗑 Deleted Events ({deletedEvents.length})</h2>
 
       {deletedEvents.length === 0 ? (
         <p className="text-gray-500 text-center">No deleted events available.</p>
@@ -1519,18 +1443,18 @@ className={`border rounded-lg p-4 transition-all cursor-pointer ${
               key={event._id}
               className="border border-red-200 bg-red-50 p-4 rounded-lg"
             >
-<h3 className="font-semibold text-gray-800 flex justify-between items-center">
-  {event.title}
-  <span
-    className={`text-sm px-2 py-1 rounded ${
-      event.status === "cancelled"
-        ? "bg-red-100 text-red-700"
-        : "bg-gray-100 text-gray-600"
-    }`}
-  >
-    {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
-  </span>
-</h3>
+              <h3 className="font-semibold text-gray-800 flex justify-between items-center">
+                {event.title}
+                <span
+                  className={`text-sm px-2 py-1 rounded ${
+                    event.status === "cancelled"
+                      ? "bg-red-100 text-red-700"
+                      : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                </span>
+              </h3>
 
               {event.description && (
                 <p className="text-sm text-gray-600 mt-1">{event.description}</p>
@@ -1544,93 +1468,194 @@ className={`border rounded-lg p-4 transition-all cursor-pointer ${
         </div>
       )}
     </div>
+
+    {/* Mobile: centered overlay */}
+    <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setShowDeletedModal(false)}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[92vw] max-h-[85vh] overflow-auto p-4 relative mx-2 text-sm" onClick={(e) => e.stopPropagation()}>
+        <button onClick={() => setShowDeletedModal(false)} className="absolute top-2 right-2 text-gray-600 hover:text-black">✕</button>
+
+        <h2 className="text-lg font-bold text-red-600 mb-3">🗑 Deleted Events ({deletedEvents.length})</h2>
+
+        {deletedEvents.length === 0 ? (
+          <p className="text-gray-500 text-center">No deleted events available.</p>
+        ) : (
+          <div className="space-y-4">
+            {deletedEvents.map((event) => (
+              <div
+                key={event._id}
+                className="border border-red-200 bg-red-50 p-4 rounded-lg"
+              >
+                <h3 className="font-semibold text-gray-800 flex justify-between items-center">
+                  {event.title}
+                  <span
+                    className={`text-sm px-2 py-1 rounded ${
+                      event.status === "cancelled"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
+                  </span>
+                </h3>
+
+                {event.description && (
+                  <p className="text-sm text-gray-600 mt-1">{event.description}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-2">
+                  {new Date(event.startDate).toLocaleDateString()}{" "}
+                  {event.startTime && `(${event.startTime})`}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   </div>
 )}
 
 {showSelectModal && (
-  <div
-    className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
-    onClick={() => setShowSelectModal(false)} // close when clicking outside
-  >
-    <div
-      className="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative"
-      onClick={(e) => e.stopPropagation()} // prevent modal close on inside click
-    >
-      <h2 className="text-xl font-semibold text-gray-800 mb-4">
-        Mark Selected Students
-      </h2>
-
-      {/* 🔹 Email Search Field */}
+  <div className="fixed inset-0 z-50" onClick={() => setShowSelectModal(false)}>
+    {/* Desktop: anchored panel to the right */}
+    <div className="hidden sm:block fixed top-24 right-6 bottom-6 w-[36%] max-w-sm bg-white rounded-lg shadow-lg p-6 overflow-auto" onClick={(e) => e.stopPropagation()}>
+      <h2 className="text-xl font-semibold text-gray-800 mb-4">Mark Selected Students</h2>
       <input
         type="text"
         placeholder="Search student by email..."
         value={selectedStudentEmail}
         onChange={(e) => {
           setSelectedStudentEmail(e.target.value);
-          if (e.target.value.length > 3) {
-            fetchCompletedEventStudents(selectedEventId);
-          }
+          if (e.target.value.length > 3) fetchCompletedEventStudents(selectedEventId);
         }}
         className="w-full border rounded-lg px-3 py-2 mb-3"
       />
-
-      {/* 🔹 Registered Students Dropdown */}
-      <select
-        value={selectedStudentEmail}
-        onChange={(e) => setSelectedStudentEmail(e.target.value)}
-        className="w-full border rounded-lg px-3 py-2 mb-3"
-      >
+      <select value={selectedStudentEmail} onChange={(e) => setSelectedStudentEmail(e.target.value)} className="w-full border rounded-lg px-3 py-2 mb-3">
         <option value="">-- Select Registered Student --</option>
-        {registeredStudents
-          .filter((s) =>
-            s.email.toLowerCase().includes(selectedStudentEmail.toLowerCase())
-          )
-          .map((s) => (
-            <option key={s.email} value={s.email}>
-              {s.name} ({s.rollNo}) - {s.branch}
-            </option>
-          ))}
+        {registeredStudents.filter((s) => s.email.toLowerCase().includes(selectedStudentEmail.toLowerCase())).map((s) => (
+          <option key={s.email} value={s.email}>{s.name} ({s.rollNo}) - {s.branch}</option>
+        ))}
       </select>
 
-      {/* 🔹 Action Button */}
-      <button
-        onClick={() => handleSelectStudent(selectedEventId)}
-        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 w-full"
-      >
-        ✅ Mark Selected & Notify
-      </button>
+      <button onClick={() => handleSelectStudent(selectedEventId)} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 w-full">✅ Mark Selected & Notify</button>
 
-      {/* OR Upload Section */}
-      <div className="mt-6 flex flex-col items-start gap-3 border-t pt-4">
-        <p className="text-gray-700 font-medium">OR Upload Selected List</p>
-
-        <input
-          type="file"
-          accept=".pdf,.doc,.docx,.xls,.xlsx"
-          onChange={(e) => setSelectedFile(e.target.files[0])}
-          className="border p-2 rounded-md w-full cursor-pointer"
-        />
-
-        <button
-          onClick={handleUploadSelectedList}
-          disabled={!selectedFile || !selectedEventId}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 w-full"
-        >
-          Upload Selected List
-        </button>
+      <div className="mt-6 border-t pt-4">
+        <p className="text-gray-700 font-medium mb-2">OR Upload Selected List</p>
+        <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" onChange={(e) => setSelectedFile(e.target.files[0])} className="border p-2 rounded-md w-full cursor-pointer mb-3" />
+        <button onClick={handleUploadSelectedList} disabled={!selectedFile || !selectedEventId} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 w-full">Upload Selected List</button>
       </div>
 
-      {/* ❌ Close Button */}
-      <button
-        onClick={() => setShowSelectModal(false)}
-        className="absolute top-2 right-3 text-gray-600 hover:text-red-600 text-lg font-bold"
-      >
-        ✕
-      </button>
+      <div className="mt-4 text-right">
+        <button onClick={() => setShowSelectModal(false)} className="px-3 py-1 bg-gray-100 rounded">Close</button>
+      </div>
+    </div>
+
+    {/* Mobile: centered overlay */}
+    <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black bg-opacity-50 p-4" onClick={() => setShowSelectModal(false)}>
+      <div className="bg-white p-4 rounded-lg w-full max-w-[92vw] max-h-[85vh] overflow-auto mx-2 text-sm" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-semibold text-gray-800 mb-3">Mark Selected Students</h2>
+        <input type="text" placeholder="Search student by email..." value={selectedStudentEmail} onChange={(e) => { setSelectedStudentEmail(e.target.value); if (e.target.value.length > 3) fetchCompletedEventStudents(selectedEventId); }} className="w-full border rounded-lg px-3 py-2 mb-3" />
+        <select value={selectedStudentEmail} onChange={(e) => setSelectedStudentEmail(e.target.value)} className="w-full border rounded-lg px-3 py-2 mb-3">
+          <option value="">-- Select Registered Student --</option>
+          {registeredStudents.filter((s) => s.email.toLowerCase().includes(selectedStudentEmail.toLowerCase())).map((s) => (<option key={s.email} value={s.email}>{s.name} ({s.rollNo}) - {s.branch}</option>))}
+        </select>
+        <button onClick={() => handleSelectStudent(selectedEventId)} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 w-full">✅ Mark Selected & Notify</button>
+
+        <div className="mt-6 border-t pt-4">
+          <p className="text-gray-700 font-medium mb-2">OR Upload Selected List</p>
+          <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" onChange={(e) => setSelectedFile(e.target.files[0])} className="border p-2 rounded-md w-full cursor-pointer mb-3" />
+          <button onClick={handleUploadSelectedList} disabled={!selectedFile || !selectedEventId} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 w-full">Upload Selected List</button>
+        </div>
+
+        <div className="mt-4 text-right">
+          <button onClick={() => setShowSelectModal(false)} className="px-3 py-1 bg-gray-100 rounded">Close</button>
+        </div>
+      </div>
     </div>
   </div>
 )}
 
+
+
+{showSelectedStudentsModal && (
+  <div className="fixed inset-0 z-50" onClick={() => setShowSelectedStudentsModal(false)}>
+    {/* Desktop anchored panel */}
+    <div className="hidden sm:block fixed top-28 right-6 bottom-6 w-[36%] max-w-md bg-white rounded-lg shadow-lg p-6 overflow-auto" onClick={(e) => e.stopPropagation()}>
+      <button onClick={() => setShowSelectedStudentsModal(false)} className="absolute top-3 right-3 text-gray-600 hover:text-black">✕</button>
+      <h2 className="text-xl font-bold text-blue-700 mb-4">🎯 Selected Students ({selectedStudents.length})</h2>
+
+      {selectedStudents.length === 0 ? (
+        <div className="text-center text-gray-500">No selected students found for this event. You can upload a selected list.</div>
+      ) : (
+        <div className="overflow-x-auto max-h-[60vh] border rounded-lg">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-blue-100 text-gray-800">
+              <tr>
+                <th className="px-3 py-2 border">Full Name</th>
+                <th className="px-3 py-2 border">Roll No</th>
+                <th className="px-3 py-2 border">Email</th>
+                <th className="px-3 py-2 border">Branch</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedStudents.map((s, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 border">{s.name}</td>
+                  <td className="px-3 py-2 border">{s.rollNo}</td>
+                  <td className="px-3 py-2 border">{s.email}</td>
+                  <td className="px-3 py-2 border">{s.branch}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="mt-4 text-right">
+        <button onClick={() => { setShowSelectedStudentsModal(false); setShowSelectModal(true); }} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Upload Selected List</button>
+        <button onClick={() => setShowSelectedStudentsModal(false)} className="ml-2 px-4 py-2 bg-gray-100 rounded hover:bg-gray-200">Close</button>
+      </div>
+    </div>
+
+    {/* Mobile centered overlay */}
+    <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black bg-opacity-50 p-4" onClick={() => setShowSelectedStudentsModal(false)}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[92vw] max-h-[85vh] overflow-auto p-4 mx-2 text-sm" onClick={(e) => e.stopPropagation()}>
+        <button onClick={() => setShowSelectedStudentsModal(false)} className="absolute top-2 right-2 text-gray-600 hover:text-black">✕</button>
+        <h2 className="text-lg font-bold text-blue-700 mb-3">🎯 Selected Students ({selectedStudents.length})</h2>
+        {selectedStudents.length === 0 ? (
+          <div className="text-center text-gray-500">No selected students found for this event. You can upload a selected list.</div>
+        ) : (
+          <div className="overflow-x-auto max-h-[60vh] border rounded-lg">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-blue-100 text-gray-800">
+                <tr>
+                  <th className="px-3 py-2 border">Full Name</th>
+                  <th className="px-3 py-2 border">Roll No</th>
+                  <th className="px-3 py-2 border">Email</th>
+                  <th className="px-3 py-2 border">Branch</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedStudents.map((s, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 border">{s.name}</td>
+                    <td className="px-3 py-2 border">{s.rollNo}</td>
+                    <td className="px-3 py-2 border">{s.email}</td>
+                    <td className="px-3 py-2 border">{s.branch}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="mt-4 text-right">
+          <button onClick={() => { setShowSelectedStudentsModal(false); setShowSelectModal(true); }} className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Upload Selected List</button>
+          <button onClick={() => setShowSelectedStudentsModal(false)} className="ml-2 px-4 py-2 bg-gray-100 rounded hover:bg-gray-200">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
 
       {showStudentForm && (

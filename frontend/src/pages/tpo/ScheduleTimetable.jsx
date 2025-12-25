@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Calendar, Clock, User, BookOpen, Filter, Search, RefreshCw, FileSpreadsheet, Eye, X } from 'lucide-react';
+import { LoadingSkeleton, CalendarSkeleton } from '../../components/ui/LoadingSkeletons';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
 
@@ -34,9 +35,9 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
   const weekDates = getCurrentWeek();
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const timeSlots = [
-    { name: 'Morning', start: '09:00', end: '12:00', color: 'bg-yellow-50 border-yellow-200 text-yellow-800' },
-    { name: 'Afternoon', start: '14:00', end: '17:00', color: 'bg-blue-50 border-blue-200 text-blue-800' },
-    { name: 'Evening', start: '18:00', end: '21:00', color: 'bg-purple-50 border-purple-200 text-purple-800' }
+    { name: 'Morning', start: '09:00', end: '12:00', color: 'bg-yellow-50 border-yellow-300 text-yellow-800' },
+    { name: 'Afternoon', start: '14:00', end: '17:00', color: 'bg-blue-50 border-blue-300 text-blue-800' },
+    { name: 'Evening', start: '18:00', end: '21:00', color: 'bg-purple-50 border-purple-300 text-purple-800' }
   ];
 
 
@@ -248,54 +249,47 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
 
   const getTimeSlotColor = (timeSlot) => {
     const colors = {
-      morning: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      afternoon: 'bg-blue-100 text-blue-800 border-blue-200',
-      evening: 'bg-purple-100 text-purple-800 border-purple-200',
+      morning: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      afternoon: 'bg-blue-100 text-blue-800 border-blue-300',
+      evening: 'bg-purple-100 text-purple-800 border-purple-300',
     };
     return colors[timeSlot] || 'bg-gray-100 text-gray-700 border-gray-200';
   };
 
 
-  if (loading) {
-    return (
-      <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600 font-medium">Loading schedule data...</p>
-      </div>
-    );
-  }
+  if (loading) return <CalendarSkeleton />;
 
 
   return (
     <div className="space-y-6">
       {/* Header Controls */}
-      <div className="bg-white rounded-2xl shadow border border-gray-200 p-6">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div className="flex items-center gap-3">
-            <Calendar className="h-6 w-6 text-purple-700" />
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Overall Schedule Timetable</h2>
-              <p className="text-sm text-gray-600">
-                Complete schedule overview for all assigned batches
-              </p>
+      <div className="bg-white rounded-lg sm:rounded-2xl shadow border border-gray-300 p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <Calendar className="h-6 w-6 text-purple-700 flex-shrink-0" />
+            <div className="min-w-0">
+              <h2 className="text-1xl font-bold text-gray-900 ">Overall Schedule Timetable</h2>
+              <p className="text-sm text-gray-600 mt-0.5 hidden sm:block">Complete schedule overview for all assigned batches</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-shrink-0">
             <button
               onClick={onRefresh}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+              className="flex items-center gap-2 px-2 py-1 sm:px-4 sm:py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md sm:rounded-lg transition-colors text-xs sm:text-sm"
+              aria-label="Refresh schedule"
             >
               <RefreshCw className="h-4 w-4" />
-              Refresh
+              <span className="hidden sm:inline">Refresh</span>
             </button>
 
             <button
               onClick={exportToExcel}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-medium"
+              className="flex items-center gap-2 px-2 py-1 sm:px-4 sm:py-2 bg-green-600 hover:bg-green-700 text-white rounded-md sm:rounded-lg transition-colors font-medium text-xs sm:text-sm"
+              aria-label="Export schedule to excel"
             >
               <Download className="h-4 w-4" />
-              Export Excel
+              <span className="hidden sm:inline">Export Excel</span>
             </button>
           </div>
         </div>
@@ -413,7 +407,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
 
       {/* Timetable Grid View */}
       {viewMode === 'grid' && (
-        <div className="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-lg sm:rounded-2xl shadow border border-gray-300 overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <h3 className="text-lg font-bold text-gray-900">Weekly Schedule Grid</h3>
             <p className="text-sm text-gray-600 mt-1">
@@ -422,79 +416,122 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-200">
-                    Time Slot
-                  </th>
-                  {dayNames.map(day => (
-                    <th key={day} className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider border-r border-gray-200 min-w-[180px]">
-                      {day}
+            {/* Desktop / Tablet grid (shows as table on sm+) */}
+            <div className="hidden sm:block">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-2 py-2 text-left text-[11px] font-bold text-purple-700 uppercase tracking-wider border-r border-gray-300">
+                      Time Slot
                     </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {timeSlots.map(slot => (
-                  <tr key={slot.name} className="hover:bg-gray-50">
-                    <td className="px-4 py-6 border-r border-gray-200">
-                      <div className={`px-3 py-2 rounded-lg border font-medium text-center ${slot.color}`}>
-                        <div className="font-bold">{slot.name}</div>
-                        <div className="text-xs mt-1">{slot.start} - {slot.end}</div>
-                      </div>
-                    </td>
                     {dayNames.map(day => (
-                      <td key={`${day}-${slot.name}`} className="px-2 py-2 border-r border-gray-200 align-top">
-                        <div className="space-y-1">
-                          {(timetableGrid[day][slot.name] || []).map((item, index) => (
-                            <div
-                              key={index}
-                              className="bg-white border border-gray-300 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                              onClick={() => {
-                                setSelectedScheduleItem(item);
-                                setShowScheduleDetail(true);
-                              }}
-                            >
-                              <div className="flex items-center gap-2 mb-2">
-                                <span className="font-bold text-sm text-gray-900">{item.batchNumber}</span>
-                                <span className={`px-2 py-1 rounded text-xs font-medium border ${getTechStackColor(item.techStack)}`}>
-                                  {item.techStack}
-                                </span>
-                              </div>
-
-                              <div className="text-xs text-gray-600 mb-1">
-                                <div className="font-medium">{item.trainer?.name || 'Not Assigned'}</div>
-                                <div>{item.subject}</div>
-                              </div>
-
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="text-gray-500">{item.startTime} - {item.endTime}</span>
-                                <span className="text-gray-500">{item.studentCount} students</span>
-                              </div>
-
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {item.colleges.map(college => (
-                                  <span key={college} className="px-1 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
-                                    {college}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-
-                          {(timetableGrid[day][slot.name] || []).length === 0 && (
-                            <div className="text-center py-4 text-gray-400 text-sm">
-                              No classes scheduled
-                            </div>
-                          )}
-                        </div>
-                      </td>
+                      <th key={day} className="px-2 py-2 text-center text-[11px] font-bold text-purple-700 uppercase tracking-wider border-r border-gray-300 min-w-[140px]">
+                        {day}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {timeSlots.map(slot => (
+                    <tr key={slot.name} className="hover:bg-gray-50">
+                      <td className="px-2 py-3 border-r border-gray-300">
+                        <div className={`px-2 py-1 rounded-md border font-medium text-center ${slot.color}`}>
+                          <div className="font-bold">{slot.name}</div>
+                          <div className="text-xs mt-1">{slot.start} - {slot.end}</div>
+                        </div>
+                      </td>
+                      {dayNames.map(day => (
+                        <td key={`${day}-${slot.name}`} className="px-2 py-2 border-r border-gray-200 align-top">
+                          <div className="space-y-1">
+                            {(timetableGrid[day][slot.name] || []).map((item, index) => (
+                              <div
+                                key={index}
+                                className="bg-white border border-gray-300 rounded-md p-2 shadow-sm hover:shadow transition-shadow cursor-pointer text-sm"
+                                onClick={() => {
+                                  setSelectedScheduleItem(item);
+                                  setShowScheduleDetail(true);
+                                }}
+                              >
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="font-bold text-sm text-gray-900">{item.batchNumber}</span>
+                                  <span className={`px-2 py-1 rounded text-xs font-medium border ${getTechStackColor(item.techStack)}`}>
+                                    {item.techStack}
+                                  </span>
+                                </div>
+
+                                <div className="text-xs text-gray-600 mb-1">
+                                  <div className="font-medium">{item.trainer?.name || 'Not Assigned'}</div>
+                                  <div>{item.subject}</div>
+                                </div>
+
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-gray-500">{item.startTime} - {item.endTime}</span>
+                                  <span className="text-gray-500">{item.studentCount} students</span>
+                                </div>
+
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {item.colleges.map(college => (
+                                    <span key={college} className="px-1 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">
+                                      {college}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+
+                            {(timetableGrid[day][slot.name] || []).length === 0 && (
+                              <div className="text-center py-4 text-gray-400 text-sm">
+                                No classes scheduled
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile stacked view */}
+            <div className="sm:hidden space-y-4 px-2">
+              {dayNames.map(day => (
+                <div key={day} className="bg-white rounded-sm sm:rounded-md border border-gray-300 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-800">{day}</div>
+                      <div className="text-[11px] text-gray-500">{weekDates[dayNames.indexOf(day)].toLocaleDateString()}</div>
+                    </div>
+                    <div className={`px-2 py-1 rounded text-xs font-medium ${getTimeSlotColor('morning')}`}>{'Slots'}</div>
+                  </div>
+
+                  {timeSlots.map(slot => (
+                    <div key={slot.name} className="mb-2">
+                      <div className={`flex items-center justify-between mb-1 ${slot.color} px-2 py-1 rounded text-xs font-semibold`}> 
+                        <div>{slot.name}</div>
+                        <div className="text-[11px]">{slot.start} - {slot.end}</div>
+                      </div>
+
+                      {(timetableGrid[day][slot.name] || []).map((item, idx) => (
+                        <div key={idx} className="bg-white border border-gray-300 rounded-sm sm:rounded-md p-2 mb-2 shadow-sm cursor-pointer" onClick={() => { setSelectedScheduleItem(item); setShowScheduleDetail(true); }}>
+                          <div className="flex items-center justify-between">
+                            <div className="min-w-0">
+                              <div className="font-semibold text-sm truncate">{item.batchNumber} <span className={`px-1 py-0.5 rounded text-xs font-medium border ${getTechStackColor(item.techStack)}`}>{item.techStack}</span></div>
+                              <div className="text-xs text-gray-600 truncate">{item.trainer?.name || 'Not Assigned'} • {item.subject}</div>
+                            </div>
+                            <div className="text-right text-[11px] text-gray-500">{item.startTime} - {item.endTime}</div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {(timetableGrid[day][slot.name] || []).length === 0 && (
+                        <div className="text-sm text-gray-400 py-1">No classes</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -502,103 +539,145 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
 
       {/* Table View */}
       {viewMode === 'table' && (
-        <div className="bg-white rounded-2xl shadow border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-lg sm:rounded-2xl shadow border border-gray-300 overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <h3 className="text-lg font-bold text-gray-900">Schedule Table View</h3>
             <p className="text-sm text-gray-600 mt-1">Detailed list of all scheduled classes</p>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Batch</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Day</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Time</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Trainer</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Subject</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">College</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Students</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredSchedule.flatMap(batch =>
-                  (batch.assignedTrainers || []).flatMap(trainer =>
-                    (trainer.schedule || []).map((schedule, index) => ({
-                      ...batch,
-                      trainer,
-                      schedule,
-                      uniqueKey: `${batch._id}-${trainer.trainer?._id}-${index}`
-                    }))
-                  )
-                ).map(item => (
-                  <tr key={item.uniqueKey} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">{item.batchNumber}</span>
-                        <span className={`px-2 py-1 rounded text-xs font-medium border ${getTechStackColor(item.techStack)}`}>
-                          {item.techStack}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.schedule.day}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-sm font-medium text-gray-900">
-                          {item.schedule.startTime} - {item.schedule.endTime}
-                        </span>
-                        <span className={`px-2 py-1 rounded text-xs font-medium border ${getTimeSlotColor(item.trainer.timeSlot)}`}>
-                          {item.trainer.timeSlot}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                          {item.trainer.trainer?.name?.charAt(0) || 'T'}
-                        </div>
-                        <span className="text-sm text-gray-900">{item.trainer.trainer?.name || 'Not Assigned'}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.trainer.subject}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-wrap gap-1">
-                        {item.colleges.map(college => (
-                          <span key={college} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
-                            {college}
+            {/* Desktop / Tablet Table */}
+            <div className="hidden sm:block">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Batch</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Day</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Trainer</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Subject</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">College</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Students</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-300">
+                  {filteredSchedule.flatMap(batch =>
+                    (batch.assignedTrainers || []).flatMap(trainer =>
+                      (trainer.schedule || []).map((schedule, index) => ({
+                        ...batch,
+                        trainer,
+                        schedule,
+                        uniqueKey: `${batch._id}-${trainer.trainer?._id}-${index}`
+                      }))
+                    )
+                  ).map(item => (
+                    <tr key={item.uniqueKey} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">{item.batchNumber}</span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium border ${getTechStackColor(item.techStack)}`}>
+                            {item.techStack}
                           </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.schedule.day}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-medium text-gray-900">
+                            {item.schedule.startTime} - {item.schedule.endTime}
+                          </span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium border ${getTimeSlotColor(item.trainer.timeSlot)}`}>
+                            {item.trainer.timeSlot}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
+                            {item.trainer.trainer?.name?.charAt(0) || 'T'}
+                          </div>
+                          <span className="text-sm text-gray-900">{item.trainer.trainer?.name || 'Not Assigned'}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.trainer.subject}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-wrap gap-1">
+                          {item.colleges.map(college => (
+                            <span key={college} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                              {college}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.studentCount}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => {
+                            setSelectedScheduleItem({
+                              ...item,
+                              startTime: item.schedule.startTime,
+                              endTime: item.schedule.endTime
+                            });
+                            setShowScheduleDetail(true);
+                          }}
+                          className="text-purple-600 hover:text-purple-900"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {filteredSchedule.length === 0 && (
+                <div className="text-center py-12">
+                  <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 font-medium">No scheduled classes found</p>
+                  <p className="text-sm text-gray-400 mt-1">Try adjusting your filters</p>
+                </div>
+              )}
+            </div>
+
+            {/* Mobile List View */}
+            <div className="sm:hidden space-y-3 px-2">
+              {filteredSchedule.flatMap(batch =>
+                (batch.assignedTrainers || []).flatMap(trainer =>
+                  (trainer.schedule || []).map((schedule, index) => ({
+                    ...batch,
+                    trainer,
+                    schedule,
+                    uniqueKey: `${batch._id}-${trainer.trainer?._id}-${index}`
+                  }))
+                )
+              ).map(item => (
+                <div key={item.uniqueKey} className="bg-white rounded-sm sm:rounded-md border border-gray-300 p-3 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm truncate">{item.batchNumber} <span className={`px-1 py-0.5 rounded text-xs font-medium border ${getTechStackColor(item.techStack)}`}>{item.techStack}</span></div>
+                      <div className="text-xs text-gray-600 truncate">{item.schedule.day} • {item.schedule.startTime} - {item.schedule.endTime}</div>
+                      <div className="text-xs text-gray-700 mt-1 truncate">{item.trainer.trainer?.name || 'Not Assigned'} • {item.trainer.subject}</div>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {item.colleges.map(college => (
+                          <span key={college} className="px-1 py-0.5 bg-gray-100 text-gray-700 rounded text-xs">{college}</span>
                         ))}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.studentCount}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => {
-                          setSelectedScheduleItem({
-                            ...item,
-                            startTime: item.schedule.startTime,
-                            endTime: item.schedule.endTime
-                          });
-                          setShowScheduleDetail(true);
-                        }}
-                        className="text-purple-600 hover:text-purple-900"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
 
-            {filteredSchedule.length === 0 && (
-              <div className="text-center py-12">
-                <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 font-medium">No scheduled classes found</p>
-                <p className="text-sm text-gray-400 mt-1">Try adjusting your filters</p>
-              </div>
-            )}
+                    <div className="flex-shrink-0 flex flex-col items-end gap-2">
+                      <div className="text-[11px] text-gray-500">{item.studentCount} students</div>
+                      <button onClick={() => { setSelectedScheduleItem({ ...item, startTime: item.schedule.startTime, endTime: item.schedule.endTime }); setShowScheduleDetail(true); }} className="bg-purple-600 text-white px-2 py-1 rounded text-xs">View</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {filteredSchedule.length === 0 && (
+                <div className="text-center py-6 text-gray-500">No scheduled classes found</div>
+              )}
+            </div>
+
           </div>
         </div>
       )}

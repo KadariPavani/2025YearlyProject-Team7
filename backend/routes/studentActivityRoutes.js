@@ -155,9 +155,18 @@ const calculateStudentActivity = async (student, batchId = null, subject = null)
           codingPercentage: totalCodingMarks > 0 ? (totalCodingScore / totalCodingMarks * 100).toFixed(2) : 0,
           overallScore: totalScore + totalCodingScore,
           overallTotalMarks: totalMarks + totalCodingMarks,
+          // weighted overall (by marks)
           overallPercentage: (totalMarks + totalCodingMarks) > 0 
             ? ((totalScore + totalCodingScore) / (totalMarks + totalCodingMarks) * 100).toFixed(2) 
-            : 0
+            : 0,
+          // mean percentage across quiz, assignment and coding (simple average)
+          meanPercentage: (() => {
+            const q = totalQuizMarks > 0 ? (totalQuizScore / totalQuizMarks * 100) : 0;
+            const a = totalAssignmentMarks > 0 ? (totalAssignmentScore / totalAssignmentMarks * 100) : 0;
+            const c = totalCodingMarks > 0 ? (totalCodingScore / totalCodingMarks * 100) : 0;
+            const mean = (q + a + c) / 3;
+            return isNaN(mean) ? '0.00' : mean.toFixed(2);
+          })()
         }
       }
     };
@@ -295,8 +304,8 @@ router.get('/trainer', generalAuth, async (req, res) => {
       activityData.push(activity);
     }
 
-    // Calculate ranks based on overall percentage
-    activityData.sort((a, b) => b.scores.totals.overallPercentage - a.scores.totals.overallPercentage);
+    // Calculate ranks based on mean percentage (average of quiz, assignment, coding)
+    activityData.sort((a, b) => b.scores.totals.meanPercentage - a.scores.totals.meanPercentage);
     activityData.forEach((data, index) => {
       data.rank = index + 1;
     });
@@ -368,8 +377,8 @@ router.get('/coordinator', generalAuth, async (req, res) => {
       activityData.push(activity);
     }
 
-    // Calculate ranks based on overall percentage
-    activityData.sort((a, b) => b.scores.totals.overallPercentage - a.scores.totals.overallPercentage);
+    // Calculate ranks based on mean percentage (average of quiz, assignment, coding)
+    activityData.sort((a, b) => b.scores.totals.meanPercentage - a.scores.totals.meanPercentage);
     activityData.forEach((data, index) => {
       data.rank = index + 1;
     });
@@ -437,7 +446,7 @@ router.get('/student', generalAuth, async (req, res) => {
       batchActivities.push(batchActivity);
     }
 
-    batchActivities.sort((a, b) => b.scores.totals.overallPercentage - a.scores.totals.overallPercentage);
+    batchActivities.sort((a, b) => b.scores.totals.meanPercentage - a.scores.totals.meanPercentage);
     const rank = batchActivities.findIndex(a => a.student._id.toString() === studentId.toString()) + 1;
 
     activity.rank = rank;

@@ -157,7 +157,9 @@ export default function TestimonialSlider() {
       </div>
 
 {/* 🟩 Shift cards slightly upward */}
-<div className="relative w-full max-w-7xl h-80 -mt-12">
+
+{/* Desktop carousel - hidden on small screens */}
+<div className="hidden sm:block relative w-full max-w-7xl h-80 -mt-12">
   {testimonials.map((testimonial, index) => {
     const style = getCardStyle(index);
     return (
@@ -176,7 +178,7 @@ export default function TestimonialSlider() {
             <img
               src={testimonial.image}
               alt={testimonial.name}
-              className="w-40 h-40 rounded-full border-4 border-teal-500 object-cover"
+              className="w-40 h-40 rounded-full border-4 border-blue-600 object-cover"
             />
           </div>
 
@@ -200,6 +202,20 @@ export default function TestimonialSlider() {
       </div>
     );
   })}
+</div>
+
+{/* Mobile stacked list with matching card styles */}
+    <div className="sm:hidden -mt-6 space-y-3 w-full max-w-4xl mx-auto">
+  {testimonials.map((t) => (
+    <div key={t.id} className="bg-white rounded-lg shadow p-2 sm:p-4 flex items-center gap-3 sm:gap-4 border border-blue-50">
+      <img src={t.image} alt={t.name} className="w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 border-blue-600 object-cover" />
+      <div className="min-w-0">
+        <div className="font-semibold text-xs sm:text-sm text-gray-900 truncate">{t.name}</div>
+        <div className="text-xs sm:text-sm text-gray-600 truncate">{t.role} • Roll No: {t.rollNumber}</div>
+        <p className="text-sm text-gray-700 mt-2 hidden">{t.text}</p>
+      </div>
+    </div>
+  ))}
 </div>
 
 {/* Bring note text closer to cards */}

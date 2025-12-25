@@ -1,13 +1,90 @@
 import React, { useState, useEffect, useRef  } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+// Reusable Add/Edit Student form used by TPO (keeps UI inside this file for simplicity)
+function AddEditStudentForm({ batches = [], initial = {}, onSubmit, onClose }) {
+  const [form, setForm] = useState({
+    name: initial.name || '',
+    email: initial.email || '',
+    rollNo: initial.rollNo || '',
+    branch: initial.branch || '',
+    college: initial.college || (batches[0]?.colleges?.[0] || ''),
+    phonenumber: initial.phonenumber || '',
+    batchId: initial.batchId || (batches[0]?._id || '')
+  });
+  const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    setForm({
+      name: initial.name || '',
+      email: initial.email || '',
+      rollNo: initial.rollNo || '',
+      branch: initial.branch || '',
+      college: initial.college || (batches[0]?.colleges?.[0] || ''),
+      phonenumber: initial.phonenumber || '',
+      batchId: initial.batchId || (batches[0]?._id || '')
+    });
+  }, [initial, batches]);
+
+  const branches = ['AID','CSM','CAI','CSD','CSC'];
+
+  const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleSubmit = async (e) => {
+    e && e.preventDefault();
+    // Basic validation
+    if (!form.name || !form.email || !form.rollNo || !form.batchId) {
+      alert('Please fill name, email, roll number, and select batch');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await onSubmit(form);
+      setSubmitting(false);
+      if (res && res.success) {
+        onClose && onClose();
+      }
+    } catch (err) {
+      setSubmitting(false);
+      console.error('Submit error:', err);
+      alert(err.message || 'Failed');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <input value={form.name} onChange={(e) => handleChange('name', e.target.value)} placeholder="Name" className="w-full px-3 py-2 border rounded" />
+        <input value={form.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="Email" className="w-full px-3 py-2 border rounded" />
+        <input value={form.rollNo} onChange={(e) => handleChange('rollNo', e.target.value)} placeholder="Roll No" className="w-full px-3 py-2 border rounded" />
+        <select value={form.branch} onChange={(e) => handleChange('branch', e.target.value)} className="w-full px-3 py-2 border rounded">
+          <option value="">Select Branch</option>
+          {branches.map(b => <option key={b} value={b}>{b}</option>)}
+        </select>
+        <input value={form.phonenumber} onChange={(e) => handleChange('phonenumber', e.target.value)} placeholder="Phone" className="w-full px-3 py-2 border rounded" />
+        <select value={form.batchId} onChange={(e) => handleChange('batchId', e.target.value)} className="w-full px-3 py-2 border rounded">
+          <option value="">Select Batch</option>
+          {batches.map(batch => (
+            <option key={batch._id} value={batch._id}>{batch.batchNumber} {batch.colleges ? `(${batch.colleges.join(',')})` : ''}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        <button type="button" onClick={() => onClose && onClose()} className="px-3 py-1.5 border rounded">Cancel</button>
+        <button type="submit" disabled={submitting} className="px-3 py-1.5 bg-blue-600 text-white rounded">{submitting ? 'Saving...' : 'Save'}</button>
+      </div>
+    </form>
+  );
+}
+
 import api from '../../services/api';
 import {
-  Users, Building, Calendar, Eye, ChevronRight,
+  Users, Building, Calendar, Eye, ChevronRight, ChevronDown,
   Building2, Code2, GraduationCap, X, TrendingUp, Clock, MapPin, Award, Filter,
-  Search, UserPlus, UserCheck, Download, CalendarDays, BookOpen, FileText,
+  Search, UserPlus,Activity, UserCheck, Download, CalendarDays, BookOpen, FileText,
   User, Phone, Mail, MapPin as Location, GraduationCap as Education, Briefcase,
   ExternalLink, Image as ImageIcon, Star,
-  CheckCircle, AlertCircle
+  CheckCircle, AlertCircle, MoreVertical, Edit, Trash2, UserMinus
 } from 'lucide-react';
 import TrainerAssignment from './TrainerAssignment';
 import ScheduleTimetable from './ScheduleTimetable';
@@ -17,6 +94,8 @@ import PlacedStudentsTab from './PlacedStudentsTab';
 import axios from 'axios';
 import StudentActivity from './StudentActivity';
 import Header from '../../components/common/Header';
+import BottomNav from '../../components/common/BottomNav';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 const TPODashboard = () => {
   const [tpoData, setTpoData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -40,12 +119,88 @@ const TPODashboard = () => {
   const [loadingStudentDetails, setLoadingStudentDetails] = useState(false);
   const [selectedStudentForProfile, setSelectedStudentForProfile] = useState(null);
 
+  // Mobile view toggle for Student Details: show full table or compact list
+  const [mobileStudentTableView, setMobileStudentTableView] = useState(false);
+
+  // Add/Edit/Suspend UI state
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [showEditStudentModal, setShowEditStudentModal] = useState(false);
+  const [studentToEdit, setStudentToEdit] = useState(null);
+  const [suspendedStudents, setSuspendedStudents] = useState([]);
+  const [loadingSuspended, setLoadingSuspended] = useState(false);
+  const [actionMenuOpen, setActionMenuOpen] = useState(null); // student id whose menu is open
+
   // Trainer Assignment state
   const [showTrainerAssignment, setShowTrainerAssignment] = useState(false);
   const [selectedBatchForAssignment, setSelectedBatchForAssignment] = useState(null);
 
   // New state for tab navigation and filters
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  const tabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
+    { id: 'batches', label: 'Training Batches', icon: Briefcase },
+    { id: 'student-details', label: 'Student Details', icon: Users },
+    { id: 'suspended', label: 'Suspended', icon: UserMinus },
+    { id: 'attendance', label: 'Attendance', icon: Clock },
+    { id: 'student-activity', label: 'Student Activity', icon: Activity },
+    { id: 'statistics', label: 'Statistics', icon: TrendingUp },
+    { id: 'placementCalendar', label: 'Placement Calendar', icon: Calendar },
+    { id: 'schedule', label: 'Overall Schedule', icon: CalendarDays },
+    { id: 'placed-students', label: 'Placed Students', icon: UserCheck },
+    { id: 'coordinators', label: 'Coordinators', icon: Users },
+    { id: 'approvals', label: 'Approvals', icon: AlertCircle },
+  ];
+
+  // Desktop 'More' dropdown state (show only first 7 tabs horizontally)
+  const [showMoreDropdown, setShowMoreDropdown] = useState(false);
+  const [visibleTabsCount, setVisibleTabsCount] = useState(7);
+  const moreRef = useRef(null);
+
+  useEffect(() => {
+    // Use matchMedia for exact breakpoint behavior (768, 1024, 1440)
+    const mq1440 = window.matchMedia('(min-width: 1440px)');
+    const mq1024 = window.matchMedia('(min-width: 1024px)');
+    const mq768 = window.matchMedia('(min-width: 768px)');
+
+    const setCountFromMQ = () => {
+      if (mq1440.matches) setVisibleTabsCount(7);
+      else if (mq1024.matches) setVisibleTabsCount(5);
+      else if (mq768.matches) setVisibleTabsCount(4);
+      else setVisibleTabsCount(3);
+    };
+
+    setCountFromMQ();
+    mq1440.addEventListener?.('change', setCountFromMQ);
+    mq1024.addEventListener?.('change', setCountFromMQ);
+    mq768.addEventListener?.('change', setCountFromMQ);
+
+    // Fallback for older browsers that only support addListener
+    if (typeof mq1440.addEventListener !== 'function' && typeof mq1440.addListener === 'function') {
+      mq1440.addListener(setCountFromMQ);
+      mq1024.addListener(setCountFromMQ);
+      mq768.addListener(setCountFromMQ);
+    }
+
+    return () => {
+      mq1440.removeEventListener?.('change', setCountFromMQ);
+      mq1024.removeEventListener?.('change', setCountFromMQ);
+      mq768.removeEventListener?.('change', setCountFromMQ);
+      if (typeof mq1440.removeEventListener !== 'function' && typeof mq1440.removeListener === 'function') {
+        mq1440.removeListener(setCountFromMQ);
+        mq1024.removeListener(setCountFromMQ);
+        mq768.removeListener(setCountFromMQ);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (moreRef.current && !moreRef.current.contains(e.target)) setShowMoreDropdown(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedCollege, setSelectedCollege] = useState('all');
   const [selectedTechStack, setSelectedTechStack] = useState('all');
@@ -85,7 +240,7 @@ const [categoryUnread, setCategoryUnread] = useState({
 const [selectedCategory, setSelectedCategory] = useState(null);
 const notificationRef = useRef(null);
 
-  const [assigningCoordinator, setAssigningCoordinator] = useState(false);
+  const [assigningCoordinatorId, setAssigningCoordinatorId] = useState(null);
   const [assignmentError, setAssignmentError] = useState('');
   const navigate = useNavigate();
 
@@ -99,6 +254,159 @@ const notificationRef = useRef(null);
     fetchStudentDetailsByBatch();
     fetchPendingApprovals();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'suspended') {
+      fetchSuspendedStudents();
+    }
+
+    if (activeTab === 'coordinators') {
+      // Ensure placement batches (with coordinators populated by server) are loaded
+      fetchPlacementTrainingBatches();
+    }
+  }, [activeTab]);
+
+  const fetchSuspendedStudents = async () => {
+    setLoadingSuspended(true);
+    try {
+      const res = await api.get('/api/tpo/suspended-students');
+      if (res.data && res.data.success) setSuspendedStudents(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch suspended students:', err);
+    } finally {
+      setLoadingSuspended(false);
+    }
+  };
+
+  const handleAddStudent = () => {
+    setShowAddStudentModal(true);
+  };
+
+  const handleCreateStudent = async (payload) => {
+    try {
+      const res = await api.post(`/api/tpo/batches/${payload.batchId}/students`, payload);
+      if (res.data && res.data.success) {
+        setShowAddStudentModal(false);
+        fetchStudentDetailsByBatch();
+        return { success: true };
+      }
+      return { success: false, message: res.data?.message || 'Failed' };
+    } catch (err) {
+      console.error('Create student failed:', err);
+      return { success: false, message: err.message };
+    }
+  };
+
+  const handleEditStudent = (student) => {
+    setStudentToEdit(student);
+    setShowEditStudentModal(true);
+  };
+
+  const handleUpdateStudent = async (id, updates) => {
+    try {
+      const res = await api.put(`/api/tpo/students/${id}`, updates);
+      if (res.data && res.data.success) {
+        setShowEditStudentModal(false);
+        setStudentToEdit(null);
+        fetchStudentDetailsByBatch();
+        fetchSuspendedStudents();
+        return { success: true };
+      }
+      return { success: false, message: res.data?.message || 'Failed' };
+    } catch (err) {
+      const serverMsg = err?.response?.data?.message || err.message || 'Server error';
+      console.error('Update student failed:', err?.response?.data || err.message);
+      return { success: false, message: serverMsg };
+    }
+  };
+
+  const handleSuspendStudent = async (id) => {
+    try {
+      const res = await api.patch(`/api/tpo/students/${id}/suspend`);
+      if (res.data && res.data.success) {
+        fetchStudentDetailsByBatch();
+        fetchSuspendedStudents();
+      }
+    } catch (err) {
+      console.error('Suspend failed:', err);
+    }
+  };
+
+  const handleUnsuspendStudent = async (id) => {
+    try {
+      const res = await api.patch(`/api/tpo/students/${id}/unsuspend`);
+      if (res.data && res.data.success) {
+        fetchStudentDetailsByBatch();
+        fetchSuspendedStudents();
+      }
+    } catch (err) {
+      console.error('Unsuspend failed:', err);
+    }
+  };
+
+  const handleDeleteStudent = async (id) => {
+    try {
+      if (!id) return;
+      const res = await api.delete(`/api/tpo/students/${id}`);
+      if (res.data && res.data.success) {
+        fetchStudentDetailsByBatch();
+        fetchSuspendedStudents();
+        setSelectedStudentForProfile(null);
+        alert('Student deleted');
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert(err?.response?.data?.message || 'Failed to delete student');
+    }
+  };
+
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
+
+  const openActionMenu = (id, e) => {
+    // compute fixed position so menu is not clipped by scrollable container
+    // prefer to show below the button, but flip above if there's not enough space
+    if (e && e.currentTarget) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const menuWidth = 180;
+      const approximateMenuHeight = 160; // increase this if menu content grows
+      const bottomMargin = 20; // desired gap from the bottom of the viewport
+
+      // place menu below the button by default
+      let left = rect.right - menuWidth;
+      if (left < 8) left = Math.max(rect.left, 8);
+      if (left + menuWidth > window.innerWidth - 8) left = window.innerWidth - menuWidth - 8;
+
+      let top = rect.bottom + 12; // a slightly bigger gap for comfort
+
+      // If showing below would overflow the viewport bottom (consider margin), flip above
+      if (top + approximateMenuHeight > window.innerHeight - bottomMargin) {
+        // place above the button
+        top = rect.top - approximateMenuHeight - 12;
+        // if still off-screen at top, clamp to small margin
+        if (top < 8) top = 8;
+      }
+
+      setMenuPosition({ top, left });
+    }
+    setActionMenuOpen(id);
+  };
+
+  const closeActionMenu = () => {
+    setActionMenuOpen(null);
+    setMenuPosition({ top: 0, left: 0 });
+  };
+
+  useEffect(() => {
+    const handleDocClick = (e) => {
+      // Close action menu when clicking outside
+      const btn = e.target.closest && e.target.closest('.action-btn');
+      const menu = e.target.closest && e.target.closest('.action-menu');
+      if (!btn && !menu) closeActionMenu();
+    };
+    document.addEventListener('mousedown', handleDocClick);
+    return () => document.removeEventListener('mousedown', handleDocClick);
+  }, []);
+
 
   useEffect(() => {
     if (activeTab === 'schedule') {
@@ -133,6 +441,7 @@ const notificationRef = useRef(null);
   }, []);
 
   const fetchDashboard = async () => {
+    setLoading(true);
     try {
       const response = await api.get('/api/auth/dashboard/tpo');
       if (response.data.success) {
@@ -143,6 +452,8 @@ const notificationRef = useRef(null);
     } catch (err) {
       console.error('Dashboard fetch error:', err);
       setError('Failed to fetch dashboard data');
+    } finally {
+      setLoading(false);
     }
   };
 useEffect(() => {
@@ -285,7 +596,7 @@ const markAsRead = async (id) => {
       return;
     }
 
-    setAssigningCoordinator(true);
+    setAssigningCoordinatorId(studentId);
     setAssignmentError('');
     setError('');
     setMessage('');
@@ -311,15 +622,47 @@ const markAsRead = async (id) => {
       }
 
       setMessage('Student assigned as coordinator successfully');
-      await fetchPlacementTrainingBatches(); // Refresh batch data
-      setSelectedBatch(null); // Close the modal
+
+      // Refresh placement batches and update selectedBatch in-place so modal stays open
+      try {
+        const resp = await api.get('/api/tpo/placement-training-batches');
+        if (resp.data && resp.data.success) {
+          // Find batch by id inside organized structure
+          const organized = resp.data.data.organized || {};
+          let updated = null;
+          Object.keys(organized).forEach(year => {
+            Object.keys(organized[year]).forEach(college => {
+              Object.keys(organized[year][college]).forEach(tech => {
+                organized[year][college][tech].batches.forEach(b => {
+                  if (String(b._id) === String(batchId)) updated = b;
+                });
+              });
+            });
+          });
+          if (updated) {
+            // Populate response with coordinator's student object if present (coordinators populated on server)
+            setSelectedBatch(updated);
+          } else {
+            // Fallback: refresh list only
+            await fetchPlacementTrainingBatches();
+            setSelectedBatch(null);
+          }
+        } else {
+          await fetchPlacementTrainingBatches();
+          setSelectedBatch(null);
+        }
+      } catch (err) {
+        console.error('Failed to fetch updated batch after assignment:', err);
+        await fetchPlacementTrainingBatches();
+        setSelectedBatch(null);
+      }
 
     } catch (err) {
       console.error('Coordinator assignment error:', err);
       setAssignmentError(err.message || 'Failed to assign coordinator');
       setError(err.message || 'Failed to assign coordinator');
     } finally {
-      setAssigningCoordinator(false);
+      setAssigningCoordinatorId(null);
     }
   };
 
@@ -452,7 +795,7 @@ const markAsRead = async (id) => {
       if (selectedBatchFilter !== 'all' && batch.batchNumber !== selectedBatchFilter) return;
 
       batch.students.forEach(student => {
-        if (selectedCrtFilter !== 'all' && student.crtStatus !== selectedCrtFilter) return;
+        // defer CRT filter until we compute placementBatchName (we need to match PT_/NT_ prefixes)
         if (selectedCollegeFilter !== 'all' && student.college !== selectedCollegeFilter) return;
         if (selectedBranchFilter !== 'all' && student.branch !== selectedBranchFilter) return;
 
@@ -460,7 +803,38 @@ const markAsRead = async (id) => {
             !student.rollNo.toLowerCase().includes(studentSearchTerm.toLowerCase()) &&
             !student.email.toLowerCase().includes(studentSearchTerm.toLowerCase())) return;
 
-        allStudents.push(student);
+        // Prefer student-level placement identifiers when available (these are real data coming from API):
+        // 1) student.placementTrainingBatchId (populated object -> use name or construct)
+        // 2) student.currentBatch?.name
+        // 3) student.batchName
+        // 4) student.crtBatchName
+        // 5) batch.name
+        // If none exist, fallback to constructed label from batchNumber, first college and techStack.
+        let candidateName = '';
+
+        const ptb = student?.placementTrainingBatchId;
+        if (ptb && typeof ptb === 'object') {
+          // Prefer explicit name when available, else construct from batch fields
+          candidateName = ptb.name || `${ptb.batchNumber || ''}_${ptb.college || ptb.colleges?.[0] || ''}_${ptb.techStack || ''}`;
+        }
+
+        candidateName = candidateName || student?.currentBatch?.name || student?.batchName || student?.crtBatchName || batch.name || `${batch.batchNumber}_${(batch.colleges && batch.colleges[0]) || ''}_${batch.techStack || ''}`;
+
+        let placementBatchName = String(candidateName || '').trim().replace(/\s+/g, '_').replace(/[^A-Za-z0-9_-]/g, '').replace(/^_+|_+$/g, '');
+
+        // Only keep PT_ or NT_ prefixed placement names; otherwise mark as not updated
+        if (!(placementBatchName.startsWith('PT_') || placementBatchName.startsWith('NT_'))) {
+          placementBatchName = '';
+        }
+
+        // Apply CRT filter selection based on placement name prefixes
+        if (selectedCrtFilter !== 'all') {
+          if (selectedCrtFilter === 'PT' && !placementBatchName.startsWith('PT_')) return;
+          if (selectedCrtFilter === 'NT' && !placementBatchName.startsWith('NT_')) return;
+          if (selectedCrtFilter === 'not-updated' && placementBatchName) return;
+        }
+
+        allStudents.push({ ...student, placementBatchName });
       });
     });
 
@@ -493,7 +867,7 @@ const markAsRead = async (id) => {
         <div className="relative w-full max-w-6xl bg-white rounded-lg shadow-xl">
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4 rounded-t-lg flex justify-between items-center">
             <div>
-              <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+              <h3 className="text-lg sm:text-xl font-semibold text-white flex items-center gap-2">
                 <GraduationCap className="h-6 w-6" />
                 Student Profile - {student.name}
               </h3>
@@ -507,7 +881,7 @@ const markAsRead = async (id) => {
             </button>
           </div>
 
-          <div className="p-6 space-y-5">
+          <div className="p-4 sm:p-6 space-y-5">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="flex flex-col items-center">
                 <div className="w-28 h-28 bg-white rounded-full overflow-hidden border-4 border-blue-200 shadow">
@@ -545,17 +919,17 @@ const markAsRead = async (id) => {
                     <label className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Roll Number</label>
                     <p className="text-base font-semibold text-gray-900 mt-1 font-mono">{student.rollNo}</p>
                   </div>
-                  <div className="bg-green-50 p-3 rounded-lg border border-green-100">
-                    <label className="text-xs font-semibold text-green-700 uppercase tracking-wide">Email Address</label>
+                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <label className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Email Address</label>
                     <p className="text-base font-semibold text-gray-900 mt-1 flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-green-600" />
+                      <Mail className="h-4 w-4 text-blue-600" />
                       {student.email}
                     </p>
                   </div>
-                  <div className="bg-green-50 p-3 rounded-lg border border-green-100">
-                    <label className="text-xs font-semibold text-green-700 uppercase tracking-wide">Phone Number</label>
+                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <label className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Phone Number</label>
                     <p className="text-base font-semibold text-gray-900 mt-1 flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-green-600" />
+                      <Phone className="h-4 w-4 text-blue-600" />
                       {student.phonenumber}
                     </p>
                   </div>
@@ -580,25 +954,25 @@ const markAsRead = async (id) => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="bg-green-50 p-3 rounded-lg border border-green-100">
-                    <label className="text-xs font-semibold text-green-700 uppercase tracking-wide">Batch</label>
+                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <label className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Batch</label>
                     <p className="text-sm font-semibold text-gray-900 mt-1">{student.batchNumber}</p>
                   </div>
-                  <div className="bg-green-50 p-3 rounded-lg border border-green-100">
-                    <label className="text-xs font-semibold text-green-700 uppercase tracking-wide">CRT Status</label>
+                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <label className="text-xs font-semibold text-blue-700 uppercase tracking-wide">CRT Status</label>
                     <span className={`mt-1 inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
                       student.crtStatus === 'CRT'
-                        ? 'bg-green-100 text-green-800 border border-green-200'
+                        ? 'bg-blue-100 text-blue-800 border border-blue-200'
                         : 'bg-gray-100 text-gray-800 border border-gray-200'
                     }`}>
                       {student.crtStatus}
                     </span>
                   </div>
-                  <div className="bg-green-50 p-3 rounded-lg border border-green-100">
-                    <label className="text-xs font-semibold text-green-700 uppercase tracking-wide">Placement Status</label>
+                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <label className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Placement Status</label>
                     <span className={`mt-1 inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
                       student.status === 'placed'
-                        ? 'bg-green-100 text-green-800 border border-green-200'
+                        ? 'bg-blue-100 text-blue-800 border border-blue-200'
                         : student.status === 'eligible'
                         ? 'bg-blue-100 text-blue-800 border border-blue-200'
                         : 'bg-gray-100 text-gray-800 border border-gray-200'
@@ -611,7 +985,7 @@ const markAsRead = async (id) => {
             </div>
 
             {student.resumeUrl && (
-              <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-5">
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="bg-blue-600 p-3 rounded-lg">
@@ -632,7 +1006,7 @@ const markAsRead = async (id) => {
                     </button>
                     <button
                       onClick={() => handleResumeDownload(student.resumeUrl, student.resumeFileName)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 font-medium text-sm"
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-medium text-sm"
                     >
                       <Download className="h-4 w-4" />
                       Download
@@ -644,7 +1018,7 @@ const markAsRead = async (id) => {
 
             {(student.gender || student.dob || student.currentLocation || student.hometown) && (
               <div className="bg-white border border-gray-200 rounded-lg p-5">
-                <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <h4 className="text-sm sm:text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <User className="h-5 w-5 text-blue-600" />
                   Personal Information
                 </h4>
@@ -665,7 +1039,7 @@ const markAsRead = async (id) => {
                     <div className="flex justify-between py-2 border-b border-gray-100">
                       <span className="text-gray-600 text-sm">Current Location</span>
                       <span className="font-medium text-gray-900 flex items-center gap-2 text-sm">
-                        <Location className="h-4 w-4 text-green-600" />
+                        <Location className="h-4 w-4 text-blue-600" />
                         {student.currentLocation}
                       </span>
                     </div>
@@ -682,20 +1056,20 @@ const markAsRead = async (id) => {
 
             {student.bio && (
               <div className="bg-white border border-gray-200 rounded-lg p-5">
-                <h4 className="text-base font-semibold text-gray-900 mb-3">Professional Bio</h4>
+                <h4 className="text-sm sm:text-base font-semibold text-gray-900 mb-3">Professional Bio</h4>
                 <p className="text-gray-700 leading-relaxed text-sm">{student.bio}</p>
               </div>
             )}
 
             {student.academics && (
               <div className="bg-white border border-gray-200 rounded-lg p-5">
-                <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <h4 className="text-sm sm:text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <Education className="h-5 w-5 text-blue-600" />
                   Academic Records
                 </h4>
                 <div className="space-y-3">
                   {student.academics.btechCGPA && (
-                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-blue-100">
+                    <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-100">
                       <div className="flex items-center gap-3">
                         <GraduationCap className="h-6 w-6 text-blue-600" />
                         <div>
@@ -720,7 +1094,7 @@ const markAsRead = async (id) => {
                       </div>
                     )}
                     {student.academics.diploma?.percentage && (
-                      <div className="p-3 bg-green-50 rounded-lg border border-green-100">
+                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
                         <p className="font-semibold text-gray-900 text-sm">Diploma</p>
                         <p className="text-xl font-bold text-gray-800 mt-1">{student.academics.diploma.percentage}%</p>
                         {student.academics.diploma.board && (
@@ -735,7 +1109,7 @@ const markAsRead = async (id) => {
                         <p className="font-semibold text-gray-900 text-sm">Active Backlogs</p>
                         <p className="text-xs text-gray-600">Academic Standing</p>
                       </div>
-                      <p className={`text-2xl font-bold ${student.academics.backlogs === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <p className={`text-2xl font-bold ${student.academics.backlogs === 0 ? 'text-blue-600' : 'text-red-600'}`}>
                         {student.academics.backlogs}
                       </p>
                     </div>
@@ -746,13 +1120,13 @@ const markAsRead = async (id) => {
 
             {student.techStack && student.techStack.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-lg p-5">
-                <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Code2 className="h-5 w-5 text-green-600" />
+                <h4 className="text-sm sm:text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Code2 className="h-5 w-5 text-blue-600" />
                   Technical Skills
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {student.techStack.map((tech, index) => (
-                    <span key={index} className="px-3 py-1 bg-gradient-to-r from-blue-100 to-green-100 text-blue-700 rounded-full text-xs font-semibold border border-blue-200">
+                    <span key={index} className="px-3 py-1 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-700 rounded-full text-xs font-semibold border border-blue-200">
                       {tech}
                     </span>
                   ))}
@@ -762,7 +1136,7 @@ const markAsRead = async (id) => {
 
             {student.projects && student.projects.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-lg p-5">
-                <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <h4 className="text-sm sm:text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
                   <Briefcase className="h-5 w-5 text-blue-600" />
                   Projects ({student.projects.length})
                 </h4>
@@ -772,7 +1146,7 @@ const markAsRead = async (id) => {
                       <div className="flex items-start justify-between mb-2">
                         <h5 className="text-base font-semibold text-gray-900">{project.title}</h5>
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          project.verificationStatus === 'tpo_approved' ? 'bg-green-100 text-green-800 border border-green-200' :
+                          project.verificationStatus === 'tpo_approved' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
                           project.verificationStatus === 'coordinator_approved' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
                           project.verificationStatus === 'rejected' ? 'bg-red-100 text-red-800 border border-red-200' :
                           'bg-gray-100 text-gray-800 border border-gray-200'
@@ -816,8 +1190,8 @@ const markAsRead = async (id) => {
 
             {student.internships && student.internships.length > 0 && (
               <div className="bg-white border border-gray-200 rounded-lg p-5">
-                <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-green-600" />
+                <h4 className="text-sm sm:text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Briefcase className="h-5 w-5 text-blue-600" />
                   Internships ({student.internships.length})
                 </h4>
                 <div className="space-y-3">
@@ -829,7 +1203,7 @@ const markAsRead = async (id) => {
                           <p className="text-gray-700 font-medium text-sm">{internship.company}</p>
                         </div>
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          internship.verificationStatus === 'tpo_approved' ? 'bg-green-100 text-green-800 border border-green-200' :
+                          internship.verificationStatus === 'tpo_approved' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
                           internship.verificationStatus === 'coordinator_approved' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
                           internship.verificationStatus === 'rejected' ? 'bg-red-100 text-red-800 border border-red-200' :
                           'bg-gray-100 text-gray-800 border border-gray-200'
@@ -869,7 +1243,7 @@ const markAsRead = async (id) => {
                           <p className="text-gray-700 text-xs">{cert.issuer}</p>
                         </div>
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          cert.verificationStatus === 'tpo_approved' ? 'bg-green-100 text-green-800 border border-green-200' :
+                          cert.verificationStatus === 'tpo_approved' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
                           cert.verificationStatus === 'coordinator_approved' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
                           cert.verificationStatus === 'rejected' ? 'bg-red-100 text-red-800 border border-red-200' :
                           'bg-gray-100 text-gray-800 border border-gray-200'
@@ -892,9 +1266,9 @@ const markAsRead = async (id) => {
             )}
 
             {student.placementDetails && student.status === 'placed' && (
-              <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-5">
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-5">
                 <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                  <Star className="h-5 w-5 text-green-600" />
+                  <Star className="h-5 w-5 text-blue-600" />
                   Placement Details
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -912,7 +1286,7 @@ const markAsRead = async (id) => {
                     {student.placementDetails.package && (
                       <div className="flex justify-between">
                         <span className="text-gray-600 text-sm">Package</span>
-                        <span className="font-bold text-green-600 text-lg">{student.placementDetails.package} LPA</span>
+                        <span className="font-bold text-blue-600 text-lg">{student.placementDetails.package} LPA</span>
                       </div>
                     )}
                     {student.placementDetails.location && (
@@ -930,7 +1304,7 @@ const markAsRead = async (id) => {
             )}
 
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-5">
-              <h4 className="text-base font-semibold text-gray-900 mb-3">Account Activity</h4>
+              <h4 className="text-sm sm:text-base font-semibold text-gray-900 mb-3">Account Activity</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="flex justify-between py-2 border-b border-gray-200">
                   <span className="text-gray-600 text-sm">Account Created</span>
@@ -989,7 +1363,7 @@ const markAsRead = async (id) => {
     } else {
       return {
         status: `${trainerCount} Trainers`,
-        color: 'bg-green-100 text-green-800',
+        color: 'bg-blue-100 text-blue-800',
         icon: '✅'
       };
     }
@@ -1058,16 +1432,7 @@ const markAsRead = async (id) => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-medium">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSkeleton />;
 
   if (error) {
     return (
@@ -1097,7 +1462,7 @@ const getRequestTypeColor = (type) => {
   const colors = {
     'crt_status_change': 'from-purple-500 to-purple-600',
     'batch_change': 'from-blue-500 to-blue-600',
-    'profile_change': 'from-green-500 to-green-600'
+    'profile_change': 'from-blue-500 to-blue-600'
   };
   return colors[type] || 'from-gray-500 to-gray-600';
 };
@@ -1107,7 +1472,7 @@ const getRequestTypeColor = (type) => {
         <div className="relative w-full max-w-3xl bg-white rounded-lg shadow-2xl">
           <div className={`bg-gradient-to-r ${getRequestTypeColor(approval.requestType)} px-6 py-4 rounded-t-lg flex justify-between items-center`}>
             <div>
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                 <AlertCircle className="h-6 w-6" />
                 Approval Request Details
               </h3>
@@ -1121,7 +1486,7 @@ const getRequestTypeColor = (type) => {
             </button>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-6">
             {/* Student Information */}
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -1169,7 +1534,7 @@ const getRequestTypeColor = (type) => {
                       <p className="text-sm text-gray-600 mb-1">Current CRT Status</p>
                       <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${
                         approval.requestedChanges.originalCrtInterested
-                          ? 'bg-green-100 text-green-800'
+                          ? 'bg-blue-100 text-blue-800'
                           : 'bg-gray-100 text-gray-800'
                       }`}>
                         {approval.requestedChanges.originalCrtInterested ? 'CRT' : 'Non-CRT'}
@@ -1182,7 +1547,7 @@ const getRequestTypeColor = (type) => {
                       <p className="text-sm text-gray-600 mb-1">Requested CRT Status</p>
                       <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${
                         approval.requestedChanges.crtInterested
-                          ? 'bg-green-100 text-green-800'
+                          ? 'bg-blue-100 text-blue-800'
                           : 'bg-gray-100 text-gray-800'
                       }`}>
                         {approval.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}
@@ -1286,7 +1651,7 @@ const getRequestTypeColor = (type) => {
             <div className="flex gap-3 pt-4 border-t border-gray-200">
               <button
                 onClick={() => onApprove(approval.student.id, approval.approvalId)}
-                className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
+                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
               >
                 <CheckCircle className="h-5 w-5" />
                 Approve Request
@@ -1313,13 +1678,13 @@ const getRequestTypeColor = (type) => {
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
         <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
           <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-4 rounded-t-lg">
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+            <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
               <AlertCircle className="h-6 w-6" />
               Reject Request
             </h3>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <p className="text-gray-700 mb-4">
               You are about to reject the request from <strong>{approval.student.name}</strong>.
               Please provide a reason for rejection:
@@ -1354,6 +1719,8 @@ const getRequestTypeColor = (type) => {
     );
   };
 
+  if (loading) return <LoadingSkeleton />;
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
@@ -1380,7 +1747,7 @@ const getRequestTypeColor = (type) => {
         }}
       />
 
-      <div className="max-w-7xl mx-auto pt-20">
+      <div className="max-w-7xl mx-auto pt-12 sm:pt-20 pb-24 sm:pb-8">
         {/* Header Section */}
         <div className="bg-white border-b border-gray-200 shadow-sm">
           <div className="px-6 py-5">
@@ -1391,58 +1758,54 @@ const getRequestTypeColor = (type) => {
                 </h1>
                 <p className="text-gray-600 mt-1">Welcome, {tpoData?.user?.name}</p>
               </div>
-              <div className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-lg border border-green-200">
-                <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-green-700">Live Data</span>
-              </div>
             </div>
           </div>
           <div className="px-6 pb-5">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <div className="flex items-start gap-3">
-                  <div className="bg-green-600 p-2 rounded-lg">
+                  <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
                     <Calendar className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Last Login</p>
-                    <p className="text-base font-bold text-green-900">{tpoData?.lastLogin ? new Date(tpoData.lastLogin).toLocaleDateString() : 'N/A'}</p>
+                    <p className="text-[11px] sm:text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Last Login</p>
+                    <p className="text-sm sm:text-base font-bold text-blue-900">{tpoData?.lastLogin ? new Date(tpoData.lastLogin).toLocaleDateString() : 'N/A'}</p>
                   </div>
                 </div>
               </div>
 
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <div className="flex items-start gap-3">
-                  <div className="bg-blue-600 p-2 rounded-lg">
+                  <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
                     <Users className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Assigned Trainers</p>
-                    <p className="text-base font-bold text-blue-900">{tpoData?.assignedTrainers || 0}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                <div className="flex items-start gap-3">
-                  <div className="bg-green-600 p-2 rounded-lg">
-                    <Building className="h-5 w-5 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Companies</p>
-                    <p className="text-base font-bold text-green-900">{tpoData?.managedCompanies || 0}</p>
+                    <p className="text-[11px] sm:text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Assigned Trainers</p>
+                    <p className="text-sm sm:text-base font-bold text-blue-900">{tpoData?.assignedTrainers || 0}</p>
                   </div>
                 </div>
               </div>
 
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <div className="flex items-start gap-3">
-                  <div className="bg-blue-600 p-2 rounded-lg">
+                  <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
+                    <Building className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[11px] sm:text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Companies</p>
+                    <p className="text-sm sm:text-base font-bold text-blue-900">{tpoData?.managedCompanies || 0}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div className="flex items-start gap-3">
+                  <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
                     <Award className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Total Batches</p>
-                    <p className="text-base font-bold text-blue-900">{tpoData?.assignedBatches || 0}</p>
+                    <p className="text-[11px] sm:text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Total Batches</p>
+                    <p className="text-sm sm:text-base font-bold text-blue-900">{tpoData?.assignedBatches || 0}</p>
                   </div>
                 </div>
               </div>
@@ -1451,143 +1814,83 @@ const getRequestTypeColor = (type) => {
 
           {/* Tab Navigation */}
           <div className="px-6">
-            <div className="flex gap-1 border-b border-gray-200">
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
-                  activeTab === 'dashboard'
-                    ? 'border-blue-600 text-blue-700 bg-blue-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Dashboard
-              </button>
-              <button
-                onClick={() => setActiveTab('batches')}
-                className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
-                  activeTab === 'batches'
-                    ? 'border-blue-600 text-blue-700 bg-blue-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Training Batches
-              </button>
-              <button
-                onClick={() => setActiveTab('student-details')}
-                className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
-                  activeTab === 'student-details'
-                    ? 'border-blue-600 text-blue-700 bg-blue-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Student Details
-              </button>
-              <button
-                onClick={() => setActiveTab('attendance')}
-                className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
-                  activeTab === 'attendance'
-                    ? 'border-blue-600 text-blue-700 bg-blue-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Attendance
-              </button>
-              <button
-                onClick={() => setActiveTab('student-activity')}
-                className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
-                  activeTab === 'student-activity'
-                    ? 'border-blue-600 text-blue-700 bg-blue-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Student Activity
-              </button>
-              <button
-                onClick={() => setActiveTab('statistics')}
-                className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
-                  activeTab === 'statistics'
-                    ? 'border-blue-600 text-blue-700 bg-blue-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Statistics
-              </button>
-                <button
-                onClick={() => setActiveTab('placementCalendar')}
-                className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
-                  activeTab === 'placementCalendar'
-                    ? 'border-blue-600 text-blue-700 bg-blue-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Placement Calendar
-              </button>
-                      {/* <button
-          className={`tab-button ${activeTab === 'placementCalendar' ? 'active' : ''}`}
-          onClick={() => setActiveTab('placementCalendar')}
-        >
-          Placement Calendar
-        </button> */}
-              <button
-                onClick={() => setActiveTab('schedule')}
-                className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 ${
-                  activeTab === 'schedule'
-                    ? 'border-blue-600 text-blue-700 bg-blue-50'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <CalendarDays className="h-4 w-4 inline mr-2" />
-                Overall Schedule
-              </button>
-                <button
-    onClick={() => setActiveTab('placed-students')}
-    className={`px-4 py-3 font-medium transition ${
-      activeTab === 'placed-students'
-        ? 'border-b-2 border-teal-600 text-teal-600'
-        : 'text-gray-600 hover:text-gray-900'
-    }`}
-  >
-    <UserCheck className="inline mr-2" size={18} />
-    Placed Students
-  </button>
+            <div className="bg-white rounded-lg shadow-md mb-6">
+              <div className="border-b border-gray-200">
+                <nav className="hidden sm:flex items-center space-x-2">
+                  {tabs.slice(0, visibleTabsCount).map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
+                          activeTab === tab.id
+                            ? 'border-b-2 border-blue-700 text-blue-700'
+                            : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
 
-            {/* Approval Requests Tab */}
-            <button
-              onClick={() => setActiveTab('approvals')}
-              className={`px-5 py-3 font-medium text-sm transition-all duration-200 border-b-2 relative ${
-                activeTab === 'approvals'
-                  ? 'border-orange-600 text-orange-700 bg-orange-50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-4 w-4" />
-                Approval Requests
-                {pendingApprovals.length > 0 && (
-                  <span className="bg-orange-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
-                    {pendingApprovals.length}
-                  </span>
-                )}
+                  {tabs.length > visibleTabsCount && (
+                    <div className="relative" ref={moreRef}>
+                      <button
+                        onClick={() => setShowMoreDropdown((s) => !s)}
+                        aria-label="More"
+                        className="flex items-center space-x-2 px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 border-transparent rounded"
+                      >
+                        <span>More</span>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${showMoreDropdown ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      <div className={`absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 ${showMoreDropdown ? 'block' : 'hidden'}`}>
+                        <ul className="divide-y divide-gray-100">
+                          {tabs.slice(visibleTabsCount).map((tab) => {
+                            const Icon = tab.icon;
+                            return (
+                              <li key={tab.id}>
+                                <button
+                                  onClick={() => { setActiveTab(tab.id); setShowMoreDropdown(false); }}
+                                  className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 text-sm text-gray-700"
+                                >
+                                  <Icon className="h-4 w-4" />
+                                  <span>{tab.label}</span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </nav>
               </div>
-            </button>
+            </div>
+
+            {/* Mobile bottom nav (exact admin BottomNav) */}
+            <div className="sm:hidden">
+              <BottomNav tabs={tabs} active={activeTab} onChange={setActiveTab} />
             </div>
           </div>
-        </div>
+
 
         {/* Content Area */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {/* Dashboard Tab */}
           {activeTab === 'dashboard' && (
             <div className="space-y-5">
               {/* Quick Actions */}
               {/* <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors">
                     <Users className="h-7 w-7 text-gray-400 mx-auto mb-2" />
                     <p className="text-gray-600 font-medium text-sm">Manage Students</p>
                   </button>
-                  <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors">
+                  <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors">
                     <Building className="h-7 w-7 text-gray-400 mx-auto mb-2" />
                     <p className="text-gray-600 font-medium text-sm">Company Relations</p>
                   </button>
@@ -1603,20 +1906,17 @@ const getRequestTypeColor = (type) => {
 
               {/* Recent Assigned Batches */}
               <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Recently Assigned Batches</h3>
+                <h3 className="text-sm sm:text-base font-semibold text-gray-900 mb-4">Recently Assigned Batches</h3>
                 {loadingBatches ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Loading batches...</p>
-                  </div>
+                  <LoadingSkeleton />
                 ) : errorBatches ? (
                   <div className="text-red-500 mb-4">{errorBatches}</div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {assignedBatches.slice(0, 4).map(batch => (
-                      <div key={batch.id} className="bg-gradient-to-r from-blue-50 to-green-50 border rounded-lg shadow p-5 hover:shadow-md transition-shadow">
-                        <h4 className="font-semibold text-base mb-2 text-gray-900">Batch {batch.batchNumber}</h4>
-                        <div className="space-y-2 text-sm text-gray-700">
+                      <div key={batch.id} className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg shadow p-4 sm:p-5 hover:shadow-md transition-shadow">
+                        <h4 className="font-semibold text-sm sm:text-base mb-2 text-gray-900">Batch {batch.batchNumber}</h4>
+                        <div className="space-y-2 text-xs sm:text-sm text-gray-700">
                           <div><span className="font-medium text-gray-700">College:</span> {batch.colleges?.join(', ') || '-'}</div>
                           <div><span className="font-medium text-gray-700">Students:</span> {batch.students?.length || 0}</div>
                           <div><span className="font-medium text-gray-700">Start:</span> {batch.startDate ? new Date(batch.startDate).toLocaleDateString() : '-'}</div>
@@ -1639,11 +1939,11 @@ const getRequestTypeColor = (type) => {
               <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Filter className="h-5 w-5 text-blue-700" />
-                  <h3 className="text-base font-bold text-gray-900">Filters</h3>
+                  <h3 className="text-sm sm:text-base font-bold text-gray-900">Filters</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Academic Year</label>
                     <select
                       value={selectedYear}
                       onChange={(e) => {
@@ -1660,7 +1960,7 @@ const getRequestTypeColor = (type) => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">College</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">College</label>
                     <select
                       value={selectedCollege}
                       onChange={(e) => {
@@ -1677,7 +1977,7 @@ const getRequestTypeColor = (type) => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tech Stack</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Tech Stack</label>
                     <select
                       value={selectedTechStack}
                       onChange={(e) => setSelectedTechStack(e.target.value)}
@@ -1691,7 +1991,7 @@ const getRequestTypeColor = (type) => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Search</label>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                       <input
@@ -1708,9 +2008,18 @@ const getRequestTypeColor = (type) => {
 
               {/* Batches Grid */}
               {loadingPlacementBatches ? (
-                <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
-                  <div className="animate-spin rounded-full h-14 w-14 border-b-4 border-blue-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600 font-medium">Loading batches...</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="animate-pulse bg-white rounded-lg border border-gray-200 p-3 sm:p-4">
+                      <div className="h-1.5 bg-gray-200 rounded mb-3"></div>
+                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+                      <div className="flex items-center gap-2 mt-3">
+                        <div className="flex-1 h-8 bg-gray-200 rounded"></div>
+                        <div className="flex-1 h-8 bg-gray-200 rounded"></div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1725,24 +2034,24 @@ const getRequestTypeColor = (type) => {
                       return (
                         <div key={batch._id} className="bg-white rounded-lg shadow border border-gray-200 hover:shadow-lg transition-all duration-300 overflow-hidden">
                           <div className={`h-1.5 ${getTechStackBadgeColor(batch.techStack)}`}></div>
-                                                                            <div className="p-5">
-                            <div className="flex items-start justify-between mb-3">
+                          <div className="p-3 sm:p-4">
+                            <div className="flex items-start justify-between mb-2">
                               <div>
-                                <h3 className="text-lg font-bold text-gray-900">{batch.batchNumber}</h3>
-                                <p className="text-sm text-gray-600 mt-0.5">{batch.college}</p>
+                                <h3 className="text-sm sm:text-base font-bold text-gray-900">{batch.batchNumber}</h3>
+                                <p className="text-xs sm:text-sm text-gray-600 mt-0.5">{batch.college}</p>
                               </div>
                               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getTechStackColor(batch.techStack)} border`}>
                                 {batch.techStack}
                               </span>
                             </div>
 
-                            <div className="space-y-2 mb-4 text-gray-700 text-sm">
+                            <div className="space-y-2 mb-3 text-gray-700 text-[11px] sm:text-sm">
                               <div className="flex items-center gap-2">
                                 <Users className="h-4 w-4 text-blue-600" />
                                 <span><strong>{batch.studentCount}</strong> Students</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-green-600" />
+                                <Calendar className="h-4 w-4 text-blue-600" />
                                 <span>{new Date(batch.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                               </div>
                               <div className="flex items-center gap-2">
@@ -1752,7 +2061,7 @@ const getRequestTypeColor = (type) => {
 
                               <div className="flex items-center gap-2">
                                 <UserCheck className="h-4 w-4" />
-                                <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${assignmentStatus.color} border`}>
+                                <span className={`px-2 py-0.5 rounded-md text-[11px] font-medium ${assignmentStatus.color} border`}>
                                   {assignmentStatus.icon} {assignmentStatus.status}
                                 </span>
                               </div>
@@ -1761,17 +2070,19 @@ const getRequestTypeColor = (type) => {
                             <div className="flex gap-2">
                               <button
                                 onClick={() => setSelectedBatch(batch)}
-                                className="flex-1 text-white bg-blue-600 hover:bg-blue-700 font-medium py-2 px-3 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-sm text-sm"
+                                className="flex-1 text-white bg-blue-600 hover:bg-blue-700 font-medium py-1.5 px-2 sm:py-2 sm:px-3 rounded-md transition-all duration-300 flex items-center justify-center gap-2 shadow-sm text-xs sm:text-sm"
                               >
                                 <Eye className="h-4 w-4" />
-                                View
+                                <span className="hidden sm:inline">View</span>
+                                <span className="sm:hidden">View</span>
                               </button>
                               <button
                                 onClick={() => handleTrainerAssignment(batch._id)}
-                                className="flex-1 text-green-700 bg-green-100 hover:bg-green-200 font-medium py-2 px-3 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 text-sm"
+                                className="flex-1 text-blue-700 bg-blue-100 hover:bg-blue-200 font-medium py-1.5 px-2 sm:py-2 sm:px-3 rounded-md transition-all duration-300 flex items-center justify-center gap-2 text-xs sm:text-sm"
                               >
                                 <UserPlus className="h-4 w-4" />
-                                Assign
+                                <span className="hidden sm:inline">Assign</span>
+                                <span className="sm:hidden">Assign</span>
                               </button>
                             </div>
                           </div>
@@ -1788,11 +2099,35 @@ const getRequestTypeColor = (type) => {
           {activeTab === 'student-details' && (
             <div className="space-y-5">
               <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Filter className="h-5 w-5 text-blue-700" />
-                  <h3 className="text-base font-bold text-gray-900">Student Filters</h3>
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-5 w-5 text-blue-700" />
+                    <h3 className="text-sm sm:text-base font-bold text-gray-900">Student Filters</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* Mobile-only toggle to switch between compact list and table */}
+                    <button
+                      type="button"
+                      className="sm:hidden px-2 py-1 text-xs border rounded bg-white text-gray-700"
+                      onClick={() => setMobileStudentTableView(v => !v)}
+                      aria-pressed={mobileStudentTableView}
+                      aria-label="Toggle student view"
+                    >
+                      {mobileStudentTableView ? 'List' : 'Table'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleAddStudent}
+                      className="bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs sm:text-sm hover:bg-blue-700 flex items-center gap-2"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      <span className="hidden sm:inline">Add Student</span>
+                      <span className="sm:hidden">Add</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
@@ -1818,9 +2153,10 @@ const getRequestTypeColor = (type) => {
                     onChange={(e) => setSelectedCrtFilter(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   >
-                    <option value="all">All CRT Status</option>
-                    <option value="CRT">CRT</option>
-                    <option value="Non-CRT">Non-CRT</option>
+                    <option value="all">All</option>
+                    <option value="PT">CRT</option>
+                    <option value="NT">Non-CRT</option>
+                    <option value="not-updated">Not updated</option>
                   </select>
                   <select
                     value={selectedCollegeFilter}
@@ -1835,51 +2171,228 @@ const getRequestTypeColor = (type) => {
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gradient-to-r from-blue-50 to-green-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Student</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Roll No</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">College</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Branch</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tech Stack</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {getFilteredStudents().map((student, idx) => (
-                        <tr key={student._id} className={`hover:bg-blue-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="px-6 py-3 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                                {student.name.charAt(0)}
-                              </div>
-                              <span className="font-medium text-gray-900 text-sm">{student.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 font-mono">{student.rollNo}</td>
-                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.college}</td>
-                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.branch}</td>
-                          <td className="px-6 py-3 whitespace-nowrap">
-                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium border border-blue-200">
-                              {student.techStack?.join(', ') || 'Not specified'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500">
-                            <button
-                              onClick={() => setSelectedStudentForProfile(student)}
-                              className="text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                              View Profile
-                            </button>
-                          </td>
+              {loadingStudentDetails ? (
+                <LoadingSkeleton />
+              ) : (
+                <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                  {/* Desktop / Tablet - compact table */}
+                  <div className={`${mobileStudentTableView ? 'block' : 'hidden'} sm:block overflow-x-auto`}>
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gradient-to-r from-blue-50 to-blue-100">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-[11px] font-bold text-gray-700 uppercase tracking-wide">Student</th>
+                          <th className="px-2 py-2 text-left text-[11px] font-medium text-gray-600 uppercase">Roll</th>
+                          <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-600 hidden sm:table-cell">College</th>
+                          <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-600">Placement</th>
+                          <th className="px-3 py-2 text-left text-[11px] font-medium text-gray-600">Tech</th>
+                          <th className="px-2 py-2 text-center text-[11px] font-medium text-gray-600">Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200 text-sm">
+                        {getFilteredStudents().map((student, idx) => (
+                          <tr key={student._id} className={`group hover:bg-blue-50 hover:shadow transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-600 text-white font-semibold text-sm">
+                                  {student.profileImageUrl ? (
+                                    <img src={student.profileImageUrl} alt={student.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    student.name.charAt(0)
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="font-semibold text-gray-900 text-sm truncate">{student.name}</div>
+                                  <div className="text-xs text-gray-500 truncate">{student.college} • {student.branch}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
+                              <span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-mono">{student.rollNo}</span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 hidden sm:table-cell">{student.college}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
+                              <span className="inline-block bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded">{student.placementBatchName ? student.placementBatchName : 'Not updated'}</span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="flex flex-wrap gap-1">
+                                {(student.techStack || []).slice(0,2).map(ts => (
+                                  <span key={ts} className="text-xs bg-slate-100 text-slate-800 px-2 py-0.5 rounded">{ts}</span>
+                                ))}
+                                {(student.techStack && student.techStack.length > 2) && (
+                                  <span className="text-xs bg-slate-50 text-slate-600 px-2 py-0.5 rounded">+{student.techStack.length - 2}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="flex items-center gap-2 justify-center">
+                                <button onClick={(e) => { e.stopPropagation(); setSelectedStudentForProfile(student); }} className="p-1 text-gray-600 hover:text-gray-800 rounded" title="View"><Eye className="h-4 w-4" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); handleEditStudent(student); }} className="p-1 text-gray-600 hover:text-gray-800 rounded" title="Edit"><Edit className="h-4 w-4" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); if(window.confirm('Delete this student permanently?')) handleDeleteStudent(student._id); }} className="p-1 text-red-500 hover:text-red-600 rounded" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); handleSuspendStudent(student._id); }} className="p-1 text-yellow-600 hover:text-yellow-700 rounded" title="Suspend"><UserMinus className="h-4 w-4" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile - compact stacked rows to avoid horizontal scroll */}
+                  <div className={`sm:hidden divide-y divide-gray-200 ${mobileStudentTableView ? 'hidden' : ''}`}>
+                    {getFilteredStudents().map((student, idx) => (
+                      <div key={student._id} className={`p-2 flex items-center justify-between ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-[10px] flex-shrink-0">
+                            {student.name.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-medium text-gray-900 text-[11px] truncate">{student.name}</div>
+                            <div className="text-[10px] text-gray-500 truncate">{student.college} • {student.branch}</div>
+                            <div className="text-[9px] text-gray-500 truncate mt-0.5">{student.placementBatchName ? student.placementBatchName : 'Not updated'}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-3 flex-shrink-0 relative">
+                          <div className="text-[10px] text-gray-700 font-mono text-right">{student.rollNo}</div>
+
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openActionMenu(student._id, e); }}
+                            className="ml-1 p-1 text-gray-500 hover:text-gray-700 rounded action-btn"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+
+                          {actionMenuOpen === student._id && (
+                            <div
+                              className="action-menu z-50 bg-white rounded-md shadow-lg border border-gray-200"
+                              style={{ position: 'fixed', top: `${menuPosition.top}px`, left: `${menuPosition.left}px`, width: 180 }}
+                            >
+                              <ul className="py-1 text-sm">
+                                <li>
+                                  <button onClick={() => { closeActionMenu(); setSelectedStudentForProfile(student); }} className="w-full text-left px-3 py-2 hover:bg-gray-50">View</button>
+                                </li>
+                                <li>
+                                  <button onClick={() => { closeActionMenu(); handleEditStudent(student); }} className="w-full text-left px-3 py-2 hover:bg-gray-50">Edit</button>
+                                </li>
+                                <li>
+                                  <button onClick={() => { closeActionMenu(); handleSuspendStudent(student._id); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-yellow-700">Suspend</button>
+                                </li>
+                                <li>
+                                  <button onClick={() => { closeActionMenu(); if(window.confirm('Delete this student permanently?')) handleDeleteStudent(student._id); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-red-600">Delete</button>
+                                </li>
+                              </ul>
+                            </div>
+                          )} 
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Suspended Students Tab */}
+          {activeTab === 'suspended' && (
+            <div className="space-y-5">
+              <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-base sm:text-lg font-semibold">Suspended Students</h2>
+                    {/* <p className="text-sm text-gray-500">Students suspended by the TPO (cannot login)</p> */}
+                  </div>
+                  {/* <div>
+                    <button onClick={fetchSuspendedStudents} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm">Refresh</button>
+                  </div> */}
+                </div>
+
+                {loadingSuspended ? (
+                  <LoadingSkeleton />
+                ) : suspendedStudents.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-500">No suspended students</p>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gradient-to-r from-blue-50 to-blue-100">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Student</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Roll</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">College</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Batch</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200 text-sm">
+                          {suspendedStudents.map((s, idx) => (
+                            <tr key={s._id} className={`${idx%2===0?'bg-white':'bg-gray-50'}`}>
+                              <td className="px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-xs">{s.name?.charAt(0)}</div>
+                                  <div className="truncate text-sm text-gray-900">{s.name}</div>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-sm font-mono">{s.rollNo}</td>
+                              <td className="px-3 py-2 text-sm">{s.college}</td>
+                              <td className="px-3 py-2 text-sm text-gray-800 truncate">{s.placementBatchName || s.crtBatchName || 'N/A'}</td>
+                              <td className="px-3 py-2">
+                                <button onClick={() => handleUnsuspendStudent(s._id)} className="px-3 py-1 text-sm bg-green-600 text-white rounded">Unsuspend</button>
+                                <button onClick={() => setSelectedStudentForProfile(s)} className="ml-2 px-2 py-1 text-sm text-blue-600">View</button>
+                                <button onClick={() => { if(window.confirm('Delete this student permanently?')) handleDeleteStudent(s._id); }} className="ml-2 px-2 py-1 text-sm text-red-600">Delete</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Mobile list - compact like Student Details */}
+                    <div className="sm:hidden divide-y divide-gray-200">
+                      {suspendedStudents.map((s, idx) => (
+                        <div key={s._id} className={`p-2 flex items-center justify-between ${idx%2===0?'bg-white':'bg-gray-50'}`}>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-[10px] flex-shrink-0">{s.name?.charAt(0)}</div>
+                            <div className="min-w-0">
+                              <div className="font-medium text-gray-900 text-[11px] truncate">{s.name}</div>
+                              <div className="text-[10px] text-gray-500 truncate">{s.college} • {s.placementBatchName || s.crtBatchName || 'N/A'}</div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 ml-3 flex-shrink-0 relative">
+                            <div className="text-[10px] text-gray-700 font-mono text-right">{s.rollNo}</div>
+
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openActionMenu(s._id, e); }}
+                              className="ml-1 p-1 text-gray-500 hover:text-gray-700 rounded action-btn"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+
+                            {actionMenuOpen === s._id && (
+                              <div
+                                className="action-menu z-50 bg-white rounded-md shadow-lg border border-gray-200"
+                                style={{ position: 'fixed', top: `${menuPosition.top}px`, left: `${menuPosition.left}px`, width: 180 }}
+                              >
+                                <ul className="py-1 text-sm">
+                                  <li>
+                                    <button onClick={() => { closeActionMenu(); handleUnsuspendStudent(s._id); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-green-700">Unsuspend</button>
+                                  </li>
+                                  <li>
+                                    <button onClick={() => { closeActionMenu(); setSelectedStudentForProfile(s); }} className="w-full text-left px-3 py-2 hover:bg-gray-50">View</button>
+                                  </li>
+                                  <li>
+                                    <button onClick={() => { closeActionMenu(); if(window.confirm('Delete this student permanently?')) handleDeleteStudent(s._id); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 text-red-600">Delete</button>
+                                  </li>
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1888,7 +2401,7 @@ const getRequestTypeColor = (type) => {
           {activeTab === 'statistics' && (
             <div className="space-y-5">
               <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold mb-5">Detailed Statistics</h2>
+                <h2 className="text-base sm:text-lg font-semibold mb-5">Detailed Statistics</h2>
                 {Object.keys(placementBatchData).sort().reverse().map(year => (
                   <div key={year} className="mb-5">
                     <h3 className="font-semibold text-gray-800 mb-3 border-b border-gray-300 pb-2">Academic Year {year}</h3>
@@ -1898,7 +2411,7 @@ const getRequestTypeColor = (type) => {
                         const totalStudents = Object.values(placementBatchData[year][college]).reduce((acc, tech) => acc + tech.totalStudents, 0);
 
                         return (
-                          <div key={college} className="bg-gradient-to-r from-blue-50 to-green-50 p-4 rounded-lg border border-blue-200">
+                          <div key={college} className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
                             <h4 className="font-semibold text-gray-900 mb-2 text-sm">{college}</h4>
                             <p className="text-sm text-gray-600 mb-3">{totalBatches} batches • {totalStudents} students</p>
                             {Object.keys(placementBatchData[year][college]).map(techStack => (
@@ -1940,8 +2453,76 @@ const getRequestTypeColor = (type) => {
             <PlacementCalendar />
           </div>
         )}
-        {activeTab === 'placed-students' && <PlacedStudentsTab />}
+        {activeTab === 'placed-students' && (
+          <div className="w-full">
+            <PlacedStudentsTab />
+          </div>
+        )}
 
+        {/* Coordinators Tab */}
+        {activeTab === 'coordinators' && (
+          <div className="space-y-5">
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold">Batch Coordinators</h2>
+                  <p className="text-sm text-gray-500">View coordinators assigned to each placement training batch</p>
+                </div>
+                <div>
+                  <button onClick={fetchPlacementTrainingBatches} className="px-2 py-1 sm:px-3 sm:py-1.5 bg-blue-600 text-white rounded-sm sm:rounded text-xs sm:text-sm">Refresh</button>
+                </div>
+              </div>
+
+              {loadingPlacementBatches ? (
+                <LoadingSkeleton />
+              ) : (!placementBatchData || Object.keys(placementBatchData).length === 0) ? (
+                <div className="text-center py-12 text-gray-500">No placement batches found</div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.keys(placementBatchData).sort().reverse().map(year => (
+                    <div key={year} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="bg-gray-50 px-3 py-2 border-b">
+                        <h3 className="text-sm font-semibold">Academic Year {year}</h3>
+                      </div>
+                      <div className="p-2 sm:p-3 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+                        {Object.entries(placementBatchData[year]).flatMap(([college, techMap]) => (
+                          Object.values(techMap).flatMap(group => group.batches.map(batch => ({ college, batch })))
+                        )).map(({ college, batch }) => (
+                          <div key={batch._id} className="bg-white rounded-md border border-gray-200 p-2 sm:p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-xs sm:text-sm font-semibold truncate">{batch.batchNumber} • {batch.techStack} <span className="text-[10px] sm:text-xs text-gray-500">({college})</span></div>
+                                <div className="text-[11px] text-gray-500">Students: {batch.studentCount || (batch.students ? batch.students.length : 0)}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-xs text-gray-500">{batch.startDate ? new Date(batch.startDate).toLocaleDateString() : ''}</div>
+                              </div>
+                            </div>
+
+                            <div className="mt-2 sm:mt-3">
+                              {batch.coordinators && batch.coordinators.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 sm:gap-2">
+                                  {batch.coordinators.map(coord => (
+                                    <div key={coord._id} className="px-2 py-0.5 rounded bg-blue-50 border border-blue-100 text-xs sm:text-sm">
+                                      <div className="font-medium text-xs sm:text-sm">{coord.name || coord.student?.name}</div>
+                                      <div className="text-[10px] text-gray-500">{[coord.rollNo || coord.student?.rollNo, coord.phone || coord.student?.phonenumber, coord.email || coord.student?.email].filter(Boolean).join(' • ')}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-sm text-gray-500">No coordinator assigned</div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Approvals Tab */}
         {activeTab === 'approvals' && (
@@ -1949,13 +2530,10 @@ const getRequestTypeColor = (type) => {
             <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-5">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2">
                     <AlertCircle className="h-6 w-6 text-orange-600" />
                     Pending Approval Requests
                   </h3>
-                  <p className="text-gray-600 text-sm mt-1">
-                    Review and approve student requests for CRT status and batch changes
-                  </p>
                 </div>
                 <button
                   type="button"
@@ -1977,19 +2555,16 @@ const getRequestTypeColor = (type) => {
               )}
 
               {message && (
-                <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
-                  <p className="text-green-700">{message}</p>
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                  <p className="text-blue-700">{message}</p>
                 </div>
               )}
 
               {loadingApprovals ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-orange-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Loading approval requests...</p>
-                </div>
+                <LoadingSkeleton />
               ) : pendingApprovals.length === 0 ? (
                 <div className="text-center py-12">
-                  <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                  <CheckCircle className="h-16 w-16 text-blue-500 mx-auto mb-4" />
                   <p className="text-gray-600 font-medium">No pending CRT approval requests</p>
                   <p className="text-gray-500 text-sm mt-2">All CRT-related requests have been processed</p>
                 </div>
@@ -1998,26 +2573,26 @@ const getRequestTypeColor = (type) => {
                   {pendingApprovals.map((approval, idx) => (
                     <div
                       key={idx}
-                      className="border border-orange-200 rounded-lg p-4 bg-gradient-to-r from-orange-50 to-white hover:shadow-md transition-shadow"
+                      className="border border-orange-200 rounded-lg p-3 sm:p-4 bg-gradient-to-r from-orange-50 to-white hover:shadow-md transition-shadow"
                     >
-                      <div className="flex items-start justify-between">
-                        <div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
                           <div className="flex items-center gap-3 mb-2">
-                            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-lg flex-shrink-0">
                               {approval.student.name.charAt(0)}
                             </div>
-                            <div>
-                              <h4 className="font-semibold text-gray-900 text-base">
+                            <div className="min-w-0">
+                              <h4 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
                                 {approval.student.name}
                               </h4>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-xs sm:text-sm text-gray-600 truncate">
                                 {approval.student.rollNo} • {approval.student.college} • {approval.student.branch}
                               </p>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 mt-3">
-                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                               approval.requestType === 'crt_status_change'
                                 ? 'bg-purple-100 text-purple-800 border border-purple-200'
                                 : 'bg-blue-100 text-blue-800 border border-blue-200'
@@ -2027,7 +2602,7 @@ const getRequestTypeColor = (type) => {
                                 : 'Batch Change'}
                             </span>
 
-                            <span className="text-xs text-gray-500">
+                            <span className="text-[10px] text-gray-500">
                               {new Date(approval.requestedAt).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
@@ -2038,20 +2613,20 @@ const getRequestTypeColor = (type) => {
                           </div>
 
                           {/* Quick preview of changes */}
-                          <div className="mt-3 p-2 bg-white rounded border border-gray-200 text-sm">
+                          <div className="mt-2 sm:mt-3 p-1 sm:p-2 bg-white rounded border border-gray-200 text-xs sm:text-sm">
                             {approval.requestType === 'crt_status_change' ? (
                               <div className="flex items-center gap-2">
-                                <span className="text-gray-600">Status:</span>
-                                <span className="font-semibold text-gray-800">
+                                <span className="text-gray-600 text-xs">Status:</span>
+                                <span className="font-semibold text-gray-800 text-xs">
                                   {approval.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}
                                 </span>
                                 <ChevronRight className="h-4 w-4 text-gray-400" />
-                                <span className="font-semibold text-orange-700">
+                                <span className="font-semibold text-orange-700 text-xs">
                                   {approval.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}
                                 </span>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 text-xs">
                                 <span className="text-gray-600">Tech Stack:</span>
                                 <span className="font-semibold text-gray-800">
                                   {approval.requestedChanges.techStack?.join(', ') || 'None'}
@@ -2065,16 +2640,18 @@ const getRequestTypeColor = (type) => {
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => {
-                            setSelectedApproval(approval);
-                            setShowApprovalDetail(true);
-                          }}
-                          className="ml-4 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors font-medium text-sm flex items-center gap-2"
-                        >
-                          <Eye className="h-4 w-4" />
-                          Review
-                        </button>
+                        <div className="flex flex-col items-end gap-2 ml-3 sm:ml-4 flex-shrink-0">
+                          <button
+                            onClick={() => {
+                              setSelectedApproval(approval);
+                              setShowApprovalDetail(true);
+                            }}
+                            className="bg-orange-600 text-white px-3 py-1 rounded-sm sm:rounded-lg hover:bg-orange-700 transition-colors font-medium text-xs sm:text-sm flex items-center gap-2"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span className="hidden sm:inline">Review</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -2088,70 +2665,82 @@ const getRequestTypeColor = (type) => {
 
       {/* Batch Detail Modal */}
 {selectedBatch && (
-  <div className="mt-8">
-    <div className="w-full max-w-6xl bg-white rounded-lg shadow-xl mx-auto">
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-4 rounded-t-lg flex justify-between items-center">
-        <div>
-          <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-            <GraduationCap className="h-6 w-6" />
-            {selectedBatch.batchNumber}
+  <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 sm:p-4">
+    <div className="w-full max-w-2xl sm:max-w-3xl lg:max-w-4xl bg-white rounded-lg shadow-2xl max-h-[90vh] flex flex-col">
+      {/* Modal Header */}
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 py-2.5 sm:px-4 sm:py-3 rounded-t-lg flex justify-between items-center flex-shrink-0">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base sm:text-lg font-semibold text-white flex items-center gap-1.5 sm:gap-2 truncate">
+            <GraduationCap className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+            <span className="truncate">{selectedBatch.batchNumber}</span>
           </h3>
-          <p className="text-blue-100 text-sm mt-1">{selectedBatch.college} • Year {selectedBatch.year}</p>
+          <p className="text-blue-100 text-xs sm:text-sm mt-0.5 truncate">
+            {selectedBatch.college} • Year {selectedBatch.year}
+          </p>
         </div>
         <button
           onClick={() => setSelectedBatch(null)}
-          className="p-2 hover:bg-white/20 rounded-lg transition-colors text-white"
+          className="ml-2 p-1.5 sm:p-2 hover:bg-white/20 rounded-lg transition-colors text-white flex-shrink-0"
+          aria-label="Close modal"
         >
-          <X className="h-5 w-5" />
+          <X className="h-4 w-4 sm:h-5 sm:w-5" />
         </button>
       </div>
 
-      <div className="p-6 space-y-5">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-            <p className="text-xs font-medium text-blue-700 mb-1">Tech Stack</p>
-            <p className="text-base font-bold text-blue-900">{selectedBatch.techStack}</p>
+      {/* Modal Body - Scrollable */}
+      <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto flex-1">
+        {/* Batch Info Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+          <div className="bg-blue-50 p-2 sm:p-2.5 rounded-lg border border-blue-200">
+            <p className="text-[10px] sm:text-xs font-medium text-blue-700 mb-0.5 sm:mb-1 uppercase tracking-wide">Tech Stack</p>
+            <p className="text-xs sm:text-sm font-bold text-blue-900 truncate">{selectedBatch.techStack}</p>
           </div>
-          <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-            <p className="text-xs font-medium text-green-700 mb-1">Total Students</p>
-            <p className="text-base font-bold text-green-900">{selectedBatch.studentCount}</p>
+          <div className="bg-blue-50 p-2 sm:p-2.5 rounded-lg border border-blue-200">
+            <p className="text-[10px] sm:text-xs font-medium text-blue-700 mb-0.5 sm:mb-1 uppercase tracking-wide">Students</p>
+            <p className="text-xs sm:text-sm font-bold text-blue-900">{selectedBatch.studentCount}</p>
           </div>
-          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-            <p className="text-xs font-medium text-blue-700 mb-1">TPO</p>
-            <p className="text-base font-bold text-blue-900">{selectedBatch.tpoId?.name || 'Not assigned'}</p>
+          <div className="bg-blue-50 p-2 sm:p-2.5 rounded-lg border border-blue-200">
+            <p className="text-[10px] sm:text-xs font-medium text-blue-700 mb-0.5 sm:mb-1 uppercase tracking-wide">TPO</p>
+            <p className="text-xs sm:text-sm font-bold text-blue-900 truncate">{selectedBatch.tpoId?.name || 'Not assigned'}</p>
           </div>
-          <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-            <p className="text-xs font-medium text-green-700 mb-1">Start Date</p>
-            <p className="text-base font-bold text-green-900">{new Date(selectedBatch.startDate).toLocaleDateString()}</p>
+          <div className="bg-blue-50 p-2 sm:p-2.5 rounded-lg border border-blue-200">
+            <p className="text-[10px] sm:text-xs font-medium text-blue-700 mb-0.5 sm:mb-1 uppercase tracking-wide">Start Date</p>
+            <p className="text-xs sm:text-sm font-bold text-blue-900">{new Date(selectedBatch.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</p>
           </div>
         </div>
 
+        {/* Assigned Trainers */}
         {selectedBatch.assignedTrainers && selectedBatch.assignedTrainers.length > 0 && (
-          <div className="bg-gray-50 rounded-lg p-5">
-            <h4 className="text-base font-semibold text-gray-900 mb-3">Assigned Trainers</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="bg-gray-50 rounded-lg p-2.5 sm:p-3 border border-gray-200">
+            <h4 className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600" />
+              Assigned Trainers ({selectedBatch.assignedTrainers.length})
+            </h4>
+            <div className="space-y-2">
               {selectedBatch.assignedTrainers.map((assignment, index) => (
-                <div key={index} className="bg-white rounded-lg p-3 border border-gray-200">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold">
-                      {assignment.trainer?.name?.charAt(0) || 'T'}
+                <div key={index} className="bg-white rounded-lg p-2 sm:p-2.5 border border-gray-200 hover:border-blue-300 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">
+                        {assignment.trainer?.name?.charAt(0) || 'T'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h5 className="font-semibold text-gray-900 text-xs sm:text-sm truncate">{assignment.trainer?.name || 'Unknown'}</h5>
+                        <p className="text-gray-600 text-[10px] sm:text-xs truncate">{assignment.subject}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h5 className="font-semibold text-gray-900 text-sm">{assignment.trainer?.name || 'Unknown'}</h5>
-                      <p className="text-gray-700 text-xs">{assignment.subject}</p>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <span className={`px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[10px] sm:text-xs font-medium ${
+                        assignment.timeSlot === 'morning' ? 'bg-blue-100 text-blue-800' :
+                        assignment.timeSlot === 'afternoon' ? 'bg-orange-100 text-orange-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {assignment.timeSlot}
+                      </span>
+                      <span className="text-gray-500 text-[10px]">
+                        {assignment.schedule?.length || 0} slots
+                      </span>
                     </div>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className={`px-2 py-1 rounded-lg ${
-                      assignment.timeSlot === 'morning' ? 'bg-blue-100 text-blue-800' :
-                      assignment.timeSlot === 'afternoon' ? 'bg-green-100 text-green-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {assignment.timeSlot}
-                    </span>
-                    <span className="text-gray-500">
-                      {assignment.schedule?.length || 0} time slots
-                    </span>
                   </div>
                 </div>
               ))}
@@ -2159,55 +2748,118 @@ const getRequestTypeColor = (type) => {
           </div>
         )}
 
+        {/* Students List */}
         <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto max-h-96">
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-3 py-2 border-b border-gray-200">
+            <h4 className="text-xs sm:text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600" />
+              Students List ({selectedBatch.students.length})
+            </h4>
+          </div>
+          
+          {/* Desktop Table View */}
+          <div className="hidden sm:block overflow-x-auto max-h-64">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gradient-to-r from-blue-50 to-green-50 sticky top-0">
+              <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Roll No</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">College</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Branch</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Tech Stack</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Actions</th>  {/* New column */}
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Name</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Roll No</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">College</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Branch</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Tech Stack</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-100">
                 {selectedBatch.students.map((student, idx) => (
                   <tr key={student._id} className={`hover:bg-blue-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                    <td className="px-6 py-3 whitespace-nowrap">
+                    <td className="px-3 py-2 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                        <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-[10px]">
                           {student.name.charAt(0)}
                         </div>
-                        <span className="font-medium text-gray-900 text-sm">{student.name}</span>
+                        <span className="font-medium text-gray-900 text-xs">{student.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700 font-mono">{student.rollNo}</td>
-                    <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.college}</td>
-                    <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-700">{student.branch}</td>
-                    <td className="px-6 py-3 whitespace-nowrap">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium border border-blue-200">
-                        {student.techStack?.join(', ') || 'Not specified'}
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700 font-mono">{student.rollNo}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700">{student.college}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700">{student.branch}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-medium border border-blue-200">
+                        {student.techStack?.join(', ') || 'N/A'}
                       </span>
                     </td>
-                    <td className="px-6 py-3 whitespace-nowrap">  {/* New actions cell */}
-                      <button
-                        onClick={() => handleAssignCoordinator(student._id)}
-                        disabled={assigningCoordinator}
-                        className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                          assigningCoordinator
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-green-500 hover:bg-green-600 text-white'
-                        }`}
-                      >
-                        {assigningCoordinator ? 'Assigning...' : 'Make Coordinator'}
-                      </button>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {selectedBatch.coordinators && selectedBatch.coordinators.length > 0 && selectedBatch.coordinators[0].student && String(selectedBatch.coordinators[0].student._id) === String(student._id) ? (
+                        <span className="px-2 py-1 text-[10px] rounded bg-green-100 text-green-800">Coordinator</span>
+                      ) : (
+                        <button
+                          onClick={() => handleAssignCoordinator(student._id)}
+                          disabled={assigningCoordinatorId === student._id}
+                          className={`px-2 py-1 text-[10px] rounded transition-colors ${
+                            assigningCoordinatorId === student._id
+                              ? 'bg-gray-400 cursor-not-allowed text-white'
+                              : 'bg-blue-500 hover:bg-blue-600 text-white'
+                          }`}
+                        >
+                          {assigningCoordinatorId === student._id ? 'Assigning...' : 'Make Coordinator'}
+                        </button> 
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="sm:hidden max-h-64 overflow-y-auto">
+            <div className="divide-y divide-gray-200">
+              {selectedBatch.students.map((student, idx) => (
+                <div key={student._id} className={`p-3 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                  <div className="flex items-start gap-2 mb-2">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                      {student.name.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h5 className="font-semibold text-gray-900 text-xs mb-0.5 truncate">{student.name}</h5>
+                      <p className="text-[10px] text-gray-600 font-mono">{student.rollNo}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-[10px] text-gray-700 mb-2">
+                    <div className="flex justify-between">
+                      <span className="font-medium">College:</span>
+                      <span className="truncate ml-2">{student.college}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Branch:</span>
+                      <span className="truncate ml-2">{student.branch}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Tech:</span>
+                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-medium border border-blue-200">
+                        {student.techStack?.join(', ') || 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+                  {selectedBatch.coordinators && selectedBatch.coordinators.length > 0 && selectedBatch.coordinators[0].student && String(selectedBatch.coordinators[0].student._id) === String(student._id) ? (
+                    <div className="w-full px-2 py-1.5 text-xs rounded bg-green-100 text-green-800 text-center">Coordinator</div>
+                  ) : (
+                    <button
+                      onClick={() => handleAssignCoordinator(student._id)}
+                      disabled={assigningCoordinatorId === student._id}
+                      className={`w-full px-2 py-1.5 text-xs rounded transition-colors ${
+                        assigningCoordinatorId === student._id
+                          ? 'bg-gray-400 cursor-not-allowed text-white'
+                          : 'bg-blue-500 hover:bg-blue-600 text-white'
+                      }`}
+                    >
+                      {assigningCoordinatorId === student._id ? 'Assigning...' : 'Make Coordinator'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -2217,15 +2869,18 @@ const getRequestTypeColor = (type) => {
 
       {/* Trainer Assignment Modal */}
 {showTrainerAssignment && selectedBatchForAssignment && (
-  <div className="mt-8">
-    <TrainerAssignment
-      batchId={selectedBatchForAssignment}
-      onClose={() => {
-        setShowTrainerAssignment(false);
-        setSelectedBatchForAssignment(null);
-      }}
-      onUpdate={handleAssignmentUpdate}
-    />
+  <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 sm:p-4">
+    <div className="w-full max-w-xl sm:max-w-2xl lg:max-w-3xl bg-white rounded-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+      <TrainerAssignment
+        batchId={selectedBatchForAssignment}
+        compact
+        onClose={() => {
+          setShowTrainerAssignment(false);
+          setSelectedBatchForAssignment(null);
+        }}
+        onUpdate={handleAssignmentUpdate}
+      />
+    </div>
   </div>
 )}
 
@@ -2236,6 +2891,111 @@ const getRequestTypeColor = (type) => {
           onClose={() => setSelectedStudentForProfile(null)}
         />
       )}
+
+      {/* Add Student Modal */}
+      {showAddStudentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-3">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">Add Student</h3>
+              <button onClick={() => setShowAddStudentModal(false)} className="text-gray-500 hover:text-gray-700"><X className="h-4 w-4" /></button>
+            </div>
+            <AddEditStudentForm
+              batches={studentBatchData}
+              onSubmit={async (values) => {
+                const res = await handleCreateStudent(values);
+                if (res.success) {
+                  setShowAddStudentModal(false);
+                } else {
+                  alert(res.message || 'Failed to add student');
+                }
+              }}
+              initial={{}}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Edit Student Modal */}
+      {showEditStudentModal && studentToEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center p-3">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">Edit Student</h3>
+              <button onClick={() => { setShowEditStudentModal(false); setStudentToEdit(null); }} className="text-gray-500 hover:text-gray-700"><X className="h-4 w-4" /></button>
+            </div>
+            <AddEditStudentForm
+              batches={studentBatchData}
+              initial={studentToEdit}
+              onSubmit={async (values) => {
+                const res = await handleUpdateStudent(studentToEdit._id, values);
+                if (!res.success) alert(res.message || 'Update failed');
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Student Form component */}
+      {/**
+       * AddEditStudentForm props:
+       * - batches: list of batch objects (each should have _id and batchNumber)
+       * - initial: initial values for edit
+       * - onSubmit: async function(values) -> { success }
+       */}
+      {(() => {
+        function AddEditStudentForm({ batches = [], initial = {}, onSubmit }) {
+          const [form, setForm] = React.useState({
+            name: initial.name || '',
+            email: initial.email || '',
+            rollNo: initial.rollNo || '',
+            branch: initial.branch || '',
+            college: initial.college || (batches[0]?.colleges?.[0] || ''),
+            phonenumber: initial.phonenumber || '',
+            batchId: initial.batchId || (batches[0]?._id || '')
+          });
+          const [submitting, setSubmitting] = React.useState(false);
+
+          const branches = ['AID','CSM','CAI','CSD','CSC'];
+
+          const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+
+          const handleSubmit = async (e) => {
+            e && e.preventDefault();
+            setSubmitting(true);
+            const res = await onSubmit(form);
+            setSubmitting(false);
+            return res;
+          };
+
+          return (
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input value={form.name} onChange={(e) => handleChange('name', e.target.value)} placeholder="Name" className="w-full px-3 py-2 border rounded" />
+                <input value={form.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="Email" className="w-full px-3 py-2 border rounded" />
+                <input value={form.rollNo} onChange={(e) => handleChange('rollNo', e.target.value)} placeholder="Roll No" className="w-full px-3 py-2 border rounded" />
+                <select value={form.branch} onChange={(e) => handleChange('branch', e.target.value)} className="w-full px-3 py-2 border rounded">
+                  <option value="">Select Branch</option>
+                  {branches.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+                <input value={form.phonenumber} onChange={(e) => handleChange('phonenumber', e.target.value)} placeholder="Phone" className="w-full px-3 py-2 border rounded" />
+                <select value={form.batchId} onChange={(e) => handleChange('batchId', e.target.value)} className="w-full px-3 py-2 border rounded">
+                  <option value="">Select Batch</option>
+                  {batches.map(batch => (
+                    <option key={batch._id} value={batch._id}>{batch.batchNumber} {batch.colleges ? `(${batch.colleges.join(',')})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button type="button" onClick={() => { setShowAddStudentModal(false); setShowEditStudentModal(false); setStudentToEdit(null); }} className="px-3 py-1.5 border rounded">Cancel</button>
+                <button type="submit" disabled={submitting} className="px-3 py-1.5 bg-blue-600 text-white rounded">{submitting ? 'Saving...' : 'Save'}</button>
+              </div>
+            </form>
+          );
+        }
+        return null;
+      })() }
       {/* Approval Detail Modal */}
       {showApprovalDetail && selectedApproval && (
         <ApprovalDetailModal
@@ -2260,6 +3020,7 @@ const getRequestTypeColor = (type) => {
         />
       )}
     </div>
+  </div>
   );
 };
 

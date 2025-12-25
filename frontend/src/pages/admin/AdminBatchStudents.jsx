@@ -4,7 +4,7 @@ import {
   Download, Eye, Edit2, Trash2, Plus
 } from 'lucide-react';
 import { Skeleton } from '../../components/ui/Skeleton';
-
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 const AdminBatchStudents = () => {
   const [batches, setBatches] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState(null);

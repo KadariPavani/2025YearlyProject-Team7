@@ -316,10 +316,100 @@ router.get('/attendance/history', generalAuth, async (req, res) => {
       query.timeSlot = timeSlot;
     }
 
-    const attendanceRecords = await Attendance.find(query)
+    let attendanceRecords = await Attendance.find(query)
       .populate('trainerId', 'name email subjectDealing')
       .populate('studentAttendance.studentId', 'name rollNo email')
       .sort({ sessionDate: -1, timeSlot: 1 });
+
+    // Convert to plain objects and mark as recorded
+    attendanceRecords = attendanceRecords.map(r => ({ ...r.toObject(), recorded: true }));
+
+    // Build a lookup map for existing attendance records by batchId_date_timeSlot
+    const attendanceMap = {};
+    attendanceRecords.forEach(rec => {
+      const key = `${rec.batchId.toString()}_${new Date(rec.sessionDate).toISOString().split('T')[0]}_${rec.timeSlot}`;
+      attendanceMap[key] = true;
+    });
+
+    // Fetch batch and its assigned trainer schedules
+    const batch = await PlacementTrainingBatch.findById(coordinator.assignedPlacementBatch)
+      .populate('assignedTrainers.trainer', 'name email subjectDealing')
+      .populate('students', 'name rollNo email')
+      .lean();
+
+    // Determine date window
+    const now = new Date();
+    const defaultStart = new Date(now.getTime() - (28 * 24 * 60 * 60 * 1000));
+    const defaultEnd = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+    // Use startDate/endDate from query params if provided, else default window
+    const rangeStart = (startDate && startDate !== 'All') ? new Date(startDate) : defaultStart;
+    const rangeEnd = (endDate && endDate !== 'All') ? new Date(endDate) : defaultEnd;
+
+    const dayNameToIndex = {
+      'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
+      'Thursday': 4, 'Friday': 5, 'Saturday': 6
+    };
+
+    const getDatesForDayInRange = (dayName, start, end) => {
+      const dates = [];
+      const dayNum = dayNameToIndex[dayName];
+      if (dayNum === undefined) return dates;
+
+      const cur = new Date(start);
+      // Move to first occurrence on/after start
+      const diff = (dayNum + 7 - cur.getDay()) % 7;
+      cur.setDate(cur.getDate() + diff);
+      while (cur <= end) {
+        dates.push(new Date(cur));
+        cur.setDate(cur.getDate() + 7);
+      }
+      return dates;
+    };
+
+    // Generate scheduled occurrences that have no attendance recorded
+    if (batch && batch.assignedTrainers) {
+      (batch.assignedTrainers || []).forEach(assignment => {
+        const trainer = assignment.trainer || null;
+        const timeSlot = assignment.timeSlot;
+        const subject = assignment.subject || 'N/A';
+
+        (assignment.schedule || []).forEach(sch => {
+          const dates = getDatesForDayInRange(sch.day, rangeStart, rangeEnd);
+          dates.forEach(dt => {
+            const dateISO = dt.toISOString().split('T')[0];
+            const key = `${batch._id.toString()}_${dateISO}_${timeSlot}`;
+            if (!attendanceMap[key]) {
+              // Add synthetic unrecorded session record
+              attendanceRecords.push({
+                _id: `scheduled_${batch._id.toString()}_${dateISO}_${timeSlot}`,
+                sessionDate: new Date(dateISO),
+                day: dt.toLocaleDateString('en-US', { weekday: 'long' }),
+                timeSlot: timeSlot,
+                startTime: sch.startTime,
+                endTime: sch.endTime,
+                subject: subject,
+                batchId: batch._id,
+                trainerId: trainer ? { name: trainer.name, email: trainer.email } : null,
+                trainerStatus: 'not_marked',
+                totalStudents: (batch.students || []).length,
+                presentCount: 0,
+                absentCount: 0,
+                attendancePercentage: null,
+                recorded: false
+              });
+            }
+          });
+        });
+      });
+    }
+
+    // Sort final records by date desc then timeSlot
+    attendanceRecords.sort((a, b) => {
+      const ad = new Date(a.sessionDate);
+      const bd = new Date(b.sessionDate);
+      if (bd - ad !== 0) return bd - ad;
+      return (a.timeSlot || '').localeCompare(b.timeSlot || '');
+    });
 
     res.json({
       success: true,
@@ -350,7 +440,7 @@ router.get('/attendance/date/:date', generalAuth, async (req, res) => {
     const coordinator = await Coordinator.findById(req.user.id);
     const requestedDate = new Date(req.params.date);
 
-    const attendanceRecords = await Attendance.find({
+    let attendanceRecords = await Attendance.find({
       batchId: coordinator.assignedPlacementBatch,
       sessionDate: {
         $gte: new Date(requestedDate.setHours(0, 0, 0, 0)),
@@ -360,6 +450,51 @@ router.get('/attendance/date/:date', generalAuth, async (req, res) => {
     .populate('trainerId', 'name email subjectDealing')
     .populate('studentAttendance.studentId', 'name rollNo email')
     .sort({ timeSlot: 1 });
+
+    attendanceRecords = attendanceRecords.map(r => ({ ...r.toObject(), recorded: true }));
+
+    // Fetch batch and schedules
+    const batch = await PlacementTrainingBatch.findById(coordinator.assignedPlacementBatch)
+      .populate('assignedTrainers.trainer', 'name email subjectDealing')
+      .populate('students', 'name rollNo email')
+      .lean();
+
+    const dateISO = requestedDate.toISOString().split('T')[0];
+    const timeSlotSet = new Set(attendanceRecords.map(r => r.timeSlot));
+
+    if (batch && batch.assignedTrainers) {
+      (batch.assignedTrainers || []).forEach(assignment => {
+        const trainer = assignment.trainer || null;
+        const timeSlot = assignment.timeSlot;
+        (assignment.schedule || []).forEach(sch => {
+          if (sch.day === requestedDate.toLocaleDateString('en-US', { weekday: 'long' })) {
+            // If no attendance exists for this timeslot, add scheduled record
+            const exists = attendanceRecords.some(r => r.timeSlot === timeSlot);
+            if (!exists) {
+              attendanceRecords.push({
+                _id: `scheduled_${batch._id.toString()}_${dateISO}_${timeSlot}`,
+                sessionDate: new Date(dateISO),
+                day: sch.day,
+                timeSlot: timeSlot,
+                startTime: sch.startTime,
+                endTime: sch.endTime,
+                subject: assignment.subject || 'N/A',
+                batchId: batch._id,
+                trainerId: trainer ? { name: trainer.name, email: trainer.email } : null,
+                trainerStatus: 'not_marked',
+                totalStudents: (batch.students || []).length,
+                presentCount: 0,
+                absentCount: 0,
+                attendancePercentage: null,
+                recorded: false
+              });
+            }
+          }
+        });
+      });
+    }
+
+    attendanceRecords.sort((a, b) => (a.timeSlot || '').localeCompare(b.timeSlot || ''));
 
     res.json({
       success: true,

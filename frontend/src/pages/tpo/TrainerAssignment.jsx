@@ -4,7 +4,7 @@ import {
   Save, User, Mail, Award, Info, Check
 } from 'lucide-react';
 
-const TrainerAssignment = ({ batchId, onClose, onUpdate }) => {
+const TrainerAssignment = ({ batchId, onClose, onUpdate, compact = false }) => {
   const [batchDetails, setBatchDetails] = useState(null);
   const [availableTrainers, setAvailableTrainers] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -204,9 +204,9 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate }) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="bg-white rounded-xl p-8 shadow-lg">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-3 border-blue-600 mx-auto mb-4"></div>
+      <div className={`flex items-center justify-center ${compact ? 'p-4' : 'p-8'}`}>
+        <div className={`bg-white rounded-xl ${compact ? 'p-4' : 'p-8'} shadow-lg`}>
+          <div className={`animate-spin rounded-full ${compact ? 'h-8 w-8 border-b-2' : 'h-12 w-12 border-b-3'} border-blue-600 mx-auto mb-4`}></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -214,28 +214,29 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate }) => {
   }
 
   return (
-    <div className="w-full max-w-7xl bg-white rounded-xl shadow-2xl my-8 mx-auto">
+    <div className="w-full bg-white rounded-xl shadow-2xl">
       {/* Simple Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl">
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-3 py-2.5 sm:px-4 sm:py-3 rounded-t-xl">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-900">Trainer Assignment</h2>
+          <div className="flex-1 min-w-0">
+            <h2 className="font-semibold text-white text-base sm:text-lg">Trainer Assignment</h2>
             {batchDetails && (
-              <p className="text-sm text-gray-600 mt-1">
-                {batchDetails.batchNumber} • {batchDetails.techStack} • {batchDetails.colleges.join(', ')}
+              <p className="mt-0.5 text-xs sm:text-sm text-blue-100 truncate">
+                {batchDetails.batchNumber} • {batchDetails.techStack}
               </p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="ml-2 p-1.5 text-white hover:bg-white/20 rounded-lg transition-colors flex-shrink-0"
+            aria-label="Close"
           >
-            <X className="h-6 w-6" />
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
         </div>
       </div>
 
-      <div className="p-6">
+      <div className="p-3 sm:p-4 lg:p-6">
 
         {/* Error Message */}
         {error && (
@@ -246,51 +247,52 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate }) => {
 
         {/* Batch Stats - Simple Cards */}
         {batchDetails && (
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <p className="text-xs text-gray-600 mb-1">Tech Stack</p>
-              <p className="text-lg font-semibold text-gray-900">{batchDetails.techStack}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 sm:p-2.5">
+              <p className="text-[10px] sm:text-xs text-blue-700 mb-0.5 uppercase tracking-wide">Tech Stack</p>
+              <p className="text-xs sm:text-sm font-semibold text-blue-900 truncate">{batchDetails.techStack}</p>
             </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <p className="text-xs text-gray-600 mb-1">Students</p>
-              <p className="text-lg font-semibold text-gray-900">{batchDetails.studentCount}</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 sm:p-2.5">
+              <p className="text-[10px] sm:text-xs text-blue-700 mb-0.5 uppercase tracking-wide">Students</p>
+              <p className="text-xs sm:text-sm font-semibold text-blue-900">{batchDetails.studentCount}</p>
             </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <p className="text-xs text-gray-600 mb-1">Year</p>
-              <p className="text-lg font-semibold text-gray-900">{batchDetails.year}</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 sm:p-2.5">
+              <p className="text-[10px] sm:text-xs text-blue-700 mb-0.5 uppercase tracking-wide">Year</p>
+              <p className="text-xs sm:text-sm font-semibold text-blue-900">{batchDetails.year}</p>
             </div>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <p className="text-xs text-gray-600 mb-1">Status</p>
-              <p className="text-lg font-semibold text-gray-900">{batchDetails.status}</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 sm:p-2.5">
+              <p className="text-[10px] sm:text-xs text-blue-700 mb-0.5 uppercase tracking-wide">Status</p>
+              <p className="text-xs sm:text-sm font-semibold text-blue-900">{batchDetails.status}</p>
             </div>
           </div>
         )}
 
         {/* Info Box */}
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex gap-3">
-            <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-900">
-              <p className="font-medium mb-2">Time Slot Guidelines</p>
-              <ul className="space-y-1">
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-2.5 sm:p-3">
+          <div className="flex gap-2 sm:gap-3">
+            <Info className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="text-xs sm:text-sm text-blue-900">
+              <p className="font-medium mb-1 sm:mb-2">Time Slot Guidelines</p>
+              <ul className="space-y-0.5 sm:space-y-1">
                 <li>• Morning: 6:00 AM - 11:59 AM</li>
                 <li>• Afternoon: 12:00 PM - 4:59 PM</li>
                 <li>• Evening: 5:00 PM - 11:00 PM</li>
               </ul>
-              <p className="mt-2 text-blue-700">Time slot badges are calculated automatically from schedule times.</p>
+              <p className="mt-1 sm:mt-2 text-blue-700">Time slot badges are calculated automatically from schedule times.</p>
             </div>
           </div>
         </div>
 
         {/* Header with Add Button */}
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Assignments</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Assignments</h3>
           <button
             onClick={addAssignment}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            className="flex items-center gap-1.5 sm:gap-2 bg-blue-600 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
-            <Plus className="h-4 w-4" />
-            Add Trainer
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Add Trainer</span>
+            <span className="sm:hidden">Add</span>
           </button>
         </div>
 
@@ -302,36 +304,36 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate }) => {
             <p className="text-gray-500 text-sm mt-1">Click "Add Trainer" to get started</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {assignments.map((assignment, index) => (
-              <div key={index} className="bg-white border border-gray-200 rounded-lg p-5">
+              <div key={index} className="bg-white border border-gray-200 rounded-lg p-2.5 sm:p-3 lg:p-4">
 
                 {/* Assignment Header */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-semibold text-blue-700">{index + 1}</span>
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-xs sm:text-sm font-semibold text-blue-700">{index + 1}</span>
                     </div>
-                    <h4 className="font-semibold text-gray-900">Trainer {index + 1}</h4>
+                    <h4 className="font-semibold text-gray-900 text-sm sm:text-base">Trainer {index + 1}</h4>
                   </div>
                   <button
                     onClick={() => removeAssignment(index)}
                     className="text-gray-400 hover:text-red-600 transition-colors p-1"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </button>
                 </div>
 
                 {/* Trainer & Subject Selection */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
                       Trainer
                     </label>
                     <select
                       value={assignment.trainerId}
                       onChange={(e) => updateAssignment(index, 'trainerId', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      className="w-full px-2.5 py-1.5 sm:px-3 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
                     >
                       <option value="">Select trainer...</option>
                       {availableTrainers.map(trainer => (
@@ -343,14 +345,14 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
                       Subject
                     </label>
                     <input
                       type="text"
                       value={assignment.subject}
                       onChange={(e) => updateAssignment(index, 'subject', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      className="w-full px-2.5 py-1.5 sm:px-3 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
                       placeholder="Enter subject"
                     />
                   </div>
@@ -358,20 +360,20 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate }) => {
 
                 {/* Trainer Info Card */}
                 {assignment.trainerName && (
-                  <div className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
+                  <div className="mb-3 bg-gray-50 border border-gray-200 rounded-lg p-2 sm:p-2.5">
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0 text-sm sm:text-base">
                         {assignment.trainerName.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h5 className="font-medium text-gray-900">{assignment.trainerName}</h5>
-                        <p className="text-sm text-gray-600">{assignment.trainerEmail}</p>
-                        <div className="flex items-center gap-3 mt-2">
-                          <span className="inline-flex items-center gap-1 text-xs bg-white border border-gray-300 px-2 py-1 rounded">
-                            <Award className="h-3 w-3" />
+                        <h5 className="font-medium text-gray-900 text-xs sm:text-sm truncate">{assignment.trainerName}</h5>
+                        <p className="text-[10px] sm:text-xs text-gray-600 truncate">{assignment.trainerEmail}</p>
+                        <div className="flex items-center gap-2 sm:gap-3 mt-1.5 sm:mt-2 flex-wrap">
+                          <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs bg-white border border-gray-300 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded">
+                            <Award className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                             {assignment.trainerCategory}
                           </span>
-                          <span className="text-xs text-gray-600">
+                          <span className="text-[10px] sm:text-xs text-gray-600 truncate">
                             {assignment.trainerSubject}
                           </span>
                         </div>
@@ -382,16 +384,17 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate }) => {
 
                 {/* Schedule Section */}
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="text-sm font-medium text-gray-700">
+                  <div className="flex items-center justify-between mb-2 sm:mb-3">
+                    <label className="text-xs sm:text-sm font-medium text-gray-700">
                       Weekly Schedule
                     </label>
                     <button
                       onClick={() => addScheduleSlot(index)}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
+                      className="text-blue-600 hover:text-blue-700 text-xs sm:text-sm font-medium flex items-center gap-1"
                     >
-                      <Plus className="h-4 w-4" />
-                      Add Slot
+                      <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      <span className="hidden sm:inline">Add Slot</span>
+                      <span className="sm:hidden">Add</span>
                     </button>
                   </div>
 
@@ -402,49 +405,81 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate }) => {
                       return (
                         <div 
                           key={scheduleIndex} 
-                          className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-200"
+                          className="bg-gray-50 p-2 sm:p-2.5 rounded-lg border border-gray-200"
                         >
-                          {/* Day */}
-                          <select
-                            value={slot.day}
-                            onChange={(e) => updateSchedule(index, scheduleIndex, 'day', e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm min-w-[120px]"
-                          >
-                            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
-                              <option key={day} value={day}>{day}</option>
-                            ))}
-                          </select>
+                          {/* Mobile Layout */}
+                          <div className="flex flex-col sm:hidden gap-2">
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={slot.day}
+                                onChange={(e) => updateSchedule(index, scheduleIndex, 'day', e.target.value)}
+                                className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                              >
+                                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                                  <option key={day} value={day}>{day}</option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => removeScheduleSlot(index, scheduleIndex)}
+                                className="text-gray-400 hover:text-red-600 transition-colors p-1 flex-shrink-0"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="time"
+                                value={slot.startTime}
+                                onChange={(e) => updateSchedule(index, scheduleIndex, 'startTime', e.target.value)}
+                                className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                              />
+                              <span className="text-gray-500 text-xs flex-shrink-0">to</span>
+                              <input
+                                type="time"
+                                value={slot.endTime}
+                                onChange={(e) => updateSchedule(index, scheduleIndex, 'endTime', e.target.value)}
+                                className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <span className={`self-start px-2 py-0.5 rounded text-[10px] font-medium border ${getTimeSlotColor(slotBadge)}`}>
+                              {getTimeSlotLabel(slotBadge)}
+                            </span>
+                          </div>
 
-                          {/* Start Time */}
-                          <input
-                            type="time"
-                            value={slot.startTime}
-                            onChange={(e) => updateSchedule(index, scheduleIndex, 'startTime', e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
-                          />
-
-                          <span className="text-gray-500 text-sm">to</span>
-
-                          {/* End Time */}
-                          <input
-                            type="time"
-                            value={slot.endTime}
-                            onChange={(e) => updateSchedule(index, scheduleIndex, 'endTime', e.target.value)}
-                            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm"
-                          />
-
-                          {/* Dynamic Badge */}
-                          <span className={`px-3 py-1 rounded-md text-xs font-medium border ${getTimeSlotColor(slotBadge)}`}>
-                            {getTimeSlotLabel(slotBadge)}
-                          </span>
-
-                          {/* Delete Button */}
-                          <button
-                            onClick={() => removeScheduleSlot(index, scheduleIndex)}
-                            className="text-gray-400 hover:text-red-600 transition-colors p-1 ml-auto"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {/* Desktop Layout */}
+                          <div className="hidden sm:flex items-center gap-2">
+                            <select
+                              value={slot.day}
+                              onChange={(e) => updateSchedule(index, scheduleIndex, 'day', e.target.value)}
+                              className="px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 min-w-[100px] sm:min-w-[110px]"
+                            >
+                              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                                <option key={day} value={day}>{day}</option>
+                              ))}
+                            </select>
+                            <input
+                              type="time"
+                              value={slot.startTime}
+                              onChange={(e) => updateSchedule(index, scheduleIndex, 'startTime', e.target.value)}
+                              className="px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 w-24 sm:w-28"
+                            />
+                            <span className="text-gray-500 text-xs sm:text-sm flex-shrink-0">to</span>
+                            <input
+                              type="time"
+                              value={slot.endTime}
+                              onChange={(e) => updateSchedule(index, scheduleIndex, 'endTime', e.target.value)}
+                              className="px-2 py-1.5 text-xs sm:text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 w-24 sm:w-28"
+                            />
+                            <span className={`px-2 py-1 rounded text-[10px] sm:text-xs font-medium border ${getTimeSlotColor(slotBadge)} flex-shrink-0`}>
+                              {getTimeSlotLabel(slotBadge)}
+                            </span>
+                            <button
+                              onClick={() => removeScheduleSlot(index, scheduleIndex)}
+                              className="text-gray-400 hover:text-red-600 transition-colors p-1 ml-auto flex-shrink-0"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -456,27 +491,29 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate }) => {
         )}
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-end gap-3 mt-6 pt-6 border-t border-gray-200">
+        <div className="flex items-center justify-end gap-2 sm:gap-3 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
           <button
             onClick={onClose}
-            className="px-5 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+            className="px-3 py-1.5 sm:px-5 sm:py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-xs sm:text-sm font-medium"
           >
             Cancel
           </button>
           <button
             onClick={saveAssignments}
             disabled={saving || assignments.length === 0}
-            className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 sm:px-5 sm:py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             {saving ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Saving...
+                <div className="animate-spin rounded-full h-3.5 w-3.5 sm:h-4 sm:w-4 border-b-2 border-white"></div>
+                <span className="hidden sm:inline">Saving...</span>
+                <span className="sm:hidden">Save...</span>
               </>
             ) : (
               <>
-                <Check className="h-4 w-4" />
-                Save Assignments
+                <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Save Assignments</span>
+                <span className="sm:hidden">Save</span>
               </>
             )}
           </button>

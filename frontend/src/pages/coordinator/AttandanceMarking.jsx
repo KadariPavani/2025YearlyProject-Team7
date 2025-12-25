@@ -180,7 +180,7 @@ const AttendanceMarking = () => {
 
       const payload = {
         batchId: batchInfo.batchId,
-        sessionDate: new Date().toISOString().split('T')[0],
+        sessionDate: selectedSession?.date ? new Date(selectedSession.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         timeSlot: selectedSession.timeSlot,
         startTime: selectedSession.startTime,
         endTime: selectedSession.endTime,
@@ -759,12 +759,21 @@ const AttendanceMarking = () => {
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="text-3xl font-bold text-gray-900">
-                        {record.attendancePercentage}%
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {record.presentCount}/{record.totalStudents} present
-                      </div>
+                      {record.attendancePercentage !== null && record.attendancePercentage !== undefined ? (
+                        <>
+                          <div className="text-3xl font-bold text-gray-900">
+                            {record.attendancePercentage}%
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {record.presentCount}/{record.totalStudents} present
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-sm font-medium text-gray-500">Not recorded</div>
+                          <div className="text-xs text-gray-400">Attendance not marked</div>
+                        </>
+                      )}
                     </div>
                   </div>
                   
@@ -790,20 +799,35 @@ const AttendanceMarking = () => {
                   </div>
 
                   <div className="mt-3 flex justify-end space-x-2">
-                    <button
-                      onClick={() => handleViewDetails(record)}
-                      className="px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 flex items-center gap-2"
-                    >
-                      <Eye className="h-4 w-4" />
-                      View Details
-                    </button>
-                    <button
-                      onClick={() => downloadAttendanceReport(record, 'detail')}
-                      className="px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200 flex items-center gap-2"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download Report
-                    </button>
+                    {record.recorded === false ? (
+                      <>
+                        <button disabled className="px-3 py-1 bg-gray-100 text-gray-400 rounded flex items-center gap-2 cursor-not-allowed">
+                          <Eye className="h-4 w-4" />
+                          View Details
+                        </button>
+                        <button disabled className="px-3 py-1 bg-gray-100 text-gray-400 rounded flex items-center gap-2 cursor-not-allowed">
+                          <Download className="h-4 w-4" />
+                          Download Report
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleViewDetails(record)}
+                          className="px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 flex items-center gap-2"
+                        >
+                          <Eye className="h-4 w-4" />
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => downloadAttendanceReport(record, 'detail')}
+                          className="px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200 flex items-center gap-2"
+                        >
+                          <Download className="h-4 w-4" />
+                          Download Report
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

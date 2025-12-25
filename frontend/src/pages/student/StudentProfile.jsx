@@ -950,11 +950,24 @@ const StudentProfile = () => {
           <div>
             <p className="text-sm text-gray-600">CRT Status</p>
             <p className="font-semibold text-gray-900">
-              {profile?.crtInterested ? (
-                <span className="text-green-600">Interested</span>
-              ) : (
-                <span className="text-gray-500">Not Interested</span>
-              )}
+              {/* Determine status primarily from crtBatchName per TPO rule */}
+              {(() => {
+                const cbn = typeof profile?.crtBatchName === 'string' ? profile.crtBatchName.trim() : '';
+                let status = 'NOT_UPDATED';
+                if (cbn) {
+                  if (/^PT/i.test(cbn)) status = 'CRT';
+                  else if (/^NT/i.test(cbn)) status = 'NT';
+                  else status = 'NOT_UPDATED';
+                } else if (profile?.crtInterested === true) {
+                  status = 'CRT';
+                } else if (profile?.crtInterested === false) {
+                  status = 'NT';
+                }
+
+                if (status === 'CRT') return <span className="inline-flex px-2 py-0.5 rounded-full text-sm font-semibold bg-blue-100 text-blue-800 border border-blue-200">CRT</span>;
+                if (status === 'NT') return <span className="inline-flex px-2 py-0.5 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800 border border-yellow-200">NT</span>;
+                return <span className="inline-flex items-center px-1 py-0.5 rounded text-sm text-gray-500 bg-gray-100 border border-gray-200"><X className="h-3 w-3 mr-1 text-gray-400" />Not updated</span>;
+              })()}
             </p>
           </div>
           <div>
