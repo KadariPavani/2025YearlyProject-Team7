@@ -4,6 +4,7 @@ const Student = require('../models/Student');
 const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const Quiz = require('../models/Quiz');
 const Assignment = require('../models/Assignment');
+const Contest = require('../models/Contest');
 const generalAuth = require('../middleware/generalAuth');
 
 // Helper function to calculate student activity data
@@ -76,10 +77,39 @@ const calculateStudentActivity = async (student, batchId = null, subject = null)
     const totalMarks = totalQuizMarks + totalAssignmentMarks;
     const overallPercentage = totalMarks > 0 ? (totalScore / totalMarks * 100).toFixed(2) : 0;
 
-    // Calculate coding scores
+    // Calculate coding scores and enrich with contest/question titles
     const codingScores = student.codingScores || [];
     const totalCodingScore = codingScores.reduce((sum, c) => sum + (c.score || 0), 0);
     const totalCodingMarks = codingScores.reduce((sum, c) => sum + (c.totalMarks || 0), 0);
+
+    // Enrich coding breakdown with contest and question metadata for display
+    const contestIds = [...new Set(codingScores.filter(c => c.contestId).map(c => c.contestId.toString()))];
+    let contestMap = new Map();
+    if (contestIds.length > 0) {
+      const contests = await Contest.find({ _id: { $in: contestIds } }).lean();
+      contests.forEach(cont => contestMap.set(cont._id.toString(), cont));
+    }
+
+    const codingDetails = codingScores.map(c => {
+      const contest = c.contestId ? contestMap.get(c.contestId.toString()) : null;
+      let questionTitle = '';
+      let contestName = contest ? contest.name : 'Contest';
+      if (contest && c.questionId) {
+        const q = (contest.questions || []).find(q => q._id.toString() === c.questionId.toString());
+        if (q) questionTitle = q.title;
+      }
+      const percentage = (c.totalMarks && c.totalMarks > 0) ? Math.round((c.score || 0) / c.totalMarks * 100) : 0;
+      return {
+        contestId: c.contestId,
+        contestName,
+        questionId: c.questionId,
+        questionTitle: questionTitle || 'Question',
+        score: c.score || 0,
+        totalMarks: c.totalMarks || 0,
+        percentage,
+        completedAt: c.completedAt
+      };
+    });
 
     // ✅ FIXED: Get batch name from populated data or fallback
     let batchName = 'N/A';
@@ -111,7 +141,8 @@ const calculateStudentActivity = async (student, batchId = null, subject = null)
       scores: {
         quizzes: quizScores,
         assignments: assignmentScores,
-        coding: codingScores,
+        // enriched coding breakdown (contestName, questionTitle, percentage)
+        coding: codingDetails,
         totals: {
           quizScore: totalQuizScore,
           quizTotalMarks: totalQuizMarks,

@@ -103,6 +103,47 @@ const StudentProgress = () => (
   </div>
 );
 
+const StudentContests = ({ contests }) => {
+  const navigate = useNavigate();
+  return (
+    <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
+      <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+        <Monitor className="h-6 w-6 text-purple-600" />
+        Active Contests
+      </h3>
+
+      {Array.isArray(contests) && contests.length > 0 ? (
+        <div className="space-y-4">
+          {contests.map(c => (
+            <div key={c._id} className="p-4 border rounded-lg flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">{c.name}</h4>
+                <p className="text-xs text-gray-500">{c.description}</p>
+                <p className="text-xs text-gray-400">{new Date(c.startTime).toLocaleString()} - {new Date(c.endTime).toLocaleString()}</p>
+              </div>
+              <div>
+                {c?.myFinalized ? (
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs text-green-700 rounded bg-green-50 px-3 py-1">Completed</div>
+                    <button onClick={() => navigate(`/student/contests/${c._id}/leaderboard`)} className="px-3 py-1 bg-yellow-600 text-white rounded-md">Leaderboard</button>
+                  </div>
+                ) : (new Date(c.endTime) > new Date() ? (
+                  <button onClick={() => navigate(`/student/contests/${c._id}`)} className="px-3 py-1 bg-gray-100 rounded-md">Participate</button>
+                ) : (
+                  <button onClick={() => navigate(`/student/contests/${c._id}/leaderboard`)} className="px-3 py-1 bg-yellow-600 text-white rounded-md">Leaderboard</button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <p className="text-gray-500">No active contests right now.</p>
+        </div>
+      )}
+    </div>
+  );
+};
 const StudentCertificates = () => (
   <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
     <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
@@ -160,6 +201,7 @@ const [showNotifications, setShowNotifications] = useState(false);
 const [notifications, setNotifications] = useState([]);
 const [unreadCount, setUnreadCount] = useState(0);
 const [selectedCategory, setSelectedCategory] = useState(null);
+const [contests, setContests] = useState([]);
 // 🔔 Close notification when clicking outside
 const notificationRef = useRef(null);
 
@@ -187,7 +229,19 @@ useEffect(() => {
     fetchResources();
     fetchSyllabi();
     fetchPendingApprovals();
+    fetchContests();
   }, []);
+
+  // Fetch active contests for student
+  const fetchContests = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const res = await axios.get('/api/contests', { headers: { Authorization: `Bearer ${token}` } });
+      setContests(res.data.contests || []);
+    } catch (err) {
+      console.error('Error fetching contests:', err);
+    }
+  };
 
   useEffect(() => {
     if (assignments.length > 0 || quizzes.length > 0 || resources.length > 0) {
@@ -835,6 +889,17 @@ const studentId = studentData?.user?._id || studentData?._id;
               </button>
 
               <button
+                onClick={() => setActiveTab('contests')}
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
+                  activeTab === 'contests'
+                    ? 'border-blue-700 text-blue-700 bg-blue-100'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                Contests
+              </button>
+
+              <button
                 onClick={() => setActiveTab('quizzes')}
                 className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
                   activeTab === 'quizzes'
@@ -1389,6 +1454,7 @@ const studentId = studentData?.user?._id || studentData?._id;
 )}
 
 
+          {activeTab === 'contests' && <StudentContests contests={contests} />}
           {activeTab === 'progress' && <StudentProgress />}
           {activeTab === 'certificates' && <StudentCertificates />}
           {activeTab === 'attendance' && <StudentAttendanceView />}

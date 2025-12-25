@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Users, UserCheck, Calendar, Clock,
   BookOpen, X, Award, Activity, GraduationCap, Phone, Mail,
@@ -31,7 +31,19 @@ const TrainerDashboard = () => {
     placement: [],
     all: []
   });
+  const [contests, setContests] = useState([]);
 const trainerId = trainerData?._id || trainerData?.id || null;
+
+  // Fetch trainer's contests
+  const fetchTrainerContests = async () => {
+    try {
+      const token = localStorage.getItem('trainerToken') || localStorage.getItem('userToken');
+      const res = await axios.get('/api/contests/admin', { headers: { Authorization: `Bearer ${token}` } });
+      setContests(res.data.contests || []);
+    } catch (err) {
+      console.error('Error fetching trainer contests:', err);
+    }
+  };
   const [batchProgress, setBatchProgress] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -118,8 +130,19 @@ const markAsRead = async (id) => {
     fetchTrainerData();
     fetchPlacementBatches();
     fetchRegularBatches();
+    fetchTrainerContests();
     fetchAvailableBatches();
   }, []);
+
+  // Refresh contests when returning from creation flow
+  const location = useLocation();
+  useEffect(() => {
+    if (location?.state?.refreshContests) {
+      fetchTrainerContests();
+      // clear navigation state so refresh only happens once
+      try { window.history.replaceState({}, document.title, window.location.pathname); } catch(e) {}
+    }
+  }, [location?.state]);
 
   useEffect(() => {
     fetchFeedbackPreview();
@@ -404,6 +427,58 @@ const markAsRead = async (id) => {
           </div>
         )}
       </div>
+
+      {/* Contests section */}
+      {renderContests()}
+    </div>
+  );
+
+  const renderContests = () => (
+    <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <Monitor className="h-6 w-6 text-purple-600" />
+          My Contests ({contests.length})
+        </h3>
+        <button onClick={() => navigate('/trainer/contests/create')} className="px-4 py-2 bg-purple-600 text-white rounded-md">Create Contest</button>
+      </div>
+
+      {contests.length > 0 ? (
+        <div className="space-y-4">
+          {contests.map(c => (
+            <div key={c._id} className="p-4 border rounded-lg flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">{c.name}</h4>
+                <p className="text-xs text-gray-500">{c.description}</p>
+                <p className="text-xs text-gray-400">{new Date(c.startTime).toLocaleString()} - {new Date(c.endTime).toLocaleString()}</p>
+              </div>
+              <div>
+                <button onClick={() => navigate(`/trainer/contests/${c._id}`)} className="px-3 py-1 bg-gray-100 rounded-md mr-2">View</button>
+                <button onClick={() => navigate(`/trainer/contests/${c._id}`, { state: { edit: true } })} className="px-3 py-1 border rounded-md mr-2">Edit</button>
+                {/* Show leaderboard button for completed contests (or always show for admin/trainer) */}
+                { (new Date(c.endTime) < new Date() || !c.isActive) && (
+                  <button onClick={() => navigate(`/trainer/contests/${c._id}/leaderboard`)} className="px-3 py-1 bg-yellow-600 text-white rounded-md mr-2">Leaderboard</button>
+                ) }
+                <button onClick={async () => {
+                  if (!window.confirm('Delete this contest?')) return;
+                  const token = localStorage.getItem('trainerToken') || localStorage.getItem('userToken');
+                  try {
+                    await axios.delete(`/api/contests/admin/${c._id}`, { headers: { Authorization: `Bearer ${token}` } });
+                    setContests(prev => prev.filter(x => x._id !== c._id));
+                  } catch (err) {
+                    console.error('Delete contest error', err);
+                    alert(err.response?.data?.error || 'Failed to delete contest');
+                  }
+                }} className="px-3 py-1 bg-red-500 text-white rounded-md">Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <p className="text-gray-500">No contests created yet.</p>
+        </div>
+      )}
     </div>
   );
 
@@ -620,6 +695,18 @@ const markAsRead = async (id) => {
                 <CheckSquare className="h-4 w-4 inline mr-1" />
                 Quizzes
               </button>
+
+              <button
+                onClick={() => setActiveTab('contests')}
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'contests'
+                    ? 'border-blue-700 text-blue-700 bg-blue-100'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+              >
+                <Monitor className="h-4 w-4 inline mr-1" />
+                Contests
+              </button>
+
               <button
                 onClick={() => setActiveTab('syllabus')}
                 className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'syllabus'
@@ -750,6 +837,14 @@ const markAsRead = async (id) => {
                   >
                     <CheckSquare className="h-12 w-12 text-gray-400 group-hover:text-green-500 mx-auto mb-3 transition-colors" />
                     <p className="text-gray-600 group-hover:text-green-600 font-medium">Create Quiz</p>
+                  </button>
+
+                  <button
+                    onClick={() => navigate('/trainer/contests/create')}
+                    className="p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all duration-300 text-center group"
+                  >
+                    <Monitor className="h-12 w-12 text-gray-400 group-hover:text-purple-500 mx-auto mb-3 transition-colors" />
+                    <p className="text-gray-600 group-hover:text-purple-600 font-medium">Create Contest</p>
                   </button>
 
                   <button
@@ -996,6 +1091,8 @@ const markAsRead = async (id) => {
           {/* Regular Batches Tab */}
           {activeTab === 'regular-batches' && renderRegularBatches()}
 
+          {/* Contests Tab */}
+          {activeTab === 'contests' && renderContests()}
 
           {/* Students Tab */}
           {activeTab === 'students' && (

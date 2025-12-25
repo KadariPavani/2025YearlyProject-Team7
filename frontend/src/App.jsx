@@ -25,6 +25,10 @@ import ContactPage from "./pages/ContactPage";
 import TPODashboard from './pages/tpo/TPODashboard';
 import TrainerDashboard from './pages/trainer/TrainerDashboard';
 import StudentDashboard from './pages/student/StudentDashboard';
+// Student contest pages
+const ContestOverview = React.lazy(() => import('./pages/student/ContestOverview'));
+const ContestIDE = React.lazy(() => import('./pages/student/ContestIDE'));
+const ContestLeaderboard = React.lazy(() => import('./pages/student/ContestLeaderboard'));
 import CoordinatorDashboard from './pages/coordinator/CoordinatorDashboard';
 
 // Import profile components
@@ -37,6 +41,9 @@ import CoordinatorProfile from './pages/coordinator/CoordinatorProfile';
 import AdminChangePassword from './pages/admin/AdminChangePassword';
 import TPOChangePassword from './pages/tpo/TPOChangePassword';
 import TrainerChangePassword from './pages/trainer/TrainerChangePassword';
+import CreateContest from './pages/trainer/CreateContest';
+import ContestDetails from './pages/trainer/ContestDetails';
+import TrainerContestLeaderboard from './pages/trainer/TrainerContestLeaderboard';
 import StudentChangePassword from './pages/student/StudentChangePassword';
 import CoordinatorChangePassword from './pages/coordinator/CoordinatorChangePassword';
 
@@ -741,6 +748,39 @@ function App() {
                 }
               />
 
+              {/* Trainer contest routes */}
+              <Route
+                path="/trainer/contests/create"
+                element={
+                  <TrainerProtectedRoute>
+                    <React.Suspense fallback={<div>Loading...</div>}>
+                      <CreateContest />
+                    </React.Suspense>
+                  </TrainerProtectedRoute>
+                }
+              />
+              <Route
+                path="/trainer/contests/:id"
+                element={
+                  <TrainerProtectedRoute>
+                    <React.Suspense fallback={<div>Loading...</div>}>
+                      <ContestDetails />
+                    </React.Suspense>
+                  </TrainerProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/trainer/contests/:id/leaderboard"
+                element={
+                  <TrainerProtectedRoute>
+                    <React.Suspense fallback={<div>Loading...</div>}>
+                      <TrainerContestLeaderboard />
+                    </React.Suspense>
+                  </TrainerProtectedRoute>
+                }
+              />
+
               {/* Protected User Dashboard Routes */}
               <Route
                 path="/tpo-dashboard"
@@ -755,6 +795,40 @@ function App() {
                 element={
                   <ProtectedUserRoute>
                     <StudentDashboard />
+                  </ProtectedUserRoute>
+                }
+              />
+
+              {/* Student Contest Routes */}
+              <Route
+                path="/student/contests/:id"
+                element={
+                  <ProtectedUserRoute>
+                    <React.Suspense fallback={<div>Loading...</div>}>
+                      <ContestOverview />
+                    </React.Suspense>
+                  </ProtectedUserRoute>
+                }
+              />
+
+              <Route
+                path="/student/contests/:contestId/question/:questionId"
+                element={
+                  <ProtectedUserRoute>
+                    <React.Suspense fallback={<div>Loading...</div>}>
+                      <ContestIDE />
+                    </React.Suspense>
+                  </ProtectedUserRoute>
+                }
+              />
+
+              <Route
+                path="/student/contests/:id/leaderboard"
+                element={
+                  <ProtectedUserRoute>
+                    <React.Suspense fallback={<div>Loading...</div>}>
+                      <ContestLeaderboard />
+                    </React.Suspense>
                   </ProtectedUserRoute>
                 }
               />

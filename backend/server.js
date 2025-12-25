@@ -50,6 +50,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const studentActivityRoutes = require('./routes/studentActivityRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const contactRoutes = require("./routes/contactRoutes");
+const contestsRoutes = require('./routes/contests');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -67,6 +68,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/references', referenceRoutes);
 app.use('/api/student-activity', studentActivityRoutes);
+app.use('/api/contests', contestsRoutes);
 app.use("/api", contactRoutes);
 
 

@@ -357,6 +357,10 @@ const StudentSchema = new mongoose.Schema({
     completedAt: Date
   }],
   codingScores: [{
+    contestId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Contest'
+    },
     questionId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'CodingQuestion'
@@ -365,6 +369,12 @@ const StudentSchema = new mongoose.Schema({
     totalMarks: Number,
     completedAt: Date,
     submissionCode: String
+  }],
+
+  // Contests this student has finalized (submitted as final) - prevents further attempts
+  finalizedContests: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Contest'
   }],
 
   // Pending Approvals

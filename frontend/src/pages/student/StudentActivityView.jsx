@@ -14,7 +14,9 @@ const StudentActivityView = () => {
   const fetchStudentActivity = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      // Prefer 'userToken' (used widely) and fallback to legacy 'token'
+      const token = localStorage.getItem('userToken') || localStorage.getItem('token');
+      if (!token) console.warn('No auth token found when fetching student activity');
       const response = await axios.get('/api/student-activity/student', {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -171,6 +173,38 @@ const StudentActivityView = () => {
               ))
             ) : (
               <p className="text-sm text-gray-500 text-center py-4">No assignments graded</p>
+            )}
+          </div>
+        </div>
+
+        {/* Coding Results (Contest-based) */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+            <Code className="w-5 h-5 mr-2 text-orange-600" />
+            Coding Results
+          </h3>
+          <div className="space-y-3">
+            {scores.coding.length > 0 ? (
+              scores.coding.map((c, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm text-gray-900">{c.contestName} - {c.questionTitle}</p>
+                    <p className="text-xs text-gray-500">{c.completedAt ? new Date(c.completedAt).toLocaleString() : ''}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-bold ${
+                      c.percentage >= 80 ? 'text-green-600' :
+                      c.percentage >= 60 ? 'text-yellow-600' :
+                      'text-red-600'
+                    }`}>
+                      {c.percentage}%
+                    </p>
+                    <p className="text-xs text-gray-500">{c.score}/{c.totalMarks}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">No coding contest activity yet</p>
             )}
           </div>
         </div>

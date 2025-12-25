@@ -201,6 +201,46 @@ exports.notifyAssignmentCreated = async (batchId, trainerName, assignmentTitle, 
   }
 };
 
+// 🔔 Notify students when a trainer creates a contest
+exports.notifyContestCreated = async (contestId, trainerId, contestName, targetBatchIds = [], trainerName = 'Trainer') => {
+  try {
+    const Notification = require('../models/Notification');
+    const Student = require('../models/Student');
+
+    // If batches provided, target those students; otherwise all students
+    let students = [];
+    if (targetBatchIds && targetBatchIds.length) {
+      students = await Student.find({ batch: { $in: targetBatchIds } }).select('_id name email');
+    } else {
+      students = await Student.find({}).select('_id name email');
+    }
+
+    if (!students.length) {
+      console.log('No students found for contest notification');
+      return;
+    }
+
+    const notifications = students.map((student) => ({
+      title: `New Contest: ${contestName}`,
+      message: `${trainerName} created a new coding contest: ${contestName}. Please check your Contests section to participate.`,
+      category: 'Available Quizzes',
+      senderId: trainerId,
+      senderModel: 'Trainer',
+      targetBatches: targetBatchIds || [],
+      targetRoles: ['student'],
+      status: 'sent',
+      recipients: [
+        { recipientId: student._id, recipientModel: 'Student', isRead: false }
+      ]
+    }));
+
+    await Notification.insertMany(notifications);
+    console.log(`✅ Sent contest notifications to ${students.length} students.`);
+  } catch (error) {
+    console.error('❌ Error in notifyContestCreated:', error);
+  }
+};
+
 // ✅ Get all notifications for the logged-in student (with proper filters + logs)
 exports.getStudentNotifications = asyncHandler(async (req, res) => {
   try {

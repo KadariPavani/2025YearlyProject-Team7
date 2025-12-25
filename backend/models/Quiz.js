@@ -5,8 +5,8 @@ const quizSchema = new mongoose.Schema({
   description: { type: String, trim: true },
   subject: { type: String, required: true, trim: true },
   scheduledDate: { type: Date, required: true },
-  startTime: { type: String, required: true }, // e.g., "14:30"
-  endTime: { type: String, required: true }, // e.g., "16:30"
+  startTime: { type: String, required: true }, 
+  endTime: { type: String, required: true }, 
   duration: { type: Number, required: true, min: 1 },
   questions: [{
     questionText: { type: String, required: true },
