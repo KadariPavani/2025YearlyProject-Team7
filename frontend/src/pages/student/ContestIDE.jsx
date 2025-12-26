@@ -8,8 +8,18 @@ const ContestIDE = () => {
   const [question, setQuestion] = useState(null);
   const [contest, setContest] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const templates = {
+    python: '# Your code here\n',
+    javascript: '// Your code here\nconsole.log("Hello");\n',
+    js: '// Your code here\nconsole.log("Hello");\n',
+    java: 'public class Main {\n  public static void main(String[] args) {\n    System.out.println("Hello");\n  }\n}\n',
+    c: '#include <bits/stdc++.h>\nusing namespace std;\nint main(){\n  ios::sync_with_stdio(false);\n  cin.tie(nullptr);\n  return 0;\n}\n',
+    cpp: '#include <bits/stdc++.h>\nusing namespace std;\nint main(){\n  ios::sync_with_stdio(false);\n  cin.tie(nullptr);\n  return 0;\n}\n'
+  };
+
   const [language, setLanguage] = useState('python');
-  const [code, setCode] = useState('# Your code here\n');
+  const [code, setCode] = useState(templates.python);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -26,12 +36,28 @@ const ContestIDE = () => {
         setQuestion(qRes.data.question);
         // prefer contest allowed languages
         if (Array.isArray(cRes.data.contest?.allowedLanguages) && cRes.data.contest.allowedLanguages.length > 0) {
-          setLanguage(cRes.data.contest.allowedLanguages[0]);
+          const pref = cRes.data.contest.allowedLanguages[0];
+          setLanguage(pref);
+          // if user hasn't edited code from the default placeholder, set language-appropriate template
+          if (code.trim() === '' || code.includes('Your code here')) {
+            const tpl = templates[(pref || '').toLowerCase()] || '';
+            setCode(tpl);
+          }
         }
       })
       .catch(err => setError(err.response?.data?.error || err.response?.data?.message || 'Failed to load question'))
       .finally(() => setLoading(false));
   }, [contestId, questionId]);
+
+  const handleLanguageChange = (e) => {
+    const newLang = e.target.value;
+    const key = (newLang || '').toLowerCase();
+    const tpl = templates[key] || '';
+    if (code.trim() === '' || code.includes('Your code here')) {
+      setCode(tpl);
+    }
+    setLanguage(newLang);
+  };
 
   if (loading) return <div className="p-6">Loading...</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
@@ -149,7 +175,7 @@ const ContestIDE = () => {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <label className="text-sm">Language</label>
-              <select value={language} onChange={e => setLanguage(e.target.value)} className="ml-2 border rounded p-1">
+              <select value={language} onChange={e => handleLanguageChange(e)} className="ml-2 border rounded p-1">
                 {Array.isArray(contest?.allowedLanguages) && contest.allowedLanguages.map(lang => (
                   <option key={lang} value={lang}>{lang}</option>
                 ))}

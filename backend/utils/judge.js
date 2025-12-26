@@ -89,7 +89,12 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
       const outExe = path.join(TEMP_DIR, `${path.basename(srcInfo.filename, '.c')}.out`);
       const compile = await execWithTimeout(`gcc "${srcInfo.filepath}" -O2 -o "${outExe}"`, {}, 10000);
       if (compile.code !== 0) {
-        compilationError = compile.stderr || 'Compilation failed';
+        const stderrCombined = (compile.stderr || '') + (compile.stdout || '');
+        if (/not recognized|not found|command not found/i.test(stderrCombined)) {
+          compilationError = 'gcc not found. Please install GCC (e.g. MinGW/MSYS2 on Windows or build-essential on Linux) and ensure it is on your PATH.';
+        } else {
+          compilationError = compile.stderr || 'Compilation failed';
+        }
         compileSuccess = false;
       } else {
         binPath = `"${outExe}"`;
@@ -99,23 +104,131 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
       const outExe = path.join(TEMP_DIR, `${path.basename(srcInfo.filename, '.cpp')}.out`);
       const compile = await execWithTimeout(`g++ "${srcInfo.filepath}" -O2 -std=c++17 -o "${outExe}"`, {}, 10000);
       if (compile.code !== 0) {
-        compilationError = compile.stderr || 'Compilation failed';
+        const stderrCombined = (compile.stderr || '') + (compile.stdout || '');
+        if (/not recognized|not found|command not found/i.test(stderrCombined)) {
+          compilationError = 'g++ not found. Please install GCC (g++) (e.g. MinGW/MSYS2 on Windows or g++/build-essential on Linux) and ensure it is on your PATH.';
+        } else {
+          compilationError = compile.stderr || 'Compilation failed';
+        }
         compileSuccess = false;
       } else {
         binPath = `"${outExe}"`;
       }
     } else if (['java'].includes(language)) {
-      // naive java compile
-      // user must put public class name correctly; we will write file as Main.java
-      srcInfo = writeTempFile('submission', 'java', code);
+      // improved java handling
+      // sanitize common placeholders (e.g. "# Your code here") and shebangs which are invalid in Java
+      let sanitizedCode = code;
+      if (typeof sanitizedCode === 'string') {
+        const lines = sanitizedCode.split(/\r?\n/);
+        let changed = false;
+        for (let i = 0; i < Math.min(lines.length, 5); i++) {
+          if (/^\s*#/.test(lines[i])) {
+            lines[i] = lines[i].replace(/^\s*#/, '//');
+            changed = true;
+          }
+        }
+        if (changed) {
+          sanitizedCode = lines.join('\n');
+          console.log('[judge][java] sanitized leading # lines into // comments to avoid syntax errors');
+        }
+      }
+
+      // detect public class name and write file with correct filename to avoid "class X is public, should be declared in a file named X.java" errors
+      srcInfo = writeTempFile('submission', 'java', sanitizedCode);
+      // make sure subsequent steps operate on the sanitized source
+      code = sanitizedCode;
+
+      // try to detect a public class name
+      let classMatch = (code || '').match(/public\s+class\s+([A-Za-z_][A-Za-z0-9_]*)/);
+      let className = classMatch ? classMatch[1] : null;
+      if (!className) {
+        // fall back to plain class if public not used
+        classMatch = (code || '').match(/class\s+([A-Za-z_][A-Za-z0-9_]*)/);
+        className = classMatch ? classMatch[1] : null;
+      }
+
+      if (className) {
+        // write file as <ClassName>.java so javac accepts it
+        try {
+          const newFilename = `${className}.java`;
+          const newFilepath = path.join(TEMP_DIR, newFilename);
+          fs.writeFileSync(newFilepath, code, { encoding: 'utf8' });
+          // remove original temp file
+          try { fs.unlinkSync(srcInfo.filepath); } catch (e) {}
+          srcInfo = { filepath: newFilepath, filename: newFilename };
+        } catch (e) {
+          // ignore and use original
+        }
+      }
+
       const workDir = path.dirname(srcInfo.filepath);
-      const compile = await execWithTimeout(`javac "${srcInfo.filepath}"`, { cwd: workDir }, 10000);
-      if (compile.code !== 0) {
-        compilationError = compile.stderr || 'Compilation failed';
+
+      // detect java / javac versions to avoid UnsupportedClassVersionError where javac and java point
+      // to different installations (e.g. javac newer than java runtime)
+      const javaVerRes = await execWithTimeout('java -version', {}, 2000);
+      const javacVerRes = await execWithTimeout('javac -version', {}, 2000);
+      const javaVerOut = ((javaVerRes.stderr || '') + (javaVerRes.stdout || '')).trim();
+      const javacVerOut = ((javacVerRes.stderr || '') + (javacVerRes.stdout || '')).trim();
+
+      function parseMajorVersion(str) {
+        // matches "1.8.0_..." or "17.0.1" or "21" etc.
+        const m = str.match(/version\s+"([0-9_\.]+)"/i) || str.match(/javac\s+([0-9_\.]+)/i);
+        const v = m && m[1] ? m[1] : (str.split(/\s+/)[1] || '');
+        if (!v) return null;
+        const parts = v.split(/[._]/);
+        if (parts[0] === '1' && parts[1]) return parseInt(parts[1], 10);
+        return parseInt(parts[0], 10);
+      }
+
+      const javaMajor = parseMajorVersion(javaVerOut);
+      const javacMajor = parseMajorVersion(javacVerOut);
+
+      try {
+        // attempt to compile targeting the runtime's major version when possible
+        let compile = null;
+        let tried = [];
+
+        if (javaMajor && javacMajor && javacMajor >= javaMajor) {
+          tried.push(`javac --release ${javaMajor} "${srcInfo.filepath}"`);
+          compile = await execWithTimeout(`javac --release ${javaMajor} "${srcInfo.filepath}"`, { cwd: workDir }, 10000);
+        }
+
+        // fallback: try -source/-target (older javac) if previous failed
+        if (!compile || compile.code !== 0) {
+          if (javaMajor && javacMajor && javacMajor >= javaMajor) {
+            tried.push(`javac -source ${javaMajor} -target ${javaMajor} "${srcInfo.filepath}"`);
+            compile = await execWithTimeout(`javac -source ${javaMajor} -target ${javaMajor} "${srcInfo.filepath}"`, { cwd: workDir }, 10000);
+          }
+        }
+
+        // final fallback: plain javac
+        if (!compile || compile.code !== 0) {
+          tried.push(`javac "${srcInfo.filepath}"`);
+          compile = await execWithTimeout(`javac "${srcInfo.filepath}"`, { cwd: workDir }, 10000);
+        }
+
+        if (compile.code !== 0) {
+          const stderrCombined = (compile.stderr || '') + (compile.stdout || '');
+          if (/not recognized|not found|command not found/i.test(stderrCombined)) {
+            compilationError = 'javac (JDK) not found. Please install the Java Development Kit and ensure `javac`/`java` are on your PATH.';
+          } else if (/error:\s+invalid\s+target\s+release/i.test(stderrCombined) || /unrecognized option: --release/i.test(stderrCombined)) {
+            compilationError = `javac failed to compile for the runtime version. Tried: ${tried.join(' || ')}. Consider installing a matching JDK or using a compatible language level.`;
+          } else if (/class .* is public, should be declared in a file named/i.test(stderrCombined) && !className) {
+            compilationError = 'Public class name mismatch: Java requires the public class to be in a file with the same name. Ensure your public class name matches the filename or remove the public modifier.';
+          } else {
+            compilationError = compile.stderr || 'Compilation failed';
+          }
+          compileSuccess = false;
+        } else {
+          // run detected class or fall back to Main
+          const runClass = className || 'Main';
+          binPath = `java -cp "${workDir}" ${runClass}`;
+          // log detected versions to aid debugging
+          try { console.log(`[judge][java] javaVersion="${javaVerOut.split('\n')[0] || ''}" javacVersion="${javacVerOut.split('\n')[0] || ''}"`); } catch (e) {}
+        }
+      } catch (e) {
+        compilationError = e.message || 'Compilation error';
         compileSuccess = false;
-      } else {
-        // assume class has Main
-        binPath = `java -cp "${workDir}" Main`;
       }
     } else {
       compileSuccess = false;
@@ -171,8 +284,55 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
           testResult.status = 'time_limit_exceeded';
           testResult.error = 'Time limit exceeded';
         } else if (res.code !== 0) {
-          // Detect interpreter-missing errors and retry with a Python fallback if applicable
           const combinedErr = (res.stderr || '') + (res.stdout || '');
+
+          // If Java runtime complains about UnsupportedClassVersionError, try to recompile targeting the runtime version and re-run
+          if (/UnsupportedClassVersionError/i.test(combinedErr) && srcInfo && srcInfo.filepath) {
+            try {
+              const targetRelease = (typeof javaMajor === 'number' && javaMajor > 0) ? javaMajor : 8;
+              console.log(`[judge] UnsupportedClassVersionError detected; attempting to recompile with --release ${targetRelease}`);
+              const recompile = await execWithTimeout(`javac --release ${targetRelease} "${srcInfo.filepath}"`, { cwd: path.dirname(srcInfo.filepath) }, 10000);
+              if (recompile.code === 0) {
+                // rerun this test
+                const rerunRes = await new Promise((resolve) => {
+                  const proc2 = exec(execCmd, execOptions, (error2, stdout2, stderr2) => {
+                    if (error2) return resolve({ error: error2, stdout: stdout2 || '', stderr: stderr2 || '', killed: error2.killed, signal: error2.signal, code: error2.code });
+                    resolve({ stdout: stdout2 || '', stderr: stderr2 || '', code: 0 });
+                  });
+                  if (proc2.stdin) {
+                    try { proc2.stdin.write(input); } catch (e) {}
+                    try { proc2.stdin.end(); } catch (e) {}
+                  }
+                });
+
+                testResult.output = normalizeOutput(rerunRes.stdout || '');
+                if (rerunRes.timedOut || rerunRes.killed) {
+                  testResult.status = 'time_limit_exceeded';
+                  testResult.error = 'Time limit exceeded';
+                } else if (rerunRes.code !== 0) {
+                  testResult.status = 'runtime_error';
+                  testResult.error = (rerunRes.stderr || rerunRes.stdout || 'Runtime error after recompilation');
+                } else {
+                  if (normalizeOutput(expected) === testResult.output) {
+                    testResult.status = 'passed';
+                    testResult.marksAwarded = t.marks || 0;
+                  } else {
+                    testResult.status = 'failed';
+                  }
+                }
+
+                results.push(testResult);
+                continue; // go to next test case
+              } else {
+                const reErr = (recompile.stderr || '') + (recompile.stdout || '');
+                console.log(`[judge] Recompile with --release ${targetRelease} failed: ${reErr.split('\n')[0] || reErr}`);
+              }
+            } catch (e) {
+              // ignore and fall through to normal error handling
+            }
+          }
+
+          // Detect interpreter-missing errors and retry with a Python fallback if applicable
           if (/not recognized|not found|command not found/i.test(combinedErr) && /python3/.test(binPath)) {
             const altBin = binPath.replace('python3', 'python');
             console.log(`[judge] Interpreter ${binPath.split(' ')[0]} not found; retrying with ${altBin.split(' ')[0]}`);

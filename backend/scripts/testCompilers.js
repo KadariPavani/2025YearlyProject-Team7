@@ -11,7 +11,8 @@ const compilers = [
     { name: 'Node.js', command: 'node --version' },
     { name: 'GCC (C)', command: 'gcc --version' },
     { name: 'G++ (C++)', command: 'g++ --version' },
-    { name: 'Java', command: 'java --version' }
+    { name: 'Java (runtime)', command: 'java --version' },
+    { name: 'Javac (JDK)', command: 'javac -version' }
 ];
 
 function testCompiler(compiler) {
@@ -19,9 +20,18 @@ function testCompiler(compiler) {
         exec(compiler.command, (error, stdout, stderr) => {
             if (error) {
                 console.log(`❌ ${compiler.name}: NOT AVAILABLE`);
+                // give a short hint for common Windows setup cases
+                const name = compiler.name.toLowerCase();
+                if (name.includes('g++') || name.includes('gcc')) {
+                    console.log('   → Hint: Install GCC (MinGW/MSYS2) or enable a Linux environment (WSL), and add gcc/g++ to your PATH.');
+                } else if (name.includes('javac')) {
+                    console.log('   → Hint: Install JDK (OpenJDK/Oracle) and ensure javac/java are on your PATH.');
+                } else if (name.includes('python')) {
+                    console.log('   → Hint: On Windows, add Python to PATH or use the Python installer option "Add to PATH".');
+                }
                 resolve(false);
             } else {
-                const version = stdout.split('\n')[0] || stderr.split('\n')[0];
+                const version = (stdout.split('\n')[0] || stderr.split('\n')[0]).trim();
                 console.log(`✅ ${compiler.name}: ${version}`);
                 resolve(true);
             }
