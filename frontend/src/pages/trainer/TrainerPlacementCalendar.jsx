@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
 const TrainerPlacementCalendar = () => {
   const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(false);
+  // Start in loading state so the LoadingSkeleton is visible immediately on mount
+  const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedDateEvents, setSelectedDateEvents] = useState([]);
 
@@ -100,6 +102,8 @@ targetGroup: e.targetGroup || "both",
     return events.filter((e) => e.date === dateStr);
   };
 
+  if (loading) return <LoadingSkeleton />;
+
   return (
     <div className="p-8 bg-gradient-to-b from-gray-50 to-white min-h-screen">
       {/* Header */}
@@ -131,7 +135,7 @@ targetGroup: e.targetGroup || "both",
 
       {/* Calendar Grid */}
       {loading ? (
-        <p className="text-center text-gray-500">Loading events...</p>
+        <LoadingSkeleton />
       ) : (
         <div className="grid grid-cols-7 gap-3">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (

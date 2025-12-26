@@ -70,31 +70,7 @@ const TPOAttendanceView = () => {
     return filtered;
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <LoadingSkeleton />
-          <LoadingSkeleton />
-          <LoadingSkeleton />
-          <LoadingSkeleton />
-        </div>
-
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-          <LoadingSkeleton />
-          <div className="mt-4">
-            <LoadingSkeleton />
-            <LoadingSkeleton />
-            <LoadingSkeleton />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-          <LoadingSkeleton />
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSkeleton />;
 
   if (error) {
     return (

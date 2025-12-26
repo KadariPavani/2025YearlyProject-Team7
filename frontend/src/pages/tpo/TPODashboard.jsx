@@ -590,6 +590,16 @@ const markAsRead = async (id) => {
     }
   };
 
+  // Handle tab clicks so we can trigger immediate loading skeletons for heavy tabs
+  const handleTabClick = (tabId) => {
+    setActiveTab(tabId);
+    // If user opens Schedule tab, force load so skeleton appears immediately
+    if (tabId === 'schedule') {
+      setLoadingSchedule(true);
+      fetchScheduleData();
+    }
+  };
+
   const handleAssignCoordinator = async (studentId) => {
     if (!selectedBatch?._id) {
       setError('No batch selected');
@@ -1853,7 +1863,7 @@ const getRequestTypeColor = (type) => {
                             return (
                               <li key={tab.id}>
                                 <button
-                                  onClick={() => { setActiveTab(tab.id); setShowMoreDropdown(false); }}
+                                  onClick={() => { handleTabClick(tab.id); setShowMoreDropdown(false); }}
                                   className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 text-sm text-gray-700"
                                 >
                                   <Icon className="h-4 w-4" />
@@ -1872,7 +1882,7 @@ const getRequestTypeColor = (type) => {
 
             {/* Mobile bottom nav (exact admin BottomNav) */}
             <div className="sm:hidden">
-              <BottomNav tabs={tabs} active={activeTab} onChange={setActiveTab} />
+              <BottomNav tabs={tabs} active={activeTab} onChange={handleTabClick} />
             </div>
           </div>
 
@@ -2435,11 +2445,13 @@ const getRequestTypeColor = (type) => {
 
           {/* Schedule Tab */}
           {activeTab === 'schedule' && (
-            <ScheduleTimetable
-              scheduleData={scheduleData}
-              loading={loadingSchedule}
-              onRefresh={fetchScheduleData}
-            />
+            loadingSchedule ? <LoadingSkeleton /> : (
+              <ScheduleTimetable
+                scheduleData={scheduleData}
+                loading={loadingSchedule}
+                onRefresh={fetchScheduleData}
+              />
+            )
           )}
           {/* {activeTab === "placement-calendar" && (
             <div className="bg-white rounded-lg shadow border border-gray-200 p-6">

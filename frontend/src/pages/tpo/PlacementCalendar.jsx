@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Calendar, ChevronLeft, ChevronRight, RefreshCw, Plus, X } from "lucide-react";
-import { CalendarSkeleton, ListSkeleton } from '../../components/ui/LoadingSkeletons';
+import { LoadingSkeleton, ListSkeleton } from '../../components/ui/LoadingSkeletons';
 
 import TPOEventRegistrations from "./TPOEventRegistrations";
 // Parse date in local timezone without timezone shift
@@ -13,7 +13,8 @@ const parseLocalDate = (dateStr) => {
 
 const PlacementCalendar = () => {
   const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(false);
+  // Start in loading state so the LoadingSkeleton is visible immediately on mount
+  const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
@@ -770,6 +771,8 @@ const uniqueStudents = registeredStudents.filter(
     return `${n}th`;
   };
 
+  if (loading) return <LoadingSkeleton />;
+
   return (
     <div className="p-2 bg-gradient-to-b from-gray-50 to-white min-h-screen">
       {/* Header */}
@@ -798,7 +801,7 @@ const uniqueStudents = registeredStudents.filter(
 
       {/* Calendar Grid */}
       {loading ? (
-        <CalendarSkeleton />
+        <LoadingSkeleton />
       ) : (
         <div className="w-full max-w-[1200px] mx-auto">
           <div className="flex flex-col sm:flex-row gap-6 items-start">

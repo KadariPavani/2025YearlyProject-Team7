@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Calendar, Clock, User, BookOpen, Filter, Search, RefreshCw, FileSpreadsheet, Eye, X } from 'lucide-react';
-import { LoadingSkeleton, CalendarSkeleton } from '../../components/ui/LoadingSkeletons';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
 
@@ -257,7 +257,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
   };
 
 
-  if (loading) return <CalendarSkeleton />;
+  if (loading) return <LoadingSkeleton />;
 
 
   return (

@@ -129,36 +129,7 @@ const StudentActivity = () => {
     XLSX.writeFile(workbook, fileName);
   };
 
-  if (loading) {
-    // Use same skeletons we use elsewhere so the experience is consistent
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <LoadingSkeleton />
-          <LoadingSkeleton />
-          <LoadingSkeleton />
-          <LoadingSkeleton />
-        </div>
-
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-          <LoadingSkeleton />
-          <div className="mt-3 grid gap-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-8"><LoadingSkeleton /></div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-          <div className="space-y-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-7"><LoadingSkeleton /></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSkeleton />;
 
   if (error) {
     return (

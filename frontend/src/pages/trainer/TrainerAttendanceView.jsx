@@ -4,7 +4,8 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calendar, TrendingUp, CheckCircle, XCircle, BookOpen, Clock, Filter, RefreshCw } from 'lucide-react';
+import { Calendar, TrendingUp, CheckCircle, XCircle, BookOpen, Clock, Filter } from 'lucide-react';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
 const TrainerAttendanceView = () => {
   const [attendance, setAttendance] = useState([]);
@@ -48,16 +49,7 @@ const TrainerAttendanceView = () => {
     fetchAttendance();
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <RefreshCw className="h-12 w-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading attendance...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSkeleton />;
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">

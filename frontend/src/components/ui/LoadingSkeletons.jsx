@@ -177,7 +177,7 @@ export function ListSkeleton() {
   )
 }
 
-// Calendar Skeleton - for calendar views
+// Calendar Skeleton - for calendar views (calendar-like grid with pulsing day cells)
 export function CalendarSkeleton() {
   return (
     <div className="p-6 space-y-4">
@@ -188,8 +188,32 @@ export function CalendarSkeleton() {
           <Skeleton className="h-10 w-24" />
         </div>
       </div>
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <Skeleton className="h-[500px] w-full rounded-lg" />
+
+      <div className="bg-white rounded-xl shadow-lg p-4">
+        {/* Weekday headings */}
+        <div className="grid grid-cols-7 gap-2 mb-3">
+          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => (
+            <div key={d} className="text-center">
+              <Skeleton className="h-4 w-full" />
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar grid (6 rows x 7 cols) */}
+        <div className="grid grid-cols-7 gap-3">
+          {Array.from({ length: 42 }).map((_, i) => (
+            <div key={i} className="bg-gray-50 rounded-lg p-2 min-h-[64px] flex flex-col">
+              <div className="flex items-start justify-between mb-2">
+                <Skeleton className="h-4 w-4 rounded-full" />
+                <Skeleton className="h-3 w-10" />
+              </div>
+              <div className="flex-1 space-y-2 mt-1">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-3/4" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

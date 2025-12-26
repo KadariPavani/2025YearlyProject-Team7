@@ -6,7 +6,6 @@ import {
   ChevronUp,
   Filter,
   Search,
-  Loader,
   AlertCircle,
   Users,
   Calendar,
@@ -15,6 +14,7 @@ import {
   Mail,
   GraduationCap
 } from 'lucide-react';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
 const PlacedStudentsTab = () => {
   const [placedStudents, setPlacedStudents] = useState({});
@@ -135,14 +135,7 @@ const downloadExcel = async (companyName = null) => {
     return Array.from(branches).sort();
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-96">
-        <Loader className="animate-spin mr-2" size={24} />
-        <span>Loading placed students...</span>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSkeleton />;
 
   const companies = Object.keys(placedStudents);
 
