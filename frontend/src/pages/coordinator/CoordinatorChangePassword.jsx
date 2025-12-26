@@ -78,7 +78,7 @@ const CoordinatorChangePassword = () => {
   const coordinatorData = JSON.parse(localStorage.getItem('coordinatorData') || '{}');
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-20 md:pb-24">
       <Header
         title="Change Password"
         subtitle="Coordinator Security Settings"
@@ -110,8 +110,8 @@ const CoordinatorChangePassword = () => {
             <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <Lock className="h-8 w-8 text-orange-600" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Change Your Password</h2>
-            <p className="text-gray-600">Update your password to keep your account secure</p>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Change Your Password</h2>
+            <p className="text-sm text-gray-600">Update your password to keep your account secure</p>
           </div>
 
           <form onSubmit={handleChangePassword} className="space-y-6">

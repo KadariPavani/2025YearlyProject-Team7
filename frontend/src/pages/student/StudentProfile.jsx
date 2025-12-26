@@ -31,6 +31,7 @@ import {
 import axios from "axios";
 import ToastNotification from "../../components/ui/ToastNotification";
 import Header from "../../components/common/Header";
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
 const backendURL = 'http://localhost:5000';
 
@@ -595,12 +596,7 @@ const StudentProfile = () => {
     }));
   };
 
-  if (loading && !profile)
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-      </div>
-    );
+  if (loading && !profile) return <LoadingSkeleton />;
 
   const handleLogout = () => {
     localStorage.removeItem("userToken");

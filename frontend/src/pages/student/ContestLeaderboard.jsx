@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
 const ContestLeaderboard = () => {
   const { id } = useParams();
@@ -21,7 +22,7 @@ const ContestLeaderboard = () => {
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return <div className="p-6">Loading leaderboard...</div>;
+  if (loading) return <LoadingSkeleton />;
   if (error) return (
     <div className="p-6">
       <div className="text-red-600 mb-3">{error}</div>

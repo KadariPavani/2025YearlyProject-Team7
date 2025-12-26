@@ -633,7 +633,7 @@ function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <div className="App">
+        <div className="App text-sm md:text-base">
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
               {/* Public Routes */}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
 const ContestOverview = () => {
   const { id } = useParams();
@@ -34,7 +35,7 @@ const ContestOverview = () => {
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return <div className="p-6">Loading contest...</div>;
+  if (loading) return <LoadingSkeleton />;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
   if (!contest) return <div className="p-6">Contest not found</div>;
 

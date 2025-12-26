@@ -18,6 +18,7 @@ import StudentActivityView from './StudentActivityView';
 
 import FeedbackPreview from '../../components/FeedbackPreview'; // Import feedback preview component
 import Header from '../../components/common/Header';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 // Keep placeholder components for the rest as in the first code
 
 
@@ -634,16 +635,7 @@ const markAsRead = async (id) => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex justify-center items-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-slate-600 font-medium">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <LoadingSkeleton />;
 
   if (error && !studentData) {
     return (
