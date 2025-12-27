@@ -86,10 +86,12 @@ const getTrainerPlacementBatches = async (trainerId) => {
 
 const getTrainerRegularBatches = async (trainerId) => {
   try {
-    const batches = await Batch.find({ trainerId }).select('_id name students');
+    const batches = await Batch.find({ trainerId }).select('_id batchNumber isCrt students');
     return batches.map((batch) => ({
       _id: batch._id,
-      name: batch.name,
+      name: batch.batchNumber || `Batch ${batch._id}`,
+      batchNumber: batch.batchNumber,
+      isCrt: batch.isCrt,
       studentCount: batch.students?.length || 0,
       type: 'regular',
     }));
@@ -510,7 +512,7 @@ router.get('/student/list', generalAuth, async (req, res) => {
     if (student.batchId) {
       accessConditions.push({
         accessLevel: 'batch-specific',
-        batchType: { $in: ['regular', 'both'] },
+        batchType: { $in: ['noncrt', 'regular', 'both'] },
         assignedBatches: student.batchId
       });
     }

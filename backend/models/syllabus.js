@@ -41,7 +41,7 @@ const syllabusSchema = new mongoose.Schema({
   }],
   batchType: {
     type: String,
-    enum: ['regular', 'placement', 'both'],
+    enum: ['noncrt', 'placement', 'both', 'regular'],
     default: 'placement'
   },
   status: {
@@ -61,17 +61,17 @@ const syllabusSchema = new mongoose.Schema({
 
 // Method to check if a student can access the syllabus
 syllabusSchema.methods.canStudentAccess = function(student) {
-  // Check regular batch assignment
-  const isInRegularBatch = this.batchType !== 'placement' &&
+  // Check non-CRT (former regular) batch assignment
+  const isInNonCrtBatch = (this.batchType !== 'placement') &&
     student.batchId &&
     this.assignedBatches.map(id => id.toString()).includes(student.batchId.toString());
 
   // Check placement batch assignment
-  const isInPlacementBatch = this.batchType !== 'regular' &&
+  const isInPlacementBatch = (this.batchType !== 'noncrt') &&
     student.placementTrainingBatchId &&
     this.assignedPlacementBatches.map(id => id.toString()).includes(student.placementTrainingBatchId.toString());
 
-  return (isInRegularBatch || isInPlacementBatch) && this.status === 'published';
+  return (isInNonCrtBatch || isInPlacementBatch) && this.status === 'published';
 };
 
 module.exports = mongoose.model('Syllabus', syllabusSchema);

@@ -50,7 +50,10 @@ const AdminSchema = new mongoose.Schema({
     enum: ['active', 'inactive'],
     default: 'active'
   },
-  lastLogin: { type: Date }
+  lastLogin: { type: Date },
+  // Security: track failed login attempts and account lock
+  failedLoginAttempts: { type: Number, default: 0 },
+  lockUntil: { type: Date, default: null }
 }, { timestamps: true });
 
 AdminSchema.pre('save', async function(next) {
@@ -115,6 +118,27 @@ AdminSchema.pre('save', function(next) {
 
 AdminSchema.methods.matchPassword = async function(enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
+};
+
+// Lockout helpers
+AdminSchema.methods.isAccountLocked = function() {
+  return this.lockUntil && this.lockUntil > Date.now();
+};
+
+AdminSchema.methods.incrementFailedLogin = async function() {
+  this.failedLoginAttempts = (this.failedLoginAttempts || 0) + 1;
+  if (this.failedLoginAttempts >= 3) {
+    // Lock for 2 hours
+    this.lockUntil = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    this.failedLoginAttempts = 0;
+  }
+  await this.save();
+};
+
+AdminSchema.methods.resetFailedLogin = async function() {
+  this.failedLoginAttempts = 0;
+  this.lockUntil = null;
+  await this.save();
 };
 
 module.exports = mongoose.model('Admin', AdminSchema);

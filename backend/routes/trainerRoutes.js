@@ -78,10 +78,14 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const trainer = await Trainer.findOne({ email }).select('+password');
+    const trainer = await Trainer.findOne({ email }).select('+password failedLoginAttempts lockUntil');
 
     if (!trainer) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      return res.status(401).json({ success: false, message: 'Trainer not found' });
+    }
+
+    if (trainer.isAccountLocked && trainer.isAccountLocked()) {
+      return res.status(401).json({ success: false, message: `Account locked until ${new Date(trainer.lockUntil).toISOString()}` });
     }
 
     if (trainer.status !== 'active') {
@@ -93,8 +97,15 @@ router.post('/login', async (req, res) => {
 
     const isMatch = await trainer.matchPassword(password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      if (typeof trainer.incrementFailedLogin === 'function') await trainer.incrementFailedLogin();
+      if (trainer.isAccountLocked && trainer.isAccountLocked()) {
+        return res.status(401).json({ success: false, message: `Account locked due to multiple failed attempts. Try again at ${new Date(trainer.lockUntil).toISOString()}` });
+      }
+      return res.status(401).json({ success: false, message: 'Invalid password' });
     }
+
+    // Successful login: reset attempts
+    if (typeof trainer.resetFailedLogin === 'function') await trainer.resetFailedLogin();
 
     trainer.lastLogin = new Date();
     await trainer.save();

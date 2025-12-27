@@ -40,21 +40,30 @@ const superAdminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const admin = await Admin.findOne({ email }).select('+password');
+    const admin = await Admin.findOne({ email }).select('+password failedLoginAttempts lockUntil');
     if (!admin) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Admin not found'
       });
+    }
+
+    // Check lock
+    if (admin.isAccountLocked && admin.isAccountLocked()) {
+      return res.status(401).json({ success: false, message: `Account locked until ${new Date(admin.lockUntil).toISOString()}` });
     }
 
     const isMatch = await admin.matchPassword(password);
     if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
+      if (typeof admin.incrementFailedLogin === 'function') await admin.incrementFailedLogin();
+      if (admin.isAccountLocked && admin.isAccountLocked()) {
+        return res.status(401).json({ success: false, message: `Account locked due to multiple failed attempts. Try again at ${new Date(admin.lockUntil).toISOString()}` });
+      }
+      return res.status(401).json({ success: false, message: 'Invalid password' });
     }
+
+    // successful password: reset attempts
+    if (typeof admin.resetFailedLogin === 'function') await admin.resetFailedLogin();
 
     const otp = generateOTP();
 
@@ -104,6 +113,10 @@ const verifyOTP = async (req, res) => {
         success: false,
         message: 'Admin not found'
       });
+    }
+
+    if (admin.isAccountLocked && admin.isAccountLocked()) {
+      return res.status(401).json({ success: false, message: `Account locked until ${new Date(admin.lockUntil).toISOString()}` });
     }
 
     const token = generateToken({

@@ -1,7 +1,8 @@
 // GeneralLogin.jsx - EXACT UI + REMEMBER ME + PERFECT LOGIN FUNCTIONALITY
 // Replace your entire GeneralLogin.jsx with this
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Mail, Lock, Eye, EyeOff, ArrowLeft, LogIn, Users, BookOpen, 
@@ -43,6 +44,10 @@ const GeneralLogin = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [lockedUntil, setLockedUntil] = useState(null);
+
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
 
   const userTypeConfig = {
     tpo: {
@@ -120,6 +125,7 @@ const GeneralLogin = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setLockedUntil(null);
 
     try {
       console.log('🔐 Login attempt:', { email: formData.email, userType });
@@ -187,10 +193,24 @@ const GeneralLogin = () => {
         navigate(config.dashboard);
       } else {
         console.error('❌ Login failed:', result.message);
-        setError(result.message);
+        // Show toast and focus proper field depending on server message
+        const msg = result.message || 'Login failed';
+        toast.error(msg);
+        setError(msg);
+
+        if (/User not found|Admin not found/i.test(msg)) {
+          emailRef.current?.focus();
+        } else if (/Invalid password|password/i.test(msg)) {
+          passwordRef.current?.focus();
+        } else if (/locked/i.test(msg)) {
+          // parse ISO timestamp if provided
+          const m = msg.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)/);
+          if (m) setLockedUntil(new Date(m[0]));
+        }
       }
     } catch (err) {
       console.error('❌ Login error:', err);
+      toast.error(TEXT.messages.loginFailed);
       setError(TEXT.messages.loginFailed);
     } finally {
       setLoading(false);
@@ -228,12 +248,14 @@ const GeneralLogin = () => {
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <input
+                  ref={emailRef}
                   type="email"
                   required
                   value={formData.email}
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   className={`w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg ${config.focusStyles} transition-colors`}
                   placeholder={TEXT.placeholders.email}
+                  disabled={!!lockedUntil}
                 />
               </div>
             </div>
@@ -245,12 +267,14 @@ const GeneralLogin = () => {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <input
+                  ref={passwordRef}
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   className={`w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg ${config.focusStyles} transition-colors`}
                   placeholder={TEXT.placeholders.password}
+                  disabled={!!lockedUntil}
                 />
                 <button
                   type="button"
@@ -282,9 +306,15 @@ const GeneralLogin = () => {
               </div>
             )}
 
+            {lockedUntil && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-yellow-800 text-sm">Account locked until {lockedUntil.toLocaleString()}</p>
+              </div>
+            )}
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !!lockedUntil}
               className={`w-full bg-gradient-to-r ${config.buttonBg} ${config.buttonHover} text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 flex items-center justify-center shadow-lg`}
             >
               {loading ? (

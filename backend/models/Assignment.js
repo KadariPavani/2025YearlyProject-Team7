@@ -13,7 +13,7 @@ const assignmentSchema = new Schema({
   trainerId: { type: Schema.Types.ObjectId, ref: 'Trainer', required: true },
   assignedBatches: [{ type: Schema.Types.ObjectId, ref: 'Batch' }],
   assignedPlacementBatches: [{ type: Schema.Types.ObjectId, ref: 'PlacementTrainingBatch' }],
-  batchType: { type: String, enum: ['regular', 'placement', 'both'], required: true },
+  batchType: { type: String, enum: ['noncrt', 'placement', 'both', 'regular'], required: true },
   attachments: [{
     url: String,
     publicId: String,
@@ -52,7 +52,7 @@ const assignmentSchema = new Schema({
 
 assignmentSchema.methods.canStudentAccess = function(student) {
   return (
-    (this.batchType === 'regular' && student.batchId && this.assignedBatches.includes(student.batchId)) ||
+    ((this.batchType === 'noncrt' || this.batchType === 'regular') && student.batchId && this.assignedBatches.includes(student.batchId)) ||
     (this.batchType === 'placement' && student.placementTrainingBatchId && this.assignedPlacementBatches.includes(student.placementTrainingBatchId)) ||
     (this.batchType === 'both' && (
       (student.batchId && this.assignedBatches.includes(student.batchId)) ||
