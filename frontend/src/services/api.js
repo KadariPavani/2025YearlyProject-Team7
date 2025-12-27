@@ -121,10 +121,38 @@ api.interceptors.response.use(
     if (axios.isCancel?.(error)) {
       return Promise.reject(error);
     }
+
     if (error.response && error.response.status === 401) {
+      const path = window.location.pathname || '';
+      const reqUrl = error.config?.url || '';
+
+      const loginPages = ['/super-admin-login', '/trainer-login', '/tpo-login', '/student-login', '/coordinator-login'];
+      const isLoginPage = loginPages.some(p => path.startsWith(p));
+
+      const loginEndpoints = ['/api/admin/super-admin-login', '/api/auth/login', '/api/trainer/login', '/api/auth/student-login'];
+      const isLoginRequest = loginEndpoints.some(ep => reqUrl.includes(ep));
+
+      // If this is a login page or the failing request was a login attempt, do not redirect here
+      // Let the component handle the error so it can show a message and focus the correct field
+      if (isLoginPage || isLoginRequest) {
+        return Promise.reject(error);
+      }
+
+      // Otherwise, clear stored session data and redirect appropriately
       localStorage.removeItem('userToken');
       localStorage.removeItem('userData');
-      window.location.href = '/login';
+
+      if (path.includes('admin')) {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminData');
+        window.location.href = '/super-admin-login';
+      } else if (path.includes('trainer')) {
+        localStorage.removeItem('trainerToken');
+        localStorage.removeItem('trainerData');
+        window.location.href = '/trainer-login';
+      } else {
+        window.location.href = '/';
+      }
     }
     return Promise.reject(error);
   }

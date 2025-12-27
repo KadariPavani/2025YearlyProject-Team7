@@ -84,7 +84,9 @@ const TrainerSchema = new mongoose.Schema({
   },
   lastLogin: {
     type: Date
-  }
+  },
+  failedLoginAttempts: { type: Number, default: 0 },
+  lockUntil: { type: Date, default: null }
 }, {
   timestamps: true
 });
@@ -103,6 +105,26 @@ TrainerSchema.pre('save', async function(next) {
 
 TrainerSchema.methods.matchPassword = async function(enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
+};
+
+// Lockout helpers
+TrainerSchema.methods.isAccountLocked = function() {
+  return this.lockUntil && this.lockUntil > Date.now();
+};
+
+TrainerSchema.methods.incrementFailedLogin = async function() {
+  this.failedLoginAttempts = (this.failedLoginAttempts || 0) + 1;
+  if (this.failedLoginAttempts >= 3) {
+    this.lockUntil = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    this.failedLoginAttempts = 0;
+  }
+  await this.save();
+};
+
+TrainerSchema.methods.resetFailedLogin = async function() {
+  this.failedLoginAttempts = 0;
+  this.lockUntil = null;
+  await this.save();
 };
 
 module.exports = mongoose.model('Trainer', TrainerSchema);

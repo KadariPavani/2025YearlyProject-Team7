@@ -613,6 +613,26 @@ StudentSchema.methods.handleApprovalResponse = async function(approvalId, isAppr
 };
 
 // Add new method before module.exports
+// Lockout helpers
+StudentSchema.methods.isAccountLocked = function() {
+  return this.lockUntil && this.lockUntil > Date.now();
+};
+
+StudentSchema.methods.incrementFailedLogin = async function() {
+  this.failedLoginAttempts = (this.failedLoginAttempts || 0) + 1;
+  if (this.failedLoginAttempts >= 3) {
+    this.lockUntil = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    this.failedLoginAttempts = 0;
+  }
+  await this.save();
+};
+
+StudentSchema.methods.resetFailedLogin = async function() {
+  this.failedLoginAttempts = 0;
+  this.lockUntil = null;
+  await this.save();
+};
+
 StudentSchema.methods.canLogin = function() {
   // Student must have batchId or be a passed out student
   if (!this.batchId && !this.passedOutBatchId) {

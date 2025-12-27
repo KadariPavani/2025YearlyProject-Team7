@@ -44,6 +44,8 @@ const CoordinatorSchema = new mongoose.Schema({
     required: [true, 'TPO reference is required']
   },
   lastLogin: Date,
+  failedLoginAttempts: { type: Number, default: 0 },
+  lockUntil: { type: Date, default: null },
   isActive: {
     type: Boolean,
     default: true
@@ -74,6 +76,26 @@ CoordinatorSchema.methods.matchPassword = async function(enteredPassword) {
   const password = this.password;
   if (!password) return false;
   return await bcrypt.compare(enteredPassword, password);
+};
+
+// Lockout helpers
+CoordinatorSchema.methods.isAccountLocked = function() {
+  return this.lockUntil && this.lockUntil > Date.now();
+};
+
+CoordinatorSchema.methods.incrementFailedLogin = async function() {
+  this.failedLoginAttempts = (this.failedLoginAttempts || 0) + 1;
+  if (this.failedLoginAttempts >= 3) {
+    this.lockUntil = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    this.failedLoginAttempts = 0;
+  }
+  await this.save();
+};
+
+CoordinatorSchema.methods.resetFailedLogin = async function() {
+  this.failedLoginAttempts = 0;
+  this.lockUntil = null;
+  await this.save();
 };
 
 // Add virtual for batch details

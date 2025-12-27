@@ -162,10 +162,16 @@ const generalLogin = async (req, res) => {
     }
 
     const Model = getModelByUserType(userType);
-    const user = await Model.findOne({ email }).select('+password isActive status batchId');
+    const user = await Model.findOne({ email }).select('+password isActive status batchId failedLoginAttempts lockUntil');
 
     if (!user) {
-      return unauthorized(res, 'Invalid credentials');
+      // allow client to focus username field
+      return unauthorized(res, 'User not found');
+    }
+
+    // Check lock status
+    if (user.isAccountLocked && user.isAccountLocked()) {
+      return unauthorized(res, `Account locked until ${new Date(user.lockUntil).toISOString()}`);
     }
 
     // Special check for student login
@@ -196,8 +202,16 @@ const generalLogin = async (req, res) => {
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
       console.log('Password mismatch:', email);
-      return unauthorized(res, 'Invalid credentials');
+      // increment failed attempts and lock if necessary
+      if (typeof user.incrementFailedLogin === 'function') await user.incrementFailedLogin();
+      if (user.isAccountLocked && user.isAccountLocked()) {
+        return unauthorized(res, `Account locked due to multiple failed attempts. Try again at ${new Date(user.lockUntil).toISOString()}`);
+      }
+      return unauthorized(res, 'Invalid password');
     }
+
+    // Successful login: reset attempts
+    if (typeof user.resetFailedLogin === 'function') await user.resetFailedLogin();
 
     user.lastLogin = new Date();
     await user.save();
@@ -254,14 +268,33 @@ exports.studentLogin = async (req, res) => {
       });
     }
 
+    // Check lock status
+    if (student.isAccountLocked && student.isAccountLocked()) {
+      return res.status(401).json({
+        success: false,
+        message: `Account locked until ${new Date(student.lockUntil).toISOString()}`
+      });
+    }
+
     // Check password
     const isMatch = await student.matchPassword(password);
     if (!isMatch) {
+      // increment attempts
+      if (typeof student.incrementFailedLogin === 'function') await student.incrementFailedLogin();
+      if (student.isAccountLocked && student.isAccountLocked()) {
+        return res.status(401).json({
+          success: false,
+          message: `Account locked due to multiple failed attempts. Try again at ${new Date(student.lockUntil).toISOString()}`
+        });
+      }
       return res.status(401).json({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Invalid password'
       });
     }
+
+    // Successful login: reset attempts
+    if (typeof student.resetFailedLogin === 'function') await student.resetFailedLogin();
 
     // Update last login
     student.lastLogin = new Date();

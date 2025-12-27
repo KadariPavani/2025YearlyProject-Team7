@@ -85,8 +85,8 @@ const OTPVerification = () => {
         // Clean up session storage
         sessionStorage.removeItem('adminEmail');
         
-        // Use direct window location instead of navigate
-        window.location.replace('/admin-dashboard');
+        // Use in-app navigation to avoid a full reload which causes brief redirect flicker
+        navigate('/admin-dashboard', { replace: true });
       }
     } catch (error) {
       setError(error.response?.data?.message || 'OTP verification failed');

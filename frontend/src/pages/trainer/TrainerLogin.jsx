@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, BookOpen, ArrowLeft, Mail, Lock, LogIn } from 'lucide-react';
 import axios from 'axios';
@@ -12,6 +13,10 @@ const TrainerLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [lockedUntil, setLockedUntil] = useState(null);
+
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -68,8 +73,18 @@ const TrainerLogin = () => {
     } catch (error) {
       const message = error.response?.data?.message || 'Login failed. Please try again.';
       console.error('Login error:', error);
-      alert(message);
-      
+      toast.error(message);
+
+      // focus input according to server message
+      if (/Trainer not found|User not found|Admin not found/i.test(message)) {
+        emailRef.current?.focus();
+      } else if (/Invalid password|password/i.test(message)) {
+        passwordRef.current?.focus();
+      } else if (/locked/i.test(message)) {
+        const m = message.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)/);
+        if (m) setLockedUntil(new Date(m[0]));
+      }
+
       if (error.response?.status === 401) {
         setFormData({ email: '', password: '' });
       }
@@ -110,6 +125,7 @@ const TrainerLogin = () => {
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <input
+                  ref={emailRef}
                   type="email"
                   name="email"
                   value={formData.email}
@@ -118,6 +134,7 @@ const TrainerLogin = () => {
                     errors.email ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="Enter your email"
+                  disabled={!!lockedUntil}
                 />
               </div>
               {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
@@ -131,6 +148,7 @@ const TrainerLogin = () => {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <input
+                  ref={passwordRef}
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
@@ -139,6 +157,7 @@ const TrainerLogin = () => {
                     errors.password ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="Enter your password"
+                  disabled={!!lockedUntil}
                 />
                 <button
                   type="button"
@@ -151,10 +170,17 @@ const TrainerLogin = () => {
               {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
             </div>
 
+            {/* Message area */}
+            {lockedUntil && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+                <p className="text-yellow-800 text-sm">Account locked until {lockedUntil.toLocaleString()}</p>
+              </div>
+            )}
+
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !!lockedUntil}
               className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed shadow-lg flex items-center justify-center"
             >
               {loading ? (

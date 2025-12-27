@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { Eye, EyeOff, Shield, ArrowLeft, Mail, Lock } from 'lucide-react';
 import api from '../../services/api';
 
@@ -11,6 +12,10 @@ const SuperAdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [lockedUntil, setLockedUntil] = useState(null);
+
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
   
   const navigate = useNavigate();
 
@@ -36,10 +41,19 @@ const SuperAdminLogin = () => {
         navigate('/otp-verification');
       }
     } catch (error) {
-      setError(
-        error.response?.data?.message || 
-        'Server connection failed. Please check if the server is running.'
-      );
+      const msg = error.response?.data?.message || 'Server connection failed. Please check if the server is running.';
+      setError(msg);
+      toast.error(msg);
+
+      if (/Admin not found|User not found/i.test(msg)) {
+        emailRef.current?.focus();
+      } else if (/Invalid password|password/i.test(msg)) {
+        passwordRef.current?.focus();
+      } else if (/locked/i.test(msg)) {
+        const m = msg.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z)/);
+        if (m) setLockedUntil(new Date(m[0]));
+      }
+
     } finally {
       setLoading(false);
     }
@@ -77,6 +91,7 @@ const SuperAdminLogin = () => {
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <input
+                  ref={emailRef}
                   type="email"
                   name="email"
                   value={formData.email}
@@ -84,6 +99,7 @@ const SuperAdminLogin = () => {
                   required
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
                   placeholder="Enter admin email"
+                  disabled={!!lockedUntil}
                 />
               </div>
             </div>
@@ -96,6 +112,7 @@ const SuperAdminLogin = () => {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <input
+                  ref={passwordRef}
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
@@ -103,6 +120,7 @@ const SuperAdminLogin = () => {
                   required
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-colors"
                   placeholder="Enter admin password"
+                  disabled={!!lockedUntil}
                 />
                 <button
                   type="button"
@@ -121,10 +139,16 @@ const SuperAdminLogin = () => {
               </div>
             )}
 
+            {lockedUntil && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-yellow-800 text-sm">Account locked until {lockedUntil.toLocaleString()}</p>
+              </div>
+            )}
+
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !!lockedUntil}
               className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed"
             >
               {loading ? (

@@ -138,9 +138,23 @@ axios.interceptors.response.use(
       },
     });
 
-    // Handle 401 errors by redirecting to login
+    // Handle 401 errors by redirecting to login, but avoid redirecting for login pages or login requests
     if (error.response?.status === 401) {
-      const path = window.location.pathname;
+      const path = window.location.pathname || '';
+      const reqUrl = error.config?.url || '';
+
+      const loginPages = ['/super-admin-login', '/trainer-login', '/tpo-login', '/student-login', '/coordinator-login'];
+      const isLoginPage = loginPages.some(p => path.startsWith(p));
+
+      const loginEndpoints = ['/api/admin/super-admin-login', '/api/auth/login', '/api/trainer/login', '/api/auth/student-login'];
+      const isLoginRequest = loginEndpoints.some(ep => reqUrl.includes(ep));
+
+      // If the user is already on a login page or the failing request was a login attempt,
+      // do not perform a full-page redirect — let the component handle the error so it can show messages & focus fields.
+      if (isLoginPage || isLoginRequest) {
+        return Promise.reject(error);
+      }
+
       if (path.includes('trainer')) {
         localStorage.removeItem('trainerToken');
         localStorage.removeItem('trainerData');
@@ -149,6 +163,11 @@ axios.interceptors.response.use(
         localStorage.removeItem('adminToken');
         localStorage.removeItem('adminData');
         window.location.href = '/super-admin-login';
+      } else {
+        // Generic fallback: clear user session and redirect home
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('userData');
+        window.location.href = '/';
       }
     }
 
