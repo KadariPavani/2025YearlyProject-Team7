@@ -364,74 +364,7 @@ const markAsRead = async (id) => {
     }
   };
 
-  // Render Regular Batches Tab - Using UI from first code
-  const renderRegularBatches = () => (
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-        <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-          <Users className="h-6 w-6 text-blue-600" />
-          Regular Batches ({regularBatches.length})
-        </h3>
 
-        {regularBatches.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {regularBatches.map((batch) => (
-              <div key={batch._id} className="bg-gray-50 rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h4 className="text-xl font-bold text-gray-900">Batch {batch.batchNumber}</h4>
-                    <p className="text-sm text-gray-600">Regular Training Batch</p>
-                  </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
-                    Active
-                  </span>
-                </div>
-
-                <div className="space-y-3 mb-4">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="h-4 w-4 text-gray-500" />
-                    <span className="text-gray-700">{batch.students?.length || 0} Students</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="h-4 w-4 text-gray-500" />
-                    <span className="text-gray-700">{new Date(batch.createdAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 pt-4">
-                  <h5 className="font-medium text-gray-900 mb-2">Students:</h5>
-                  {batch.students && batch.students.length > 0 ? (
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {batch.students.map((student) => (
-                        <div key={student._id} className="flex items-center gap-2 text-sm">
-                          <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs">
-                            {student.name.charAt(0)}
-                          </div>
-                          <span className="text-gray-700">{student.name}</span>
-                          <span className="text-gray-500">- {student.email}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">No students in this batch.</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12 bg-gray-50 rounded-xl">
-            <Users className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 font-medium">No regular batches assigned yet</p>
-            <p className="text-gray-400 text-sm">Contact your administrator for batch assignments</p>
-          </div>
-        )}
-      </div>
-
-      {/* Contests section */}
-      {renderContests()}
-    </div>
-  );
 
   const renderContests = () => (
     <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
@@ -647,15 +580,7 @@ const markAsRead = async (id) => {
               >
                 Schedule
               </button>
-              <button
-                onClick={() => setActiveTab('regular-batches')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'regular-batches'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-              >
-                Regular Batches
-              </button>
+
               <button 
               onClick={()=> setActiveTab('student-activity')}
               className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${activeTab === 'student-activity'
@@ -886,7 +811,7 @@ const markAsRead = async (id) => {
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-purple-600">{regularBatches.length}</div>
-                    <div className="text-sm text-gray-600 mt-1">Regular Batches</div>
+                    <div className="text-sm text-gray-600 mt-1">Non-CRT Batches</div>
                   </div>
                   <div className="text-center">
                     <div className="text-3xl font-bold text-orange-600">{trainerData?.experience || 0}</div>
@@ -1088,8 +1013,7 @@ const markAsRead = async (id) => {
             </div>
           )}
 
-          {/* Regular Batches Tab */}
-          {activeTab === 'regular-batches' && renderRegularBatches()}
+
 
           {/* Contests Tab */}
           {activeTab === 'contests' && renderContests()}

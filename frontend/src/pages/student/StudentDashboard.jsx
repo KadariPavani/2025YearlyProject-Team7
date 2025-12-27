@@ -1221,7 +1221,7 @@ const studentId = studentData?.user?._id || studentData?._id;
                 </h3>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Regular Batch Info */}
+                  {/* Non-CRT Batch Info */}
                   {batchInfo && (
                     <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
                       <h4 className="font-semibold text-blue-900 mb-4 flex items-center gap-2">

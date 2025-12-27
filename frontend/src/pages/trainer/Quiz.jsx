@@ -77,6 +77,7 @@ const Quiz = () => {
       });
       
       setBatches(response.data || { regular: [], placement: [], all: [] });
+      console.log('DEBUG /api/quizzes/batches response:', response.data || {});
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch batches');
       console.error('Error fetching batches:', err);
@@ -139,12 +140,54 @@ const Quiz = () => {
   const handleBatchChange = (e) => {
     const selectedBatches = Array.from(e.target.selectedOptions, option => option.value);
     
-    if (formData.batchType === 'regular') {
+    if (formData.batchType === 'noncrt') {
       setFormData({ ...formData, assignedBatches: selectedBatches });
     } else if (formData.batchType === 'placement') {
       setFormData({ ...formData, assignedPlacementBatches: selectedBatches });
     } else if (formData.batchType === 'both') {
-      setFormData({ ...formData, assignedBatches: selectedBatches });
+      setFormData({ ...formData, assignedBatches: selectedBatches, assignedPlacementBatches: selectedBatches });
+    }
+  };
+
+  const handleToggleBatch = (batchId) => {
+    if (formData.batchType === 'noncrt') {
+      setFormData({ ...formData, assignedBatches: formData.assignedBatches.includes(batchId) ? formData.assignedBatches.filter(id => id !== batchId) : [...formData.assignedBatches, batchId] });
+    } else if (formData.batchType === 'placement') {
+      setFormData({ ...formData, assignedPlacementBatches: formData.assignedPlacementBatches.includes(batchId) ? formData.assignedPlacementBatches.filter(id => id !== batchId) : [...formData.assignedPlacementBatches, batchId] });
+    } else {
+      setFormData({ ...formData, assignedBatches: formData.assignedBatches.includes(batchId) ? formData.assignedBatches.filter(id => id !== batchId) : [...formData.assignedBatches, batchId], assignedPlacementBatches: formData.assignedPlacementBatches.includes(batchId) ? formData.assignedPlacementBatches.filter(id => id !== batchId) : [...formData.assignedPlacementBatches, batchId] });
+    }
+  };
+
+  const getBatchOptions = () => {
+    const norm = s => (s || '').toString().trim().toUpperCase();
+    const isNT = b => (b && (b.isCrt === false)) || /^NT\b|^NT[_\- ]/.test(norm(b.batchNumber || b.name));
+    const isPT = b => /^PT\b|^PT[_\- ]/.test(norm(b.batchNumber || b.name));
+
+    const regularList = batches.regular || [];
+    const placementAll = batches.placement || [];
+
+    const noncrtFromRegular = regularList.filter(b => isNT(b));
+    const noncrtFromPlacement = placementAll.filter(b => isNT(b));
+
+    // Deduplicate by _id (preserve object with _id key)
+    const uniqueById = (arr) => Array.from(new Map(arr.map(i => [i._id?.toString() || i.name || Math.random(), i])).values());
+
+    const noncrtList = uniqueById([...noncrtFromRegular, ...noncrtFromPlacement]);
+    const placementList = uniqueById(placementAll.filter(b => isPT(b)));
+
+    // DEBUG: log computed lists and sources
+    console.log('DEBUG getBatchOptions (quiz):', { batchType: formData.batchType, noncrtFromRegular: noncrtFromRegular.length, noncrtFromPlacement: noncrtFromPlacement.length, noncrtCount: noncrtList.length, placementCount: placementList.length });
+
+    switch (formData.batchType) {
+      case 'noncrt':
+        return noncrtList;
+      case 'placement':
+        return placementList;
+      case 'both':
+        return [...placementList, ...noncrtList];
+      default:
+        return placementList;
     }
   };
 
@@ -281,18 +324,7 @@ const Quiz = () => {
     }
   };
 
-  const getBatchOptions = () => {
-    switch (formData.batchType) {
-      case 'regular':
-        return batches.regular || [];
-      case 'placement':
-        return batches.placement || [];
-      case 'both':
-        return batches.all || [];
-      default:
-        return batches.placement || [];
-    }
-  };
+
 
   const renderQuizForm = () => (
     <div className="bg-white rounded-lg shadow-md p-6">
@@ -429,7 +461,7 @@ const Quiz = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="placement">Placement Training Batches</option>
-              <option value="regular">Regular Batches</option>
+              <option value="noncrt">Non-CRT Batches</option>
               <option value="both">Both Types</option>
             </select>
           </div>
@@ -438,20 +470,19 @@ const Quiz = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Select Batches *
             </label>
-            <select
-              multiple
-              onChange={handleBatchChange}
-              value={formData.batchType === 'regular' ? formData.assignedBatches : formData.assignedPlacementBatches}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-            >
-              {getBatchOptions().map((batch) => (
-                <option key={batch._id} value={batch._id}>
-                  {batch.name} ({batch.studentCount} students)
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple batches</p>
+            <div className="max-h-48 overflow-y-auto p-3 border border-gray-200 rounded-md bg-white">
+              {getBatchOptions().map((batch) => {
+                const id = batch._id || batch.batchNumber || batch.name;
+                const checked = formData.batchType === 'noncrt' ? formData.assignedBatches.includes(id) : formData.batchType === 'placement' ? formData.assignedPlacementBatches.includes(id) : (formData.assignedBatches.includes(id) || formData.assignedPlacementBatches.includes(id));
+                return (
+                  <label key={id} className="flex items-center gap-3 text-sm mb-1">
+                    <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id)} className="w-4 h-4" />
+                    <span>{batch.name || `${batch.batchNumber} - ${batch.techStack}`} ({batch.studentCount || 0} students)</span>
+                  </label>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Click checkboxes to select multiple batches</p>
           </div>
         </div>
 
@@ -809,7 +840,7 @@ const Quiz = () => {
                   <div className="mt-1">
                     {quiz.assignedBatches?.length > 0 && (
                       <div className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded inline-block mr-1 mb-1">
-                        Regular: {quiz.assignedBatches.map(b => b.name).join(', ')}
+                        Non-CRT: {quiz.assignedBatches.map(b => b.name).join(', ')}
                       </div>
                     )}
                     {quiz.assignedPlacementBatches?.length > 0 && (

@@ -22,7 +22,7 @@ const quizSchema = new mongoose.Schema({
   trainerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Trainer', required: true },
   assignedBatches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],
   assignedPlacementBatches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PlacementTrainingBatch' }],
-  batchType: { type: String, enum: ['regular', 'placement', 'both'], default: 'regular' },
+  batchType: { type: String, enum: ['noncrt', 'placement', 'both', 'regular'], default: 'placement' },
   shuffleQuestions: { type: Boolean, default: false },
   showResultsImmediately: { type: Boolean, default: true },
   allowRetake: { type: Boolean, default: false },
@@ -63,11 +63,11 @@ quizSchema.methods.canStudentAccess = function(student) {
   const isWithinTimeWindow = this.status === 'active' && now >= quizStart && now <= quizEnd;
   
   // Check batch assignment
-  const isInRegularBatch = this.batchType !== 'placement' && 
+  const isInNonCrtBatch = this.batchType !== 'placement' && 
     student.batchId && 
     this.assignedBatches.map(id => id.toString()).includes(student.batchId.toString());
   
-  const isInPlacementBatch = this.batchType !== 'regular' && 
+  const isInPlacementBatch = this.batchType !== 'noncrt' && 
     student.placementTrainingBatchId && 
     this.assignedPlacementBatches.map(id => id.toString()).includes(student.placementTrainingBatchId.toString());
   

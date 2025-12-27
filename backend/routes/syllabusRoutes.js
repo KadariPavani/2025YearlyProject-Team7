@@ -30,7 +30,8 @@ router.post('/', generalAuth, async (req, res) => {
     let validatedRegularBatches = [];
     let validatedPlacementBatches = [];
 
-    if (batchType === 'regular' || batchType === 'both') {
+    // Support both 'noncrt' (new) and legacy 'regular'
+    if (batchType === 'noncrt' || batchType === 'regular' || batchType === 'both') {
       if (assignedBatches && assignedBatches.length > 0) {
         validatedRegularBatches = assignedBatches.filter(id => mongoose.Types.ObjectId.isValid(id));
       }
@@ -197,7 +198,7 @@ router.get('/student/list', generalAuth, async (req, res) => {
     // Add regular batch condition if student has a batchId
     if (student.batchId) {
       query.$or.push({
-        batchType: { $in: ['regular', 'both'] },
+        batchType: { $in: ['noncrt', 'regular', 'both'] },
         assignedBatches: student.batchId
       });
     }

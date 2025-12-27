@@ -64,6 +64,7 @@ const Assignment = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBatches(response.data || { regular: [], placement: [], all: [] });
+      console.log('DEBUG /api/assignments/batches response:', response.data || {});
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch batches');
       console.error('Error fetching batches:', err);
@@ -164,7 +165,7 @@ const Assignment = () => {
 
   const handleBatchChange = (e) => {
     const selectedBatches = Array.from(e.target.selectedOptions, option => option.value);
-    if (formData.batchType === 'regular') {
+    if (formData.batchType === 'noncrt') {
       setFormData(prev => ({ ...prev, assignedBatches: selectedBatches }));
     } else if (formData.batchType === 'placement') {
       setFormData(prev => ({ ...prev, assignedPlacementBatches: selectedBatches }));
@@ -174,6 +175,16 @@ const Assignment = () => {
         assignedBatches: selectedBatches,
         assignedPlacementBatches: selectedBatches
       }));
+    }
+  };
+
+  const handleToggleBatch = (batchId) => {
+    if (formData.batchType === 'noncrt') {
+      setFormData(prev => ({ ...prev, assignedBatches: prev.assignedBatches.includes(batchId) ? prev.assignedBatches.filter(id => id !== batchId) : [...prev.assignedBatches, batchId] }));
+    } else if (formData.batchType === 'placement') {
+      setFormData(prev => ({ ...prev, assignedPlacementBatches: prev.assignedPlacementBatches.includes(batchId) ? prev.assignedPlacementBatches.filter(id => id !== batchId) : [...prev.assignedPlacementBatches, batchId] }));
+    } else {
+      setFormData(prev => ({ ...prev, assignedBatches: prev.assignedBatches.includes(batchId) ? prev.assignedBatches.filter(id => id !== batchId) : [...prev.assignedBatches, batchId], assignedPlacementBatches: prev.assignedPlacementBatches.includes(batchId) ? prev.assignedPlacementBatches.filter(id => id !== batchId) : [...prev.assignedPlacementBatches, batchId] }));
     }
   };
 
@@ -287,13 +298,31 @@ const Assignment = () => {
   };
 
   const getBatchOptions = () => {
+    const norm = s => (s || '').toString().trim().toUpperCase();
+    const isNT = b => (b && (b.isCrt === false)) || /^NT\b|^NT[_\- ]/.test(norm(b.batchNumber || b.name));
+    const isPT = b => /^PT\b|^PT[_\- ]/.test(norm(b.batchNumber || b.name));
+
+    const regularList = batches.regular || [];
+    const placementAll = batches.placement || [];
+
+    const noncrtFromRegular = regularList.filter(b => isNT(b));
+    const noncrtFromPlacement = placementAll.filter(b => isNT(b));
+
+    const uniqueById = (arr) => Array.from(new Map(arr.map(i => [i._id?.toString() || i.name || Math.random(), i])).values());
+
+    const noncrtList = uniqueById([...noncrtFromRegular, ...noncrtFromPlacement]);
+    const placementList = uniqueById(placementAll.filter(b => isPT(b)));
+
+    // DEBUG: log computed lists
+    console.log('DEBUG getBatchOptions (assignment):', { batchType: formData.batchType, noncrtFromRegular: noncrtFromRegular.length, noncrtFromPlacement: noncrtFromPlacement.length, noncrtCount: noncrtList.length, placementCount: placementList.length });
+
     switch (formData.batchType) {
-      case 'regular':
-        return batches.regular || [];
+      case 'noncrt':
+        return noncrtList;
       case 'placement':
-        return batches.placement || [];
+        return placementList;
       case 'both':
-        return batches.all || [];
+        return [...placementList, ...noncrtList];
       default:
         return [];
     }
@@ -609,33 +638,31 @@ const Assignment = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="placement">Placement Training Batches</option>
-              <option value="regular">Regular Batches</option>
+              <option value="noncrt">Non-CRT Batches</option>
               <option value="both">Both Types</option>
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Select Batches *</label>
-            <select
-              multiple
-              onChange={handleBatchChange}
-              value={formData.batchType === 'regular' ? formData.assignedBatches : formData.assignedPlacementBatches}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-              disabled={loading || getBatchOptions().length === 0}
-            >
+            <div className="max-h-48 overflow-y-auto p-3 border border-gray-200 rounded-md bg-white">
               {loading ? (
-                <option disabled>Loading batches...</option>
+                <div className="text-sm text-gray-500">Loading batches...</div>
               ) : getBatchOptions().length > 0 ? (
-                getBatchOptions().map(batch => (
-                  <option key={batch._id} value={batch._id}>
-                    {batch.name} ({batch.studentCount || 0} students)
-                  </option>
-                ))
+                getBatchOptions().map(batch => {
+                  const id = batch._id || batch.batchNumber || batch.name;
+                  const checked = formData.batchType === 'noncrt' ? formData.assignedBatches.includes(id) : formData.batchType === 'placement' ? formData.assignedPlacementBatches.includes(id) : (formData.assignedBatches.includes(id) || formData.assignedPlacementBatches.includes(id));
+                  return (
+                    <label key={id} className="flex items-center gap-3 text-sm mb-1">
+                      <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id)} className="w-4 h-4" />
+                      <span>{batch.name} ({batch.studentCount || 0} students)</span>
+                    </label>
+                  );
+                })
               ) : (
-                <option disabled>No batches available</option>
+                <div className="text-sm text-gray-500">No batches available</div>
               )}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple batches</p>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Click checkboxes to select multiple batches</p> 
           </div>
         </div>
         <div>
@@ -723,7 +750,7 @@ const Assignment = () => {
                 <div className="mt-1">
                   {assignment.assignedBatches?.length > 0 && (
                     <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded mr-1">
-                      Regular: {assignment.assignedBatches.map(b => b.name).join(', ')}
+                      Non-CRT: {assignment.assignedBatches.map(b => b.name).join(', ')}
                     </span>
                   )}
                   {assignment.assignedPlacementBatches?.length > 0 && (

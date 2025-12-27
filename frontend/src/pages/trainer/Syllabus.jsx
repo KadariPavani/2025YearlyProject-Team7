@@ -51,6 +51,7 @@ const Syllabus = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBatches(response.data || { regular: [], placement: [], all: [] });
+      console.log('DEBUG /api/quizzes/batches response (syllabus):', response.data || {});
     } catch (err) {
       const errorMsg = err.response?.data?.message || 'Failed to fetch batches';
       setError(errorMsg);
@@ -98,8 +99,8 @@ const Syllabus = () => {
       }
 
       if (
-        (batchType === 'regular' || batchType === 'both') && assignedBatches.length === 0 ||
-        (batchType === 'placement' || batchType === 'both') && assignedPlacementBatches.length === 0
+        ((batchType === 'noncrt' || batchType === 'both') && assignedBatches.length === 0) ||
+        ((batchType === 'placement' || batchType === 'both') && assignedPlacementBatches.length === 0)
       ) {
         setError('Please assign at least one batch');
         return;
@@ -115,7 +116,7 @@ const Syllabus = () => {
         description: formData.description,
         topics: formData.topics.filter(t => t.topicName.trim() && t.duration.trim()),
         batchType,
-        assignedBatches: batchType === 'regular' || batchType === 'both' ? assignedBatches : [],
+        assignedBatches: batchType === 'noncrt' || batchType === 'both' ? assignedBatches : [],
         assignedPlacementBatches: batchType === 'placement' || batchType === 'both' ? assignedPlacementBatches : []
       };
 
@@ -195,24 +196,49 @@ const Syllabus = () => {
 
   const handleBatchChange = (e) => {
     const selected = Array.from(e.target.selectedOptions, option => option.value);
-    if (batchType === 'regular') setAssignedBatches(selected);
-    else if (batchType === 'placement') setAssignedPlacementBatches(selected);
-    else if (batchType === 'both') setAssignedBatches(selected);
+    if (batchType === 'noncrt') {
+      setAssignedBatches(selected);
+    } else if (batchType === 'placement') {
+      setAssignedPlacementBatches(selected);
+    } else if (batchType === 'both') {
+      // when both, keep both arrays in sync
+      setAssignedBatches(selected);
+      setAssignedPlacementBatches(selected);
+    }
   };
 
   const getBatchOptions = () => {
+    const norm = s => (s || '').toString().trim().toUpperCase();
+    const isNT = b => (b && (b.isCrt === false)) || /^NT\b|^NT[_\- ]/.test(norm(b.batchNumber || b.name));
+    const isPT = b => /^PT\b|^PT[_\- ]/.test(norm(b.batchNumber || b.name));
+
+    const regularList = batches.regular || [];
+    const placementAll = batches.placement || [];
+
+    const noncrtFromRegular = regularList.filter(b => isNT(b));
+    const noncrtFromPlacement = placementAll.filter(b => isNT(b));
+
+    const uniqueById = (arr) => Array.from(new Map(arr.map(i => [i._id?.toString() || i.name || Math.random(), i])).values());
+
+    const noncrtList = uniqueById([...noncrtFromRegular, ...noncrtFromPlacement]);
+    const placementList = uniqueById(placementAll.filter(b => isPT(b)));
+
+    // DEBUG: log computed lists
+    console.log('DEBUG getBatchOptions (syllabus):', { batchType, noncrtFromRegular: noncrtFromRegular.length, noncrtFromPlacement: noncrtFromPlacement.length, noncrtCount: noncrtList.length, placementCount: placementList.length });
+
     switch (batchType) {
-      case 'regular': return batches.regular;
-      case 'placement': return batches.placement;
-      case 'both': return batches.all;
+      case 'noncrt': return noncrtList;
+      case 'placement': return placementList;
+      case 'both': return [...placementList, ...noncrtList];
       default: return [];
     }
   };
 
   const getSelectedCount = () => {
-    if (batchType === 'regular') return assignedBatches.length;
+    if (batchType === 'noncrt') return assignedBatches.length;
     if (batchType === 'placement') return assignedPlacementBatches.length;
-    return assignedBatches.length;
+    // both: count unique selected ids across both arrays
+    return Array.from(new Set([...(assignedBatches || []), ...(assignedPlacementBatches || [])])).length;
   };
 
   return (
@@ -276,7 +302,7 @@ const Syllabus = () => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="placement">Placement Training</option>
-                  <option value="regular">Regular Batches</option>
+                  <option value="noncrt">Non-CRT Batches</option>
                   <option value="both">Both Types</option>
                 </select>
               </div>
@@ -383,24 +409,21 @@ const Syllabus = () => {
                 Assign to Batches <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <select
-                  multiple
-                  value={batchType === 'regular' ? assignedBatches : assignedPlacementBatches}
-                  onChange={handleBatchChange}
-                  className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 h-32 text-sm"
-                >
-                  {getBatchOptions().map(batch => (
-                    <option key={batch._id} value={batch._id}>
-                      {batch.name || `${batch.batchNumber} - ${batch.techStack}`} ({batch.studentCount || 0} students)
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute top-3 right-3 pointer-events-none">
-                  <Users className="w-5 h-5 text-gray-400" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto p-3 border border-gray-200 rounded-md bg-white">
+                  {getBatchOptions().map(batch => {
+                    const id = batch._id || batch.batchNumber || batch.name;
+                    const checked = batchType === 'noncrt' ? assignedBatches.includes(id) : batchType === 'placement' ? assignedPlacementBatches.includes(id) : (assignedBatches.includes(id) || assignedPlacementBatches.includes(id));
+                    return (
+                      <label key={id} className="flex items-center gap-3 text-sm">
+                        <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id)} className="w-4 h-4" />
+                        <span>{batch.name || `${batch.batchNumber} - ${batch.techStack}`} ({batch.studentCount || 0} students)</span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                Hold Ctrl/Cmd to select multiple • {getSelectedCount()} selected
+                Click checkboxes to select multiple • {getSelectedCount()} selected
               </p>
             </div>
 

@@ -192,9 +192,9 @@ export default function StudentQuiz() {
         batches: quiz.assignedPlacementBatches.map(b => `${b.batchNumber} - ${b.techStack} (${b.year})`).join(', '),
         color: 'bg-green-100 text-green-800'
       };
-    } else if (quiz.batchType === 'regular' && quiz.assignedBatches?.length > 0) {
+    } else if ((quiz.batchType === 'regular' || quiz.batchType === 'noncrt') && quiz.assignedBatches?.length > 0) {
       return {
-        type: 'Regular Batch',
+        type: 'Non-CRT Batch',
         batches: quiz.assignedBatches.map(b => b.name).join(', '),
         color: 'bg-blue-100 text-blue-800'
       };

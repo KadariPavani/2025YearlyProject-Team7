@@ -49,7 +49,7 @@ const ReferenceSchema = new mongoose.Schema({
   }],
   batchType: {
     type: String,
-    enum: ['regular', 'placement', 'both', 'public'],
+    enum: ['noncrt', 'placement', 'both', 'regular', 'public'],
     default: 'public'
   },
   isPublic: {
@@ -152,12 +152,12 @@ ReferenceSchema.methods.canStudentAccess = function(student) {
 
   // Batch-specific access
   if (this.accessLevel === 'batch-specific') {
-    // Check regular batches
+    // Check non-CRT (former regular) batches
     if (this.assignedBatches && this.assignedBatches.length > 0) {
-      const hasRegularBatchAccess = this.assignedBatches.some(batchId =>
+      const hasNonCrtBatchAccess = this.assignedBatches.some(batchId =>
         student.batchId && student.batchId.toString() === batchId.toString()
       );
-      if (hasRegularBatchAccess) {
+      if (hasNonCrtBatchAccess) {
         return true;
       }
     }

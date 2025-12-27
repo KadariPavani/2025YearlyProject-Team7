@@ -36,10 +36,12 @@ const getTrainerPlacementBatches = async (trainerId) => {
 // Helper function to get trainer's regular batches
 const getTrainerRegularBatches = async (trainerId) => {
   try {
-    const batches = await Batch.find({ trainerId }).select('_id name students');
+    const batches = await Batch.find({ trainerId }).select('_id batchNumber isCrt students');
     return batches.map(batch => ({
       _id: batch._id,
-      name: batch.name,
+      name: batch.batchNumber || `Batch ${batch._id}`,
+      batchNumber: batch.batchNumber,
+      isCrt: batch.isCrt,
       studentCount: batch.students?.length || 0,
       type: 'regular'
     }));
@@ -130,7 +132,8 @@ router.post('/', generalAuth, async (req, res) => {
     let validatedRegularBatches = [];
     let validatedPlacementBatches = [];
 
-    if (batchType === 'regular' || batchType === 'both') {
+    // Accept both 'noncrt' and legacy 'regular'
+    if (batchType === 'noncrt' || batchType === 'regular' || batchType === 'both') {
       if (assignedBatches && assignedBatches.length > 0) {
         validatedRegularBatches = assignedBatches.filter(id =>
           mongoose.Types.ObjectId.isValid(id)
@@ -160,7 +163,7 @@ router.post('/', generalAuth, async (req, res) => {
       trainerId,
       assignedBatches: validatedRegularBatches,
       assignedPlacementBatches: validatedPlacementBatches,
-      batchType: batchType || 'regular',
+      batchType: batchType || 'placement',
       shuffleQuestions,
       showResultsImmediately,
       allowRetake,
@@ -187,7 +190,7 @@ if (validatedPlacementBatches.length > 0) {
   }
 }
 
-// Notify regular batch students
+// Notify non-CRT batch students (legacy 'regular' also supported)
 if (validatedRegularBatches.length > 0) {
   for (const batchId of validatedRegularBatches) {
     await notifyQuizCreated(batchId, trainer?.name || "Trainer", title, trainerId);
@@ -280,7 +283,7 @@ router.get('/student/list', generalAuth, async (req, res) => {
     // Add regular batch condition if student has a batchId
     if (student.batchId) {
       query.$or.push({
-        batchType: { $in: ['regular', 'both'] },
+        batchType: { $in: ['noncrt', 'regular', 'both'] },
         assignedBatches: student.batchId
       });
     }

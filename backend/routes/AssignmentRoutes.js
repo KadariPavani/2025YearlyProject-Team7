@@ -187,10 +187,12 @@ const getTrainerPlacementBatches = async (trainerId) => {
 
 const getTrainerRegularBatches = async (trainerId) => {
   try {
-    const batches = await Batch.find({ trainerId }).select('_id name students');
+    const batches = await Batch.find({ trainerId }).select('_id batchNumber isCrt students');
     return batches.map(batch => ({
       _id: batch._id,
-      name: batch.name,
+      name: batch.batchNumber || `Batch ${batch._id}`,
+      batchNumber: batch.batchNumber,
+      isCrt: batch.isCrt,
       studentCount: batch.students?.length || 0,
       type: 'regular'
     }));
@@ -274,7 +276,8 @@ router.post('/', generalAuth, conditionalUpload, handleMulterError, async (req, 
     let validatedRegularBatches = [];
     let validatedPlacementBatches = [];
 
-    if (batchType === 'regular' || batchType === 'both') {
+    // Support both 'noncrt' (new) and 'regular' (legacy) as the same concept
+    if (batchType === 'noncrt' || batchType === 'regular' || batchType === 'both') {
       validatedRegularBatches = Array.isArray(parsedAssignedBatches)
         ? parsedAssignedBatches.filter(id => mongoose.Types.ObjectId.isValid(id))
         : [];
@@ -287,7 +290,7 @@ router.post('/', generalAuth, conditionalUpload, handleMulterError, async (req, 
     }
 
     if (
-      (batchType === 'regular' && validatedRegularBatches.length === 0) ||
+      ((batchType === 'noncrt' || batchType === 'regular') && validatedRegularBatches.length === 0) ||
       (batchType === 'placement' && validatedPlacementBatches.length === 0) ||
       (batchType === 'both' && validatedRegularBatches.length === 0 && validatedPlacementBatches.length === 0)
     ) {
@@ -430,7 +433,7 @@ router.get('/student/list', generalAuth, async (req, res) => {
 
     if (student.batchId) {
       query.$or.push({
-        batchType: { $in: ['regular', 'both'] },
+        batchType: { $in: ['noncrt', 'regular', 'both'] },
         assignedBatches: student.batchId
       });
     }
