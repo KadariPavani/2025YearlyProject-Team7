@@ -1,6 +1,7 @@
 // backend/routes/adminRoutes.js
 const express = require('express');
 const {
+  initializeSuperAdmin,
   superAdminLogin,
   verifyOTP,
   resendOTP,
@@ -38,6 +39,7 @@ const { excelUploadMiddleware } = require('../middleware/fileUpload'); // Import
 const router = express.Router();
 const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 // Public routes
+router.post('/initialize-super-admin', initializeSuperAdmin);
 router.post('/super-admin-login', superAdminLogin);
 router.post('/verify-otp', verifyOTP);
 router.post('/resend-otp', resendOTP);

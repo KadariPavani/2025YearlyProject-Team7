@@ -845,7 +845,57 @@ exports.deleteBatch = async (req, res) => {
   }
 };
 
+// @desc     Initialize Super Admin (First-time setup only)
+// @route    POST /api/admin/initialize-super-admin
+// @access   Public (but checks if admin already exists)
+const initializeSuperAdmin = async (req, res) => {
+  try {
+    // Check if any admin already exists
+    const existingAdmin = await Admin.findOne();
+    
+    if (existingAdmin) {
+      return res.status(400).json({
+        success: false,
+        message: 'Super admin already exists. Cannot initialize again.'
+      });
+    }
+
+    // Verify environment variables are set
+    if (!process.env.SUPER_ADMIN_EMAIL || !process.env.SUPER_ADMIN_PASSWORD) {
+      return res.status(500).json({
+        success: false,
+        message: 'SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD must be set in environment variables'
+      });
+    }
+
+    // Create super admin
+    const admin = await Admin.create({
+      email: process.env.SUPER_ADMIN_EMAIL,
+      password: process.env.SUPER_ADMIN_PASSWORD,
+      name: 'Super Admin',
+    });
+
+    console.log('✅ Super admin initialized:', admin.email);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Super admin created successfully. You can now login.',
+      admin: {
+        email: admin.email,
+        name: admin.name
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error initializing super admin:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to initialize super admin'
+    });
+  }
+};
+
 module.exports = {
+  initializeSuperAdmin,
   superAdminLogin,
   verifyOTP,
   resendOTP,
