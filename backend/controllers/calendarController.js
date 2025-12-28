@@ -10,8 +10,10 @@ const { notifyTrainerEventUpdate, notifyStudentEventUpdate } = require("./notifi
 // ---------------------- FILE UPLOAD SETUP ----------------------
 const multer = require("multer");
 const Notification = require("../models/Notification");
-// Store uploaded resumes temporarily in 'uploads' folder
-const upload = multer({ dest: "uploads/" });
+const cloudinary = require('../config/cloudinary');
+// Use memory storage (no disk writes) and upload buffers to Cloudinary to be Vercel-compatible
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB max
+
 const createTransporter = require("../config/nodemailer");
 const transporter = createTransporter();
 const XLSX = require("xlsx");
@@ -728,10 +730,25 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
     event.eventSummary.selectedStudents = event.selectedStudents.length;
     
     if (file) {
-      event.selectedListFiles.push({
-        fileName: file.originalname,
-        fileUrl: file.path,
-      });
+      try {
+        // Upload file buffer to Cloudinary (no disk usage)
+        const dataUri = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+        const result = await cloudinary.uploader.upload(dataUri, { folder: 'selected_lists' });
+        event.selectedListFiles.push({
+          fileName: file.originalname,
+          fileUrl: result.secure_url,
+          uploadedAt: new Date(),
+        });
+        console.log('Uploaded selected list to Cloudinary:', result.secure_url);
+      } catch (err) {
+        console.error('Failed to upload selected list to Cloudinary:', err.message || err);
+        event.selectedListFiles.push({
+          fileName: file.originalname,
+          fileUrl: null,
+          uploadedAt: new Date(),
+          error: err.message || 'upload_failed'
+        });
+      }
     }
 
     await event.save();
@@ -1111,10 +1128,25 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
     event.eventSummary.selectedStudents = event.selectedStudents.length;
 
     if (file) {
-      event.selectedListFiles.push({
-        fileName: file.originalname,
-        fileUrl: file.path,
-      });
+      try {
+        // Upload file buffer to Cloudinary (no disk usage)
+        const dataUri = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+        const result = await cloudinary.uploader.upload(dataUri, { folder: 'selected_lists' });
+        event.selectedListFiles.push({
+          fileName: file.originalname,
+          fileUrl: result.secure_url,
+          uploadedAt: new Date(),
+        });
+        console.log('Uploaded selected list to Cloudinary:', result.secure_url);
+      } catch (err) {
+        console.error('Failed to upload selected list to Cloudinary:', err.message || err);
+        event.selectedListFiles.push({
+          fileName: file.originalname,
+          fileUrl: null,
+          uploadedAt: new Date(),
+          error: err.message || 'upload_failed'
+        });
+      }
     }
 
     await event.save();
@@ -1248,10 +1280,25 @@ console.log(
     event.eventSummary.selectedStudents = event.selectedStudents.length;
 
     if (file) {
-      event.selectedListFiles.push({
-        fileName: file.originalname,
-        fileUrl: file.path,
-      });
+      try {
+        // Upload file buffer to Cloudinary (no disk usage)
+        const dataUri = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+        const result = await cloudinary.uploader.upload(dataUri, { folder: 'selected_lists' });
+        event.selectedListFiles.push({
+          fileName: file.originalname,
+          fileUrl: result.secure_url,
+          uploadedAt: new Date(),
+        });
+        console.log('Uploaded selected list to Cloudinary:', result.secure_url);
+      } catch (err) {
+        console.error('Failed to upload selected list to Cloudinary:', err.message || err);
+        event.selectedListFiles.push({
+          fileName: file.originalname,
+          fileUrl: null,
+          uploadedAt: new Date(),
+          error: err.message || 'upload_failed'
+        });
+      }
     }
 
     await event.save();

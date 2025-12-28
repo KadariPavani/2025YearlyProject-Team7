@@ -3,7 +3,8 @@ const router = express.Router();
 const calendarController = require('../controllers/calendarController');
 const generalAuth = require('../middleware/generalAuth');
 const multer = require("multer");
-const upload = multer({ dest: "uploads/" });
+// Use memory storage to avoid writing to read-only filesystem in serverless
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
 router.use(generalAuth);
 
 router.post('/:id/register', calendarController.registerStudent);
