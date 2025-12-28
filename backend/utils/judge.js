@@ -3,16 +3,75 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const TEMP_DIR = path.join(__dirname, '..', 'temp');
-if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
+// CRITICAL: Use /tmp for Vercel serverless environment
+// Vercel provides writable /tmp directory for serverless functions
+const TEMP_DIR = process.env.VERCEL === '1' 
+  ? '/tmp' 
+  : path.join(__dirname, '..', 'temp');
+
+// Ensure temp directory exists
+if (!fs.existsSync(TEMP_DIR)) {
+  try {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+    console.log(`✅ Created temp directory: ${TEMP_DIR}`);
+  } catch (err) {
+    console.error(`❌ Failed to create temp directory: ${err.message}`);
+  }
+}
 
 // Helper to write temp file and return path
 function writeTempFile(prefix, ext, content) {
-  const id = crypto.randomBytes(8).toString('hex');
+  const id = crypto.randomBytes(4).toString('hex'); // Shorter ID for filename length
   const filename = `${prefix}_${id}.${ext}`;
   const filepath = path.join(TEMP_DIR, filename);
-  fs.writeFileSync(filepath, content, { encoding: 'utf8' });
-  return { filepath, filename };
+  
+  try {
+    fs.writeFileSync(filepath, content, { encoding: 'utf8' });
+    console.log(`📝 Created temp file: ${filename}`);
+    return { filepath, filename };
+  } catch (error) {
+    console.error(`❌ Failed to write temp file: ${error.message}`);
+    throw new Error(`Failed to create temp file: ${error.message}`);
+  }
+}
+
+// Cleanup function to remove old temp files (prevent /tmp from filling up)
+function cleanupTempFiles() {
+  try {
+    const files = fs.readdirSync(TEMP_DIR);
+    const now = Date.now();
+    const MAX_AGE = 5 * 60 * 1000; // 5 minutes
+    
+    let cleanedCount = 0;
+    files.forEach(file => {
+      try {
+        const filepath = path.join(TEMP_DIR, file);
+        const stats = fs.statSync(filepath);
+        
+        // Delete files older than MAX_AGE
+        if (now - stats.mtimeMs > MAX_AGE) {
+          fs.unlinkSync(filepath);
+          cleanedCount++;
+        }
+      } catch (err) {
+        // Ignore errors for individual files
+      }
+    });
+    
+    if (cleanedCount > 0) {
+      console.log(`🧹 Cleaned up ${cleanedCount} old temp files`);
+    }
+  } catch (error) {
+    console.error(`⚠️ Temp cleanup error: ${error.message}`);
+  }
+}
+
+// Run cleanup periodically (only in non-serverless or on startup)
+if (process.env.VERCEL !== '1') {
+  setInterval(cleanupTempFiles, 5 * 60 * 1000); // Every 5 minutes
+} else {
+  // Clean up on each serverless invocation
+  cleanupTempFiles();
 }
 
 // Safe exec with timeout
@@ -389,11 +448,46 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
 
     return { compilationError: compilationError || '', testCaseResults: results, totalTime: Date.now() - startOverall };
   } finally {
-    // Clean up some files (best effort)
+    // CRITICAL: Clean up temp files immediately in serverless environment
+    // This prevents /tmp from filling up across invocations
     try {
-      if (srcInfo && fs.existsSync(srcInfo.filepath)) fs.unlinkSync(srcInfo.filepath);
-    } catch (e) {}
-    // Note: compiled binaries may remain for a short while; consider periodic cleanup
+      if (srcInfo && fs.existsSync(srcInfo.filepath)) {
+        fs.unlinkSync(srcInfo.filepath);
+        console.log(`🗑️ Cleaned up source file: ${srcInfo.filename}`);
+      }
+    } catch (e) {
+      console.error(`⚠️ Failed to cleanup source file: ${e.message}`);
+    }
+    
+    // Clean up compiled binaries
+    try {
+      if (binPath) {
+        // Extract binary path from command (e.g., "gcc output.out" -> output.out)
+        const binMatch = binPath.match(/"([^"]+\.out)"/);
+        if (binMatch && binMatch[1]) {
+          const binFile = binMatch[1];
+          if (fs.existsSync(binFile)) {
+            fs.unlinkSync(binFile);
+            console.log(`🗑️ Cleaned up binary: ${path.basename(binFile)}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.error(`⚠️ Failed to cleanup binary: ${e.message}`);
+    }
+    
+    // Clean up Java class files
+    try {
+      if (srcInfo && srcInfo.filename && srcInfo.filename.endsWith('.java')) {
+        const classFile = srcInfo.filepath.replace('.java', '.class');
+        if (fs.existsSync(classFile)) {
+          fs.unlinkSync(classFile);
+          console.log(`🗑️ Cleaned up class file: ${path.basename(classFile)}`);
+        }
+      }
+    } catch (e) {
+      console.error(`⚠️ Failed to cleanup class file: ${e.message}`);
+    }
   }
 }
 

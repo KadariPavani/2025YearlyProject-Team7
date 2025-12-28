@@ -1,15 +1,17 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const connectDB = require('./config/database');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 
-
-
 dotenv.config();
 
-// Connect to database
+// Use serverless-optimized database connection
+const connectDB = process.env.VERCEL === '1' 
+  ? require('./config/database.serverless')
+  : require('./config/database');
+
+// Initialize database connection
 connectDB();
 
 const app = express();
@@ -32,6 +34,25 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
   })
 );
+
+// Health check endpoint (crucial for serverless monitoring)
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    message: 'INFOVERSE Backend API is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    platform: process.env.VERCEL ? 'Vercel Serverless' : 'Standard Node.js'
+  });
+});
+
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    message: 'Welcome to INFOVERSE API',
+    version: '1.0.0',
+    docs: '/api'
+  });
+});
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -83,12 +104,21 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-});
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error(`Unhandled Rejection: ${err.message}`, err.stack);
-  server.close(() => process.exit(1));
-});
+// Only start server if not in Vercel serverless environment
+if (process.env.VERCEL !== '1') {
+  const server = app.listen(PORT, () => {
+    console.log(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+  });
+
+  // Handle unhandled promise rejections
+  process.on('unhandledRejection', (err) => {
+    console.error(`❌ Unhandled Rejection: ${err.message}`, err.stack);
+    server.close(() => process.exit(1));
+  });
+} else {
+  console.log('🔥 Running in Vercel Serverless Mode');
+}
+
+// Export the Express app for Vercel serverless
+module.exports = app;
