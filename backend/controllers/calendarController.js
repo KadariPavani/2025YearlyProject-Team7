@@ -21,7 +21,18 @@ const getTransporter = () => {
   return transporter;
 };
 const XLSX = require("xlsx");
-const pdfParse = require("pdf-parse");
+let pdfParse = null;
+function getPdfParse() {
+  if (pdfParse) return pdfParse;
+  try {
+    pdfParse = require('pdf-parse');
+    return pdfParse;
+  } catch (err) {
+    console.warn('⚠️ pdf-parse is not available in this runtime. PDF parsing disabled:', err && err.message);
+    pdfParse = null;
+    return null;
+  }
+}
 const mammoth = require("mammoth");
 
 const sendEmail = async (to, subject, htmlContent, attachments = []) => {
