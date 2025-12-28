@@ -15,23 +15,28 @@ const cloudinary = require('../config/cloudinary');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB max
 
 const createTransporter = require("../config/nodemailer");
-const transporter = createTransporter();
+let transporter = null;
+const getTransporter = () => {
+  if (!transporter) transporter = createTransporter();
+  return transporter;
+};
 const XLSX = require("xlsx");
 const pdfParse = require("pdf-parse");
 const mammoth = require("mammoth");
 
 const sendEmail = async (to, subject, htmlContent, attachments = []) => {
   try {
-    await transporter.sendMail({
-      from: `"TPO Portal" <${process.env.EMAIL_USER}>`,
+    const tx = getTransporter();
+    await tx.sendMail({
+      from: `"TPO Portal" <${process.env.EMAIL_USER || 'no-reply@example.com'}>`,
       to,
       subject,
       html: htmlContent,
       attachments
     });
-    console.log(`📧 Email sent successfully to ${to}`);
+    console.log(`📧 Email sent (or logged) for ${to}`);
   } catch (err) {
-    console.error(`❌ Error sending email to ${to}:`, err.message);
+    console.error(`❌ Error sending email to ${to}:`, err.message || err);
   }
 };
 
