@@ -1,4 +1,4 @@
-import { Skeleton } from "./Skeleton"
+import { Skeleton } from "./skeleton"
 
 // Dashboard Skeleton - for full dashboard pages
 export function DashboardSkeleton() {
