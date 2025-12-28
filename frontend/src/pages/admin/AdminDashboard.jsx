@@ -124,6 +124,8 @@ const [adminSortOrder, setAdminSortOrder] = useState("asc");
 
   const [toast, setToast] = useState(null);
 
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
   const showToast = (type, message) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 4000);
@@ -142,7 +144,8 @@ const [adminSortOrder, setAdminSortOrder] = useState("asc");
       return null;
     }
     try {
-      const res = await fetch(url, {
+      const finalUrl = url.startsWith('/') ? `${API_BASE}${url}` : url;
+      const res = await fetch(finalUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
@@ -166,7 +169,8 @@ const [adminSortOrder, setAdminSortOrder] = useState("asc");
       return null;
     }
     try {
-      const res = await fetch(url, {
+      const finalUrl = url.startsWith('/') ? `${API_BASE}${url}` : url;
+      const res = await fetch(finalUrl, {
         method,
         headers: {
           Authorization: `Bearer ${token}`,
