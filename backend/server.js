@@ -21,19 +21,27 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
-app.use(
-  cors({
-    origin: [
-      process.env.FRONTEND_URL,
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://localhost:5176'
-    ].filter(Boolean),
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
-  })
-);
+// Configure CORS to support multiple frontend URLs (comma-separated) and local dev origins
+const allowedOrigins = [
+  ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(s => s.trim()) : []),
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5176'
+].filter(Boolean);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow non-browser requests (e.g., Postman, server-to-server)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    console.warn('Blocked CORS origin:', origin);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  optionsSuccessStatus: 200,
+}));
 
 // Health check endpoint (crucial for serverless monitoring)
 app.get('/health', (req, res) => {
