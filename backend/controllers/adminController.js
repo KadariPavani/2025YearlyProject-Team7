@@ -14,9 +14,16 @@ const { ok, created, badRequest, unauthorized, notFound, serverError, forbidden 
 const { createOtp, verifyOtp, consumeOtp } = require('../utils/otp');
 
 
-// Initialize super admin if not exists
+// Initialize super admin if not exists (waits for DB connection)
+const mongoose = require('mongoose');
 const initializeSuperAdmin = async () => {
   try {
+    // If mongoose isn't connected yet, wait for the 'connected' event
+    if (mongoose.connection.readyState !== 1) {
+      console.log('Waiting for MongoDB connection before initializing super admin...');
+      await new Promise((resolve) => mongoose.connection.once('connected', resolve));
+    }
+
     const superAdmin = await Admin.findOne({ email: process.env.SUPER_ADMIN_EMAIL });
     if (!superAdmin) {
       const newSuperAdmin = new Admin({
@@ -31,7 +38,8 @@ const initializeSuperAdmin = async () => {
     console.error('Super admin initialization failed:', error);
   }
 };
-initializeSuperAdmin();
+// Kick off initialization but do not block module load
+initializeSuperAdmin().catch(err => console.error('Init error:', err));
 
 // @desc     Super Admin Login
 // @route    POST /api/admin/super-admin-login
