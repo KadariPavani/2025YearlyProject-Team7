@@ -16,7 +16,7 @@ import StudentAttendanceView from './StudentAttendanceView';
 import StudentFeedback from '../student/StudentFeedback';
 import StudentActivityView from './StudentActivityView';
 
-import FeedbackPreview from '../../components/FeedbackPreview'; // Import feedback preview component
+import FeedbackPreview from '../../components/feedbackPreview'; // Import feedback preview component
 import Header from '../../components/common/Header';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 // Keep placeholder components for the rest as in the first code
