@@ -4,7 +4,7 @@ import { getBatchStudents, updateStudent, deleteStudent } from '../../services/a
 import { ArrowLeft, Pencil, Trash2, Search, ChevronUp, ChevronDown, AlertCircle, X } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
-import { Skeleton } from '../../components/ui/Skeleton';
+import { Skeleton } from '../../components/ui/skeleton';
 
 const BatchStudentsPage = () => {
   const { batchId } = useParams();

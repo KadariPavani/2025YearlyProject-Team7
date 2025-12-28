@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, Shield
 } from 'lucide-react';
-import { Skeleton } from '../../components/ui/Skeleton';
+import { Skeleton } from '../../components/ui/skeleton';
 import { changeAdminPassword } from '../../services/adminService';
 import Header from '../../components/common/Header';
 

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Pencil, Trash2, Users, AlertCircle, ChevronDown } from "lucide-react";
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 import { getAllBatches, updateBatch, deleteBatch, getAllTPOs } from "../../services/adminService";
-import { Skeleton } from "../../components/ui/Skeleton";
+import { Skeleton } from "../../components/ui/skeleton";
 const CRTBatchSection = () => {
   const [batches, setBatches] = useState([]);
   const [tpos, setTpos] = useState([]);

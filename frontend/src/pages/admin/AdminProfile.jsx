@@ -11,7 +11,7 @@ import {
   Edit,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Skeleton } from '../../components/ui/Skeleton';
+import { Skeleton } from '../../components/ui/skeleton';
 import { getAdminProfile } from "../../services/adminService";
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 const AdminProfile = () => {

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Layers, Plus, X, GraduationCap } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import Header from '../../components/common/Header';
-import { Skeleton } from '../../components/ui/Skeleton';
+import { Skeleton } from '../../components/ui/skeleton';
 const CrtManagementPage = () => {
   const navigate = useNavigate();
   const [batchNumber, setBatchNumber] = useState('');
