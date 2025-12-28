@@ -61,7 +61,7 @@ const handleViewSelectedStudents = async (eventId) => {
   try {
     const token = localStorage.getItem("userToken");
     const res = await axios.get(
-      `http://localhost:5000/api/calendar/${eventId}/selected-students`,
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}/selected-students`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -149,7 +149,7 @@ const handleUploadSelectedList = async () => {
     );
 
     const res = await axios.put(
-      `http://localhost:5000/api/calendar/${eventIdToUse}/upload-selected`,
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventIdToUse}/upload-selected`,
       uploadData,
       { headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" } }
     );
@@ -173,7 +173,7 @@ const handleUploadSelectedList = async () => {
   useEffect(() => {
     const fetchTpoId = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/tpo/profile", {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/profile`, {
           headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` },
         });
         const id =
@@ -242,7 +242,7 @@ const selectStudent = async (email) => {
     });
     
     const res = await axios.put(
-      `http://localhost:5000/api/calendar/${selectedEventId}/select-student`,
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${selectedEventId}/select-student`,
       { studentEmail: email },  // ✅ Fix: Backend expects 'studentEmail', not 'email'
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -272,7 +272,7 @@ setSelectedEventId(eventId);
 
     // Fetch registered students from backend
     const res = await axios.get(
-      `http://localhost:5000/api/calendar/${eventId}/registered-students`,
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}/registered-students`,
       {
         headers: { Authorization: `Bearer ${token}` },
       }
@@ -315,7 +315,7 @@ const fetchCompletedEventStudents = async (eventId) => {
   try {
     const token = localStorage.getItem("userToken");
     const res = await axios.get(
-      `http://localhost:5000/api/calendar/${eventId}/registered-students`,
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}/registered-students`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     setRegisteredStudents(res.data.data || []);
@@ -339,7 +339,7 @@ const handleSelectStudent = async (eventId) => {
     });
     
     const res = await axios.put(
-      `http://localhost:5000/api/calendar/${eventId}/select-student`,
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}/select-student`,
       { studentEmail: selectedStudentEmail },
       { headers: { Authorization: `Bearer ${token}` } }
     );
@@ -364,7 +364,7 @@ const handleSelectStudent = async (eventId) => {
 const fetchEvents = async () => {
   setLoading(true);
   try {
-    const res = await axios.get("http://localhost:5000/api/calendar", {
+    const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` },
     });
     const data = res.data?.data || [];
@@ -477,7 +477,7 @@ const fetchRegisteredStudents = async (eventId) => {
   try {
     const token = localStorage.getItem("userToken");
     const res = await axios.get(
-      `http://localhost:5000/api/calendar/${eventId}/registered-students`,
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}/registered-students`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
     setRegisteredStudents(res.data.students || []);
@@ -558,7 +558,7 @@ const handleEditEvent = async (event) => {
   try {
     const token = localStorage.getItem("userToken");
     const response = await axios.get(
-      `http://localhost:5000/api/calendar/${event.id}`,
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${event.id}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
@@ -614,7 +614,7 @@ const handleCancelDeleteEvent = async (eventId) => {
   try {
     // 1️⃣ Mark as cancelled first
     await axios.put(
-      `http://localhost:5000/api/calendar/${eventId}`,
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}`,
       { status: "cancelled" },
       { headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` } }
     );
@@ -631,7 +631,7 @@ const handleCancelDeleteEvent = async (eventId) => {
 
     // 2️⃣ Actually delete after short delay
     setTimeout(async () => {
-      await axios.delete(`http://localhost:5000/api/calendar/${eventId}`, {
+      await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` },
       });
 
@@ -721,7 +721,7 @@ targetGroup,
   let response;
   if (formData.id) {
     response = await axios.put(
-      `http://localhost:5000/api/calendar/${formData.id}`,
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${formData.id}`,
       payload,
       {
         headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` },
@@ -729,7 +729,7 @@ targetGroup,
     );
   } else {
     response = await axios.post(
-      "http://localhost:5000/api/calendar",
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar`,
       payload,
       {
         headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` },

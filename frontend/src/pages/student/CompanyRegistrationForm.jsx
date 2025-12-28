@@ -19,7 +19,7 @@ useEffect(() => {
     if (!token) return;
 
     try {
-      const res = await axios.get("http://localhost:5000/api/student/profile", {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       console.log("Student profile data:", res.data?.data);
@@ -51,7 +51,7 @@ const handleSubmit = async (e) => {
     console.log("🟣 Registering event:", eventId);
 
     const res = await axios.post(
-      `http://localhost:5000/api/calendar/${eventId}/register`,
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}/register`,
       { externalLink },
       {
         headers: {

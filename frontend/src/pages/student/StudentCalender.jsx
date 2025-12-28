@@ -28,7 +28,7 @@ useEffect(() => {
     const token = localStorage.getItem("userToken");
     if (!token) return;
     try {
-      const res = await axios.get("http://localhost:5000/api/student/profile", {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setStudentData(res.data?.data || {});
@@ -53,7 +53,7 @@ const handleOpenRegistration = (event) => {
   const fetchEvents = async () => {
   setLoading(true);
   try {
-    const res = await axios.get("http://localhost:5000/api/calendar", {
+    const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` },
     });
     const data = res.data?.data || [];
@@ -112,7 +112,7 @@ const fetchRegisteredEvents = async () => {
   if (!token) return;
 
   try {
-    const res = await axios.get("http://localhost:5000/api/calendar/registered", {
+    const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/registered`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 

@@ -33,7 +33,7 @@ import ToastNotification from "../../components/ui/ToastNotification";
 import Header from "../../components/common/Header";
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
-const backendURL = 'http://localhost:5000';
+const backendURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const emptyProject = {
   title: "",

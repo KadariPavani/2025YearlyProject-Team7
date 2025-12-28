@@ -24,8 +24,7 @@ const normalizeDate = (d) => {
   const fetchEvents = async () => {
   setLoading(true);
   try {
-    const res = await axios.get("http://localhost:5000/api/calendar", {
-      headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` },
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar`, {
     });
     const data = res.data?.data || [];
 

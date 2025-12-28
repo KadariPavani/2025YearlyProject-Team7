@@ -559,7 +559,7 @@ useEffect(() => {
 const markAsRead = async (id) => {
   try {
     const token = localStorage.getItem("userToken");
-    await axios.put(`http://localhost:5000/api/notifications/mark-read/${id}`, {}, {
+    await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-read/${id}`, {}, {
       headers: { Authorization: `Bearer ${token}` },
     });
     await fetchNotifications(); // ✅ works fine now

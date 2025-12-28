@@ -12,7 +12,7 @@ const TPOEventRegistrations = ({ eventId }) => {
   const fetchRegistrations = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/calendar/${eventId}/registrations`, {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}/registrations`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('userToken')}`,
         },
@@ -22,7 +22,7 @@ const TPOEventRegistrations = ({ eventId }) => {
       console.error('Error fetching registrations:', err);
     }
     setLoading(false);
-  };
+  }; 
 
   if (loading) return <p>Loading registrations...</p>;
   if (!registrations.length) return <p>No registrations found for this event.</p>;
