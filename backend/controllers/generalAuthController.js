@@ -157,11 +157,22 @@ const generalLogin = async (req, res) => {
   try {
     const { email, password, userType } = req.body;
 
+    // input validation early to avoid throwing errors
+    if (!email || !password) {
+      return badRequest(res, 'Email and password are required');
+    }
+
     if (!userType || !isValidUserType(userType)) {
       return badRequest(res, 'Invalid userType');
     }
 
+    console.debug('General login request:', { email, userType });
+
     const Model = getModelByUserType(userType);
+    if (!Model) {
+      return badRequest(res, 'Invalid userType model');
+    }
+
     const user = await Model.findOne({ email }).select('+password isActive status batchId failedLoginAttempts lockUntil');
 
     if (!user) {
@@ -231,8 +242,10 @@ const generalLogin = async (req, res) => {
       user: { id: user._id, name: user.name, email: user.email, role: user.role, userType },
     });
   } catch (error) {
-    console.error('General Login Error:', error);
-    return serverError(res, 'Login failed');
+    // Log stack for debugging
+    console.error('General Login Error:', error && (error.stack || error.message || error));
+    // Give a bit more info in development-friendly way (non-sensitive)
+    return serverError(res, `Login failed${process.env.NODE_ENV === 'development' ? ': ' + (error.message || '') : ''}`);
   }
 };
 
@@ -301,8 +314,13 @@ exports.studentLogin = async (req, res) => {
     await student.save();
 
     // Create token
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET not set - cannot create token');
+      return serverError(res, 'Authentication configuration error');
+    }
+
     const token = jwt.sign({ id: student._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRE
+      expiresIn: process.env.JWT_EXPIRE || '7d'
     });
 
     res.status(200).json({

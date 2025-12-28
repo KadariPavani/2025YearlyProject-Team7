@@ -48,6 +48,12 @@ const superAdminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
+
+    console.debug('Super admin login request for:', email);
+
     const admin = await Admin.findOne({ email }).select('+password failedLoginAttempts lockUntil');
     if (!admin) {
       return res.status(401).json({
@@ -92,8 +98,8 @@ const superAdminLogin = async (req, res) => {
 
     return ok(res, { success: true, message: 'OTP sent successfully' });
   } catch (error) {
-    console.error('❌ Error in superAdminLogin:', error);
-    return serverError(res, 'Internal server error');
+    console.error('❌ Error in superAdminLogin:', error && (error.stack || error.message || error));
+    return serverError(res, `Internal server error${process.env.NODE_ENV === 'development' ? ': ' + (error.message || '') : ''}`);
   }
 };
 
