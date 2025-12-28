@@ -12,7 +12,7 @@ const TrainerFeedbackView = () => {
     const fetchFeedback = async () => {
       try {
         const token = localStorage.getItem('userToken') || localStorage.getItem('trainerToken');
-        const response = await axios.get('/api/feedback/trainer/received', {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/feedback/trainer/received`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 

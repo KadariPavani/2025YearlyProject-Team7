@@ -24,7 +24,7 @@ const PlacementTrainingBatches = () => {
 
   const fetchPlacementTrainingBatches = async () => {
     try {
-      const response = await fetch('/api/placement-training-batches', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/placement-training-batches`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('adminToken')}`,
         },

@@ -15,7 +15,7 @@ const PasswordChangeNotification = ({ userType, onPasswordChange }) => {
   const checkPasswordStatus = async () => {
     try {
       const token = localStorage.getItem('userToken'); 
-      const response = await axios.get('/api/auth/password-status', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/password-status`, {
         params: { userType },
         headers: { Authorization: `Bearer ${token}` }
       });

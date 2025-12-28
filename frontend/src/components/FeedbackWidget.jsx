@@ -16,7 +16,7 @@ const FeedbackWidget = () => {
         if (!token) return;
 
         // Use the correct endpoint
-        const res = await axios.get('/api/feedback/trainer/received', {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/feedback/trainer/received`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 

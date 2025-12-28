@@ -50,7 +50,7 @@ const Assignment = () => {
       const token = localStorage.getItem('trainerToken');
       if (!token) throw new Error('No trainer token found');
 
-      const response = await axios.get('/api/assignments', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/assignments`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAssignments(Array.isArray(response.data) ? response.data : []);
@@ -67,7 +67,7 @@ const Assignment = () => {
       const token = localStorage.getItem('trainerToken');
       if (!token) throw new Error('No trainer token found');
 
-      const response = await axios.get('/api/assignments/batches', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/assignments/batches`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBatches(response.data || { regular: [], placement: [], all: [] });
@@ -83,7 +83,7 @@ const Assignment = () => {
       const token = localStorage.getItem('trainerToken');
       if (!token) throw new Error('No trainer token found');
 
-      const response = await axios.get('/api/assignments/subjects', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/assignments/subjects`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const fetchedSubject = Array.isArray(response.data) && response.data.length > 0 ? response.data[0] : '';
@@ -98,7 +98,7 @@ const Assignment = () => {
   const fetchSubmissions = async (assignmentId) => {
     try {
       const token = localStorage.getItem('trainerToken');
-      const response = await axios.get(`/api/assignments/${assignmentId}/submissions`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/assignments/${assignmentId}/submissions`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSubmissions(response.data.submissions || []);
@@ -118,7 +118,7 @@ const Assignment = () => {
     try {
       const token = localStorage.getItem('trainerToken');
       await axios.put(
-        `/api/assignments/${selectedAssignment}/submissions/${gradingSubmission._id}/grade`,
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/assignments/${selectedAssignment}/submissions/${gradingSubmission._id}/grade`,
         gradeForm,
         { headers: { Authorization: `Bearer ${token}` } }
       );

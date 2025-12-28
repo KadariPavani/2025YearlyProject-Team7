@@ -31,7 +31,7 @@ const Syllabus = () => {
         setError('No trainer token found. Please log in again.');
         return;
       }
-      const response = await axios.get('/api/syllabi', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/syllabi`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSyllabi(Array.isArray(response.data) ? response.data : []);
@@ -47,7 +47,7 @@ const Syllabus = () => {
     try {
       const token = localStorage.getItem('trainerToken');
       if (!token) return;
-      const response = await axios.get('/api/quizzes/batches', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/batches`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBatches(response.data || { regular: [], placement: [], all: [] });

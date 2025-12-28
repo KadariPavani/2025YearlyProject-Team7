@@ -32,7 +32,7 @@ const CrtManagementPage = () => {
     const fetchTpos = async () => {
       try {
         const adminToken = localStorage.getItem('adminToken');
-        const response = await axios.get('/api/admin/tpos', {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/tpos`, {
           headers: { Authorization: `Bearer ${adminToken}` },
         });
         if (response.data.success) {
@@ -145,7 +145,7 @@ const CrtManagementPage = () => {
         return;
       }
 
-      const response = await axios.post('/api/admin/crt-batch', formData, {
+      const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/crt-batch`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${adminToken}`,

@@ -36,7 +36,7 @@ const CreateContest = () => {
     // fetch batches for batch-specific access
     const token = localStorage.getItem('trainerToken') || localStorage.getItem('userToken');
     if (!token) return;
-    axios.get('/api/quizzes/batches', { headers: { Authorization: `Bearer ${token}` } })
+    axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/batches`, { headers: { Authorization: `Bearer ${token}` } })
       .then(res => {
         // try to merge into one list
         const data = res.data || {};

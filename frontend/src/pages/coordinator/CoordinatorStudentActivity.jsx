@@ -42,7 +42,7 @@ const CoordinatorStudentActivity = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get('/api/student-activity/coordinator', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student-activity/coordinator`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setActivityData(response.data.data || []);

@@ -486,7 +486,7 @@ useEffect(() => {
   const fetchContests = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const res = await axios.get('/api/contests', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/contests`, { headers: { Authorization: `Bearer ${token}` } });
       setContests(res.data.contests || []);
     } catch (err) {
       console.error('Error fetching contests:', err);
@@ -502,7 +502,7 @@ useEffect(() => {
   const fetchStudentData = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/auth/dashboard/student', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/dashboard/student`, {
         headers:
          {
           'Authorization': `Bearer ${token}`
@@ -526,7 +526,7 @@ useEffect(() => {
 const fetchNotifications = async () => {
   try {
     const token = localStorage.getItem("userToken");
-    const res = await axios.get("/api/notifications/student", {
+    const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/student`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -573,7 +573,7 @@ const markAsRead = async (id) => {
   const fetchBatchInfo = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/student/my-batch', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/my-batch`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -590,7 +590,7 @@ const markAsRead = async (id) => {
   const fetchPlacementBatchInfo = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/student/placement-training-batch-info', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/placement-training-batch-info`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -609,7 +609,7 @@ const markAsRead = async (id) => {
   const fetchTodaySchedule = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/student/my-trainers-schedule', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/my-trainers-schedule`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -626,7 +626,7 @@ const markAsRead = async (id) => {
   const fetchAssignments = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await axios.get('/api/assignments/student/list', {  // Using path from second code for functionality
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/assignments/student/list`, {  // Using path from second code for functionality
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -641,7 +641,7 @@ const markAsRead = async (id) => {
   const fetchQuizzes = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await axios.get('/api/quizzes/student/list', {  // Using path from second code for functionality
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/student/list`, {  // Using path from second code for functionality
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -656,7 +656,7 @@ const markAsRead = async (id) => {
   const fetchResources = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await axios.get('/api/references/student/list', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/references/student/list`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -676,7 +676,7 @@ const markAsRead = async (id) => {
   const fetchSyllabi = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await axios.get('/api/syllabi/student/list', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/syllabi/student/list`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSyllabi(response.data || []);
@@ -689,7 +689,7 @@ const markAsRead = async (id) => {
   const fetchPendingApprovals = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/student/pending-approvals', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/pending-approvals`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -823,7 +823,7 @@ const markAsRead = async (id) => {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      await fetch('/api/auth/logout', {
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/logout`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

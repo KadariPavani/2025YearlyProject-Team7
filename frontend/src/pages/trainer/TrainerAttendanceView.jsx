@@ -27,7 +27,7 @@ const TrainerAttendanceView = () => {
       if (dateRange.startDate) params.startDate = dateRange.startDate;
       if (dateRange.endDate) params.endDate = dateRange.endDate;
 
-      const response = await axios.get('/api/trainer/attendance/my-attendance', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/trainer/attendance/my-attendance`, {
         params,
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`

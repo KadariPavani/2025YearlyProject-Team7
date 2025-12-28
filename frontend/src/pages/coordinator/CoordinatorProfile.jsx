@@ -133,7 +133,7 @@ const CoordinatorProfile = () => {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      await fetch('/api/auth/logout', {
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/logout`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

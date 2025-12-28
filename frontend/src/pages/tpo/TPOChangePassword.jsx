@@ -75,7 +75,7 @@ const TPOChangePassword = () => {
         return;
       }
 
-      const response = await fetch('/api/auth/change-password/tpo', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/change-password/tpo`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

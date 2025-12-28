@@ -33,7 +33,7 @@ const AdminBatchStudents = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('adminToken');
-      const response = await fetch('/api/admin/batches', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/batches`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

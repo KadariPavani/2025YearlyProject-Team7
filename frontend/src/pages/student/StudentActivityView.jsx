@@ -17,7 +17,7 @@ const StudentActivityView = () => {
       // Prefer 'userToken' (used widely) and fallback to legacy 'token'
       const token = localStorage.getItem('userToken') || localStorage.getItem('token');
       if (!token) console.warn('No auth token found when fetching student activity');
-      const response = await axios.get('/api/student-activity/student', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student-activity/student`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setActivityData(response.data.data);

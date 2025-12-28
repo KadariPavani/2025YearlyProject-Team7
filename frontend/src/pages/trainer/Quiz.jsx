@@ -54,7 +54,7 @@ const Quiz = () => {
       const token = localStorage.getItem('trainerToken') || localStorage.getItem('userToken');
       if (!token) throw new Error('No trainer token found');
 
-      const response = await axios.get('/api/quizzes', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -72,7 +72,7 @@ const Quiz = () => {
       const token = localStorage.getItem('trainerToken') || localStorage.getItem('userToken');
       if (!token) throw new Error('No trainer token found');
 
-      const response = await axios.get('/api/quizzes/batches', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/batches`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -90,7 +90,7 @@ const Quiz = () => {
       const token = localStorage.getItem('trainerToken') || localStorage.getItem('userToken');
       if (!token) throw new Error('No trainer token found');
 
-      const response = await axios.get('/api/quizzes/subjects', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/subjects`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

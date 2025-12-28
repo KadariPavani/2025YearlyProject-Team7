@@ -27,7 +27,7 @@ const TrainerStudentActivity = () => {
       const token = localStorage.getItem('token');
       const params = filterSubject ? { subject: filterSubject } : {};
 
-      const response = await axios.get('/api/student-activity/trainer', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student-activity/trainer`, {
         headers: { Authorization: `Bearer ${token}` },
         params
       });

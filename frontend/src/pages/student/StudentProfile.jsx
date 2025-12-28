@@ -132,7 +132,7 @@ const StudentProfile = () => {
   useEffect(() => {
     const fetchAvailableTechStacks = async () => {
       try {
-        const response = await axios.get('/api/student/available-crt-options');
+        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/available-crt-options`);
         if (response.data.success) {
           setAvailableTechStacks(response.data.data.batchAllowedTechStacks);
         }
@@ -181,7 +181,7 @@ const StudentProfile = () => {
       setLoading(true);
       setError("");
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/student/profile', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/profile`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
@@ -217,7 +217,7 @@ const StudentProfile = () => {
   const fetchPendingApprovals = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/student/pending-approvals', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/pending-approvals`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -460,7 +460,7 @@ const StudentProfile = () => {
         ...(crtBatchChanged ? { crtBatchChoice: formData.crtBatchChoice } : {})
       };
 
-      const response = await fetch('/api/student/profile', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

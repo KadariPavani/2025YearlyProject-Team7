@@ -42,7 +42,7 @@ const AttendanceMarking = () => {
   useEffect(() => {
     const fetchTechStacks = async () => {
       try {
-        const response = await axios.get('/api/tpo/tech-stacks', {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/tech-stacks`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         if (response.data.success) {
@@ -62,7 +62,7 @@ const AttendanceMarking = () => {
       setLoading(true);
       const token = localStorage.getItem('token'); // Get actual token
       
-      const response = await axios.get('/api/coordinator/attendance/today-sessions', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/coordinator/attendance/today-sessions`, {
         headers: {
           Authorization: `Bearer ${token}` // Send actual token, not 'Present'
         }
@@ -196,7 +196,7 @@ const AttendanceMarking = () => {
       };
 
       const response = await axios.post(
-        '/api/coordinator/attendance/mark',
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/coordinator/attendance/mark`,
         payload,
         {
           headers: {
@@ -250,7 +250,7 @@ const AttendanceMarking = () => {
       if (dateFilter.startDate) params.startDate = dateFilter.startDate;
       if (dateFilter.endDate) params.endDate = dateFilter.endDate;
 
-      const response = await axios.get('/api/coordinator/attendance/history', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/coordinator/attendance/history`, {
         params,
         headers: {
           Authorization: `Bearer ${token}` // Send actual token, not 'Present'
@@ -291,7 +291,7 @@ const AttendanceMarking = () => {
     try {
       setLoadingDetails(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get(`/api/coordinator/attendance/student-details/${record._id}`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/coordinator/attendance/student-details/${record._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

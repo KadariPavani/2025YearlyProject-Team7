@@ -19,7 +19,7 @@ const TPOFeedbackView = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('userToken');
-      const response = await axios.get('/api/feedback/tpo/all', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/feedback/tpo/all`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFeedbacks(response.data.data.feedbacks);

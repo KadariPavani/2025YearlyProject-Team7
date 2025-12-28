@@ -58,7 +58,7 @@ const Reference = ({ availableBatches }) => {
       const token = localStorage.getItem('trainerToken') || localStorage.getItem('userToken');
       if (!token) throw new Error('No trainer token found');
 
-      const response = await axios.get('/api/references/batches', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/references/batches`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -76,7 +76,7 @@ const Reference = ({ availableBatches }) => {
       const token = localStorage.getItem('trainerToken') || localStorage.getItem('userToken');
       if (!token) throw new Error('No trainer token found');
 
-      const response = await axios.get('/api/references', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/references`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

@@ -36,7 +36,7 @@ const PlacedStudentsTab = () => {
       setLoading(true);
       setError('');
       const token = localStorage.getItem('userToken');
-      const response = await axios.get('/api/tpo/placed-students', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/placed-students`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 

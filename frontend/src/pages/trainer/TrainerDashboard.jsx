@@ -40,7 +40,7 @@ const trainerId = trainerData?._id || trainerData?.id || null;
   const fetchTrainerContests = async () => {
     try {
       const token = localStorage.getItem('trainerToken') || localStorage.getItem('userToken');
-      const res = await axios.get('/api/contests/admin', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/contests/admin`, { headers: { Authorization: `Bearer ${token}` } });
       setContests(res.data.contests || []);
     } catch (err) {
       console.error('Error fetching trainer contests:', err);
@@ -323,7 +323,7 @@ const markAsRead = async (id) => {
 
       if (needsProfile) {
         try {
-          const res = await axios.get('/api/trainer/profile', { headers: { Authorization: `Bearer ${token}` } });
+          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/trainer/profile`, { headers: { Authorization: `Bearer ${token}` } });
           if (res?.data?.success && res.data.data) {
             parsedData = res.data.data; // full trainer object
             // store latest in localStorage for consistency
@@ -350,7 +350,7 @@ const markAsRead = async (id) => {
   const fetchPlacementBatches = async () => {
     try {
       const token = localStorage.getItem('userToken') || localStorage.getItem('trainerToken');
-      const response = await fetch('/api/trainer/placement-training-batches', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/trainer/placement-training-batches`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -374,7 +374,7 @@ const markAsRead = async (id) => {
       const token = localStorage.getItem('userToken') || localStorage.getItem('trainerToken');
       if (!token) throw new Error('No trainer token found');
 
-      const response = await axios.get('/api/quizzes/batches', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/batches`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -394,13 +394,13 @@ const markAsRead = async (id) => {
 
       // Fetch batches for quizzes, assignments, and references
       const [quizBatches, assignmentBatches, referenceBatches] = await Promise.all([
-        axios.get('/api/quizzes/batches', {
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/batches`, {
           headers: { Authorization: `Bearer ${token}` }
         }).catch(() => ({ data: { regular: [], placement: [], all: [] } })),
-        axios.get('/api/assignments/batches', {
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/assignments/batches`, {
           headers: { Authorization: `Bearer ${token}` }
         }).catch(() => ({ data: { regular: [], placement: [], all: [] } })),
-        axios.get('/api/references/batches', {
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/references/batches`, {
           headers: { Authorization: `Bearer ${token}` }
         }).catch(() => ({ data: { regular: [], placement: [], all: [] } }))
       ]);
@@ -433,7 +433,7 @@ const markAsRead = async (id) => {
   const fetchFeedbackPreview = async () => {
     try {
       const token = localStorage.getItem('trainerToken') || localStorage.getItem('userToken');
-      const res = await axios.get('/api/feedback/trainer/received', {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/feedback/trainer/received`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res?.data?.success && res.data.data) {
@@ -529,7 +529,7 @@ const markAsRead = async (id) => {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('userToken') || localStorage.getItem('trainerToken');
-      await fetch('/api/trainer/logout', {
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/trainer/logout`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

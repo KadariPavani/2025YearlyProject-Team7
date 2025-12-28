@@ -35,7 +35,7 @@ const CoordinatorChangePassword = () => {
 
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/auth/change-password/coordinator', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/change-password/coordinator`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

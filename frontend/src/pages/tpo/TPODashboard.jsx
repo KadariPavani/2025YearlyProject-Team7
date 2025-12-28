@@ -426,7 +426,7 @@ const notificationRef = useRef(null);
   useEffect(() => {
     const fetchTechStackColors = async () => {
       try {
-        const response = await axios.get('/api/tpo/tech-stacks', {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/tech-stacks`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         if (response.data.success) {
@@ -516,7 +516,7 @@ const markAsRead = async (id) => {
     setErrorBatches('');
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/tpo/batches', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/batches`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const result = await response.json();
@@ -535,7 +535,7 @@ const markAsRead = async (id) => {
     setLoadingStudentDetails(true);
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/tpo/students-by-batch', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/students-by-batch`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -574,7 +574,7 @@ const markAsRead = async (id) => {
     setLoadingSchedule(true);
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/tpo/schedule-timetable', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/schedule-timetable`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -613,7 +613,7 @@ const markAsRead = async (id) => {
 
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/tpo/assign-coordinator', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/assign-coordinator`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -681,7 +681,7 @@ const markAsRead = async (id) => {
     try {
       setLoadingApprovals(true);
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/tpo/pending-approvals', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/pending-approvals`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -706,7 +706,7 @@ const markAsRead = async (id) => {
       setMessage('');
 
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/tpo/approve-request', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/approve-request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -753,7 +753,7 @@ const markAsRead = async (id) => {
     try {
       setLoading(true);
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/tpo/approve-request', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/approve-request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1427,7 +1427,7 @@ const markAsRead = async (id) => {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      await fetch('/api/auth/logout', {
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/logout`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

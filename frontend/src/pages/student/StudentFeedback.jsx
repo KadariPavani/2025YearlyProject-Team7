@@ -36,7 +36,7 @@ const StudentFeedback = () => {
         return;
       }
 
-      const res = await axios.get('/api/feedback/student/trainers', {
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/feedback/student/trainers`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -56,7 +56,7 @@ const StudentFeedback = () => {
   const fetchMyFeedbacks = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await axios.get('/api/feedback/student/my-feedback', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/feedback/student/my-feedback`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMyFeedbacks(response.data.data || []);
@@ -73,7 +73,7 @@ const StudentFeedback = () => {
 
     try {
       const token = localStorage.getItem('userToken');
-      await axios.post('/api/feedback/submit', formData, {
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/feedback/submit`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -114,7 +114,7 @@ const StudentFeedback = () => {
       console.log('Deleting feedback with ID:', feedbackId); // Debug log
 
       const token = localStorage.getItem('userToken');
-      const response = await axios.delete(`/api/feedback/${feedbackId}`, {
+      const response = await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/feedback/${feedbackId}`, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'

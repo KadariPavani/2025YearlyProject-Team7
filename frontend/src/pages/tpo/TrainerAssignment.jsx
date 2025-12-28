@@ -22,7 +22,7 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate, compact = false }) => {
   const fetchBatchDetails = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch(`/api/tpo/batch-trainer-assignments/${batchId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/batch-trainer-assignments/${batchId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -50,7 +50,7 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate, compact = false }) => {
   const fetchAvailableTrainers = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/tpo/available-trainers', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/available-trainers`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();

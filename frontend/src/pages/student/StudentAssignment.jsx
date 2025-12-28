@@ -21,7 +21,7 @@ const StudentAssignment = () => {
       const token = localStorage.getItem('userToken');
       if (!token) throw new Error('No user token found');
 
-      const response = await axios.get('/api/assignments/student/list', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/assignments/student/list`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAssignments(Array.isArray(response.data) ? response.data : []);

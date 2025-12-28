@@ -22,7 +22,7 @@ const TPOAttendanceView = () => {
       if (filters.endDate) params.endDate = filters.endDate;
       if (filters.batchId) params.batchId = filters.batchId;
 
-      const response = await axios.get('/api/tpo/attendance/complete-report', { params, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/attendance/complete-report`, { params, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
 
       if (response.data.success) setReportData(response.data.data);
       else setError('Failed to fetch attendance data');
@@ -40,7 +40,7 @@ const TPOAttendanceView = () => {
       if (filters.endDate) params.endDate = filters.endDate;
       if (filters.batchId) params.batchId = filters.batchId;
 
-      const response = await axios.get('/api/tpo/attendance/download-excel', { params, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, responseType: 'blob' });
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/attendance/download-excel`, { params, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, responseType: 'blob' });
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');

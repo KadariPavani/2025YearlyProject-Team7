@@ -29,7 +29,7 @@ function AddAdmin() {
     setLoading(true);
     const token = localStorage.getItem("adminToken");
     try {
-      const response = await fetch('/api/admin/add-admin', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/add-admin`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

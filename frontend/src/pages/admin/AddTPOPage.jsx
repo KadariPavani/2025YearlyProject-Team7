@@ -33,7 +33,7 @@ const AddTPOPage = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/add-tpo', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/add-tpo`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

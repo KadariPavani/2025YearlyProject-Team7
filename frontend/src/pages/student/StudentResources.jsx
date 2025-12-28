@@ -35,7 +35,7 @@ const StudentResources = () => {
       }
 
       // Use the correct endpoint
-      const response = await axios.get('/api/references/student/list', {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/references/student/list`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

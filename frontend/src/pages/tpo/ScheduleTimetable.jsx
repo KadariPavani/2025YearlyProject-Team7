@@ -227,7 +227,7 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
   useEffect(() => {
     const fetchTechStackColors = async () => {
       try {
-        const response = await axios.get('/api/tpo/tech-stacks', {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/tech-stacks`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         if (response.data.success) {

@@ -27,7 +27,7 @@ export default function StudentQuiz() {
         }
 
         // Fetch all quizzes for students (backend filters by batch automatically)
-        const response = await axios.get('/api/quizzes/student/list', {
+        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/student/list`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -70,7 +70,7 @@ export default function StudentQuiz() {
       }
 
       // Fetch full quiz details for taking
-      const response = await axios.get(`/api/quizzes/student/${quizId}`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/student/${quizId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -139,7 +139,7 @@ export default function StudentQuiz() {
       setCurrentView("review");
       
       // Refresh quiz list to update submission status
-      const updatedQuizzes = await axios.get('/api/quizzes/student/list', {
+      const updatedQuizzes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/student/list`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setQuizzes(Array.isArray(updatedQuizzes.data) ? updatedQuizzes.data : []);

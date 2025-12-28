@@ -112,7 +112,7 @@ const CoordinatorDashboard = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('userToken');
-      const response = await fetch('/api/auth/dashboard/coordinator', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/dashboard/coordinator`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -133,7 +133,7 @@ const CoordinatorDashboard = () => {
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('userToken');
-      await fetch('/api/auth/logout', {
+      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/logout`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
