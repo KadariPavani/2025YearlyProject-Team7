@@ -203,15 +203,8 @@ JWT_COOKIE_EXPIRE=7
 
 # Email
 EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_USER=your_email@gmail.com
-EMAIL_PASSWORD=your_gmail_app_password
-EMAIL_FROM=noreply@infoverse.com
+EMAIL_PORT
 
-# Cloudinary
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
 
 # Optional
 OTP_EXPIRY=10
