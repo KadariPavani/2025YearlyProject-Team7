@@ -1,6 +1,6 @@
 // src/components/ui/ToastNotification.jsx
 import { useEffect } from 'react';
-import '../../styles/toastNotifications.css';
+import '../../styles/ToastNotifications.css';
 import { CheckCircle, AlertCircle, X } from 'lucide-react';
 
 export default function ToastNotification({ type, message, onClose, duration = 4000 }) {
