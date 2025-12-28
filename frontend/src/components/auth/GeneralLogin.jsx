@@ -130,7 +130,7 @@ const GeneralLogin = () => {
     try {
       console.log('🔐 Login attempt:', { email: formData.email, userType });
 
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
