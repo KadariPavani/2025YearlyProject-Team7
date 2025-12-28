@@ -12,11 +12,11 @@ const connectDB = async () => {
 
   try {
     const opts = {
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      serverSelectionTimeoutMS: 10000, // Increased to 10s for serverless cold starts
       socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
       maxPoolSize: 10, // Maintain up to 10 socket connections
-      minPoolSize: 2, // Minimum 2 connections in the pool
-      bufferCommands: false, // Disable mongoose buffering
+      minPoolSize: 1, // Minimum 1 connection for serverless
+      bufferCommands: true, // Enable buffering for serverless to handle slow connections
     };
 
     const conn = await mongoose.connect(process.env.MONGO_URI, opts);

@@ -11,8 +11,11 @@ const connectDB = process.env.VERCEL === '1'
   ? require('./config/database.serverless')
   : require('./config/database');
 
-// Initialize database connection
-connectDB();
+// Initialize database connection (fire and forget for serverless)
+// Connection will complete in background; mongoose will buffer commands if needed
+connectDB().catch(err => {
+  console.error('❌ Failed to initialize database connection:', err.message);
+});
 
 const app = express();
 
