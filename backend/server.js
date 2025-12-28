@@ -54,6 +54,21 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Debug endpoint to check environment variables (remove in production after testing)
+app.get('/api/debug/env-check', (req, res) => {
+  res.status(200).json({
+    hasMongoUri: !!process.env.MONGO_URI,
+    hasJwtSecret: !!process.env.JWT_SECRET,
+    hasFrontendUrl: !!process.env.FRONTEND_URL,
+    hasSuperAdminEmail: !!process.env.SUPER_ADMIN_EMAIL,
+    mongoUriPrefix: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 20) + '...' : 'NOT SET',
+    jwtSecretLength: process.env.JWT_SECRET ? process.env.JWT_SECRET.length : 0,
+    frontendUrl: process.env.FRONTEND_URL || 'NOT SET',
+    nodeEnv: process.env.NODE_ENV || 'NOT SET',
+    isVercel: process.env.VERCEL || 'NOT SET'
+  });
+});
+
 app.get('/', (req, res) => {
   res.status(200).json({ 
     message: 'Welcome to INFOVERSE API',
