@@ -151,13 +151,26 @@ const Reference = ({ availableBatches }) => {
     }
   };
 
-  const handleToggleBatch = (batchId) => {
+  const handleToggleBatch = (batchId, itemType) => {
+    // Accepts optional itemType to disambiguate placement vs regular batches
+    const toggle = (arr, id) => (arr.includes(id) ? arr.filter(i => i !== id) : [...arr, id]);
+
+    if (itemType === 'placement') {
+      setFormData(prev => ({ ...prev, assignedPlacementBatches: toggle(prev.assignedPlacementBatches, batchId) }));
+      return;
+    }
+    if (itemType === 'regular') {
+      setFormData(prev => ({ ...prev, assignedBatches: toggle(prev.assignedBatches, batchId) }));
+      return;
+    }
+
+    // Fallback to current batchType
     if (formData.batchType === 'noncrt') {
-      setFormData(prev => ({ ...prev, assignedBatches: prev.assignedBatches.includes(batchId) ? prev.assignedBatches.filter(id => id !== batchId) : [...prev.assignedBatches, batchId] }));
+      setFormData(prev => ({ ...prev, assignedBatches: toggle(prev.assignedBatches, batchId) }));
     } else if (formData.batchType === 'placement') {
-      setFormData(prev => ({ ...prev, assignedPlacementBatches: prev.assignedPlacementBatches.includes(batchId) ? prev.assignedPlacementBatches.filter(id => id !== batchId) : [...prev.assignedPlacementBatches, batchId] }));
+      setFormData(prev => ({ ...prev, assignedPlacementBatches: toggle(prev.assignedPlacementBatches, batchId) }));
     } else {
-      setFormData(prev => ({ ...prev, assignedBatches: prev.assignedBatches.includes(batchId) ? prev.assignedBatches.filter(id => id !== batchId) : [...prev.assignedBatches, batchId], assignedPlacementBatches: prev.assignedPlacementBatches.includes(batchId) ? prev.assignedPlacementBatches.filter(id => id !== batchId) : [...prev.assignedPlacementBatches, batchId] }));
+      setFormData(prev => ({ ...prev, assignedBatches: toggle(prev.assignedBatches, batchId), assignedPlacementBatches: toggle(prev.assignedPlacementBatches, batchId) }));
     }
   };
 
@@ -201,6 +214,12 @@ const Reference = ({ availableBatches }) => {
       case 'both': return [...placementList, ...noncrtList];
       default: return placementList;
     }
+  };
+
+  const getSelectedCount = () => {
+    if (formData.batchType === 'noncrt') return formData.assignedBatches.length;
+    if (formData.batchType === 'placement') return formData.assignedPlacementBatches.length;
+    return Array.from(new Set([...(formData.assignedBatches || []), ...(formData.assignedPlacementBatches || [])])).length;
   };
 
   const handleSubmit = async (e) => {
@@ -338,13 +357,13 @@ const Reference = ({ availableBatches }) => {
   const getResourceIcon = (resource) => {
     if (resource.files && resource.files.length > 0) {
       const file = resource.files[0];
-      if (file.mimetype?.includes('pdf')) return <FileText className="w-5 h-5" />;
-      if (file.mimetype?.includes('document')) return <File className="w-5 h-5" />;
-      return <File className="w-5 h-5" />;
+      if (file.mimetype?.includes('pdf')) return <FileText className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />;
+      if (file.mimetype?.includes('document')) return <File className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />;
+      return <File className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />;
     }
-    if (resource.referenceVideoLink) return <Video className="w-5 h-5" />;
-    if (resource.referenceNotesLink) return <Link className="w-5 h-5" />;
-    return <BookOpen className="w-5 h-5" />;
+    if (resource.referenceVideoLink) return <Video className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />;
+    if (resource.referenceNotesLink) return <Link className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />;
+    return <BookOpen className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />;
   };
 
   const getUniqueSubjects = () => {
@@ -381,17 +400,17 @@ const Reference = ({ availableBatches }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="space-y-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <GraduationCap className="w-8 h-8 text-blue-600" />
-            My Learning References
-          </h1>
-          <p className="text-gray-600 mt-2">
-            Create, manage, and track resources shared with your students
-          </p>
+        <div className="mb-4">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-blue-50 rounded-md">
+              <GraduationCap className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600" />
+            </div>
+            <h1 className="text-lg sm:text-2xl font-semibold text-gray-900">My Learning References</h1>
+          </div>
+          <p className="text-sm sm:text-base text-gray-600">Create, manage, and track resources shared with your students</p>
         </div>
 
         {/* Error */}
@@ -423,11 +442,11 @@ const Reference = ({ availableBatches }) => {
         {activeTab === 'list' && (
           <>
             {/* Filters */}
-            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6 border border-gray-100">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="md:col-span-2">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                     <input
                       type="text"
                       placeholder="Search by topic, subject, or tags..."
@@ -468,9 +487,9 @@ const Reference = ({ availableBatches }) => {
 
             {/* Grid - Updated to expandable cards like student dashboard */}
             {filteredReferences.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-700 mb-2">No References Found</h3>
+              <div className="bg-white rounded-lg shadow-md p-12 text-center border border-gray-100">
+                <BookOpen className="w-10 h-10 sm:w-14 sm:h-14 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">No References Found</h3>
                 <p className="text-gray-500">
                   {references.length === 0
                     ? "You haven't created any references yet."
@@ -479,9 +498,9 @@ const Reference = ({ availableBatches }) => {
                 {references.length === 0 && (
                   <button
                     onClick={() => setActiveTab('create')}
-                    className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center gap-2"
+                    className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 inline-flex items-center gap-2"
                   >
-                    <PlusCircle className="w-5 h-5" />
+                    <PlusCircle className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                     Create Your First Reference
                   </button>
                 )}
@@ -494,21 +513,19 @@ const Reference = ({ availableBatches }) => {
                   return (
                     <div
                       key={resource._id}
-                      className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+                      className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden"
                     >
                       {/* Card Header */}
-                      <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+                      <div className="p-4 border-b border-gray-100">
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-4">
-                            <div className="p-3 bg-white rounded-lg shadow-sm text-blue-600">
+                            <div className="p-2 bg-blue-50 rounded-md text-blue-600">
                               {getResourceIcon(resource)}
                             </div>
                             <div>
-                              <h3 className="text-xl font-bold text-gray-900">{resource.topicName}</h3>
-                              <p className="text-sm text-gray-600 mt-1">{resource.subject}</p>
-                              <p className="text-sm text-gray-500 mt-1">
-                                Created on {new Date(resource.createdAt).toLocaleDateString()}
-                              </p>
+                              <h3 className="text-base sm:text-lg font-semibold text-gray-900">{resource.topicName}</h3>
+                              <p className="text-xs sm:text-sm text-gray-600 mt-1">{resource.subject}</p>
+                              <p className="text-xs sm:text-sm text-gray-500 mt-1">{new Date(resource.createdAt).toLocaleDateString()}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -517,36 +534,26 @@ const Reference = ({ availableBatches }) => {
                               className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                               title="Edit"
                             >
-                              <Edit className="w-5 h-5" />
+                              <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                             <button
                               onClick={() => deleteReference(resource._id)}
                               className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                               title="Delete"
                             >
-                              <Trash2 className="w-5 h-5" />
+                              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                             <button
                               onClick={() => toggleExpand(resource._id)}
                               className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
                             >
-                              {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                              {isExpanded ? <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4" /> : <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />}
                             </button>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-6 mt-4 text-sm">
-                          <div className="flex items-center gap-1">
-                            <Eye className="w-4 h-4 text-gray-500" />
-                            <span>{resource.viewCount || 0} views</span>
-                          </div>
-                          {resource.averageRating > 0 && (
-                            <div className="flex items-center gap-1">
-                              {renderStars(Math.round(resource.averageRating))}
-                              <span className="ml-1 text-gray-600">{resource.averageRating.toFixed(1)}</span>
-                            </div>
-                          )}
-                          <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                          <span className={`px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
                             resource.accessLevel === 'public' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
                           }`}>
                             {resource.accessLevel === 'public' ? 'Public' : 'Batch'}
@@ -573,8 +580,8 @@ const Reference = ({ availableBatches }) => {
                           {/* Learning Objectives */}
                           {resource.learningObjectives && resource.learningObjectives.length > 0 && (
                             <div>
-                              <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                                <Award className="w-5 h-5 text-blue-600" />
+                              <h4 className="font-semibold text-sm sm:text-base text-gray-900 mb-2 flex items-center gap-2">
+                                <Award className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
                                 Learning Objectives
                               </h4>
                               <ul className="list-disc list-inside space-y-1 text-gray-700 text-sm">
@@ -607,7 +614,7 @@ const Reference = ({ availableBatches }) => {
                                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group"
                                   >
                                     <div className="flex items-center gap-3">
-                                      <FileText className="w-5 h-5 text-blue-600" />
+                                      <FileText className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
                                       <div>
                                         <p className="font-medium text-gray-900">{file.filename}</p>
                                         <p className="text-xs text-gray-500">
@@ -615,7 +622,7 @@ const Reference = ({ availableBatches }) => {
                                         </p>
                                       </div>
                                     </div>
-                                    <Download className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
+                                    <Download className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-400 group-hover:text-gray-600" />
                                   </a>
                                 ))}
                               </div>
@@ -632,8 +639,8 @@ const Reference = ({ availableBatches }) => {
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg hover:bg-blue-100 text-blue-700"
                               >
-                                <Video className="w-5 h-5" />
-                                <span>Watch Video</span>
+                                <Video className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                                <span className="text-xs sm:text-sm">Watch Video</span>
                               </a>
                             </div>
                           )}
@@ -648,8 +655,8 @@ const Reference = ({ availableBatches }) => {
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-3 p-3 bg-green-50 rounded-lg hover:bg-green-100 text-green-700"
                               >
-                                <Link className="w-5 h-5" />
-                                <span>View Notes</span>
+                                <Link className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                                <span className="text-xs sm:text-sm">View Notes</span>
                               </a>
                             </div>
                           )}
@@ -661,14 +668,14 @@ const Reference = ({ availableBatches }) => {
                               <div className="space-y-2">
                                 {resource.assignedBatches?.length > 0 && (
                                   <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-blue-800 bg-blue-100 px-3 py-1 rounded-full">
+                                    <span className="text-xs sm:text-sm font-medium text-blue-800 bg-blue-100 px-3 py-1 rounded-full">
                                       Non-CRT: {resource.assignedBatches.map(b => b.name).join(', ')}
                                     </span>
                                   </div>
                                 )}
                                 {resource.assignedPlacementBatches?.length > 0 && (
                                   <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-green-800 bg-green-100 px-3 py-1 rounded-full">
+                                    <span className="text-xs sm:text-sm font-medium text-green-800 bg-green-100 px-3 py-1 rounded-full">
                                       Placement: {resource.assignedPlacementBatches.map(b => `${b.batchNumber} - ${b.techStack}`).join(', ')}
                                     </span>
                                   </div>
@@ -688,9 +695,9 @@ const Reference = ({ availableBatches }) => {
 
         {/* Create/Edit Form */}
         {activeTab === 'create' && (
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-              <PlusCircle className="w-7 h-7 text-blue-600" />
+          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-3">
+              <PlusCircle className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
               {editingId ? 'Edit Reference' : 'Create New Reference'}
             </h2>
 
@@ -758,8 +765,8 @@ const Reference = ({ availableBatches }) => {
                       const id = batch._id || batch.batchNumber || batch.name;
                       const checked = formData.batchType === 'noncrt' ? formData.assignedBatches.includes(id) : formData.batchType === 'placement' ? formData.assignedPlacementBatches.includes(id) : (formData.assignedBatches.includes(id) || formData.assignedPlacementBatches.includes(id));
                       return (
-                        <label key={id} className="flex items-center gap-3 text-sm">
-                          <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id)} className="w-4 h-4" />
+                        <label key={id} className="flex items-center gap-3 text-xs sm:text-sm">
+                          <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id, batch.type)} className="w-3 h-3 sm:w-4 sm:h-4" />
                           <span>{batch.name || `${batch.batchNumber} - ${batch.techStack}`} ({batch.studentCount || 0} students)</span>
                         </label>
                       );
@@ -812,7 +819,7 @@ const Reference = ({ availableBatches }) => {
                           rel="noopener noreferrer"
                           className="flex items-center gap-3 flex-1 hover:text-blue-700"
                         >
-                          <FileText className="w-5 h-5 text-blue-600" />
+                          <FileText className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
                           <div>
                             <p className="font-medium text-gray-900">{file.filename}</p>
                             <p className="text-xs text-gray-500">
@@ -825,7 +832,7 @@ const Reference = ({ availableBatches }) => {
                           onClick={() => removeExistingFile(file._id)}
                           className="text-red-600 hover:text-red-800"
                         >
-                          <X className="w-5 h-5" />
+                          <X className="w-3 h-3 sm:w-4 sm:h-4" />
                         </button>
                       </div>
                     ))}
@@ -853,7 +860,7 @@ const Reference = ({ availableBatches }) => {
                         className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200"
                       >
                         <div className="flex items-center gap-3">
-                          <FileText className="w-5 h-5 text-blue-600" />
+                          <FileText className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
                           <div>
                             <p className="font-medium text-gray-900">{file.name}</p>
                             <p className="text-xs text-gray-600">
@@ -866,7 +873,7 @@ const Reference = ({ availableBatches }) => {
                           onClick={() => removeNewFile(idx)}
                           className="text-red-600 hover:text-red-800"
                         >
-                          <X className="w-5 h-5" />
+                          <X className="w-3 h-3 sm:w-4 sm:h-4" />
                         </button>
                       </div>
                     ))}
@@ -911,14 +918,14 @@ const Reference = ({ availableBatches }) => {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2 sm:px-6 sm:py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="px-4 py-2 sm:px-6 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
                 >
                   {loading ? 'Saving...' : editingId ? 'Update Reference' : 'Create Reference'}
                 </button>

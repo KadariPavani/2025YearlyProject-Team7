@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FileText, Upload, Trash2, Users, Eye, Download, X } from 'lucide-react';
+import { FileText, Upload, Trash2, Users, Eye, Download, X, ChevronLeft, RefreshCw } from 'lucide-react';
 
 const Assignment = () => {
   const [assignments, setAssignments] = useState([]);
@@ -36,6 +36,13 @@ const Assignment = () => {
     fetchBatches();
     fetchSubject();
   }, []);
+
+  // UI-only derived metrics for display (no logic changes)
+  const totalAssignments = assignments.length;
+  const totalSubmissions = assignments.reduce((acc, a) => acc + (a.submissions?.length || 0), 0);
+  const upcomingCount = assignments.filter(a => a.dueDate && (new Date(a.dueDate) - new Date()) <= 7*24*60*60*1000 && (new Date(a.dueDate) - new Date()) >= 0).length;
+  const activeBatchesCount = Array.from(new Set(assignments.flatMap(a => [...(a.assignedBatches || []).map(b => b._id || b.name), ...(a.assignedPlacementBatches || []).map(b => b._id || b.batchNumber)]))).length;
+  const topSubmissionsAssignment = assignments.slice().sort((a,b)=>(b.submissions?.length||0)-(a.submissions?.length||0))[0] || null;
 
   const fetchAssignments = async () => {
     try {
@@ -370,17 +377,16 @@ const Assignment = () => {
     
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold flex items-center">
-            <Users className="w-6 h-6 mr-2 text-blue-600" />
-            Submissions: {assignment?.title}
-          </h2>
-          <button
-            onClick={() => { setActiveTab('list'); setSelectedAssignment(null); }}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-          >
-            Back to Assignments
-          </button>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 rounded-md">
+              <Users className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Submissions: {assignment?.title}</h3>
+              <p className="text-xs text-gray-600 mt-1">{submissions.length} submissions • Due {assignment && new Date(assignment.dueDate).toLocaleString()}</p>
+            </div>
+          </div>
         </div>
 
         {error && (
@@ -391,9 +397,9 @@ const Assignment = () => {
         )}
 
         <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-          <p><strong>Total Submissions:</strong> {submissions.length}</p>
-          <p><strong>Due Date:</strong> {assignment && new Date(assignment.dueDate).toLocaleString()}</p>
-          <p><strong>Total Marks:</strong> {assignment?.totalMarks}</p>
+          <p className="text-sm"><strong>Total Submissions:</strong> {submissions.length}</p>
+          <p className="text-sm"><strong>Due Date:</strong> {assignment && new Date(assignment.dueDate).toLocaleString()}</p>
+          <p className="text-sm"><strong>Total Marks:</strong> {assignment?.totalMarks}</p>
         </div>
 
         {submissions.length === 0 ? (
@@ -404,10 +410,10 @@ const Assignment = () => {
         ) : (
           <div className="space-y-4">
             {submissions.map((submission) => (
-              <div key={submission._id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
+              <div key={submission._id} className="border border-gray-200 rounded-lg p-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-3">
                   <div>
-                    <h3 className="font-semibold text-lg">{submission.studentId?.name || 'Unknown Student'}</h3>
+                    <h3 className="font-semibold text-base sm:text-lg">{submission.studentId?.name || 'Unknown Student'}</h3>
                     <p className="text-sm text-gray-600">Roll No: {submission.studentId?.rollNo || 'N/A'}</p>
                     <p className="text-sm text-gray-600">
                       Submitted: {new Date(submission.submittedAt).toLocaleString()}
@@ -416,7 +422,7 @@ const Assignment = () => {
                   </div>
                   <div>
                     {submission.score !== undefined && submission.score !== null ? (
-                      <div className="text-right">
+                      <div className="text-sm sm:text-right">
                         <p className="text-2xl font-bold text-green-600">{submission.score}/{assignment?.totalMarks}</p>
                         <p className="text-xs text-gray-500">Graded</p>
                       </div>
@@ -426,7 +432,7 @@ const Assignment = () => {
                           setGradingSubmission(submission);
                           setGradeForm({ score: '', feedback: submission.feedback || '' });
                         }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        className="w-full sm:w-auto px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                       >
                         Grade
                       </button>
@@ -435,18 +441,18 @@ const Assignment = () => {
                 </div>
 
                 <div>
-                  <h4 className="font-semibold text-gray-700 mb-2">Submitted Files:</h4>
+                  <h4 className="font-semibold text-sm sm:text-base text-gray-700 mb-2">Submitted Files:</h4>
                   <div className="space-y-2">
                     {submission.files.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                        <div className="flex items-center">
-                          <span className="text-xl mr-2">{getFileIcon(file.originalName, file.mimeType)}</span>
-                          <span className="text-sm">{file.originalName}</span>
+                      <div key={index} className="flex flex-col sm:flex-row items-center sm:items-center justify-between bg-gray-50 p-2 rounded gap-2">
+                        <div className="flex items-center gap-2 max-w-full">
+                          <span className="text-xl">{getFileIcon(file.originalName, file.mimeType)}</span>
+                          <span className="text-sm truncate block max-w-[220px] sm:max-w-none">{file.originalName}</span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                           <button
                             onClick={(e) => handleFileView(e, file)}
-                            className="flex items-center px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                            className="w-full sm:w-auto flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
                           >
                             <Eye className="w-4 h-4 mr-1" />
                             View
@@ -454,7 +460,7 @@ const Assignment = () => {
                           <a
                             href={getFileDownloadUrl(file)}
                             download={file.originalName}
-                            className="flex items-center px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                            className="w-full sm:w-auto flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
                           >
                             <Download className="w-4 h-4 mr-1" />
                             Download
@@ -478,13 +484,13 @@ const Assignment = () => {
 
         {/* Grading Modal */}
         {gradingSubmission && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50">
+            <div className="bg-white rounded-t-3xl sm:rounded-lg p-4 sm:p-6 w-full sm:max-w-md max-h-[90vh] overflow-auto">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold">Grade Submission</h3>
+                <h3 className="text-lg sm:text-xl font-bold">Grade Submission</h3>
                 <button
                   onClick={() => setGradingSubmission(null)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="p-2 rounded-md text-gray-500 hover:text-gray-700"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -524,16 +530,16 @@ const Assignment = () => {
                   />
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <button
                     onClick={() => setGradingSubmission(null)}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                    className="w-full sm:flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleGradeSubmit}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    className="w-full sm:flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                   >
                     Submit Grade
                   </button>
@@ -707,15 +713,28 @@ const Assignment = () => {
 
   const renderAssignmentList = () => (
     <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-2xl font-bold mb-6 flex items-center">
-        <FileText className="w-6 h-6 mr-2 text-blue-600" />
-        My Assignments
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-50 rounded-md">
+            <FileText className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">My Assignments</h2>
+            <p className="text-xs text-gray-600 mt-1">{totalAssignments} assignments • {totalSubmissions} submissions</p>
+          </div>
+        </div>
+
+
+
+
+      </div>
+
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
           {error}
         </div>
       )}
+
       {loading ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -728,45 +747,53 @@ const Assignment = () => {
           <p className="text-gray-400">Create your first assignment to get started</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {assignments.map((assignment) => (
-            <div key={assignment._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between mb-3">
-                <h3 className="font-semibold text-lg text-gray-900">{assignment.title}</h3>
-                <button
-                  onClick={() => deleteAssignment(assignment._id)}
-                  className="p-1 text-red-600 hover:text-red-800"
-                  title="Delete Assignment"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="space-y-2 text-sm text-gray-600">
-                <p><strong>Subject:</strong> {assignment.subject}</p>
-                <p><strong>Due:</strong> {new Date(assignment.dueDate).toLocaleDateString()}</p>
-                <p><strong>Marks:</strong> {assignment.totalMarks}</p>
-                <p><strong>Submissions:</strong> {assignment.submissions?.length || 0}</p>
-                <p><strong>Assigned to:</strong></p>
-                <div className="mt-1">
-                  {assignment.assignedBatches?.length > 0 && (
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded mr-1">
-                      Non-CRT: {assignment.assignedBatches.map(b => b.name).join(', ')}
-                    </span>
-                  )}
-                  {assignment.assignedPlacementBatches?.length > 0 && (
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                      Placement: {assignment.assignedPlacementBatches.map(b => `${b.batchNumber} - ${b.techStack}`).join(', ')}
-                    </span>
-                  )}
+            <div key={assignment._id} className="border border-gray-100 rounded-lg overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-3 border-b border-blue-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">{assignment.title}</h3>
+                    <div className="text-xs text-gray-500">{assignment.subject} • Due {new Date(assignment.dueDate).toLocaleDateString()}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-blue-800">{assignment.submissions?.length || 0}</div>
+                    <div className="text-xs text-blue-600">Submissions</div>
+                  </div>
                 </div>
               </div>
-              <button
-                onClick={() => fetchSubmissions(assignment._id)}
-                className="mt-4 w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                View Submissions ({assignment.submissions?.length || 0})
-              </button>
+
+              <div className="p-3 text-sm text-gray-600">
+                <div className="mb-2">Marks: <span className="font-medium">{assignment.totalMarks}</span></div>
+                <div className="mb-2">Assigned to:</div>
+                <div className="inline-flex flex-wrap gap-1">
+                  {assignment.assignedBatches?.length > 0 && (
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Non-CRT: {assignment.assignedBatches.map(b => b.name).join(', ')}</span>
+                  )}
+                  {assignment.assignedPlacementBatches?.length > 0 && (
+                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Placement: {assignment.assignedPlacementBatches.map(b => `${b.batchNumber} - ${b.techStack}`).join(', ')}</span>
+                  )}
+                </div>
+
+                <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => fetchSubmissions(assignment._id)}
+                    className="w-full sm:flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm flex items-center justify-center"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    View Submissions ({assignment.submissions?.length || 0})
+                  </button>
+
+                  <button
+                    onClick={() => deleteAssignment(assignment._id)}
+                    className="w-full sm:w-auto px-3 py-2 border border-red-200 text-red-600 rounded text-sm flex items-center justify-center"
+                    title="Delete Assignment"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete
+                  </button>
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -775,7 +802,7 @@ const Assignment = () => {
   );
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="space-y-6">
       <div className="flex items-center gap-4 mb-6">
         {['list', 'create'].map((tab) => (
           <button

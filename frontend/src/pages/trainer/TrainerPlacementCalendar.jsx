@@ -102,6 +102,15 @@ targetGroup: e.targetGroup || "both",
     return events.filter((e) => e.date === dateStr);
   };
 
+  // small helper for display (no logic change)
+  const ordinal = (n) => {
+    const j = n % 10, k = n % 100;
+    if (j === 1 && k !== 11) return `${n}st`;
+    if (j === 2 && k !== 12) return `${n}nd`;
+    if (j === 3 && k !== 13) return `${n}rd`;
+    return `${n}th`;
+  };
+
   if (loading) return <LoadingSkeleton />;
 
   return (
@@ -109,163 +118,165 @@ targetGroup: e.targetGroup || "both",
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-3">
-          <Calendar className="text-purple-600 h-7 w-7" />
-          <h1 className="text-2xl font-bold text-gray-800">Placement Calendar</h1>
+          <Calendar className="text-blue-600 h-7 w-7" />
+          <h1 className="text-xl font-bold text-gray-800">Placement Calendar</h1>
         </div>
-        <button
-          onClick={fetchEvents}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all"
-        >
-          <RefreshCw className="h-4 w-4" /> Refresh
-        </button>
-      </div>
-
-      {/* Month Controls */}
-      <div className="flex justify-between items-center mb-4">
-        <button onClick={handlePrevMonth} className="p-2 bg-white border rounded-full hover:bg-purple-100">
-          <ChevronLeft />
-        </button>
-        <div className="text-lg font-semibold text-gray-800">
-          {selectedDate.toLocaleString("default", { month: "long" })} {currentYear}
+        <div className="flex gap-2">
+          <button onClick={fetchEvents} className="flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all text-sm">
+            <RefreshCw className="h-4 w-4" /> <span className="hidden sm:inline">Refresh</span>
+          </button>
         </div>
-        <button onClick={handleNextMonth} className="p-2 bg-white border rounded-full hover:bg-purple-100">
-          <ChevronRight />
-        </button>
       </div>
 
       {/* Calendar Grid */}
       {loading ? (
         <LoadingSkeleton />
       ) : (
-        <div className="grid grid-cols-7 gap-3">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-            <div key={day} className="text-center font-semibold text-gray-600">{day}</div>
-          ))}
+        <div className="w-full max-w-[1200px] mx-auto">
+          <div className="flex flex-col sm:flex-row gap-6 items-start">
+            {/* Left: calendar (40%) */}
+            <div className="w-full sm:w-2/5">
+              {/* Month + Year Controls (centered above calendar column) */}
+              <div className="flex justify-center items-center mb-3">
+                <button onClick={handlePrevMonth} className="p-2 bg-white border rounded-full hover:bg-blue-100"><ChevronLeft /></button>
+                <div className="mx-3 text-base font-semibold text-gray-800">
+                  {selectedDate.toLocaleString("default", { month: "long" })} {currentYear}
+                </div>
+                <button onClick={handleNextMonth} className="p-2 bg-white border rounded-full hover:bg-blue-100"><ChevronRight /></button>
+              </div>
 
-          {days.map((day) => {
-            const dateEvents = getEventsForDate(day);
-            const today = new Date();
-            const isPast = day < today && day.toDateString() !== today.toDateString();
+              {/* Weekday headings (compact) */}
+              <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-blue-800 mb-2">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+                  <div key={d}>{d}</div>
+                ))}
+              </div>
 
-            return (
-              <div
-                key={day}
-                onClick={() => {
-                  const dayEvents = getEventsForDate(day);
-                  setSelectedDate(day);
-                  setSelectedDateEvents(dayEvents);
-                }}
-                className={`border rounded-xl p-3 cursor-pointer transition-all ${
-                  selectedDate.toDateString() === day.toDateString()
-                    ? "bg-purple-100 border-purple-500 shadow-md"
-                    : "bg-white hover:shadow-md"
-                }`}
-              >
-                <span className="text-sm font-medium text-gray-700 mb-2">{day.getDate()}</span>
-                {dateEvents.length > 0 ? (
-  <div className="flex flex-wrap gap-1 mt-2">
-    {dateEvents.map((ev) => (
-      <div
-        key={ev.id}
-        title={ev.title}
-        className={`w-3 h-3 rounded-full ${
-  ev.status === "completed"
-    ? "bg-green-500"
-    : ev.status === "ongoing"
-    ? "bg-orange-500"
-    : ev.status === "upcoming"
-    ? "bg-blue-500"
-    : ev.status === "cancelled"
-    ? "bg-red-500"
-    : "bg-purple-500"
-}`}
+              {/* Days */}
+              <div className="grid grid-cols-7 gap-1">
+                {days.map((day) => {
+                  const dateEvents = getEventsForDate(day);
+                  const today = normalizeDate(new Date());
 
-      ></div>
-    ))}
-  </div>
-) : (
-  <span className="text-xs text-gray-400 mt-auto">No Events</span>
-)}
+                  return (
+                    <div
+                      key={day}
+                      onClick={() => {
+                        const dayEvents = getEventsForDate(day);
+                        setSelectedDate(day);
+                        setSelectedDateEvents(dayEvents);
+                      }}
+                      className={`border rounded-lg p-2 cursor-pointer transition-all h-24 flex flex-col ${
+                        selectedDate.toDateString() === day.toDateString()
+                          ? "bg-purple-50 border-purple-400 shadow-sm"
+                          : "bg-white hover:shadow"
+                      }`}
+                    >
+                      <span className="text-[12px] font-medium text-gray-700">{day.getDate()}</span>
+
+                      {dateEvents.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-1 items-start">
+                          {dateEvents.slice(0, 2).map((ev) => (
+                            <div
+                              key={ev.id}
+                              title={ev.title}
+                              className={`w-2.5 h-2.5 rounded-full ${
+                                ev.status === "completed"
+                                  ? "bg-green-500"
+                                  : ev.status === "ongoing"
+                                  ? "bg-orange-500"
+                                  : ev.status === "upcoming"
+                                  ? "bg-blue-500"
+                                  : ev.status === "cancelled"
+                                  ? "bg-red-500"
+                                  : "bg-purple-500"
+                              }`}
+                            />
+                          ))}
+
+                          {dateEvents.length > 2 && (
+                            <div className="text-[10px] text-gray-500 mt-1">+{dateEvents.length - 2} more</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400 mt-auto">No Events</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Right: details (hidden on small screens) */}
+            <aside className="hidden sm:block w-full sm:w-3/5 sticky top-20 self-start">
+              <div className="p-4 w-full border-l border-blue-50 pl-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="text-xs text-blue-500 font-medium">Events on</div>
+                    <div className="text-2xl font-bold text-blue-800">{selectedDate.toLocaleString("default", { weekday: "long" })}, <span className="text-blue-600">{ordinal(selectedDate.getDate())}</span></div>
+                  </div>
+                </div>
+
+                <div className="h-px bg-blue-50 mb-2" />
+
+                {loading ? (
+                  <div className="text-sm text-gray-500">Loading...</div>
+                ) : selectedDateEvents.length === 0 ? (
+                  <p className="text-gray-500 text-center">No events on this date.</p>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {selectedDateEvents.map((event) => (
+                      <li key={event.id} className="flex items-center justify-between py-3 relative">
+                        <div className="flex items-start gap-3">
+                          <div className={`px-3 py-2 rounded-lg ${event.status === "completed" ? "bg-green-50 text-green-700" : event.status === "cancelled" ? "bg-red-50 text-red-700" : "bg-purple-50 text-purple-700"}`}>
+                            {event.title.length > 24 ? event.title.slice(0, 24) + "…" : event.title}
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-600">{event.company}</p>
+                            <p className="text-xs text-gray-500 mt-1">{event.startDate?.split("T")[0]} • {event.startTime}</p>
+                          </div>
+                        </div>
+
+                        <div className="text-[10px] text-gray-500 mt-1">{event.participated > 0 ? `${event.participated} participated` : "0"}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
 
               </div>
-            );
-          })}
+            </aside>
+          </div>
+
+          {/* For small screens: show selected date details below */}
+          <div className="mt-8 bg-white rounded-xl shadow-lg p-6 w-full max-w-[520px] mx-auto sm:hidden">
+            <h2 className="text-xl font-bold text-purple-700 mb-4">Events on {selectedDate.toDateString()}</h2>
+            {selectedDateEvents.length > 0 ? (
+              <div className="space-y-4">
+                {selectedDateEvents.map((event) => (
+                  <div key={event.id} className={`border rounded-lg p-4 ${event.status === "completed" ? "bg-green-50 border-green-400" : event.status === "cancelled" ? "bg-red-50 border-red-400" : "bg-purple-50 border-purple-400"}`}>
+                    <h3 className="font-semibold text-gray-800 text-lg">{event.status === "completed" ? "✅ " : ""}{event.title}</h3>
+                    {event.company && <p className="text-sm text-gray-600 mt-1"><strong>Company:</strong> {event.company}</p>}
+                    {event.description && <p className="text-sm text-gray-600 mt-1"><strong>Description:</strong> {event.description}</p>}
+                    <p className="text-sm text-gray-600 mt-1"><strong>Start:</strong> {event.startDate?.split("T")[0]} {event.startTime}</p>
+                    <p className="text-sm text-gray-600 mt-1"><strong>End:</strong> {event.endDate?.split("T")[0]} {event.endTime}</p>
+                    <p className="text-sm text-gray-600 mt-1"><strong>Venue:</strong> {event.venue || "N/A"}</p>
+                    <p className="text-sm text-gray-600 mt-1"><strong>Status:</strong> {event.status}</p>
+                    <p className="text-sm text-gray-600 mt-1"><strong>Target Group:</strong> {event.targetGroup === "crt" ? "CRT Students" : event.targetGroup === "non-crt" ? "Non-CRT Students" : "Both CRT & Non-CRT Students"}</p>
+                    {event.status === "completed" && (
+                      <>
+                        <p className="text-sm text-green-600 mt-2"><strong>Number of Students Participated:</strong> {event.participated > 0 ? `${event.participated} students` : "Not updated yet"}</p>
+                        <p className="text-sm text-green-600 mt-1"><strong>Number of Students Placed:</strong> {event.placed > 0 ? `${event.placed} students` : "Not updated yet"}</p>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center">No events on this date.</p>
+            )}
+          </div>
         </div>
       )}
-
-      {/* Selected Date Details */}
-      <div className="mt-8 bg-white rounded-xl shadow-lg p-6">
-        <h2 className="text-xl font-bold text-purple-700 mb-4">
-          Events on {selectedDate.toDateString()}
-        </h2>
-        {selectedDateEvents.length > 0 ? (
-          <div className="space-y-4">
-            {selectedDateEvents.map((event) => (
-              <div
-                key={event.id}
-                className={`border rounded-lg p-4 ${
-                  event.status === "completed"
-                    ? "bg-green-50 border-green-400"
-                    : event.status === "cancelled"
-                    ? "bg-red-50 border-red-400"
-                    : "bg-purple-50 border-purple-400"
-                }`}
-              >
-                <h3 className="font-semibold text-gray-800 text-lg">
-                  {event.status === "completed" ? "✅ " : ""}{event.title}
-                </h3>
-                {event.company && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    <strong>Company:</strong> {event.company}
-                  </p>
-                )}
-                {event.description && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    <strong>Description:</strong> {event.description}
-                  </p>
-                )}
-                <p className="text-sm text-gray-600 mt-1">
-                  <strong>Start:</strong> {event.startDate?.split("T")[0]} {event.startTime}
-                </p>
-                <p className="text-sm text-gray-600 mt-1">
-                  <strong>End:</strong> {event.endDate?.split("T")[0]} {event.endTime}
-                </p>
-                <p className="text-sm text-gray-600 mt-1">
-                  <strong>Venue:</strong> {event.venue || "N/A"}
-                </p>
-                <p className="text-sm text-gray-600 mt-1">
-                  <strong>Status:</strong> {event.status}
-                </p>
-<p className="text-sm text-gray-600 mt-1">
-  <strong>Target Group:</strong>{" "}
-  {event.targetGroup === "crt"
-    ? "CRT Students"
-    : event.targetGroup === "non-crt"
-    ? "Non-CRT Students"
-    : "Both CRT & Non-CRT Students"}
-</p>
-
-
-                {/* Show participation stats for completed events */}
-                {event.status === "completed" && (
-                  <>
-                    <p className="text-sm text-green-600 mt-2">
-                      <strong>Number of Students Participated:</strong>{" "}
-                      {event.participated > 0 ? `${event.participated} students` : "Not updated yet"}
-                    </p>
-                    <p className="text-sm text-green-600 mt-1">
-                      <strong>Number of Students Placed:</strong>{" "}
-                      {event.placed > 0 ? `${event.placed} students` : "Not updated yet"}
-                    </p>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-500 text-center">No events on this date.</p>
-        )}
-      </div>
     </div>
   );
 };

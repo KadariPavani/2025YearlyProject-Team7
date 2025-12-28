@@ -98,9 +98,14 @@ const Syllabus = () => {
         return;
       }
 
+      // Require at least one selected batch — allow either array to satisfy when types may overlap
+      const hasNonCrtSelection = assignedBatches.length > 0 || assignedPlacementBatches.length > 0;
+      const hasPlacementSelection = assignedPlacementBatches.length > 0 || assignedBatches.length > 0;
+
       if (
-        ((batchType === 'noncrt' || batchType === 'both') && assignedBatches.length === 0) ||
-        ((batchType === 'placement' || batchType === 'both') && assignedPlacementBatches.length === 0)
+        (batchType === 'noncrt' && !hasNonCrtSelection) ||
+        (batchType === 'placement' && !hasPlacementSelection) ||
+        (batchType === 'both' && (assignedBatches.length === 0 && assignedPlacementBatches.length === 0))
       ) {
         setError('Please assign at least one batch');
         return;
@@ -111,13 +116,14 @@ const Syllabus = () => {
         return;
       }
 
+      // Send both arrays so backend can reconcile placement vs regular ids regardless of selected batchType
       const payload = {
         title: formData.title,
         description: formData.description,
         topics: formData.topics.filter(t => t.topicName.trim() && t.duration.trim()),
         batchType,
-        assignedBatches: batchType === 'noncrt' || batchType === 'both' ? assignedBatches : [],
-        assignedPlacementBatches: batchType === 'placement' || batchType === 'both' ? assignedPlacementBatches : []
+        assignedBatches: assignedBatches,
+        assignedPlacementBatches: assignedPlacementBatches
       };
 
       if (editingId) {
@@ -207,6 +213,31 @@ const Syllabus = () => {
     }
   };
 
+  // Toggle selector for checkboxes (supports passing item's type to disambiguate placement vs regular)
+  const handleToggleBatch = (batchId, itemType) => {
+    const toggle = (arr, id) => (arr.includes(id) ? arr.filter(i => i !== id) : [...arr, id]);
+
+    // If explicit itemType is provided, use it
+    if (itemType === 'placement') {
+      setAssignedPlacementBatches(prev => toggle(prev, batchId));
+      return;
+    }
+    if (itemType === 'regular') {
+      setAssignedBatches(prev => toggle(prev, batchId));
+      return;
+    }
+
+    // Fallback: use the current batchType
+    if (batchType === 'noncrt' || batchType === 'regular') {
+      setAssignedBatches(prev => toggle(prev, batchId));
+    } else if (batchType === 'placement') {
+      setAssignedPlacementBatches(prev => toggle(prev, batchId));
+    } else { // both
+      setAssignedBatches(prev => toggle(prev, batchId));
+      setAssignedPlacementBatches(prev => toggle(prev, batchId));
+    }
+  };
+
   const getBatchOptions = () => {
     const norm = s => (s || '').toString().trim().toUpperCase();
     const isNT = b => (b && (b.isCrt === false)) || /^NT\b|^NT[_\- ]/.test(norm(b.batchNumber || b.name));
@@ -242,18 +273,18 @@ const Syllabus = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50 p-6">
+    <div className="space-y-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-10 text-center">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <div className="p-3 bg-blue-100 rounded-full">
-              <BookOpen className="w-8 h-8 text-blue-600" />
+        <div className="mb-6 text-left">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-2 bg-blue-50 rounded-md">
+              <BookOpen className="w-6 h-6 text-blue-600" />
             </div>
+            <h1 className="text-2xl font-semibold text-gray-800">Syllabus Management</h1>
           </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Syllabus Management</h1>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            Create and manage detailed course syllabi for your batches
+          <p className="text-gray-600 max-w-2xl">
+            Create and manage course syllabi for your batches
           </p>
         </div>
 
@@ -269,13 +300,13 @@ const Syllabus = () => {
         )}
 
         {/* Form */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 mb-8 border border-white/50">
-          <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
-            <PlusCircle className="w-7 h-7 text-blue-600" />
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8 border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-3">
+            <PlusCircle className="w-5 h-5 text-blue-600" />
             {editingId ? 'Edit Syllabus' : 'Create New Syllabus'}
           </h3>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -325,15 +356,15 @@ const Syllabus = () => {
             {/* Topics */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <label className="text-sm font-semibold text-gray-700">
+                <label className="text-sm font-medium text-gray-700">
                   Topics <span className="text-red-500">*</span>
                 </label>
                 <button
                   type="button"
                   onClick={addTopic}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-all text-sm"
                 >
-                  <PlusCircle className="w-5 h-5" />
+                  <PlusCircle className="w-4 h-4" />
                   Add Topic
                 </button>
               </div>
@@ -342,7 +373,7 @@ const Syllabus = () => {
                 {formData.topics.map((topic, index) => (
                   <div
                     key={index}
-                    className="bg-gradient-to-r from-gray-50 to-gray-100 p-5 rounded-xl border border-gray-200 hover:border-blue-300 transition-all"
+                    className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm"
                   >
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
@@ -409,14 +440,14 @@ const Syllabus = () => {
                 Assign to Batches <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto p-3 border border-gray-200 rounded-md bg-white">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded-md bg-white">
                   {getBatchOptions().map(batch => {
                     const id = batch._id || batch.batchNumber || batch.name;
                     const checked = batchType === 'noncrt' ? assignedBatches.includes(id) : batchType === 'placement' ? assignedPlacementBatches.includes(id) : (assignedBatches.includes(id) || assignedPlacementBatches.includes(id));
                     return (
-                      <label key={id} className="flex items-center gap-3 text-sm">
-                        <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id)} className="w-4 h-4" />
-                        <span>{batch.name || `${batch.batchNumber} - ${batch.techStack}`} ({batch.studentCount || 0} students)</span>
+                      <label key={id} className="flex items-center gap-3 text-sm truncate">
+                        <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id, batch.type)} className="w-4 h-4" />
+                        <span className="truncate">{batch.type === 'placement' ? `${batch.batchNumber} - ${batch.techStack}` : (batch.name || batch.batchNumber)}</span>
                       </label>
                     );
                   })}
@@ -457,8 +488,8 @@ const Syllabus = () => {
         </div>
 
         {/* Syllabus List */}
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/50">
-          <h3 className="text-2xl font-bold text-gray-800 mb-6">Your Syllabi</h3>
+        <div className="max-w-7xl mx-auto bg-white rounded-xl shadow p-6 border border-gray-100">
+          <h3 className="text-xl font-semibold text-gray-800 mb-4">Your Syllabi</h3>
 
           {loading ? (
             <div className="flex justify-center py-12">
@@ -480,10 +511,10 @@ const Syllabus = () => {
                 return (
                   <div
                     key={syllabus._id}
-                    className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200 hover:shadow-lg transition-all duration-300"
+                    className="bg-white rounded-lg shadow-md p-6 border border-gray-100 hover:shadow-lg transition-all duration-200"
                   >
-                    <div className="flex items-start justify-between mb-3">
-                      <h4 className="font-bold text-gray-800 text-lg leading-tight">
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-semibold text-gray-800 text-lg leading-tight">
                         {syllabus.title}
                       </h4>
                       <div className="flex gap-1">
@@ -510,14 +541,21 @@ const Syllabus = () => {
                       </p>
                     )}
 
-                    <div className="space-y-2 text-sm">
+                    {/* Batch badges */}
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {syllabus.assignedBatches?.length > 0 && (
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Non-CRT: {syllabus.assignedBatches.map(b => b.name || b).join(', ')}</span>
+                      )}
+
+                      {syllabus.assignedPlacementBatches?.length > 0 && (
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Placement: {syllabus.assignedPlacementBatches.map(b => b.batchNumber ? `${b.batchNumber} - ${b.techStack}` : b).join(', ')}</span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 text-sm sm:text-sm">
                       <div className="flex items-center gap-2 text-gray-700">
                         <BookOpen className="w-4 h-4 text-blue-600" />
                         <span>{syllabus.topics.length} topic{syllabus.topics.length > 1 ? 's' : ''}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-700">
-                        <Users className="w-4 h-4 text-green-600" />
-                        <span>{batchCount} batch{batchCount > 1 ? 'es' : ''}</span>
                       </div>
                       <div className="flex items-center gap-2 text-gray-500 text-xs">
                         <Clock className="w-3 h-3" />

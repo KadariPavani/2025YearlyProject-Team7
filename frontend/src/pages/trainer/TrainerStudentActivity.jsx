@@ -93,6 +93,12 @@ const TrainerStudentActivity = () => {
     XLSX.writeFile(workbook, fileName);
   };
 
+  // UI-only derived metrics for display (no logic changes)
+  const topPerformers = [...filteredData].sort((a,b)=>parseFloat(b.scores.totals.meanPercentage||0) - parseFloat(a.scores.totals.meanPercentage||0)).slice(0,3);
+  const avgScore = filteredData.length > 0 ? (filteredData.reduce((sum, item) => sum + parseFloat(item.scores.totals.meanPercentage || 0), 0) / filteredData.length).toFixed(2) : 0;
+  const avgCoding = filteredData.length > 0 ? (filteredData.reduce((sum, item) => sum + parseFloat(item.scores.totals.codingPercentage || 0), 0) / filteredData.length).toFixed(2) : 0;
+  const activeSubjectsCount = subjects.length;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -106,19 +112,17 @@ const TrainerStudentActivity = () => {
       <div className="bg-white rounded-2xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
-            <div className="p-3 bg-purple-100 rounded-xl">
-              <BookOpen className="w-6 h-6 text-purple-600" />
+            <div className="p-2 bg-blue-50 rounded-xl">
+              <BookOpen className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Student Activity - My Subjects</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {filteredData.length} students • {filterSubject || 'All Subjects'}
-              </p>
+              <h2 className="text-lg font-semibold text-gray-900">Student Activity - My Subjects</h2>
+              <p className="text-xs text-gray-600 mt-1">{filteredData.length} students • {filterSubject || 'All Subjects'}</p>
             </div>
           </div>
           <button
             onClick={exportToExcel}
-            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center space-x-2 px-3 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition"
           >
             <Download className="w-5 h-5" />
             <span>Export to Excel</span>
@@ -133,7 +137,7 @@ const TrainerStudentActivity = () => {
               placeholder="Search by name, roll number, or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
@@ -142,7 +146,7 @@ const TrainerStudentActivity = () => {
             <select
               value={filterSubject}
               onChange={(e) => setFilterSubject(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
             >
               <option value="">All Subjects</option>
               {subjects.map(subject => (
@@ -152,43 +156,50 @@ const TrainerStudentActivity = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-          <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-6 items-stretch">
+          <div className="bg-blue-50 rounded-xl p-3 flex flex-col justify-between min-h-[80px]">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-purple-600 font-medium">Total Students</p>
-                <p className="text-2xl font-bold text-purple-900 mt-1">{filteredData.length}</p>
-              </div>
-              <Users className="w-8 h-8 text-purple-600" />
+              <Users className="w-6 h-6 text-blue-600" />
+              <span className="text-xl md:text-2xl font-semibold text-blue-900">{filteredData.length}</span>
             </div>
+            <p className="text-sm md:text-sm text-blue-600 font-medium mt-1">Total Students</p>
           </div>
 
-          <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-4">
+          <div className="bg-green-50 rounded-xl p-3 flex flex-col justify-between min-h-[80px]">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-green-600 font-medium">Class Average</p>
-                <p className="text-2xl font-bold text-green-900 mt-1">
-                  {filteredData.length > 0
-                    ? (filteredData.reduce((sum, item) => sum + parseFloat(item.scores.totals.meanPercentage || 0), 0) / filteredData.length).toFixed(2)
-                    : 0}%
-                </p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-green-600" />
+              <TrendingUp className="w-6 h-6 text-green-600" />
+              <span className="text-xl md:text-2xl font-semibold text-green-900">{avgScore}%</span>
             </div>
+            <p className="text-sm md:text-sm text-green-600 font-medium mt-1">Average Score</p>
           </div>
 
-          <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-xl p-4">
+          <div className="bg-purple-50 rounded-xl p-3 flex flex-col justify-between min-h-[80px]">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-yellow-600 font-medium">Top Scorer</p>
-                <p className="text-lg font-bold text-yellow-900 mt-1">
-                  {filteredData.length > 0 ? [...filteredData].sort((a,b)=>parseFloat(b.scores.totals.meanPercentage||0)-parseFloat(a.scores.totals.meanPercentage||0))[0]?.student.name : 'N/A'}
-                </p>
-              </div>
-              <Award className="w-8 h-8 text-yellow-600" />
+              <BookOpen className="w-6 h-6 text-purple-600" />
+              <span className="text-xl md:text-2xl font-semibold text-purple-900">{activeSubjectsCount}</span>
             </div>
+            <p className="text-sm md:text-sm text-purple-600 font-medium mt-1">Active Subjects</p>
           </div>
-        </div>
+
+          <div className="bg-sky-50 rounded-xl p-3 flex flex-col justify-between min-h-[80px]">
+            <div className="flex items-center justify-between">
+              <TrendingUp className="w-6 h-6 text-sky-600" />
+              <span className="text-xl md:text-2xl font-semibold text-sky-900">{avgCoding}%</span>
+            </div>
+            <p className="text-sm md:text-sm text-sky-600 font-medium mt-1">Coding Avg</p>
+          </div>
+
+          <div className="bg-orange-50 rounded-xl p-3 flex flex-col justify-between min-h-[80px]">
+            <div className="flex items-center justify-between">
+              <Award className="w-8 h-8 text-orange-600" />
+              <div className="text-right">
+                <div className="text-sm md:text-base text-gray-700 font-medium truncate">{topPerformers[0]?.student?.name || 'N/A'}</div>
+                <div className="text-2xl md:text-3xl font-semibold text-orange-900">{topPerformers[0]?.scores?.totals?.meanPercentage || 0}%</div>
+              </div>
+            </div>
+            <p className="text-sm md:text-sm text-orange-600 font-medium mt-2">Top Score</p>
+          </div>
+        </div> 
       </div>
 
       {error && (
@@ -199,93 +210,79 @@ const TrainerStudentActivity = () => {
       )}
 
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">Rank</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">Name</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">Roll No</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">Branch</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase">Quiz %</th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase">Assignment %</th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase">Coding %</th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase">Overall %</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredData.map((item, index) => (
-                <tr key={item.student._id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {index + 1 <= 3 && (
-                        <Award className={`w-5 h-5 mr-2 ${
-                          index === 0 ? 'text-yellow-500' :
-                          index === 1 ? 'text-gray-400' :
-                          'text-orange-400'
-                        }`} />
-                      )}
-                      <span className="text-sm font-medium text-gray-900">{index + 1}</span>
+        {filteredData.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            <Users className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+            <p className="text-lg font-medium">No students found</p>
+            <p className="text-sm">Try adjusting your search or filters</p>
+          </div>
+        ) : (
+          <>
+          <div className="overflow-x-auto">
+            {/* Desktop table styled like TPO */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="bg-gradient-to-r from-blue-50 to-blue-100">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs md:text-sm font-semibold text-gray-700 uppercase tracking-wide">Name</th>
+                    <th className="px-3 py-2 text-left text-xs md:text-sm font-medium text-gray-600 uppercase">Roll</th>
+                    <th className="px-3 py-2 text-left text-xs md:text-sm font-medium text-gray-600 uppercase">Branch</th>
+                    <th className="px-3 py-2 text-left text-xs md:text-sm font-medium text-gray-600 uppercase">Email</th>
+                    <th className="px-3 py-2 text-center text-xs md:text-sm font-medium text-gray-600 uppercase">Quiz %</th>
+                    <th className="px-3 py-2 text-center text-xs md:text-sm font-medium text-gray-600 uppercase">Assignment %</th>
+                    <th className="px-3 py-2 text-center text-xs md:text-sm font-medium text-gray-600 uppercase">Coding %</th>
+                    <th className="px-3 py-2 text-center text-xs md:text-sm font-medium text-gray-600 uppercase">Mean %</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {filteredData.map((item, idx) => (
+                    <tr key={item.student._id} className={`${idx%2===0?'bg-white':'bg-gray-50'}`}>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-[10px]">{item.student.name.charAt(0)}</div>
+                          <div className="min-w-0">
+                            <div className="font-medium text-sm truncate">{item.student.name}</div>
+                            <div className="text-xs text-gray-500 truncate">{item.student.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-xs md:text-sm font-mono">{item.student.rollNo}</td>
+                      <td className="px-3 py-2 text-xs md:text-sm">{item.student.branch}</td>
+                      <td className="px-3 py-2 text-xs md:text-sm">{item.student.email}</td>
+                      <td className="px-3 py-2 text-center text-xs md:text-sm">{item.scores.totals.quizPercentage}%</td>
+                      <td className="px-3 py-2 text-center text-xs md:text-sm">{item.scores.totals.assignmentPercentage}%</td>
+                      <td className="px-3 py-2 text-center text-xs md:text-sm">{item.scores.totals.codingPercentage}%</td>
+                      <td className="px-3 py-2 text-center text-xs md:text-sm">{item.scores.totals.meanPercentage}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile stacked list (two columns: details | scores) */}
+            <div className="sm:hidden divide-y divide-gray-200">
+              {filteredData.map((item, idx) => (
+                <div key={item.student._id} className={`p-3 flex items-center justify-between ${idx%2===0?'bg-white':'bg-gray-50'}`}>
+                  <div className="flex items-center gap-3 min-w-0 pr-2">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{item.student.name?.charAt(0)}</div>
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm truncate">{item.student.name}</div>
+                      <div className="text-xs text-gray-500 truncate">{item.student.email}</div>
+                      <div className="text-xs text-gray-500 truncate">{item.student.batchName || 'N/A'}</div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{item.student.name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-600">{item.student.rollNo}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
-                      {item.student.branch}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-600">{item.student.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      parseFloat(item.scores.totals.quizPercentage) >= 80 ? 'bg-green-100 text-green-800' :
-                      parseFloat(item.scores.totals.quizPercentage) >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {item.scores.totals.quizPercentage}%
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      parseFloat(item.scores.totals.assignmentPercentage) >= 80 ? 'bg-green-100 text-green-800' :
-                      parseFloat(item.scores.totals.assignmentPercentage) >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {item.scores.totals.assignmentPercentage}%
-                    </span>
-                  </td>
+                  </div>
 
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      parseFloat(item.scores.totals.codingPercentage) >= 80 ? 'bg-green-100 text-green-800' :
-                      parseFloat(item.scores.totals.codingPercentage) >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {item.scores.totals.codingPercentage}%
-                    </span>
-                  </td>
-
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className={`px-3 py-1 text-sm font-bold rounded-full ${
-                      parseFloat(item.scores.totals.meanPercentage) >= 80 ? 'bg-green-100 text-green-800' :
-                      parseFloat(item.scores.totals.meanPercentage) >= 60 ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {item.scores.totals.meanPercentage}%
-                    </span>
-                  </td>
-                </tr>
+                  <div className="w-28 flex flex-col items-end text-right">
+                    <div className="text-sm font-semibold">{item.scores.totals.meanPercentage}%</div>
+                    <div className="text-xs text-gray-500">Coding {item.scores.totals.codingPercentage}%</div>
+                    <div className="text-xs text-gray-600 font-mono mt-1">{item.student.rollNo}</div>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          </div>
+          </>
+        )}
       </div>
     </div>
   );

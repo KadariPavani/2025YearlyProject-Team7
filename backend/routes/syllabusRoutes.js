@@ -26,21 +26,82 @@ router.post('/', generalAuth, async (req, res) => {
       return res.status(400).json({ message: 'Each topic must have a name and duration' });
     }
 
-    // Validate batch assignments
+    // Resolve batch identifiers robustly (accept names/numbers or ids)
     let validatedRegularBatches = [];
     let validatedPlacementBatches = [];
 
-    // Support both 'noncrt' (new) and legacy 'regular'
-    if (batchType === 'noncrt' || batchType === 'regular' || batchType === 'both') {
-      if (assignedBatches && assignedBatches.length > 0) {
-        validatedRegularBatches = assignedBatches.filter(id => mongoose.Types.ObjectId.isValid(id));
+    if (assignedBatches && assignedBatches.length > 0) {
+      const resolved = await Promise.all(assignedBatches.map(async (candidateRaw) => {
+        const candidate = (candidateRaw || '').toString().trim();
+        try {
+          if (!candidate) return null;
+          if (mongoose.Types.ObjectId.isValid(candidate)) return candidate;
+
+          let found = await Batch.findOne({ $or: [{ batchNumber: candidate }, { name: candidate }] }).select('_id batchNumber name');
+          if (found && found._id) return found._id.toString();
+
+          const regex = new RegExp(candidate.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+          found = await Batch.findOne({ $or: [{ batchNumber: regex }, { name: regex }] }).select('_id batchNumber name');
+          if (found && found._id) return found._id.toString();
+
+          console.warn(`Could not resolve regular batch candidate: '${candidateRaw}'`);
+          return null;
+        } catch (err) {
+          console.error('Error resolving regular batch candidate:', candidateRaw, err.message || err);
+          return null;
+        }
+      }));
+      validatedRegularBatches = resolved.filter(Boolean);
+    }
+
+    if (assignedPlacementBatches && assignedPlacementBatches.length > 0) {
+      const resolvedPlacement = await Promise.all(assignedPlacementBatches.map(async (candidateRaw) => {
+        const candidate = (candidateRaw || '').toString().trim();
+        try {
+          if (!candidate) return null;
+          if (mongoose.Types.ObjectId.isValid(candidate)) return candidate;
+
+          let found = await PlacementTrainingBatch.findOne({ batchNumber: candidate }).select('_id batchNumber');
+          if (found && found._id) return found._id.toString();
+
+          const regex = new RegExp(candidate.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+          found = await PlacementTrainingBatch.findOne({ batchNumber: regex }).select('_id batchNumber');
+          if (found && found._id) return found._id.toString();
+
+          console.warn(`Could not resolve placement batch candidate: '${candidateRaw}'`);
+          return null;
+        } catch (err) {
+          console.error('Error resolving placement batch candidate:', candidateRaw, err.message || err);
+          return null;
+        }
+      }));
+      validatedPlacementBatches = resolvedPlacement.filter(Boolean);
+      console.log('Resolved placement batch ids:', validatedPlacementBatches);
+    }
+
+    // Reconcile placement ids accidentally passed in validatedRegularBatches
+    if (validatedRegularBatches.length > 0) {
+      try {
+        const placementMatches = await PlacementTrainingBatch.find({ _id: { $in: validatedRegularBatches } }).select('_id');
+        const placementIds = placementMatches.map(p => p._id.toString());
+        if (placementIds.length > 0) {
+          validatedRegularBatches = validatedRegularBatches.filter(id => !placementIds.includes(id));
+          validatedPlacementBatches = Array.from(new Set([...(validatedPlacementBatches || []), ...placementIds]));
+          console.log(`Moved ${placementIds.length} id(s) from validatedRegularBatches to validatedPlacementBatches because they belong to placement batches:` , placementIds);
+        }
+      } catch (err) {
+        console.error('Error reconciling regular vs placement batch ids in syllabus:', err);
       }
     }
 
-    if (batchType === 'placement' || batchType === 'both') {
-      if (assignedPlacementBatches && assignedPlacementBatches.length > 0) {
-        validatedPlacementBatches = assignedPlacementBatches.filter(id => mongoose.Types.ObjectId.isValid(id));
-      }
+    // Determine final batchType
+    let finalBatchType = batchType || 'placement';
+    if ((validatedPlacementBatches && validatedPlacementBatches.length > 0) && (validatedRegularBatches && validatedRegularBatches.length > 0)) {
+      finalBatchType = 'both';
+    } else if (validatedPlacementBatches && validatedPlacementBatches.length > 0) {
+      finalBatchType = 'placement';
+    } else if (validatedRegularBatches && validatedRegularBatches.length > 0) {
+      finalBatchType = 'noncrt';
     }
 
     const syllabus = new Syllabus({
@@ -50,7 +111,7 @@ router.post('/', generalAuth, async (req, res) => {
       trainerId,
       assignedBatches: validatedRegularBatches,
       assignedPlacementBatches: validatedPlacementBatches,
-      batchType: batchType || 'placement', // Default to placement if not provided
+      batchType: finalBatchType || 'placement', // Default to placement if not provided
       status: 'published' // Ensure published by default
     });
 

@@ -276,24 +276,100 @@ router.post('/', generalAuth, conditionalUpload, handleMulterError, async (req, 
     let validatedRegularBatches = [];
     let validatedPlacementBatches = [];
 
-    // Support both 'noncrt' (new) and 'regular' (legacy) as the same concept
-    if (batchType === 'noncrt' || batchType === 'regular' || batchType === 'both') {
-      validatedRegularBatches = Array.isArray(parsedAssignedBatches)
-        ? parsedAssignedBatches.filter(id => mongoose.Types.ObjectId.isValid(id))
-        : [];
+    // Resolve regular batch candidates (ObjectId or batchNumber/name)
+    if (Array.isArray(parsedAssignedBatches) && parsedAssignedBatches.length > 0) {
+      const resolved = await Promise.all(parsedAssignedBatches.map(async (candidateRaw) => {
+        const candidate = (candidateRaw || '').toString().trim();
+        try {
+          if (!candidate) return null;
+          if (mongoose.Types.ObjectId.isValid(candidate)) return candidate;
+
+          // Exact match by batchNumber or name
+          let found = await Batch.findOne({ $or: [{ batchNumber: candidate }, { name: candidate }] }).select('_id batchNumber name');
+          if (found && found._id) {
+            console.log(`Resolved regular candidate '${candidate}' -> ${found._id} (${found.batchNumber||found.name})`);
+            return found._id.toString();
+          }
+
+          // Regex match
+          const regex = new RegExp(candidate.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+          found = await Batch.findOne({ $or: [{ batchNumber: regex }, { name: regex }] }).select('_id batchNumber name');
+          if (found && found._id) {
+            console.log(`Resolved regular candidate by regex '${candidate}' -> ${found._id}`);
+            return found._id.toString();
+          }
+
+          console.warn(`Could not resolve regular batch candidate: '${candidateRaw}'`);
+          return null;
+        } catch (err) {
+          console.error('Error resolving regular batch candidate:', candidateRaw, err.message || err);
+          return null;
+        }
+      }));
+      validatedRegularBatches = resolved.filter(Boolean);
     }
 
-    if (batchType === 'placement' || batchType === 'both') {
-      validatedPlacementBatches = Array.isArray(parsedAssignedPlacementBatches)
-        ? parsedAssignedPlacementBatches.filter(id => mongoose.Types.ObjectId.isValid(id))
-        : [];
+    // Resolve placement batch candidates (ObjectId or batchNumber)
+    if (Array.isArray(parsedAssignedPlacementBatches) && parsedAssignedPlacementBatches.length > 0) {
+      const resolvedPlacement = await Promise.all(parsedAssignedPlacementBatches.map(async (candidateRaw) => {
+        const candidate = (candidateRaw || '').toString().trim();
+        try {
+          if (!candidate) return null;
+          if (mongoose.Types.ObjectId.isValid(candidate)) return candidate;
+
+          let found = await PlacementTrainingBatch.findOne({ batchNumber: candidate }).select('_id batchNumber');
+          if (found && found._id) {
+            console.log(`Resolved placement candidate '${candidate}' -> ${found._id} (${found.batchNumber})`);
+            return found._id.toString();
+          }
+
+          const regex = new RegExp(candidate.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+          found = await PlacementTrainingBatch.findOne({ batchNumber: regex }).select('_id batchNumber');
+          if (found && found._id) {
+            console.log(`Resolved placement candidate by regex '${candidate}' -> ${found._id} (${found.batchNumber})`);
+            return found._id.toString();
+          }
+
+          console.warn(`Could not resolve placement batch candidate: '${candidateRaw}'`);
+          return null;
+        } catch (err) {
+          console.error('Error resolving placement batch candidate:', candidateRaw, err.message || err);
+          return null;
+        }
+      }));
+      validatedPlacementBatches = resolvedPlacement.filter(Boolean);
+      console.log('Resolved placement batch ids:', validatedPlacementBatches);
     }
 
-    if (
-      ((batchType === 'noncrt' || batchType === 'regular') && validatedRegularBatches.length === 0) ||
-      (batchType === 'placement' && validatedPlacementBatches.length === 0) ||
-      (batchType === 'both' && validatedRegularBatches.length === 0 && validatedPlacementBatches.length === 0)
-    ) {
+    // SAFEGUARD: If any of the resolved "regular" ids actually exist in PlacementTrainingBatch,
+    // move them to validatedPlacementBatches so assignments reach placement students correctly.
+    if (validatedRegularBatches.length > 0) {
+      try {
+        const placementMatches = await PlacementTrainingBatch.find({ _id: { $in: validatedRegularBatches } }).select('_id');
+        const placementIds = placementMatches.map(p => p._id.toString());
+        if (placementIds.length > 0) {
+          // Remove these ids from validatedRegularBatches
+          validatedRegularBatches = validatedRegularBatches.filter(id => !placementIds.includes(id));
+          // Add to placement list (avoid duplicates)
+          validatedPlacementBatches = Array.from(new Set([...(validatedPlacementBatches || []), ...placementIds]));
+          console.log(`Moved ${placementIds.length} id(s) from validatedRegularBatches to validatedPlacementBatches because they belong to placement batches:` , placementIds);
+        }
+      } catch (err) {
+        console.error('Error reconciling regular vs placement batch ids:', err);
+      }
+    }
+
+    // Determine final batchType based on what actually got resolved
+    let finalBatchType = batchType || 'placement';
+    if ((validatedPlacementBatches && validatedPlacementBatches.length > 0) && (validatedRegularBatches && validatedRegularBatches.length > 0)) {
+      finalBatchType = 'both';
+    } else if (validatedPlacementBatches && validatedPlacementBatches.length > 0) {
+      finalBatchType = 'placement';
+    } else if (validatedRegularBatches && validatedRegularBatches.length > 0) {
+      finalBatchType = 'noncrt';
+    }
+
+    if ((validatedRegularBatches.length === 0 && validatedPlacementBatches.length === 0)) {
       return res.status(400).json({ message: 'At least one batch must be selected' });
     }
 
@@ -303,6 +379,9 @@ router.post('/', generalAuth, conditionalUpload, handleMulterError, async (req, 
 
     console.log('Processed attachments with extensions:', attachments);
 
+    // DEBUG: show resolved batches and final batchType before saving
+    console.log('Saving assignment with resolved batches:', { validatedRegularBatches, validatedPlacementBatches, finalBatchType });
+
     const assignment = new Assignment({
       title, description, subject,
       dueDate: new Date(dueDate),
@@ -310,7 +389,7 @@ router.post('/', generalAuth, conditionalUpload, handleMulterError, async (req, 
       trainerId,
       assignedBatches: validatedRegularBatches,
       assignedPlacementBatches: validatedPlacementBatches,
-      batchType,
+      batchType: finalBatchType || 'placement',
       attachments,
       instructions,
       allowLateSubmission: allowLateSubmission === 'true' || allowLateSubmission === true,

@@ -132,22 +132,111 @@ router.post('/', generalAuth, async (req, res) => {
     let validatedRegularBatches = [];
     let validatedPlacementBatches = [];
 
-    // Accept both 'noncrt' and legacy 'regular'
+    // Accept both 'noncrt' and legacy 'regular' - resolve string identifiers to _id when needed
     if (batchType === 'noncrt' || batchType === 'regular' || batchType === 'both') {
       if (assignedBatches && assignedBatches.length > 0) {
-        validatedRegularBatches = assignedBatches.filter(id =>
-          mongoose.Types.ObjectId.isValid(id)
-        );
+        // Resolve each entry: if it's already a valid ObjectId keep it; otherwise try multiple lookups (batchNumber/name, case-insensitive, substring)
+        const resolved = await Promise.all(assignedBatches.map(async (candidateRaw) => {
+          const candidate = (candidateRaw || '').toString().trim();
+          try {
+            if (!candidate) return null;
+            if (mongoose.Types.ObjectId.isValid(candidate)) return candidate;
+
+            // Exact match by batchNumber or name
+            let found = await Batch.findOne({ $or: [{ batchNumber: candidate }, { name: candidate }] }).select('_id batchNumber name');
+            if (found && found._id) {
+              console.log(`Resolved regular candidate '${candidate}' -> ${found._id} (${found.batchNumber||found.name})`);
+              return found._id.toString();
+            }
+
+            // Case-insensitive or substring search by batchNumber or name
+            const regex = new RegExp(candidate.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+            found = await Batch.findOne({ $or: [{ batchNumber: regex }, { name: regex }] }).select('_id batchNumber name');
+            if (found && found._id) {
+              console.log(`Resolved regular candidate by regex '${candidate}' -> ${found._id} (${found.batchNumber||found.name})`);
+              return found._id.toString();
+            }
+
+            // No match
+            console.warn(`Could not resolve regular batch candidate: '${candidateRaw}'`);
+            return null;
+          } catch (err) {
+            console.error('Error resolving regular batch candidate:', candidateRaw, err.message || err);
+            return null;
+          }
+        }));
+        validatedRegularBatches = resolved.filter(Boolean);
+
+        // SAFEGUARD: If any of the resolved "regular" ids actually exist in PlacementTrainingBatch,
+        // move them to validatedPlacementBatches so quizzes reach placement students correctly.
+        if (validatedRegularBatches.length > 0) {
+          try {
+            const placementMatches = await PlacementTrainingBatch.find({ _id: { $in: validatedRegularBatches } }).select('_id');
+            const placementIds = placementMatches.map(p => p._id.toString());
+            if (placementIds.length > 0) {
+              // Remove these ids from validatedRegularBatches
+              validatedRegularBatches = validatedRegularBatches.filter(id => !placementIds.includes(id));
+              // Add to placement list (avoid duplicates)
+              validatedPlacementBatches = Array.from(new Set([...(validatedPlacementBatches || []), ...placementIds]));
+              console.log(`Moved ${placementIds.length} id(s) from validatedRegularBatches to validatedPlacementBatches because they belong to placement batches:` , placementIds);
+            }
+          } catch (err) {
+            console.error('Error reconciling regular vs placement batch ids:', err);
+          }
+        }
       }
     }
 
-    if (batchType === 'placement' || batchType === 'both') {
-      if (assignedPlacementBatches && assignedPlacementBatches.length > 0) {
-        validatedPlacementBatches = assignedPlacementBatches.filter(id =>
-          mongoose.Types.ObjectId.isValid(id)
-        );
-      }
+    // Always process assignedPlacementBatches if provided, regardless of the requested batchType.
+    if (assignedPlacementBatches && assignedPlacementBatches.length > 0) {
+      // Placement batches are expected to be ObjectIds, but resolve similarly in case a batchNumber was passed
+      const resolvedPlacement = await Promise.all(assignedPlacementBatches.map(async (candidateRaw) => {
+        const candidate = (candidateRaw || '').toString().trim();
+        try {
+          if (!candidate) return null;
+          if (mongoose.Types.ObjectId.isValid(candidate)) return candidate;
+
+          // Try to find by batchNumber (exact or regex)
+          let found = await PlacementTrainingBatch.findOne({ batchNumber: candidate }).select('_id batchNumber');
+          if (found && found._id) {
+            console.log(`Resolved placement candidate '${candidate}' -> ${found._id} (${found.batchNumber})`);
+            return found._id.toString();
+          }
+
+          const regex = new RegExp(candidate.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+          found = await PlacementTrainingBatch.findOne({ batchNumber: regex }).select('_id batchNumber');
+          if (found && found._id) {
+            console.log(`Resolved placement candidate by regex '${candidate}' -> ${found._id} (${found.batchNumber})`);
+            return found._id.toString();
+          }
+
+          console.warn(`Could not resolve placement batch candidate: '${candidateRaw}'`);
+          return null;
+        } catch (err) {
+          console.error('Error resolving placement batch candidate:', candidateRaw, err.message || err);
+          return null;
+        }
+      }));
+      validatedPlacementBatches = resolvedPlacement.filter(Boolean);
+      console.log('Resolved placement batch ids:', validatedPlacementBatches);
     }
+
+    // Determine final batchType based on what actually got resolved
+    let finalBatchType = batchType || 'placement';
+    if ((validatedPlacementBatches && validatedPlacementBatches.length > 0) && (validatedRegularBatches && validatedRegularBatches.length > 0)) {
+      finalBatchType = 'both';
+    } else if (validatedPlacementBatches && validatedPlacementBatches.length > 0) {
+      finalBatchType = 'placement';
+    } else if (validatedRegularBatches && validatedRegularBatches.length > 0) {
+      finalBatchType = 'noncrt';
+    }
+
+    // DEBUG: Show final resolved batch lists and batchType being saved
+    console.log('Saving quiz with resolved batches:', {
+      validatedRegularBatches,
+      validatedPlacementBatches,
+      finalBatchType
+    });
 
     const quiz = new Quiz({
       title,
@@ -163,7 +252,7 @@ router.post('/', generalAuth, async (req, res) => {
       trainerId,
       assignedBatches: validatedRegularBatches,
       assignedPlacementBatches: validatedPlacementBatches,
-      batchType: batchType || 'placement',
+      batchType: finalBatchType || 'placement',
       shuffleQuestions,
       showResultsImmediately,
       allowRetake,

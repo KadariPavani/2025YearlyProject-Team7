@@ -179,13 +179,83 @@ router.post('/', generalAuth, upload.array('files', 5), async (req, res) => {
 
     const trainerId = req.user.id;
 
-    // Parse batch assignments robustly
-    const validatedRegularBatches = parseIdsArray(assignedBatches).filter((id) =>
-      mongoose.Types.ObjectId.isValid(id)
-    );
-    const validatedPlacementBatches = parseIdsArray(
-      assignedPlacementBatches
-    ).filter((id) => mongoose.Types.ObjectId.isValid(id));
+    // Resolve batch assignments (support passing names/numbers or ids)
+    let validatedRegularBatches = [];
+    let validatedPlacementBatches = [];
+
+    const parsedAB = parseIdsArray(assignedBatches);
+    if (parsedAB.length > 0) {
+      const resolved = await Promise.all(parsedAB.map(async (candidateRaw) => {
+        const candidate = (candidateRaw || '').toString().trim();
+        try {
+          if (!candidate) return null;
+          if (mongoose.Types.ObjectId.isValid(candidate)) return candidate;
+
+          let found = await Batch.findOne({ $or: [{ batchNumber: candidate }, { name: candidate }] }).select('_id batchNumber name');
+          if (found && found._id) return found._id.toString();
+
+          const regex = new RegExp(candidate.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+          found = await Batch.findOne({ $or: [{ batchNumber: regex }, { name: regex }] }).select('_id batchNumber name');
+          if (found && found._id) return found._id.toString();
+
+          console.warn(`Could not resolve regular batch candidate: '${candidateRaw}'`);
+          return null;
+        } catch (err) {
+          console.error('Error resolving regular batch candidate:', candidateRaw, err.message || err);
+          return null;
+        }
+      }));
+      validatedRegularBatches = resolved.filter(Boolean);
+    }
+
+    const parsedPB = parseIdsArray(assignedPlacementBatches);
+    if (parsedPB.length > 0) {
+      const resolvedPlacement = await Promise.all(parsedPB.map(async (candidateRaw) => {
+        const candidate = (candidateRaw || '').toString().trim();
+        try {
+          if (!candidate) return null;
+          if (mongoose.Types.ObjectId.isValid(candidate)) return candidate;
+
+          let found = await PlacementTrainingBatch.findOne({ batchNumber: candidate }).select('_id batchNumber');
+          if (found && found._id) return found._id.toString();
+
+          const regex = new RegExp(candidate.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
+          found = await PlacementTrainingBatch.findOne({ batchNumber: regex }).select('_id batchNumber');
+          if (found && found._id) return found._id.toString();
+
+          console.warn(`Could not resolve placement batch candidate: '${candidateRaw}'`);
+          return null;
+        } catch (err) {
+          console.error('Error resolving placement batch candidate:', candidateRaw, err.message || err);
+          return null;
+        }
+      }));
+      validatedPlacementBatches = resolvedPlacement.filter(Boolean);
+      console.log('Resolved placement batch ids:', validatedPlacementBatches);
+    }
+
+    // Reconcile placement ids accidentally passed as regular ids
+    if (validatedRegularBatches.length > 0) {
+      try {
+        const placementMatches = await PlacementTrainingBatch.find({ _id: { $in: validatedRegularBatches } }).select('_id');
+        const placementIds = placementMatches.map(p => p._id.toString());
+        if (placementIds.length > 0) {
+          validatedRegularBatches = validatedRegularBatches.filter(id => !placementIds.includes(id));
+          validatedPlacementBatches = Array.from(new Set([...(validatedPlacementBatches || []), ...placementIds]));
+          console.log(`Moved ${placementIds.length} id(s) from validatedRegularBatches to validatedPlacementBatches because they belong to placement batches:` , placementIds);
+        }
+      } catch (err) {
+        console.error('Error reconciling regular vs placement batch ids in reference:', err);
+      }
+    }
+
+    // Determine final batchType
+    let finalBatchType = accessLevel === 'public' ? 'public' : batchType || 'public';
+    if (finalBatchType !== 'public') {
+      if ((validatedPlacementBatches && validatedPlacementBatches.length > 0) && (validatedRegularBatches && validatedRegularBatches.length > 0)) finalBatchType = 'both';
+      else if (validatedPlacementBatches && validatedPlacementBatches.length > 0) finalBatchType = 'placement';
+      else if (validatedRegularBatches && validatedRegularBatches.length > 0) finalBatchType = 'noncrt';
+    }
 
     // Process uploaded files properly for Cloudinary
     let processedFiles = [];
@@ -199,6 +269,11 @@ router.post('/', generalAuth, upload.array('files', 5), async (req, res) => {
       }));
     }
 
+    // If access is batch-specific, ensure we have at least one resolved batch
+    if (accessLevel === 'batch-specific' && validatedRegularBatches.length === 0 && validatedPlacementBatches.length === 0) {
+      return res.status(400).json({ message: 'At least one batch must be selected for batch-specific resources' });
+    }
+
     const reference = new Reference({
       trainerId,
       topicName,
@@ -207,10 +282,10 @@ router.post('/', generalAuth, upload.array('files', 5), async (req, res) => {
       referenceVideoLink,
       referenceNotesLink,
       assignedBatches: accessLevel === 'batch-specific' ? validatedRegularBatches : [],
-      assignedPlacementBatches:
-        accessLevel === 'batch-specific' ? validatedPlacementBatches : [],
-      batchType: accessLevel === 'public' ? 'public' : batchType || 'public',
-      isPublic: accessLevel === 'public' ? true : isPublic === 'true' || isPublic === true,
+      assignedPlacementBatches: accessLevel === 'batch-specific' ? validatedPlacementBatches : [],
+      batchType: finalBatchType,
+      // Explicitly set isPublic: batch-specific resources must not be public
+      isPublic: accessLevel === 'public' ? true : false,
       accessLevel: accessLevel || 'public',
       learningObjectives: parseArray(learningObjectives),
       prerequisites: parseArray(prerequisites),
@@ -416,10 +491,13 @@ router.put('/:id', generalAuth, upload.array('files', 5), async (req, res) => {
           req.body.assignedPlacementBatches
         ).filter((id) => mongoose.Types.ObjectId.isValid(id));
       }
+      // Ensure batch-specific resources are explicitly not public
+      reference.isPublic = false;
     } else {
       reference.assignedBatches = [];
       reference.assignedPlacementBatches = [];
       reference.batchType = 'public';
+      reference.isPublic = true;
     }
 
     const updatedReference = await reference.save();
