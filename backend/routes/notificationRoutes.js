@@ -2,7 +2,9 @@ const express = require("express");
 const router = express.Router();
 const {
   getStudentNotifications,
-  markNotificationAsRead, getTrainerNotifications,
+  markNotificationAsRead,
+  getTrainerNotifications,
+  getTpoNotifications
 } = require("../controllers/notificationController");
 const generalAuth = require('../middleware/generalAuth');
 const Notification = require("../models/Notification"); 
@@ -37,5 +39,8 @@ router.get("/trainer/:trainerId", async (req, res) => {
     });
   }
 });
+
+// ✅ Get Notifications for TPO (logged-in TPO)
+router.get("/tpo", generalAuth, getTpoNotifications);
 
 module.exports = router;

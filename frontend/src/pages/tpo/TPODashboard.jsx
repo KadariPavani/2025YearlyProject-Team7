@@ -89,6 +89,8 @@ import {
 import TrainerAssignment from './TrainerAssignment';
 import ScheduleTimetable from './ScheduleTimetable';
 import TPOAttendanceView from './TPOAttendanceView';
+import TPOFeedbackView from './TPOFeedbackView';
+import { MessageSquare } from 'lucide-react';
 import PlacementCalendar from "./PlacementCalendar";
 import PlacedStudentsTab from './PlacedStudentsTab';
 import axios from 'axios';
@@ -150,6 +152,7 @@ const TPODashboard = () => {
     { id: 'placed-students', label: 'Placed Students', icon: UserCheck },
     { id: 'coordinators', label: 'Coordinators', icon: Users },
     { id: 'approvals', label: 'Approvals', icon: AlertCircle },
+    { id: 'feedbacks', label: 'Feedback', icon: MessageSquare },
   ];
 
   // Desktop 'More' dropdown state (show only first 7 tabs horizontally)
@@ -2672,6 +2675,14 @@ const getRequestTypeColor = (type) => {
             </div>
           </div>
         )}
+
+        {/* Feedbacks Tab */}
+        {activeTab === 'feedbacks' && (
+          <div className="w-full">
+            <TPOFeedbackView />
+          </div>
+        )}
+
         </div>
       </div>
 

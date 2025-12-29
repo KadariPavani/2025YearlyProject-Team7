@@ -19,6 +19,7 @@ const StudentFeedback = () => {
     rating: 5,
     category: 'training',
     toTrainer: '',
+    otherTrainerName: '',
     isAnonymous: false,
     suggestions: ''
   });
@@ -73,6 +74,23 @@ const StudentFeedback = () => {
 
     try {
       const token = localStorage.getItem('userToken');
+      // Client-side validation
+      if (formData.category === 'training') {
+        if (!formData.toTrainer) {
+          setError('Please select a trainer or choose Other');
+          setLoading(false);
+          return;
+        }
+        if (formData.toTrainer === 'other' && !formData.otherTrainerName?.trim()) {
+          setError('Please enter the trainer name');
+          setLoading(false);
+          return;
+        }
+      } else {
+        // non-training categories: allow optional recipient name
+        // nothing required here
+      }
+
       await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/feedback/submit`, formData, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -84,6 +102,7 @@ const StudentFeedback = () => {
         rating: 5,
         category: 'training',
         toTrainer: '',
+        otherTrainerName: '',
         isAnonymous: false,
         suggestions: ''
       });
@@ -284,23 +303,56 @@ const StudentFeedback = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Select Trainer *
-                </label>
-                <select
-                  name="toTrainer"
-                  value={formData.toTrainer}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select a trainer</option>
-                  {trainers.map(trainer => (
-                    <option key={trainer._id} value={trainer._id}>
-                      {trainer.name} - {trainer.subjectDealing}
-                    </option>
-                  ))}
-                </select>
+                {formData.category === 'training' ? (
+                  <>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Select Trainer *
+                    </label>
+                    <select
+                      name="toTrainer"
+                      value={formData.toTrainer}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select a trainer</option>
+                      {trainers.map(trainer => (
+                        <option key={trainer._id} value={trainer._id}>
+                          {trainer.name} - {trainer.subjectDealing}
+                        </option>
+                      ))}
+                      <option value="other">Other (specify)</option>
+                    </select>
+                    {formData.toTrainer === 'other' && (
+                      <div className="mt-2">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Trainer Name *</label>
+                        <input
+                          type="text"
+                          name="otherTrainerName"
+                          value={formData.otherTrainerName}
+                          onChange={handleInputChange}
+                          required
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter trainer name"
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Addressed To (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      name="otherTrainerName"
+                      value={formData.otherTrainerName}
+                      onChange={handleInputChange}
+                      placeholder="Enter recipient (e.g., Facilities, Placement Team)"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </>
+                )}
               </div>
 
               <div>
@@ -468,11 +520,15 @@ const StudentFeedback = () => {
 
                   <p className="text-gray-700 mb-3 line-clamp-2">{feedback.content}</p>
 
-                  {feedback.toTrainer && (
+                  {feedback.toTrainer ? (
                     <p className="text-sm text-gray-600 mb-3">
                       <strong>To:</strong> {feedback.toTrainer.name} ({feedback.toTrainer.subjectDealing})
                     </p>
-                  )}
+                  ) : feedback.otherTrainerName ? (
+                    <p className="text-sm text-gray-600 mb-3">
+                      <strong>To:</strong> {feedback.otherTrainerName}
+                    </p>
+                  ) : null} 
 
                   {feedback.response && (
                     <div className="mt-4 bg-green-50 border-l-4 border-green-500 p-4 rounded">
@@ -541,14 +597,19 @@ const StudentFeedback = () => {
                 </span>
               </div>
 
-              {selectedFeedback.toTrainer && (
+              {selectedFeedback.toTrainer ? (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h5 className="font-semibold text-blue-900 mb-2">Addressed To:</h5>
                   <p className="text-sm text-blue-700">
                     Trainer: {selectedFeedback.toTrainer.name} ({selectedFeedback.toTrainer.subjectDealing})
                   </p>
                 </div>
-              )}
+              ) : selectedFeedback.otherTrainerName ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h5 className="font-semibold text-blue-900 mb-2">Addressed To:</h5>
+                  <p className="text-sm text-blue-700">Trainer: {selectedFeedback.otherTrainerName}</p>
+                </div>
+              ) : null} 
 
               <div className="border-t border-gray-200 pt-4">
                 <h5 className="font-semibold text-gray-900 mb-2">Content:</h5>

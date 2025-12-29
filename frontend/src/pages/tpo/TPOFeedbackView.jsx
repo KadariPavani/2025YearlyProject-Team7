@@ -6,6 +6,7 @@ const TPOFeedbackView = () => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
@@ -26,6 +27,9 @@ const TPOFeedbackView = () => {
       setStatistics(response.data.data.statistics);
     } catch (err) {
       console.error('Error fetching feedbacks:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch feedbacks');
+      setFeedbacks([]);
+      setStatistics(null);
     } finally {
       setLoading(false);
     }
@@ -192,6 +196,11 @@ const TPOFeedbackView = () => {
           <Filter className="h-5 w-5 text-gray-600" />
           <h3 className="text-base font-semibold text-gray-900">Filters</h3>
         </div>
+        {error && (
+          <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4 rounded">
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
@@ -279,12 +288,17 @@ const TPOFeedbackView = () => {
                           <span>{feedback.fromStudent.name} ({feedback.fromStudent.rollNo})</span>
                         </>
                       )}
-                      {feedback.toTrainer && (
+                      {feedback.toTrainer ? (
                         <>
                           <span>•</span>
                           <span>To: {feedback.toTrainer.name}</span>
                         </>
-                      )}
+                      ) : feedback.otherTrainerName ? (
+                        <>
+                          <span>•</span>
+                          <span>To: {feedback.otherTrainerName}</span>
+                        </>
+                      ) : null} 
                       <span>•</span>
                       <span>{new Date(feedback.createdAt).toLocaleDateString()}</span>
                     </div>
@@ -403,14 +417,19 @@ const TPOFeedbackView = () => {
                 </div>
               )}
 
-              {selectedFeedback.toTrainer && (
+              {selectedFeedback.toTrainer ? (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h5 className="font-semibold text-blue-900 mb-2">Addressed To:</h5>
                   <p className="text-sm text-blue-700">
                     Trainer: {selectedFeedback.toTrainer.name} ({selectedFeedback.toTrainer.subjectDealing})
                   </p>
                 </div>
-              )}
+              ) : selectedFeedback.otherTrainerName ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h5 className="font-semibold text-blue-900 mb-2">Addressed To:</h5>
+                  <p className="text-sm text-blue-700">Trainer: {selectedFeedback.otherTrainerName}</p>
+                </div>
+              ) : null}
 
               <div className="border-t border-gray-200 pt-4">
                 <h5 className="font-semibold text-gray-900 mb-2">Feedback Content:</h5>

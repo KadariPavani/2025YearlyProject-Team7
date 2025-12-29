@@ -374,6 +374,63 @@ exports.getTrainerNotifications = asyncHandler(async (req, res) => {
   }
 });
 
+// ✅ Get notifications for TPO (supports recipients where recipientModel is TPO OR global/targetRoles include tpo)
+exports.getTpoNotifications = asyncHandler(async (req, res) => {
+  try {
+    let tpoId = req.user?.userId || req.user?._id || req.user?.id;
+
+    // If token belongs to a TPO user, use req.user directly
+    if (!tpoId && req.userType && String(req.userType).toLowerCase() === 'tpo') {
+      tpoId = req.user?._id || req.user?.id;
+      console.log('[notificationController] Using req.user as TPO id:', tpoId);
+    }
+
+    if (!tpoId) {
+      console.warn('[notificationController] Unauthorized: no TPO id in request', { user: req.user?.id, userType: req.userType });
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    console.log("🔔 Fetching notifications for TPO:", tpoId);
+
+    const notifications = await Notification.find({
+      $or: [
+        { recipients: { $elemMatch: { recipientId: tpoId, recipientModel: 'TPO' } } },
+        { targetRoles: 'tpo' },
+        { isGlobal: true }
+      ]
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    console.log(`✅ Found ${notifications.length} notifications for TPO ${tpoId}.`);
+
+    const unreadByCategory = notifications.reduce((acc, n) => {
+      const category = n.category || "Placement";
+      const isUnread = n.recipients?.some(
+        (r) => r.recipientId.toString() === tpoId.toString() && !r.isRead
+      );
+      if (isUnread) acc[category] = (acc[category] || 0) + 1;
+      return acc;
+    }, {
+      Placement: 0,
+      "Weekly Class Schedule": 0,
+      "My Assignments": 0,
+      "Available Quizzes": 0,
+      "Learning Resources": 0,
+    });
+
+    res.status(200).json({
+      success: true,
+      count: notifications.length,
+      data: notifications,
+      unreadByCategory,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching TPO notifications:", error);
+    res.status(500).json({ success: false, message: "Error fetching TPO notifications", error: error.message });
+  }
+});
+
 exports.notifyTrainerEventUpdate = async (trainerIds, eventTitle, action, senderId) => {
   try {
     const Notification = require("../models/Notification");

@@ -31,6 +31,11 @@ const FeedbackSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Trainer'
   },
+  otherTrainerName: {
+    type: String,
+    trim: true,
+    maxlength: 200
+  },
   toTPO: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'TPO'

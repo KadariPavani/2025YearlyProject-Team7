@@ -44,7 +44,7 @@ async function findStudentByRequestUser(req) {
 // @access  Private (Student)
 router.post('/submit', authenticateUser, async (req, res) => {
   try {
-    const { title, content, rating, category, toTrainer, toTPO, toCoordinator, isAnonymous, suggestions } = req.body;
+    const { title, content, rating, category, toTrainer, otherTrainerName, toTPO, toCoordinator, isAnonymous, suggestions } = req.body;
 
     // Verify the student exists (use robust helper)
     const student = await findStudentByRequestUser(req);
@@ -60,7 +60,8 @@ router.post('/submit', authenticateUser, async (req, res) => {
       rating,
       category,
       fromStudent: student._id,
-      toTrainer: toTrainer || undefined,
+      toTrainer: toTrainer && toTrainer !== 'other' ? toTrainer : undefined,
+      otherTrainerName: otherTrainerName || undefined,
       toTPO: toTPO || undefined,
       toCoordinator: toCoordinator || undefined,
       isAnonymous: isAnonymous || false,
@@ -265,15 +266,35 @@ router.get('/trainer/received', authenticateUser, async (req, res) => {
 // @access  Private (TPO)
 router.get('/tpo/all', authenticateUser, async (req, res) => {
   try {
-    const tpo = await TPO.findOne({ user: req.user.id });
-    if (!tpo) {
+      // Determine TPO id robustly: prefer a TPO doc linked via user, but also accept requests where the token itself belongs to a TPO
+    let tpo = await TPO.findOne({ user: req.user.id });
+    let tpoId = tpo ? tpo._id : null;
+
+    if (!tpoId) {
+      // If the authenticated token is for a TPO model, use the req.user id directly
+      if (req.userType && String(req.userType).toLowerCase() === 'tpo') {
+        tpoId = req.user._id || req.user.id;
+        console.log('[feedbackRoutes] Using req.user as TPO id:', tpoId);
+      } else {
+        // Last resort: try finding a TPO document by the requester's id
+        try {
+          const byId = await TPO.findById(req.user.id);
+          if (byId) tpoId = byId._id;
+        } catch (e) {
+          // ignore lookup errors
+        }
+      }
+    }
+
+    if (!tpoId) {
+      console.warn('[feedbackRoutes] TPO not found for request user', { userId: req.user.id, userType: req.userType });
       return res.status(404).json({ success: false, message: 'TPO not found' });
     }
 
     const feedbacks = await Feedback.find({
       $or: [
-        { toTPO: tpo._id },
-        { category: { $in: ['placement', 'facilities', 'general'] } }
+        { toTPO: tpoId },
+        { category: { $in: ['placement', 'facilities', 'general', 'training'] } }
       ]
     })
       .populate('fromStudent', 'name rollNo college branch')
@@ -330,7 +351,17 @@ router.get('/tpo/all', authenticateUser, async (req, res) => {
 // @access  Private (Coordinator)
 router.get('/coordinator/all', authenticateUser, async (req, res) => {
   try {
-    const coordinator = await Coordinator.findOne({ user: req.user.id });
+    // Try to find coordinator by user id or accept req.user if it's a Coordinator doc
+    let coordinator = await Coordinator.findOne({ user: req.user.id });
+    if (!coordinator) {
+      try {
+        const byId = await Coordinator.findById(req.user.id);
+        if (byId) coordinator = byId;
+      } catch (e) {
+        // ignore
+      }
+    }
+
     if (!coordinator) {
       return res.status(404).json({ success: false, message: 'Coordinator not found' });
     }
