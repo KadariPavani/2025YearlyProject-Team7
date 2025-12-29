@@ -151,14 +151,22 @@ const resendOTP = async (req, res) => {
 
     const otp = await createOtp(email, 'login');
 
-    // Send OTP to email
-    await sendEmail({
-      email,
-      subject: 'Your OTP Code - InfoVerse',
-      message: `Your OTP code is: ${otp}`,
-    });
-
-    return ok(res, { success: true, message: 'OTP resent successfully' });
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      try {
+        await sendEmail({
+          email,
+          subject: 'Your OTP Code - InfoVerse',
+          message: `Your OTP code is: <strong>${otp}</strong>. It will expire in 5 minutes.`,
+        });
+        return ok(res, { success: true, message: 'OTP resent successfully' });
+      } catch (emailErr) {
+        console.error('Failed to send OTP email on resend:', emailErr);
+        return serverError(res, 'Failed to send OTP email');
+      }
+    } else {
+      console.warn('Email not configured; OTP resent but not emailed');
+      return ok(res, { success: true, message: 'OTP created and logged on server (EMAIL not configured)' });
+    }
   } catch (error) {
     console.error('Resend OTP error:', error);
     return serverError(res, 'Server error');
