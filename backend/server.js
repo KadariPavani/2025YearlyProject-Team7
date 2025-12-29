@@ -64,6 +64,9 @@ app.get('/api/debug/env-check', (req, res) => {
     hasJwtSecret: !!process.env.JWT_SECRET,
     hasFrontendUrl: !!process.env.FRONTEND_URL,
     hasSuperAdminEmail: !!process.env.SUPER_ADMIN_EMAIL,
+    hasEmailConfigured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
+    emailUserMask: process.env.EMAIL_USER ? process.env.EMAIL_USER.replace(/(.{2}).+@/, '$1***@') : 'NOT SET',
+    emailHost: process.env.EMAIL_HOST || 'smtp.gmail.com',
     mongoUriPrefix: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 20) + '...' : 'NOT SET',
     jwtSecretLength: process.env.JWT_SECRET ? process.env.JWT_SECRET.length : 0,
     frontendUrl: process.env.FRONTEND_URL || 'NOT SET',
@@ -75,7 +78,7 @@ app.get('/api/debug/env-check', (req, res) => {
 app.get('/', (req, res) => {
   res.status(200).json({ 
     message: 'Welcome to INFOVERSE API',
-    version: '1.0.0',
+    version: '1.0.1',
     docs: '/api'
   });
 });

@@ -63,13 +63,26 @@ const superAdminLogin = async (req, res) => {
       purpose: 'login'
     });
 
-    // await sendEmail({
-    //   email,
-    //   subject: 'Admin Login Verification',
-    //   message: `Your OTP for admin login is: ${otp}`
-    // });
+    // If SMTP is configured, send the OTP email. Otherwise, keep logging the OTP to server logs.
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      try {
+        console.log('Attempting to send OTP email to:', email);
+        await sendEmail({
+          email,
+          subject: 'Admin Login Verification - InfoVerse',
+          message: `Your OTP for admin login is: <strong>${otp}</strong>. It will expire in 5 minutes.`
+        });
+        console.log('OTP email sent to:', email);
+      } catch (emailErr) {
+        console.error('Failed to send OTP email:', emailErr);
+        // Surface error so frontend can know OTP wasn't emailed
+        return serverError(res, 'Failed to send OTP email');
+      }
+    } else {
+      console.warn('Email not configured; OTP logged to server only.');
+    }
 
-    return ok(res, { success: true, message: 'OTP sent successfully' });
+    return ok(res, { success: true, message: process.env.EMAIL_USER ? 'OTP sent successfully' : 'OTP created and logged on server (EMAIL not configured)'});
   } catch (error) {
     console.error('❌ Error in superAdminLogin:', error && (error.stack || error.message || error));
     return serverError(res, `Internal server error${process.env.NODE_ENV === 'development' ? ': ' + (error.message || '') : ''}`);
