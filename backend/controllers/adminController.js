@@ -25,9 +25,10 @@ const superAdminLogin = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
-    console.debug('Super admin login request for:', email);
+    const normalizedEmail = String(email).trim().toLowerCase();
+    console.debug('Super admin login request for:', normalizedEmail);
 
-    const admin = await Admin.findOne({ email }).select('+password failedLoginAttempts lockUntil');
+    const admin = await Admin.findOne({ email: normalizedEmail }).select('+password failedLoginAttempts lockUntil');
     if (!admin) {
       return res.status(401).json({
         success: false,
@@ -95,8 +96,9 @@ const superAdminLogin = async (req, res) => {
 const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
+    const normalizedEmail = String(email).trim().toLowerCase();
 
-    const result = await verifyOtp(email, 'login', otp);
+    const result = await verifyOtp(normalizedEmail, 'login', otp);
     if (!result.valid) {
       const map = {
         not_found_or_expired: 'OTP not found or expired',
@@ -142,14 +144,15 @@ const verifyOTP = async (req, res) => {
 const resendOTP = async (req, res) => {
   try {
     const { email } = req.body;
+    const normalizedEmail = String(email).trim().toLowerCase();
 
     // Validate email exists
-    const admin = await Admin.findOne({ email });
+    const admin = await Admin.findOne({ email: normalizedEmail });
     if (!admin) {
       return res.status(404).json({ success: false, message: 'Admin not found' });
     }
 
-    const otp = await createOtp(email, 'login');
+    const otp = await createOtp(normalizedEmail, 'login');
 
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       try {

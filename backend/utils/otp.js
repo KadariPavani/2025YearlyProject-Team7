@@ -2,19 +2,21 @@ const OTP = require('../models/OTP');
 
 // Create and persist a new OTP document for an email/purpose
 async function createOtp(email, purpose) {
+  const normalizedEmail = String(email).trim().toLowerCase();
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const doc = await OTP.create({ email, otp, purpose });
+  const doc = await OTP.create({ email: normalizedEmail, otp, purpose });
   // Log created OTP for debugging (safe in development, in production ensure logs are protected)
-  console.log(`🔐 Created OTP for ${email} (purpose: ${purpose}): ${otp} - id: ${doc._id}`);
+  console.log(`🔐 Created OTP for ${normalizedEmail} (purpose: ${purpose}): ${otp} - id: ${doc._id}`);
   return otp;
 }
 
 // Verify an OTP for a given email/purpose with basic limits
 // Returns: { valid: boolean, reason?: string, otpDoc?: any }
 async function verifyOtp(email, purpose, providedOtp) {
-  const otpDoc = await OTP.findOne({ email, purpose }).sort({ createdAt: -1 });
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const otpDoc = await OTP.findOne({ email: normalizedEmail, purpose }).sort({ createdAt: -1 });
   if (!otpDoc) {
-    console.warn(`OTP verify failed for ${email} (purpose: ${purpose}): not_found_or_expired`);
+    console.warn(`OTP verify failed for ${normalizedEmail} (purpose: ${purpose}): not_found_or_expired`);
     return { valid: false, reason: 'not_found_or_expired' };
   }
 
