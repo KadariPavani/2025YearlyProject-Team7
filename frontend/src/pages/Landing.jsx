@@ -9,6 +9,10 @@ import {
   ChevronDown,
   Menu,
   X,
+  Home,
+  Building2,
+  MessageSquare,
+  HelpCircle,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import HighlightTicker from "../components/common/HighlightTicker";
@@ -24,13 +28,24 @@ const Landing = () => {
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileLoginOpen, setMobileLoginOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const loginOptionsRef = useRef(null);
 
   const userTypes = [
     { name: "TPO", icon: Users, path: "/tpo-login", color: "text-blue-600", bgColor: "bg-blue-600" },
     { name: "Trainer", icon: BookOpen, path: "/trainer-login", color: "text-green-600", bgColor: "bg-green-600" },
     { name: "Student", icon: GraduationCap, path: "/student-login", color: "text-purple-600", bgColor: "bg-purple-600" },
     { name: "Coordinator", icon: UserCheck, path: "/coordinator-login", color: "text-orange-600", bgColor: "bg-orange-600" },
+  ];
+
+  const navItems = [
+    { name: "Home", icon: Home, href: "#home", color: "text-indigo-600", bgColor: "bg-indigo-600" },
+    { name: "Placements", icon: Building2, href: "#placements", color: "text-blue-600", bgColor: "bg-blue-600" },
+    { name: "Students", icon: GraduationCap, href: "#students", color: "text-purple-600", bgColor: "bg-purple-600" },
+    { name: "FAQ", icon: HelpCircle, href: "#faqs", color: "text-green-600", bgColor: "bg-green-600" },
+    { name: "Contact", icon: MessageSquare, path: "/contact", color: "text-orange-600", bgColor: "bg-orange-600" },
   ];
 
   useEffect(() => {
@@ -43,6 +58,18 @@ const Landing = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Close mobile menu when resizing to desktop view
+  useEffect(() => {
+    function handleResize() {
+      if (window.innerWidth >= 768) {
+        setMenuOpen(false);
+        setMobileLoginOpen(false);
+      }
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // 🎞 Animation only for PlacedStudents section
   const fadeInUp = {
     hidden: { opacity: 0, y: 60 },
@@ -50,10 +77,10 @@ const Landing = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 scroll-smooth">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 scroll-smooth w-full overflow-x-hidden">
       {/* Header */}
       <header className="bg-white shadow-sm fixed w-full top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-2">
             {/* Logo */}
             <div className="flex items-center space-x-3">
@@ -140,6 +167,97 @@ const Landing = () => {
           </div>
         </div>
       </header>
+
+      {/* Mobile Menu */}
+      {menuOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={() => setMenuOpen(false)}>
+          <div 
+            className="fixed top-[72px] left-0 right-0 bottom-0 bg-white shadow-lg z-50 animate-slideDown flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div ref={scrollContainerRef} className="flex-1 py-4 px-4 overflow-y-auto scroll-smooth">
+              {/* Navigation Items */}
+              <div className="mb-4">
+                {navItems.map((item, index) => {
+                  const IconComponent = item.icon;
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        if (item.path) {
+                          navigate(item.path);
+                        } else if (item.href) {
+                          document.querySelector(item.href)?.scrollIntoView({ behavior: 'smooth' });
+                        }
+                        setMenuOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 transition-all duration-200 rounded-lg"
+                    >
+                      <div className={`p-2 rounded-lg ${item.bgColor} bg-opacity-10`}>
+                        <IconComponent className={`h-5 w-5 ${item.color}`} />
+                      </div>
+                      <span className="font-medium text-base">{item.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Login Options - Show only when mobileLoginOpen is true - displayed above */}
+              {mobileLoginOpen && (
+                <div ref={loginOptionsRef} className="space-y-2 mb-4 animate-slideUp">
+                  <div className="border-t border-gray-200 mb-4"></div>
+                  <p className="px-4 text-sm font-semibold text-gray-500 mb-2">Login As</p>
+                  {userTypes.map((type, index) => {
+                    const IconComponent = type.icon;
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          navigate(type.path);
+                          setMenuOpen(false);
+                          setMobileLoginOpen(false);
+                        }}
+                        className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 transition-all duration-200 rounded-lg border border-transparent hover:border-indigo-200"
+                      >
+                        <div className={`p-2 rounded-lg ${type.bgColor} bg-opacity-10`}>
+                          <IconComponent className={`h-5 w-5 ${type.color}`} />
+                        </div>
+                        <span className="font-medium text-base">{type.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Login Button at Bottom */}
+            <div className="p-4 border-t border-gray-200 bg-white">
+              <button
+                onClick={() => {
+                  const newState = !mobileLoginOpen;
+                  setMobileLoginOpen(newState);
+                  if (newState && scrollContainerRef.current && loginOptionsRef.current) {
+                    setTimeout(() => {
+                      loginOptionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                  }
+                }}
+                className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-lg transition-all duration-300 shadow-sm hover:shadow-md"
+              >
+                <div className="flex items-center space-x-2">
+                  <LogIn className="h-5 w-5" />
+                  <span className="font-medium text-base">Login</span>
+                </div>
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform duration-200 ${
+                    mobileLoginOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Page sections start here */}
       <main className="flex-1 pt-20">

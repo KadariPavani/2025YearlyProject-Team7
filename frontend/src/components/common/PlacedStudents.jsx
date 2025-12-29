@@ -143,15 +143,15 @@ export default function TestimonialSlider() {
   return (
 <section
   id="students"
-  className="w-full flex flex-col items-center justify-center py-20"  // increased padding
-  style={{ background: '#5791ED', minHeight: '500px' }} // added minHeight
+  className="w-full flex flex-col items-center justify-center py-12 md:py-16 lg:py-20 px-0"
+  style={{ background: '#5791ED', minHeight: '500px' }}
 >
 
-      <div className="text-center mb-8">
-        <h1 className="text-5xl font-bold text-white mb-4">
+      <div className="text-center mb-8 w-full px-4">
+        <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
           Placement Success Stories
         </h1>
-        <p className="text-xl text-white/90 max-w-2xl mx-auto">
+        <p className="text-sm md:text-lg lg:text-xl text-white/90 max-w-2xl mx-auto">
           Hear what our successful candidates have to say about their journey with us
         </p>
       </div>
@@ -159,7 +159,7 @@ export default function TestimonialSlider() {
 {/* 🟩 Shift cards slightly upward */}
 
 {/* Desktop carousel - hidden on small screens */}
-<div className="hidden sm:block relative w-full max-w-7xl h-80 -mt-12">
+<div className="hidden sm:block relative w-full max-w-7xl h-80 -mt-12 px-4">
   {testimonials.map((testimonial, index) => {
     const style = getCardStyle(index);
     return (
@@ -205,9 +205,17 @@ export default function TestimonialSlider() {
 </div>
 
 {/* Mobile stacked list with matching card styles */}
-    <div className="sm:hidden -mt-6 space-y-3 w-full max-w-4xl mx-auto">
-  {testimonials.map((t) => (
-    <div key={t.id} className="bg-white rounded-lg shadow p-2 sm:p-4 flex items-center gap-3 sm:gap-4 border border-blue-50">
+    <div className="sm:hidden -mt-6 space-y-3 w-full max-w-4xl mx-auto px-4">
+  {testimonials.map((t, index) => (
+    <div 
+      key={t.id} 
+      className={`bg-white rounded-lg shadow p-2 sm:p-4 flex items-center gap-3 sm:gap-4 border border-blue-50 transition-all duration-500 ${
+        index === currentIndex ? 'scale-105 shadow-xl border-blue-300' : 'scale-100'
+      }`}
+      style={{
+        animation: `slideInUp 0.5s ease-out ${index * 0.1}s both`
+      }}
+    >
       <img src={t.image} alt={t.name} className="w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 border-blue-600 object-cover" />
       <div className="min-w-0">
         <div className="font-semibold text-xs sm:text-sm text-gray-900 truncate">{t.name}</div>
@@ -217,6 +225,19 @@ export default function TestimonialSlider() {
     </div>
   ))}
 </div>
+
+<style jsx>{`
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`}</style>
 
 {/* Bring note text closer to cards */}
 

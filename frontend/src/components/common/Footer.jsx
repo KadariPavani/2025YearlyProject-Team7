@@ -2,11 +2,11 @@ import { FaLinkedin, FaTwitter, FaGithub, FaInstagram, FaFacebookF } from "react
 
 const Footer = () => {
   return (
-    <footer className="bg-gray-100 text-gray-800 py-8 mt-auto border-t border-gray-200">
-      <div className="max-w-7xl mx-auto px-6 sm:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-8 items-start">
+    <footer className="w-full bg-gray-100 text-gray-800 py-8 mt-auto border-t border-gray-200">
+      <div className="w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-6 md:gap-8 items-start">
           
-          <div className="md:col-span-2">
+          <div className="sm:col-span-2 md:col-span-2">
             <div className="flex items-center space-x-3 mb-4">
                             <button
                 type="button"

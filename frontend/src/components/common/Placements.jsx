@@ -89,11 +89,11 @@ const Placements = () => {
   );
 
   return (
-    <div id="placements" style={{ textAlign: "center", padding: "40px", background: "#f5f5f5" }}>
+    <div id="placements" className="w-full py-10 px-0 md:px-6 lg:px-10" style={{ textAlign: "center", background: "#f5f5f5" }}>
       <style>{scrollLeft}</style>
       <style>{scrollRight}</style>
-      <h2 style={{ fontSize: "3rem", marginBottom: "10px" }}>Our Placements</h2>
-      <p style={{ fontSize: "1rem", marginBottom: "30px" }}>
+      <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold mb-3 px-4">Our Placements</h2>
+      <p className="text-sm md:text-base mb-6 px-4">
         We are proud to have collaborated with top companies globally.
       </p>
 
