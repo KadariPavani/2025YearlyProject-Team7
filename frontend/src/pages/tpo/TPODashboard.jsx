@@ -3,45 +3,101 @@ import { useNavigate } from 'react-router-dom';
 
 // Reusable Add/Edit Student form used by TPO (keeps UI inside this file for simplicity)
 function AddEditStudentForm({ batches = [], initial = {}, onSubmit, onClose }) {
+  // Keep a stable initial id ref so we don't overwrite user input on unrelated re-renders
+  const initialIdRef = useRef(initial?._id);
+
   const [form, setForm] = useState({
     name: initial.name || '',
     email: initial.email || '',
     rollNo: initial.rollNo || '',
     branch: initial.branch || '',
-    college: initial.college || (batches[0]?.colleges?.[0] || ''),
+    college: initial.college || '', // do NOT auto-select batch/college
     phonenumber: initial.phonenumber || '',
-    batchId: initial.batchId || (batches[0]?._id || '')
+    batchId: initial.batchId || '' // do NOT auto-select
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // Initialize form when the provided initial changes (i.e., edit mode), but do NOT reset while typing
   useEffect(() => {
-    setForm({
-      name: initial.name || '',
-      email: initial.email || '',
-      rollNo: initial.rollNo || '',
-      branch: initial.branch || '',
-      college: initial.college || (batches[0]?.colleges?.[0] || ''),
-      phonenumber: initial.phonenumber || '',
-      batchId: initial.batchId || (batches[0]?._id || '')
-    });
-  }, [initial, batches]);
+    const newInitialId = initial?._id;
+    if (newInitialId !== initialIdRef.current) {
+      setForm({
+        name: initial.name || '',
+        email: initial.email || '',
+        rollNo: initial.rollNo || '',
+        branch: initial.branch || '',
+        college: initial.college || '',
+        phonenumber: initial.phonenumber || '',
+        batchId: initial.batchId || ''
+      });
+      initialIdRef.current = newInitialId;
+    }
+  }, [initial]);
+
+  // Derive available colleges from batches (union of colleges across batches)
+  const collegeOptions = React.useMemo(() => {
+    const cols = new Set();
+    batches.forEach(b => (b.colleges || []).forEach(c => cols.add(c)));
+    return Array.from(cols);
+  }, [batches]);
+
+  // Available colleges depends on selected batch; default to the union list
+  const [availableColleges, setAvailableColleges] = React.useState(collegeOptions);
+
+  useEffect(() => {
+    setAvailableColleges(collegeOptions);
+  }, [collegeOptions]);
 
   const branches = ['AID','CSM','CAI','CSD','CSC'];
 
   const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
+  const handleBatchChange = (batchId) => {
+    handleChange('batchId', batchId);
+    const batch = batches.find(b => String(b._id) === String(batchId));
+    if (batch && batch.colleges && batch.colleges.length > 0) {
+      setAvailableColleges(batch.colleges);
+      if (form.college && !batch.colleges.includes(form.college)) {
+        handleChange('college', '');
+      }
+    } else {
+      setAvailableColleges(collegeOptions);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e && e.preventDefault();
     // Basic validation
-    if (!form.name || !form.email || !form.rollNo || !form.batchId) {
-      alert('Please fill name, email, roll number, and select batch');
+    if (!form.name || !form.email || !form.rollNo || !form.batchId || !form.college) {
+      alert('Please fill name, email, roll number, select college and batch');
       return;
     }
+
+    // Simple email check
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    // If a batch is selected, ensure the chosen college belongs to that batch
+    if (form.batchId) {
+      const batch = batches.find(b => String(b._id) === String(form.batchId));
+      if (batch && batch.colleges && batch.colleges.length > 0) {
+        if (!form.college || !batch.colleges.includes(form.college)) {
+          alert('Selected college does not belong to the chosen batch. Please select the correct college.');
+          return;
+        }
+      }
+    }
+
     setSubmitting(true);
     try {
       const res = await onSubmit(form);
       setSubmitting(false);
       if (res && res.success) {
         onClose && onClose();
+      } else if (res && res.message) {
+        alert(res.message);
       }
     } catch (err) {
       setSubmitting(false);
@@ -61,7 +117,16 @@ function AddEditStudentForm({ batches = [], initial = {}, onSubmit, onClose }) {
           {branches.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
         <input value={form.phonenumber} onChange={(e) => handleChange('phonenumber', e.target.value)} placeholder="Phone" className="w-full px-3 py-2 border rounded" />
-        <select value={form.batchId} onChange={(e) => handleChange('batchId', e.target.value)} className="w-full px-3 py-2 border rounded">
+        <select value={form.college} onChange={(e) => handleChange('college', e.target.value)} className="w-full px-3 py-2 border rounded">
+          <option value="">Select College</option>
+          {availableColleges.length === 0 ? (
+            <option value="" disabled>No colleges available (select a batch first)</option>
+          ) : (
+            availableColleges.map(c => <option key={c} value={c}>{c}</option>)
+          )}
+        </select>
+
+        <select value={form.batchId} onChange={(e) => handleBatchChange(e.target.value)} className="w-full px-3 py-2 border rounded">
           <option value="">Select Batch</option>
           {batches.map(batch => (
             <option key={batch._id} value={batch._id}>{batch.batchNumber} {batch.colleges ? `(${batch.colleges.join(',')})` : ''}</option>
@@ -3056,67 +3121,6 @@ const getRequestTypeColor = (type) => {
           </div>
         </div>
       )}
-
-      {/* Add/Edit Student Form component */}
-      {/**
-       * AddEditStudentForm props:
-       * - batches: list of batch objects (each should have _id and batchNumber)
-       * - initial: initial values for edit
-       * - onSubmit: async function(values) -> { success }
-       */}
-      {(() => {
-        function AddEditStudentForm({ batches = [], initial = {}, onSubmit }) {
-          const [form, setForm] = React.useState({
-            name: initial.name || '',
-            email: initial.email || '',
-            rollNo: initial.rollNo || '',
-            branch: initial.branch || '',
-            college: initial.college || (batches[0]?.colleges?.[0] || ''),
-            phonenumber: initial.phonenumber || '',
-            batchId: initial.batchId || (batches[0]?._id || '')
-          });
-          const [submitting, setSubmitting] = React.useState(false);
-
-          const branches = ['AID','CSM','CAI','CSD','CSC'];
-
-          const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
-
-          const handleSubmit = async (e) => {
-            e && e.preventDefault();
-            setSubmitting(true);
-            const res = await onSubmit(form);
-            setSubmitting(false);
-            return res;
-          };
-
-          return (
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input value={form.name} onChange={(e) => handleChange('name', e.target.value)} placeholder="Name" className="w-full px-3 py-2 border rounded" />
-                <input value={form.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="Email" className="w-full px-3 py-2 border rounded" />
-                <input value={form.rollNo} onChange={(e) => handleChange('rollNo', e.target.value)} placeholder="Roll No" className="w-full px-3 py-2 border rounded" />
-                <select value={form.branch} onChange={(e) => handleChange('branch', e.target.value)} className="w-full px-3 py-2 border rounded">
-                  <option value="">Select Branch</option>
-                  {branches.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-                <input value={form.phonenumber} onChange={(e) => handleChange('phonenumber', e.target.value)} placeholder="Phone" className="w-full px-3 py-2 border rounded" />
-                <select value={form.batchId} onChange={(e) => handleChange('batchId', e.target.value)} className="w-full px-3 py-2 border rounded">
-                  <option value="">Select Batch</option>
-                  {batches.map(batch => (
-                    <option key={batch._id} value={batch._id}>{batch.batchNumber} {batch.colleges ? `(${batch.colleges.join(',')})` : ''}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-2">
-                <button type="button" onClick={() => { setShowAddStudentModal(false); setShowEditStudentModal(false); setStudentToEdit(null); }} className="px-3 py-1.5 border rounded">Cancel</button>
-                <button type="submit" disabled={submitting} className="px-3 py-1.5 bg-blue-600 text-white rounded">{submitting ? 'Saving...' : 'Save'}</button>
-              </div>
-            </form>
-          );
-        }
-        return null;
-      })() }
       {/* Approval Detail Modal */}
       {showApprovalDetail && selectedApproval && (
         <ApprovalDetailModal
