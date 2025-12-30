@@ -28,11 +28,10 @@ import {
   updateProfile,
   checkPasswordChange,
 } from "../../services/generalAuthService";
-import axios from "axios";
+import api from '../../services/api';
 import ToastNotification from "../../components/ui/ToastNotification";
 import Header from "../../components/common/Header";
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
-
 const backendURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const emptyProject = {
@@ -114,7 +113,7 @@ const StudentProfile = () => {
   const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
   const [selectedEducationType, setSelectedEducationType] = useState("inter");
   const [selectedCRTBatch, setSelectedCRTBatch] = useState("");
-  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [pendingApprovals, setPendingApprovals] = useState({ pending: [], approved: [], rejected: [], totalPending: 0, requests: [] });
   const [availableCRTOptions, setAvailableCRTOptions] = useState([]);
   const [availableTechStacks, setAvailableTechStacks] = useState([]);
   const [showOptions, setShowOptions] = useState(false);
@@ -132,9 +131,14 @@ const StudentProfile = () => {
   useEffect(() => {
     const fetchAvailableTechStacks = async () => {
       try {
-        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/available-crt-options`);
+        const response = await api.get('/api/student/available-crt-options');
         if (response.data.success) {
-          setAvailableTechStacks(response.data.data.batchAllowedTechStacks);
+          // batchAllowedTechStacks is an array of tech stack names (not CRT batch names)
+          setAvailableTechStacks(response.data.data.batchAllowedTechStacks || []);
+          // also set availableCRTOptions if returned here (safe fallback)
+          if (response.data.data.availableOptions) {
+            setAvailableCRTOptions(response.data.data.availableOptions || []);
+          }
         }
       } catch (error) {
         console.error('Error fetching tech stacks:', error);
@@ -180,27 +184,25 @@ const StudentProfile = () => {
     try {
       setLoading(true);
       setError("");
-      const token = localStorage.getItem('userToken');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/profile`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const result = await response.json();
 
-      if (response.ok && result.success) {
-        setProfile(result.data);
-        setFormData(result.data);
-        setSelectedEducationType(result.data.academics?.educationType || "inter");
-        setSelectedCRTBatch(result.data.crtBatchChoice || "");
-        setAvailableCRTOptions(result.data.availableCRTOptions || ['NonCRT']);
+      const response = await getProfile('student');
+
+      if (response && response.data && response.data.success) {
+        const data = response.data.data;
+        setProfile(data);
+        setFormData(data);
+        setSelectedEducationType(data.academics?.educationType || "inter");
+        setSelectedCRTBatch(data.crtBatchChoice || "");
+        setAvailableCRTOptions(data.availableCRTOptions || ['NonCRT']);
 
         const userData = JSON.parse(localStorage.getItem('userData') || '{}');
         localStorage.setItem('userData', JSON.stringify({
           ...userData,
-          ...result.data
+          ...data
         }));
       } else {
-        setError(result.message || "Failed to fetch profile");
-        if (response.status === 401) {
+        setError((response && response.data && response.data.message) || "Failed to fetch profile");
+        if (response && response.status === 401) {
           localStorage.removeItem("userToken");
           localStorage.removeItem("userData");
           navigate("/student-login");
@@ -208,6 +210,12 @@ const StudentProfile = () => {
       }
     } catch (err) {
       console.error('Fetch profile error:', err);
+      if (err.response && err.response.status === 401) {
+        localStorage.removeItem('userToken');
+        localStorage.removeItem('userData');
+        navigate('/student-login');
+        return;
+      }
       setError(err?.message || "Failed to fetch profile");
     } finally {
       setLoading(false);
@@ -216,15 +224,12 @@ const StudentProfile = () => {
 
   const fetchPendingApprovals = async () => {
     try {
-      const token = localStorage.getItem('userToken');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/pending-approvals`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const data = await response.json();
-      if (data.success) {
-        setPendingApprovals(data.data);
+      const response = await api.get('/api/student/pending-approvals');
+      if (response.data.success) {
+        // Normalize backend shape to include `requests` for compatibility with UI
+        const dataObj = response.data.data || {};
+        dataObj.requests = dataObj.pending || [];
+        setPendingApprovals(dataObj);
       }
     } catch (error) {
       console.error('Error fetching approvals:', error);
@@ -287,33 +292,21 @@ const StudentProfile = () => {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('profileImage', file);
+    const payload = new FormData();
+    payload.append('profileImage', file);
     setUploadingImage(true);
 
     try {
-      const token = localStorage.getItem('userToken');
-      const response = await fetch(`${backendURL}/api/student/profile-image`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setFormData(prev => ({
-          ...prev,
-          profileImageUrl: data.data
-        }));
+      const resp = await api.post('/api/student/profile-image', payload);
+      if (resp.data && resp.data.success) {
+        setFormData(prev => ({ ...prev, profileImageUrl: resp.data.data }));
         setSuccess('Profile image uploaded successfully');
       } else {
-        throw new Error(data.message || 'Failed to upload image');
+        throw new Error(resp.data?.message || 'Failed to upload image');
       }
     } catch (err) {
-      setError(err.message || 'Error uploading profile image');
+      console.error('Upload profile image error:', err);
+      setError(err?.message || 'Error uploading profile image');
     } finally {
       setUploadingImage(false);
     }
@@ -338,34 +331,25 @@ const StudentProfile = () => {
       return;
     }
 
-    const formData = new FormData();
-    formData.append('resume', file);
+    const payload = new FormData();
+    payload.append('resume', file);
     setUploadingResume(true);
 
     try {
-      const token = localStorage.getItem('userToken');
-      const response = await fetch(`${backendURL}/api/student/resume`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
+      const resp = await api.post('/api/student/resume', payload);
+      if (resp.data && resp.data.success) {
         setFormData(prev => ({
           ...prev,
-          resumeUrl: data.data.url,
-          resumeFileName: data.data.fileName
+          resumeUrl: resp.data.data.url,
+          resumeFileName: resp.data.data.fileName
         }));
         setSuccess('Resume uploaded successfully');
       } else {
-        throw new Error(data.message || 'Failed to upload resume');
+        throw new Error(resp.data?.message || 'Failed to upload resume');
       }
     } catch (err) {
-      setError(err.message || 'Error uploading resume');
+      console.error('Upload resume error:', err);
+      setError(err?.message || 'Error uploading resume');
     } finally {
       setUploadingResume(false);
     }
@@ -434,12 +418,11 @@ const StudentProfile = () => {
       setError('');
       setSuccess('');
 
-      const token = localStorage.getItem('userToken');
       const student = profile;
 
-      const crtStatusChanged = formData.crtInterested !== undefined && 
+      const crtStatusChanged = formData.crtInterested !== undefined &&
                              formData.crtInterested !== student.crtInterested;
-      const crtBatchChanged = formData.crtBatchChoice !== undefined && 
+      const crtBatchChanged = formData.crtBatchChoice !== undefined &&
                             formData.crtBatchChoice !== student.crtBatchChoice;
 
       const hasChangesRequiringApproval = crtStatusChanged || crtBatchChanged;
@@ -460,40 +443,32 @@ const StudentProfile = () => {
         ...(crtBatchChanged ? { crtBatchChoice: formData.crtBatchChoice } : {})
       };
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/profile`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(dataToSend)
-      });
+      const response = await updateProfile('student', dataToSend);
 
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        setProfile(result.data);
-        setFormData(result.data);
-        setIsEditing(false);
-
+      if (response && response.data && response.data.success) {
+        const result = response.data;
+        // If backend returns requiresApproval flag
         if (result.requiresApproval) {
           setSuccess('Profile updated. Changes requiring approval have been sent to TPO for review.');
           await fetchPendingApprovals();
         } else {
+          setProfile(result.data);
+          setFormData(result.data);
+          setIsEditing(false);
           setSuccess('Profile updated successfully!');
         }
-
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        if (result.hasPendingApproval) {
+        const respData = response?.data || {};
+        if (respData.hasPendingApproval) {
           setError('You already have a pending approval request. Please wait for TPO review.');
         } else {
-          setError(result.message || 'Failed to update profile');
+          setError(respData.message || 'Failed to update profile');
         }
       }
     } catch (err) {
       console.error('Save error:', err);
-      setError('An error occurred while saving the profile. Please try again.');
+      setError(err.response?.data?.message || 'An error occurred while saving the profile. Please try again.');
     } finally {
       setLoading(false);
     }

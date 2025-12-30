@@ -482,6 +482,13 @@ useEffect(() => {
     fetchContests();
   }, []);
 
+  // Re-fetch approvals when the approvals tab is opened
+  useEffect(() => {
+    if (activeTab === 'approvals') {
+      fetchPendingApprovals();
+    }
+  }, [activeTab]);
+
   // Fetch active contests for student
   const fetchContests = async () => {
     try {
@@ -1022,32 +1029,7 @@ const studentId = studentData?.user?._id || studentData?._id;
             </div>
           )}
 
-          {/* Rejected Approvals Banner */}
-          {pendingApprovals && pendingApprovals.rejected && pendingApprovals.rejected.length > 0 && (
-            <div className="px-8 pb-4">
-              <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg shadow-sm">
-                <div className="flex items-start">
-                  <X className="h-5 w-5 text-red-400 mt-0.5" />
-                  <div className="ml-3 flex-1">
-                    <p className="text-sm font-medium text-red-800">
-                      Some of your requests were rejected
-                    </p>
-                    {pendingApprovals.rejected.slice(0, 2).map((approval, index) => (
-                      <p key={index} className="text-sm text-red-700 mt-1">
-                        • {approval.rejectionReason}
-                      </p>
-                    ))}
-                    <button
-                      onClick={() => setActiveTab('approvals')}
-                      className="mt-2 text-sm text-red-700 hover:text-red-900 font-semibold underline"
-                    >
-                      View All →
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+
 
           {/* Tab Navigation */}
           <div className="px-8">
@@ -1186,6 +1168,21 @@ const studentId = studentData?.user?._id || studentData?._id;
               >
                 <MessageSquare className="h-4 w-4 inline mr-1" />
                 Feedback
+              </button>
+
+              <button
+                onClick={() => setActiveTab('approvals')}
+                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
+                  activeTab === 'approvals'
+                    ? 'border-blue-700 text-blue-700 bg-blue-100'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                <AlertCircle className="h-4 w-4 inline mr-1" />
+                Approvals
+                {pendingApprovals && pendingApprovals.totalPending > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded">{pendingApprovals.totalPending}</span>
+                )}
               </button>
             </div>
           </div>
@@ -1702,6 +1699,118 @@ const studentId = studentData?.user?._id || studentData?._id;
           {activeTab === "calendar" && <StudentPlacementCalendar />}
           {activeTab === 'student-activity' && <StudentActivityView />}
           {activeTab === 'feedback' && <StudentFeedback />}
+
+          {/* Approvals Tab */}
+          {activeTab === 'approvals' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
+                <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <AlertCircle className="h-6 w-6 text-red-600" />
+                  Approval Requests
+                </h3>
+
+                {!pendingApprovals ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-xl">
+                    <p className="text-gray-500">Loading approvals...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Pending */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-3">Pending Requests ({pendingApprovals.pending.length})</h4>
+                      {pendingApprovals.pending.length === 0 ? (
+                        <div className="text-sm text-gray-500">No pending approval requests.</div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3">
+                          {pendingApprovals.pending.map((appr) => (
+                            <div key={appr._id || appr.approvalId} className="p-4 rounded-lg border border-orange-200 bg-orange-50">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <div className="font-semibold text-gray-900">{appr.requestType === 'crt_status_change' ? 'CRT Status Change' : appr.requestType.replace(/_/g, ' ')}</div>
+                                  <div className="text-sm text-gray-600">Requested at: {new Date(appr.requestedAt).toLocaleString()}</div>
+                                </div>
+                                <div className="text-sm text-orange-700 font-semibold">Pending</div>
+                              </div>
+                              <div className="mt-2 text-sm text-gray-700">
+                                {appr.requestedChanges?.crtInterested !== undefined && (
+                                  <div>Requested CRT Status: {appr.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}</div>
+                                )}
+                                {appr.requestedChanges?.crtBatchChoice && (
+                                  <div>Requested Batch: {appr.requestedChanges.crtBatchChoice}</div>
+                                )}
+                                {appr.requestedChanges?.techStack && (
+                                  <div>Requested Tech Stack: {appr.requestedChanges.techStack.join(', ')}</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Approved */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-3">Approved Requests ({pendingApprovals.approved.length})</h4>
+                      {pendingApprovals.approved.length === 0 ? (
+                        <div className="text-sm text-gray-500">No approved requests.</div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3">
+                          {pendingApprovals.approved.map((appr) => (
+                            <div key={appr._id || appr.approvalId} className="p-4 rounded-lg border border-green-200 bg-green-50">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <div className="font-semibold text-gray-900">{appr.requestType === 'crt_status_change' ? 'CRT Status Change' : appr.requestType.replace(/_/g, ' ')}</div>
+                                  <div className="text-sm text-gray-600">Requested at: {new Date(appr.requestedAt).toLocaleString()}</div>
+                                </div>
+                                <div className="text-sm text-green-700 font-semibold">Approved</div>
+                              </div>
+                              <div className="mt-2 text-sm text-gray-700">
+                                {appr.requestedChanges?.crtInterested !== undefined && (
+                                  <div>Requested CRT Status: {appr.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}</div>
+                                )}
+                                {appr.requestedChanges?.crtBatchChoice && (
+                                  <div>Assigned Batch: {appr.requestedChanges.crtBatchChoice}</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Rejected */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-3">Rejected Requests ({pendingApprovals.rejected.length})</h4>
+                      {pendingApprovals.rejected.length === 0 ? (
+                        <div className="text-sm text-gray-500">No rejected requests.</div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-3">
+                          {pendingApprovals.rejected.map((appr) => (
+                            <div key={appr._id || appr.approvalId} className="p-4 rounded-lg border border-red-200 bg-red-50">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <div className="font-semibold text-gray-900">{appr.requestType === 'crt_status_change' ? 'CRT Status Change' : appr.requestType.replace(/_/g, ' ')}</div>
+                                  <div className="text-sm text-gray-600">Requested at: {new Date(appr.requestedAt).toLocaleString()}</div>
+                                </div>
+                                <div className="text-sm text-red-700 font-semibold">Rejected</div>
+                              </div>
+                              <div className="mt-2 text-sm text-gray-700">
+                                <div><strong>Reason:</strong> {appr.rejectionReason || 'No reason provided'}</div>
+                                {appr.requestedChanges?.crtInterested !== undefined && (
+                                  <div>Requested CRT Status: {appr.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

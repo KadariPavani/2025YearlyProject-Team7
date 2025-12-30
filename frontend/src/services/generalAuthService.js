@@ -10,22 +10,33 @@ export const getDashboard = (userType) => {
   return api.get(`/api/auth/dashboard/${userType}`);
 };
 
-// TPO Profile functions
-export const getProfile = (userType) => {
-  return api.get(`/api/auth/profile/${userType}`);
+// Profile / password endpoints mapping helper
+const profileEndpoint = (userType) => {
+  switch (userType) {
+    case 'student':
+      return '/api/student/profile';
+    case 'admin':
+      return '/api/admin/profile';
+    default:
+      return `/api/auth/profile/${userType}`; // tpo, trainer, etc.
+  }
 };
 
-export const updateProfile = (userType, profileData) => {
-  return api.put(`/api/auth/profile/${userType}`, profileData);
+const checkPasswordEndpoint = (userType) => {
+  switch (userType) {
+    case 'student':
+      return '/api/student/check-password-change';
+    case 'admin':
+      return '/api/admin/check-password-change';
+    default:
+      return `/api/auth/check-password-change/${userType}`;
+  }
 };
 
-export const changePassword = (userType, passwordData) => {
-  return api.post(`/api/auth/change-password/${userType}`, passwordData);
-};
-
-export const checkPasswordChange = (userType) => {
-  return api.get(`/api/auth/check-password-change/${userType}`);
-};
+export const getProfile = (userType) => api.get(profileEndpoint(userType));
+export const updateProfile = (userType, profileData) => api.put(profileEndpoint(userType), profileData);
+export const changePassword = (userType, passwordData) => api.post(`/api/auth/change-password/${userType}`, passwordData);
+export const checkPasswordChange = (userType) => api.get(checkPasswordEndpoint(userType));
 
 export const forgotPassword = (userType, email) => {
   return api.post(`/api/auth/forgot-password/${userType}`, { email });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef  } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Reusable Add/Edit Student form used by TPO (keeps UI inside this file for simplicity)
@@ -689,9 +689,19 @@ const markAsRead = async (id) => {
           'Authorization': `Bearer ${token}`
         }
       });
+      
+      if (!response.ok) {
+        console.error('❌ Fetch approvals failed:', response.status, response.statusText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
+      console.log('📋 Fetched approvals:', data);
+      
       if (data.success) {
         setPendingApprovals(data.data.requests || []);
+      } else {
+        setError(data.message || 'Failed to fetch approvals');
       }
     } catch (error) {
       console.error('Error fetching approvals:', error);
@@ -702,11 +712,20 @@ const markAsRead = async (id) => {
   };
 
   // Handle approval
-  const handleApproveRequest = async (studentId, approvalId) => {
+  const handleApproveRequest = useCallback(async (studentId, approvalId) => {
+    console.log('🟢 Approve handler called:', { studentId, approvalId });
+    
+    if (!studentId || !approvalId) {
+      setError('Missing student or approval identifier');
+      console.error('❌ Missing IDs:', { studentId, approvalId });
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
       setMessage('');
+      console.log('📤 Sending approval request...');
 
       const token = localStorage.getItem('userToken');
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/approve-request`, {
@@ -723,9 +742,11 @@ const markAsRead = async (id) => {
       });
 
       const data = await response.json();
+      console.log('📥 Approval response:', { ok: response.ok, status: response.status, data });
 
-      if (response.ok) {
-        setMessage('Request approved successfully');
+      if (response.ok && data.success) {
+        setMessage(data.message || 'Request approved successfully');
+        console.log('✅ Approval successful, refreshing data...');
         // Refresh both approvals and batch data
         await Promise.all([
           fetchPendingApprovals(),
@@ -736,7 +757,7 @@ const markAsRead = async (id) => {
         setSelectedApproval(null);
       } else {
         setError(data.message || 'Failed to approve request');
-        console.error('Server response:', data);
+        console.error('❌ Approval failed:', data);
       }
     } catch (error) {
       console.error('Error approving request:', error);
@@ -744,19 +765,25 @@ const markAsRead = async (id) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Handle rejection
-  const handleRejectRequest = async () => {
-    if (!approvalToReject || !rejectionReason) {
+  const handleRejectRequest = async (providedReason) => {
+    const reasonToUse = typeof providedReason === 'string' ? providedReason : rejectionReason;
+
+    console.log('🔴 handleRejectRequest called, reason:', reasonToUse, 'approvalToReject:', approvalToReject);
+
+    if (!approvalToReject || !reasonToUse || !reasonToUse.trim()) {
       setError('Please provide a reason for rejection');
+      console.error('❌ Rejection aborted - missing data', { approvalToReject, reasonToUse });
       return;
     }
 
     try {
       setLoading(true);
+      console.log('📤 Sending rejection request...');
       const token = localStorage.getItem('userToken');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/approve-request`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/reject-request`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -765,21 +792,21 @@ const markAsRead = async (id) => {
         body: JSON.stringify({
           studentId: approvalToReject.student.id,
           approvalId: approvalToReject.approvalId,
-          action: 'reject',
-          rejectionReason
-        }),
-        credentials: 'include' // Add this to include cookies
+          rejectionReason: reasonToUse
+        })
       });
 
       const data = await response.json();
+      console.log('📥 Rejection response:', { ok: response.ok, status: response.status, data });
 
-      if (response.ok) {
+      if (response.ok && data.success) {
         setMessage('Request rejected successfully');
-        fetchPendingApprovals(); // Refresh the approvals list
+        console.log('✅ Rejection successful, refreshing data...');
+        await fetchPendingApprovals(); // Refresh the approvals list
         closeRejectModal();
       } else {
         setError(data.message || 'Failed to reject request');
-        console.error('Server response:', data);
+        console.error('❌ Rejection failed:', data);
       }
     } catch (error) {
       console.error('Error rejecting request:', error);
@@ -789,16 +816,19 @@ const markAsRead = async (id) => {
     }
   };
 
-  const openRejectModal = (approval) => {
+  const openRejectModal = useCallback((approval) => {
+    console.log('🔴 Opening reject modal for:', approval);
+    // Close approval detail panel to avoid interaction issues
+    setShowApprovalDetail(false);
     setApprovalToReject(approval);
     setShowRejectModal(true);
-  };
+  }, []);
 
-  const closeRejectModal = () => {
+  const closeRejectModal = useCallback(() => {
     setShowRejectModal(false);
     setRejectionReason('');
     setApprovalToReject(null);
-  };
+  }, []);
 
 
   const getFilteredStudents = () => {
@@ -1458,9 +1488,11 @@ const markAsRead = async (id) => {
   }
 
 
-  // Approval Detail Modal Component
+  // Approval Detail Modal Component - Now a dropdown panel
   const ApprovalDetailModal = ({ approval, onClose, onApprove, onReject }) => {
-    if (!approval || !['crt_status_change', 'batch_change'].includes(approval.requestType)) return null;
+    if (!approval || !['crt_status_change', 'batch_change'].includes(approval.requestType)) {
+      return null;
+    }
 
 const getRequestTypeLabel = (type) => {
   const labels = {
@@ -1481,9 +1513,12 @@ const getRequestTypeColor = (type) => {
 };
 
     return (
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-        <div className="relative w-full max-w-3xl bg-white rounded-lg shadow-2xl">
-          <div className={`bg-gradient-to-r ${getRequestTypeColor(approval.requestType)} px-6 py-4 rounded-t-lg flex justify-between items-center`}>
+      <div className="fixed inset-0 bg-black/20 z-50 flex items-start justify-center pt-4 px-4 overflow-y-auto">
+        <div 
+          className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl border-2 border-gray-200 mb-8"
+          style={{ maxHeight: 'calc(100vh - 2rem)' }}
+        >
+          <div className={`bg-gradient-to-r ${getRequestTypeColor(approval.requestType)} px-6 py-4 rounded-t-xl flex justify-between items-center sticky top-0 z-10`}>
             <div>
               <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                 <AlertCircle className="h-6 w-6" />
@@ -1492,6 +1527,7 @@ const getRequestTypeColor = (type) => {
               <p className="text-white/90 text-sm mt-1">{getRequestTypeLabel(approval.requestType)}</p>
             </div>
             <button
+              type="button"
               onClick={onClose}
               className="p-2 hover:bg-white/20 rounded-lg transition-colors text-white"
             >
@@ -1499,7 +1535,7 @@ const getRequestTypeColor = (type) => {
             </button>
           </div>
 
-          <div className="p-4 sm:p-6 space-y-6">
+          <div className="p-6 space-y-6 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 12rem)' }}>
             {/* Student Information */}
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -1660,18 +1696,34 @@ const getRequestTypeColor = (type) => {
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-4 border-t border-gray-200">
+            {/* Action Buttons - Sticky Footer */}
+            <div className="sticky bottom-0 bg-white border-t-2 border-gray-200 px-6 py-4 rounded-b-xl flex gap-3">
               <button
-                onClick={() => onApprove(approval.student.id, approval.approvalId)}
-                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
+                type="button"
+                onMouseUp={() => {
+                  console.log('🖱️ Approve mouseUp triggered', approval.approvalId);
+                  if (typeof onApprove === 'function') onApprove(approval.student.id, approval.approvalId);
+                }}
+                onClick={() => {
+                  console.log('✅ Approving (click fallback):', approval.student.id, approval.approvalId);
+                  if (typeof onApprove === 'function') onApprove(approval.student.id, approval.approvalId);
+                }}
+                className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors font-semibold flex items-center justify-center gap-2 shadow-md"
               >
                 <CheckCircle className="h-5 w-5" />
                 Approve Request
               </button>
               <button
-                onClick={() => onReject(approval)}
-                className="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-colors font-semibold flex items-center justify-center gap-2 shadow-sm"
+                type="button"
+                onMouseUp={() => {
+                  console.log('🖱️ Reject mouseUp triggered', approval.approvalId);
+                  if (typeof onReject === 'function') onReject(approval);
+                }}
+                onClick={() => {
+                  console.log('❌ Rejecting (click fallback):', approval);
+                  if (typeof onReject === 'function') onReject(approval);
+                }}
+                className="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 active:bg-red-800 transition-colors font-semibold flex items-center justify-center gap-2 shadow-md"
               >
                 <X className="h-5 w-5" />
                 Reject Request
@@ -1683,8 +1735,24 @@ const getRequestTypeColor = (type) => {
     );
   };
 
-  // Reject Modal Component
-  const RejectModal = ({ approval, onClose, onConfirm, reason, setReason }) => {
+  // Reject Modal Component (uses local state to avoid parent re-renders interfering with input)
+  const RejectModal = ({ approval, onClose, onConfirm }) => {
+    const [localReason, setLocalReason] = useState('');
+    const textareaRef = useRef(null);
+
+    useEffect(() => {
+      setLocalReason('');
+      // Autofocus textarea after modal opens and move caret to end
+      setTimeout(() => {
+        const el = textareaRef.current;
+        if (el) {
+          el.focus();
+          const len = el.value?.length || 0;
+          try { el.setSelectionRange(len, len); } catch (e) { /* ignore */ }
+        }
+      }, 50);
+    }, [approval]);
+
     if (!approval) return null;
 
     return (
@@ -1704,10 +1772,23 @@ const getRequestTypeColor = (type) => {
             </p>
 
             <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              ref={textareaRef}
+              value={localReason}
+              onFocus={() => console.log('📝 Reject textarea focused')}
+              onClick={() => console.log('🖱️ Reject textarea clicked')}
+              onMouseDown={() => console.log('👇 Reject textarea mouseDown')}
+              onInput={(e) => {
+                // onInput can capture composition correctly for IME
+                console.log('✍️ Reject textarea input:', e.target.value);
+                setLocalReason(e.target.value);
+              }}
+              onChange={(e) => {
+                console.log('✍️ Reject textarea change:', e.target.value);
+                setLocalReason(e.target.value);
+              }}
               placeholder="Enter rejection reason..."
               className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+              style={{ direction: 'ltr' }}
               rows={4}
             />
 
@@ -1715,13 +1796,30 @@ const getRequestTypeColor = (type) => {
               <button
                 onClick={onClose}
                 className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                type="button"
               >
                 Cancel
               </button>
               <button
-                onClick={onConfirm}
-                disabled={!reason.trim()}
+                onMouseDown={(e) => {
+                  console.log('👇 Confirm mouseDown');
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (typeof onConfirm === 'function' && localReason && localReason.trim()) {
+                    console.log('🖱️ Calling onConfirm from mouseDown (fallback)');
+                    onConfirm(localReason);
+                  }
+                }}
+                onMouseUp={() => { console.log('👆 Confirm mouseUp'); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🗳️ Confirm rejection clicked (click). reason:', localReason);
+                  if (typeof onConfirm === 'function' && localReason && localReason.trim()) onConfirm(localReason);
+                }}
+                disabled={!localReason.trim()}
                 className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                type="button"
               >
                 Confirm Rejection
               </button>
@@ -3038,8 +3136,6 @@ const getRequestTypeColor = (type) => {
           approval={approvalToReject}
           onClose={closeRejectModal}
           onConfirm={handleRejectRequest}
-          reason={rejectionReason}
-          setReason={setRejectionReason}
         />
       )}
     </div>
