@@ -1,38 +1,51 @@
 // src/components/ui/ToastNotification.jsx
-import { useEffect } from 'react';
-import '../../styles/ToastNotifications.css';
-import { CheckCircle, AlertCircle, X } from 'lucide-react';
+import { useEffect, useState } from "react";
+import "../../styles/ToastNotifications.css";
+import { CheckCircle, AlertCircle, X } from "lucide-react";
 
-export default function ToastNotification({ type, message, onClose, duration = 4000 }) {
-  const bgColor = type === 'success' ? 'bg-green-600' : 'bg-red-600';
-  const Icon = type === 'success' ? CheckCircle : AlertCircle;
+export default function ToastNotification({
+  type = "success",
+  message,
+  onClose,
+  duration = 4000,
+}) {
+  const [state, setState] = useState("enter"); // enter | exit
 
-  // 🕒 Auto-close after 'duration' ms
   useEffect(() => {
     if (!message) return;
+
     const timer = setTimeout(() => {
-      onClose?.();
+      setState("exit");
     }, duration);
+
     return () => clearTimeout(timer);
-  }, [message, duration, onClose]);
+  }, [message, duration]);
+
+  useEffect(() => {
+    if (state === "exit") {
+      const exitTimer = setTimeout(() => {
+        onClose?.();
+      }, 300); // must match exit animation
+      return () => clearTimeout(exitTimer);
+    }
+  }, [state, onClose]);
+
+  if (!message) return null;
+
+  const Icon = type === "success" ? CheckCircle : AlertCircle;
+  const bg = type === "success" ? "bg-green-600" : "bg-red-600";
 
   return (
     <div
-      className={`fixed top-[80px] right-4 z-50 flex flex-col space-y-1 rounded-md p-3 shadow-lg text-white ${bgColor} animate-slide-in w-96`}
+      className={`toast-final ${bg} toast-${state}`}
+      role="status"
+      aria-live="polite"
     >
-      <div className="flex items-center justify-between space-x-2">
-        <Icon className="w-5 h-5" />
-        <p className="font-medium flex-1">{message}</p>
-        <button onClick={onClose} className="focus:outline-none">
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* ⏳ Progress bar animation */}
-      <div
-        className="h-1 rounded bg-white bg-opacity-70 animate-loading-bar"
-        style={{ animationDuration: `${duration}ms` }}
-      ></div>
+      <Icon className="toast-icon" />
+      <span className="toast-text">{message}</span>
+      <button onClick={() => setState("exit")} className="toast-close">
+        <X />
+      </button>
     </div>
   );
 }
