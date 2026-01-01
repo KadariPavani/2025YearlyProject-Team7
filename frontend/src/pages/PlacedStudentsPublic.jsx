@@ -7,7 +7,6 @@ export default function PlacedStudentsPublic() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [serverMessage, setServerMessage] = useState('');
 
   const fetchRef = useRef(null);
 
@@ -21,13 +20,7 @@ export default function PlacedStudentsPublic() {
         setLoading(true);
         const res = await axios.get(`${API_BASE}/api/public/placed-students`, { params: { limit: 1000 }, signal: controller.signal });
         if (res.data && res.data.success) {
-          const studentsList = res.data.data.students || [];
-          setStudents(studentsList);
-          if ((studentsList.length === 0 || res.data.data.total === 0) && res.data.message) {
-            setServerMessage(res.data.message);
-          } else {
-            setServerMessage('');
-          }
+          setStudents(res.data.data.students || []);
         } else {
           setError(res.data?.message || 'Failed to fetch');
         }
@@ -94,13 +87,7 @@ export default function PlacedStudentsPublic() {
         ) : error ? (
           <div className="py-8 text-center text-red-600">{error}</div>
         ) : students.length === 0 ? (
-          <div className="py-8 text-center text-gray-600">
-            {serverMessage ? (
-              <div className="text-sm">{serverMessage} — check the backend's environment and database connection.</div>
-            ) : (
-              'No placed students found'
-            )}
-          </div>
+          <div className="py-8 text-center text-gray-600">No placed students found</div>
         ) : (
           Object.keys(grouped).sort().map(batchName => (
             <div key={batchName} className="mb-8">
