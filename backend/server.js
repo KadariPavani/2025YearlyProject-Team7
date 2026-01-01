@@ -101,6 +101,7 @@ const studentActivityRoutes = require('./routes/studentActivityRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const contactRoutes = require("./routes/contactRoutes");
 const contestsRoutes = require('./routes/contests');
+const publicRoutes = require('./routes/publicRoutes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -120,6 +121,9 @@ app.use('/api/references', referenceRoutes);
 app.use('/api/student-activity', studentActivityRoutes);
 app.use('/api/contests', contestsRoutes);
 app.use("/api", contactRoutes);
+
+// Public routes (no auth required)
+app.use('/api/public', publicRoutes);
 
 
 

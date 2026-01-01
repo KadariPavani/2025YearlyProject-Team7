@@ -1,57 +1,40 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
-export default function TestimonialSlider() {
+export default function PlacedStudents() {
   const [currentIndex, setCurrentIndex] = useState(2);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const testimonials = [
-    {
-      id: 1,
-      name: "Sarah Williams",
-      role: "UI Designer",
-      rollNumber: "18CS1001",
-      text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Minus veniam repudiatur dolectus, est allis recusantibus.",
-      image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop"
-    },
-    {
-      id: 2,
-      name: "Jessica Jones",
-      role: "Frontend Engineer",
-      rollNumber: "18CS1002",
-      text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Minus veniam repudiatur dolectus, est allis recusantibus.",
-      image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop"
-    },
-    {
-      id: 3,
-      name: "Mark Smith",
-      role: "Backend Engineer",
-      rollNumber: "18CS1003",
-      text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Minus veniam repudiatur dolectus, est allis recusantibus.",
-      image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop"
-    },
-    {
-      id: 4,
-      name: "Emily Davis",
-      role: "Data Scientist",
-      rollNumber: "18CS1004",
-      text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Minus veniam repudiatur dolectus, est allis recusantibus.",
-      image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop"
-    },
-    {
-      id: 5,
-      name: "John Carter",
-      role: "DevOps Engineer",
-      rollNumber: "18CS1005",
-      text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Minus veniam repudiatur dolectus, est allis recusantibus.",
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop"
-    }
-  ];
+  // Fetch recent placed students for landing page (public endpoint)
+  useEffect(() => {
+    let mounted = true;
+    const fetchPlaced = async () => {
+      try {
+        setLoading(true);
+        const res = await axios.get('/api/public/placed-students?limit=6');
+        if (mounted && res.data && res.data.success) {
+          setStudents(res.data.data.students || []);
+        }
+      } catch (err) {
+        console.error('Error fetching public placed students:', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    fetchPlaced();
+    return () => { mounted = false; };
+  }, []);
+
 
   const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % testimonials.length);
+    if (students.length === 0) return;
+    setCurrentIndex((prev) => (prev + 1) % students.length);
   };
 
   const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+    if (students.length === 0) return;
+    setCurrentIndex((prev) => (prev - 1 + students.length) % students.length);
   };
 
   const getCardStyle = (index) => {
@@ -59,10 +42,10 @@ export default function TestimonialSlider() {
     let position;
 
     if (diff === 0) position = 0;
-    else if (diff === 1 || diff === -(testimonials.length - 1)) position = 1;
-    else if (diff === -1 || diff === testimonials.length - 1) position = -1;
-    else if (diff === 2 || diff === -(testimonials.length - 2)) position = 2;
-    else if (diff === -2 || diff === testimonials.length - 2) position = -2;
+    else if (diff === 1 || diff === -(students.length - 1)) position = 1;
+    else if (diff === -1 || diff === students.length - 1) position = -1;
+    else if (diff === 2 || diff === -(students.length - 2)) position = 2;
+    else if (diff === -2 || diff === students.length - 2) position = -2;
     else position = 3;
 
     if (position === 0) {
@@ -125,20 +108,21 @@ export default function TestimonialSlider() {
     }
   };
 
-  // 🕒 Auto-slide effect
+  // 🕒 Auto-slide effect (only when we have students)
   useEffect(() => {
+    if (students.length === 0) return;
     const interval = setInterval(() => {
       nextSlide();
-    }, 3000); // slides every 3 seconds
+    }, 3000);
 
     return () => clearInterval(interval);
-  }, [currentIndex]);
+  }, [students]);
 
   // 🎹 Keyboard navigation
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [currentIndex]);
+  }, [students]);
 
   return (
 <section
@@ -147,86 +131,109 @@ export default function TestimonialSlider() {
   style={{ background: '#5791ED', minHeight: '500px' }}
 >
 
-      <div className="text-center mb-8 w-full px-4">
-        <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white mb-4">
-          Placement Success Stories
-        </h1>
-        <p className="text-sm md:text-lg lg:text-xl text-white/90 max-w-2xl mx-auto">
-          Hear what our successful candidates have to say about their journey with us
-        </p>
+      <div className="text-center mb-6 w-full px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="text-left w-full sm:w-auto">
+          <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white mb-2">
+            Placement Success Stories
+          </h1>
+          <p className="text-sm md:text-lg lg:text-xl text-white/90 max-w-2xl">
+            Hear what our successful candidates have to say about their journey with us
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <a
+            href="/placed-students"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-3 py-2 bg-white text-blue-600 rounded-md shadow hover:opacity-95 transition"
+          >
+            View All Students
+          </a>
+        </div>
       </div>
 
 {/* 🟩 Shift cards slightly upward */}
 
 {/* Desktop carousel - hidden on small screens */}
 <div className="hidden sm:block relative w-full max-w-7xl h-80 -mt-12 px-4">
-  {testimonials.map((testimonial, index) => {
+  {students.map((s, index) => {
     const style = getCardStyle(index);
     return (
       <div
-        key={testimonial.id}
+        key={`${s.studentId || s.rollNumber}-${index}`}
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md transition-all duration-700 ease-in-out cursor-pointer"
         style={style}
         onClick={() => handleCardClick(index)}
       >
         <div
-          className={`rounded-2xl shadow-2xl p-8 text-center transition-all duration-700 ${
+          className={`rounded-2xl shadow-2xl p-6 text-center transition-all duration-700 ${
             index === currentIndex ? 'bg-white scale-105' : 'bg-blue-200'
           }`}
         >
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-4">
             <img
-              src={testimonial.image}
-              alt={testimonial.name}
-              className="w-40 h-40 rounded-full border-4 border-blue-600 object-cover"
+              src={s.profileImageUrl || 'https://ui-avatars.com/api/?background=1e40af&color=fff&name=' + encodeURIComponent(s.name)}
+              alt={s.name}
+              className="w-32 h-32 rounded-full border-4 border-blue-600 object-cover"
             />
           </div>
 
           <h3
-            className={`font-semibold text-2xl mb-1 ${
+            className={`font-semibold text-xl sm:text-2xl mb-1 ${
               index === currentIndex ? 'text-gray-900' : 'text-blue-900'
             }`}
           >
-            {testimonial.name}
+            {s.name}
           </h3>
 
-          <div
-            className="text-sm mb-3"
-            style={{
-              color: index === currentIndex ? '#374151' : '#1e3a8a',
-            }}
-          >
-            {testimonial.role} &nbsp;•&nbsp; Roll No: {testimonial.rollNumber}
+          <div className="text-sm mb-3" style={{ color: index === currentIndex ? '#374151' : '#1e3a8a' }}>
+            <div className="font-medium">{s.companyName}</div>
+            <div className="text-xs">Roll No: {s.rollNumber}</div>
+            <div className="text-xs">Batch: {s.batchName || 'NA'}</div>
           </div>
         </div>
       </div>
     );
   })}
+
+  {/* Controls (optional) */}
+  <button aria-label="Previous" onClick={prevSlide} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-2 shadow">
+    &larr;
+  </button>
+  <button aria-label="Next" onClick={nextSlide} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-2 shadow">
+    &rarr;
+  </button>
 </div>
 
 {/* Mobile stacked list with matching card styles */}
     <div className="sm:hidden -mt-6 space-y-3 w-full max-w-4xl mx-auto px-4">
-  {testimonials.map((t, index) => (
-    <div 
-      key={t.id} 
-      className={`bg-white rounded-lg shadow p-2 sm:p-4 flex items-center gap-3 sm:gap-4 border border-blue-50 transition-all duration-500 ${
-        index === currentIndex ? 'scale-105 shadow-xl border-blue-300' : 'scale-100'
-      }`}
-      style={{
-        animation: `slideInUp 0.5s ease-out ${index * 0.1}s both`
-      }}
-    >
-      <img src={t.image} alt={t.name} className="w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 border-blue-600 object-cover" />
-      <div className="min-w-0">
-        <div className="font-semibold text-xs sm:text-sm text-gray-900 truncate">{t.name}</div>
-        <div className="text-xs sm:text-sm text-gray-600 truncate">{t.role} • Roll No: {t.rollNumber}</div>
-        <p className="text-sm text-gray-700 mt-2 hidden">{t.text}</p>
+  {loading ? (
+    <div className="text-center py-6 text-white">Loading…</div>
+  ) : students.length === 0 ? (
+    <div className="text-center py-6 text-white">No placed students yet</div>
+  ) : (
+    students.map((t, index) => (
+      <div 
+        key={`${t.studentId || t.rollNumber}-${index}`} 
+        className={`bg-white rounded-lg shadow p-2 sm:p-4 flex items-center gap-3 sm:gap-4 border border-blue-50 transition-all duration-500 ${
+          index === currentIndex ? 'scale-105 shadow-xl border-blue-300' : 'scale-100'
+        }`}
+        style={{
+          animation: `slideInUp 0.5s ease-out ${index * 0.05}s both`
+        }}
+      >
+        <img src={t.profileImageUrl || 'https://ui-avatars.com/api/?background=1e40af&color=fff&name=' + encodeURIComponent(t.name)} alt={t.name} className="w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 border-blue-600 object-cover" />
+        <div className="min-w-0">
+          <div className="font-semibold text-xs sm:text-sm text-gray-900 truncate">{t.name}</div>
+          <div className="text-[11px] sm:text-sm text-gray-600 truncate">{t.companyName} • Roll No: {t.rollNumber}</div>          <div className="text-xs sm:text-sm text-gray-500 mt-1">Batch: {t.batchName || 'NA'}</div>          <div className="text-xs sm:text-sm text-gray-500 mt-1">Hometown: {t.hometown || 'NA'}</div>
+        </div>
       </div>
-    </div>
-  ))}
+    ))
+  )}
 </div>
 
-<style jsx>{`
+<style>{`
   @keyframes slideInUp {
     from {
       opacity: 0;

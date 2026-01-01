@@ -20,6 +20,7 @@ import AddTPOPage from './pages/admin/AddTPOPage';
 import AddAdmin from './pages/admin/AddAdmin';
 // import ViewAdmins from './pages/admin/ViewAdmins';
 import ContactPage from "./pages/ContactPage";
+import PlacedStudentsPublic from './pages/PlacedStudentsPublic';
 
 // Import the dashboard components
 import TPODashboard from './pages/tpo/TPODashboard';
@@ -668,6 +669,7 @@ function App() {
               <Route path="/add-admin" element={<AddAdmin />} />
               {/* <Route path="/view-admins" element={<ViewAdmins />} /> */}
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/placed-students" element={<PlacedStudentsPublic />} />
               <Route
                 path="/admin/students"
                 element={
