@@ -7,6 +7,7 @@ export default function PlacedStudents() {
   const [currentIndex, setCurrentIndex] = useState(2);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [serverMessage, setServerMessage] = useState('');
 
   // Fetch recent placed students for landing page (public endpoint)
   const fetchRef = useRef(null);
@@ -20,7 +21,14 @@ export default function PlacedStudents() {
         setLoading(true);
         const res = await axios.get(`${API_BASE}/api/public/placed-students`, { params: { limit: 6 }, signal: controller.signal });
         if (res.data && res.data.success) {
-          setStudents(res.data.data.students || []);
+          const studentsList = res.data.data.students || [];
+          setStudents(studentsList);
+          // If backend returned an informative message or empty result due to service fallback, surface it
+          if ((studentsList.length === 0 || res.data.data.total === 0) && res.data.message) {
+            setServerMessage(res.data.message);
+          } else {
+            setServerMessage('');
+          }
         }
       } catch (err) {
         if (err?.code === 'ERR_CANCELED') return;
@@ -220,7 +228,13 @@ export default function PlacedStudents() {
   {loading ? (
     <div className="text-center py-6 text-white">Loading…</div>
   ) : students.length === 0 ? (
-    <div className="text-center py-6 text-white">No placed students yet</div>
+    <div className="text-center py-6 text-white">
+      {serverMessage ? (
+        <div className="text-sm">{serverMessage} — check backend logs or environment configuration.</div>
+      ) : (
+        'No placed students yet'
+      )}
+    </div>
   ) : (
     students.map((t, index) => (
       <div 

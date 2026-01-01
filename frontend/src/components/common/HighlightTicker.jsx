@@ -26,7 +26,13 @@ const HighlightTicker = () => {
       ]);
 
       if (uRes.data?.success) setUpcoming(uRes.data.data.events || []);
-      if (rRes.data?.success) setRecent(rRes.data.data.students || []);
+      if (rRes.data?.success) {
+        const recentStudents = rRes.data.data.students || [];
+        setRecent(recentStudents);
+        if ((recentStudents.length === 0 || rRes.data.data.total === 0) && rRes.data.message) {
+          setError(rRes.data.message);
+        }
+      }
     } catch (err) {
       if (err?.code === 'ERR_CANCELED') return; // request was cancelled
       console.error('Ticker fetch error:', err);
