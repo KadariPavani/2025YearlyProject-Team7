@@ -27,10 +27,14 @@ app.use(cookieParser());
 // Configure CORS to support multiple frontend URLs (comma-separated) and local dev origins
 const allowedOrigins = [
   ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(s => s.trim()) : []),
+  // Vercel provides VERCEL_URL at deploy-time, add it automatically so backend accepts requests from the deployed frontend
+  ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
   'http://localhost:5173',
   'http://localhost:5174',
   'http://localhost:5176'
 ].filter(Boolean);
+
+console.log('Allowed CORS origins:', allowedOrigins); // log for deployment diagnostics
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -38,7 +42,9 @@ app.use(cors({
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     console.warn('Blocked CORS origin:', origin);
-    return callback(new Error('Not allowed by CORS'));
+    const err = new Error('Not allowed by CORS');
+    err.status = 403;
+    return callback(err);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

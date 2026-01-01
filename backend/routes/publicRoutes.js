@@ -2,11 +2,23 @@ const express = require('express');
 const router = express.Router();
 
 const Calendar = require('../models/Calendar');
+const mongoose = require('mongoose');
+
+// Helper: ensure DB is connected before running public queries
+const ensureDbConnected = (res) => {
+  if (mongoose.connection.readyState !== 1) {
+    console.error('DB not connected, state:', mongoose.connection.readyState);
+    res.status(503).json({ success: false, message: 'Database not connected' });
+    return false;
+  }
+  return true;
+};
 
 // Public endpoint: get recent placed students across all events
 // Query params: limit (number of students to return)
 router.get('/placed-students', async (req, res) => {
   try {
+    if (!ensureDbConnected(res)) return; // Return 503 if DB disconnected
     const limit = parseInt(req.query.limit, 10) || 8;
 
     // Fetch recent events with selected students, newest first
@@ -61,14 +73,15 @@ router.get('/placed-students', async (req, res) => {
 
     res.json({ success: true, message: 'Public placed students fetched', data: { students: unique.slice(0, limit), total: unique.length } });
   } catch (error) {
-    console.error('Public placed-students error:', error);
-    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    console.error('Public placed-students error:', error?.message, error?.stack);
+    res.status(500).json({ success: false, message: 'Server error', error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
   }
 });
 
 // Public: upcoming events (companies scheduled)
 router.get('/upcoming-events', async (req, res) => {
   try {
+    if (!ensureDbConnected(res)) return; // Return 503 if DB disconnected
     const limit = parseInt(req.query.limit, 10) || 5;
     const now = new Date();
 
@@ -88,8 +101,8 @@ router.get('/upcoming-events', async (req, res) => {
 
     res.json({ success: true, message: 'Upcoming events fetched', data: { events: results } });
   } catch (error) {
-    console.error('Error fetching upcoming events:', error);
-    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    console.error('Error fetching upcoming events:', error?.message, error?.stack);
+    res.status(500).json({ success: false, message: 'Server error', error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
   }
 });
 

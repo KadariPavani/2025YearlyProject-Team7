@@ -19,8 +19,10 @@ const HighlightTicker = () => {
       if (uRes.data?.success) setUpcoming(uRes.data.data.events || []);
       if (rRes.data?.success) setRecent(rRes.data.data.students || []);
     } catch (err) {
+      // Provide a clearer error label including HTTP status when available
       console.error('Ticker fetch error:', err);
-      setError('Could not load highlights');
+      const status = err?.response?.status;
+      setError(status ? `Could not load highlights (server ${status})` : 'Could not load highlights');
     }
   };
 
