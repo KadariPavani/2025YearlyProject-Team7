@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000');
+console.log('[PlacedStudents] Using API_BASE:', API_BASE);
 
 export default function PlacedStudents() {
   const [currentIndex, setCurrentIndex] = useState(2);
@@ -18,13 +19,23 @@ export default function PlacedStudents() {
 
       try {
         setLoading(true);
-        const res = await axios.get(`${API_BASE}/api/public/placed-students`, { params: { limit: 6 }, signal: controller.signal });
+        const res = await axios.get(`${API_BASE}/api/public/placed-students`, { 
+          params: { limit: 6 }, 
+          signal: controller.signal,
+          withCredentials: true
+        });
+        console.log('[PlacedStudents] Fetched data:', res.data);
         if (res.data && res.data.success) {
           setStudents(res.data.data.students || []);
         }
       } catch (err) {
         if (err?.code === 'ERR_CANCELED') return;
-        console.error('Error fetching public placed students:', err);
+        console.error('[PlacedStudents] Fetch error:', {
+          message: err.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+          url: err?.config?.url
+        });
       } finally {
         setLoading(false);
         if (fetchRef.current === controller) fetchRef.current = null;

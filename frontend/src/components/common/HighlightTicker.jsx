@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000');
+console.log('[HighlightTicker] Using API_BASE:', API_BASE);
 
 const HighlightTicker = () => {
   const [upcoming, setUpcoming] = useState([]);
@@ -21,15 +22,29 @@ const HighlightTicker = () => {
 
     try {
       const [uRes, rRes] = await Promise.all([
-        axios.get(`${API_BASE}/api/public/upcoming-events`, { params: { limit: 6 }, signal: controller.signal }),
-        axios.get(`${API_BASE}/api/public/placed-students`, { params: { limit: 10 }, signal: controller.signal })
+        axios.get(`${API_BASE}/api/public/upcoming-events`, { 
+          params: { limit: 6 }, 
+          signal: controller.signal,
+          withCredentials: true
+        }),
+        axios.get(`${API_BASE}/api/public/placed-students`, { 
+          params: { limit: 10 }, 
+          signal: controller.signal,
+          withCredentials: true
+        })
       ]);
+      console.log('[HighlightTicker] Fetched data:', { upcoming: uRes.data, recent: rRes.data });
 
       if (uRes.data?.success) setUpcoming(uRes.data.data.events || []);
       if (rRes.data?.success) setRecent(rRes.data.data.students || []);
     } catch (err) {
       if (err?.code === 'ERR_CANCELED') return; // request was cancelled
-      console.error('Ticker fetch error:', err);
+      console.error('[HighlightTicker] Fetch error:', {
+        message: err.message,
+        status: err?.response?.status,
+        data: err?.response?.data,
+        url: err?.config?.url
+      });
       const status = err?.response?.status;
       setError(status ? `Could not load highlights (server ${status})` : 'Could not load highlights');
     } finally {
