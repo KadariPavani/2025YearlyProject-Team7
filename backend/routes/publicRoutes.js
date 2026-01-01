@@ -4,21 +4,30 @@ const router = express.Router();
 const Calendar = require('../models/Calendar');
 const mongoose = require('mongoose');
 
-// Helper: ensure DB is connected before running public queries
-const ensureDbConnected = (res) => {
-  if (mongoose.connection.readyState !== 1) {
-    console.error('DB not connected, state:', mongoose.connection.readyState);
-    res.status(503).json({ success: false, message: 'Database not connected' });
-    return false;
+// Helper: check DB connection state (do not send a response here)
+const ensureDbConnected = () => {
+  if (mongoose.connection.readyState === 1) return true;
+  console.warn('DB not connected (readyState=' + mongoose.connection.readyState + ')');
+  return false;
+};
+
+// Helper: send a graceful fallback response for public endpoints when DB is unreachable
+const sendPublicFallback = (res, type) => {
+  console.warn(`DB unreachable - sending empty fallback for public endpoint: ${type}`);
+  if (type === 'placed-students') {
+    return res.json({ success: true, message: 'Service temporarily unavailable', data: { students: [], total: 0 } });
   }
-  return true;
+  if (type === 'upcoming-events') {
+    return res.json({ success: true, message: 'Service temporarily unavailable', data: { events: [] } });
+  }
+  return res.json({ success: true, message: 'Service temporarily unavailable', data: {} });
 };
 
 // Public endpoint: get recent placed students across all events
 // Query params: limit (number of students to return)
 router.get('/placed-students', async (req, res) => {
   try {
-    if (!ensureDbConnected(res)) return; // Return 503 if DB disconnected
+    if (!ensureDbConnected()) return sendPublicFallback(res, 'placed-students'); // graceful fallback
     const limit = parseInt(req.query.limit, 10) || 8;
 
     // Fetch recent events with selected students, newest first
@@ -81,7 +90,7 @@ router.get('/placed-students', async (req, res) => {
 // Public: upcoming events (companies scheduled)
 router.get('/upcoming-events', async (req, res) => {
   try {
-    if (!ensureDbConnected(res)) return; // Return 503 if DB disconnected
+    if (!ensureDbConnected()) return sendPublicFallback(res, 'upcoming-events'); // graceful fallback
     const limit = parseInt(req.query.limit, 10) || 5;
     const now = new Date();
 
