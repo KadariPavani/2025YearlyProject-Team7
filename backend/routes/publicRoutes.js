@@ -4,30 +4,44 @@ const router = express.Router();
 const Calendar = require('../models/Calendar');
 const mongoose = require('mongoose');
 
-// Helper: check DB connection state (do not send a response here)
-const ensureDbConnected = () => {
-  if (mongoose.connection.readyState === 1) return true;
-  console.warn('DB not connected (readyState=' + mongoose.connection.readyState + ')');
-  return false;
-};
-
-// Helper: send a graceful fallback response for public endpoints when DB is unreachable
-const sendPublicFallback = (res, type) => {
-  console.warn(`DB unreachable - sending empty fallback for public endpoint: ${type}`);
-  if (type === 'placed-students') {
-    return res.json({ success: true, message: 'Service temporarily unavailable', data: { students: [], total: 0 } });
+// Helper: Wait for DB connection (for serverless environments like Vercel)
+const ensureDbConnected = async (maxWaitMs = 5000) => {
+  const startTime = Date.now();
+  
+  // If already connected, return immediately
+  if (mongoose.connection.readyState === 1) {
+    return true;
   }
-  if (type === 'upcoming-events') {
-    return res.json({ success: true, message: 'Service temporarily unavailable', data: { events: [] } });
-  }
-  return res.json({ success: true, message: 'Service temporarily unavailable', data: {} });
+  
+  console.log('[publicRoutes] DB not ready, waiting for connection... readyState:', mongoose.connection.readyState);
+  
+  // Wait for connection with timeout
+  return new Promise((resolve) => {
+    const checkConnection = setInterval(() => {
+      if (mongoose.connection.readyState === 1) {
+        clearInterval(checkConnection);
+        console.log('[publicRoutes] DB connected successfully');
+        resolve(true);
+      } else if (Date.now() - startTime > maxWaitMs) {
+        clearInterval(checkConnection);
+        console.error('[publicRoutes] DB connection timeout after', maxWaitMs, 'ms');
+        resolve(false);
+      }
+    }, 100);
+  });
 };
 
 // Public endpoint: get recent placed students across all events
 // Query params: limit (number of students to return)
 router.get('/placed-students', async (req, res) => {
   try {
-    if (!ensureDbConnected()) return sendPublicFallback(res, 'placed-students'); // graceful fallback
+    // Wait for DB connection (important for serverless)
+    const isConnected = await ensureDbConnected();
+    if (!isConnected) {
+      console.error('[publicRoutes] DB connection failed for placed-students');
+      return res.json({ success: true, message: 'Database connection unavailable', data: { students: [], total: 0 } });
+    }
+    
     const limit = parseInt(req.query.limit, 10) || 8;
 
     // Fetch recent events with selected students, newest first
@@ -90,7 +104,13 @@ router.get('/placed-students', async (req, res) => {
 // Public: upcoming events (companies scheduled)
 router.get('/upcoming-events', async (req, res) => {
   try {
-    if (!ensureDbConnected()) return sendPublicFallback(res, 'upcoming-events'); // graceful fallback
+    // Wait for DB connection (important for serverless)
+    const isConnected = await ensureDbConnected();
+    if (!isConnected) {
+      console.error('[publicRoutes] DB connection failed for upcoming-events');
+      return res.json({ success: true, message: 'Database connection unavailable', data: { events: [] } });
+    }
+    
     const limit = parseInt(req.query.limit, 10) || 5;
     const now = new Date();
 
