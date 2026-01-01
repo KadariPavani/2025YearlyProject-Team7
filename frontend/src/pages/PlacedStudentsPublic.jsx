@@ -1,33 +1,39 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState, useRef } from 'react';
+import api from '../services/api';
 
 export default function PlacedStudentsPublic() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const fetchRef = useRef(null);
+
   useEffect(() => {
-    let mounted = true;
     const fetchAll = async () => {
+      if (fetchRef.current) fetchRef.current.abort();
+      const controller = new AbortController();
+      fetchRef.current = controller;
+
       try {
         setLoading(true);
-        const res = await axios.get('/api/public/placed-students?limit=1000');
-        if (mounted) {
-          if (res.data && res.data.success) {
-            setStudents(res.data.data.students || []);
-          } else {
-            setError(res.data?.message || 'Failed to fetch');
-          }
+        const res = await api.get('/api/public/placed-students', { params: { limit: 1000 }, signal: controller.signal });
+        if (res.data && res.data.success) {
+          setStudents(res.data.data.students || []);
+        } else {
+          setError(res.data?.message || 'Failed to fetch');
         }
       } catch (err) {
+        if (err?.code === 'ERR_CANCELED') return;
         console.error('Error fetching all placed students:', err);
-        if (mounted) setError('Error fetching data');
+        setError('Error fetching data');
       } finally {
-        if (mounted) setLoading(false);
+        setLoading(false);
+        if (fetchRef.current === controller) fetchRef.current = null;
       }
     };
+
     fetchAll();
-    return () => { mounted = false; };
+    return () => { if (fetchRef.current) fetchRef.current.abort(); };
   }, []);
 
   // derive filter lists

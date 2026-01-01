@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
+import { useEffect, useState, useRef } from 'react';
+import api from '../../services/api';
 
 const HighlightTicker = () => {
   const [upcoming, setUpcoming] = useState([]);
@@ -9,27 +9,39 @@ const HighlightTicker = () => {
   // Announce latest update for screen readers (combined)
   const [announcement, setAnnouncement] = useState('');
 
+  const fetchRef = useRef(null);
+
   const fetchData = async () => {
+    // Cancel any ongoing request before starting a new one
+    if (fetchRef.current) fetchRef.current.abort();
+    const controller = new AbortController();
+    fetchRef.current = controller;
+
     try {
       const [uRes, rRes] = await Promise.all([
-        axios.get('/api/public/upcoming-events?limit=6'),
-        axios.get('/api/public/placed-students?limit=10')
+        api.get('/api/public/upcoming-events', { params: { limit: 6 }, signal: controller.signal }),
+        api.get('/api/public/placed-students', { params: { limit: 10 }, signal: controller.signal })
       ]);
 
       if (uRes.data?.success) setUpcoming(uRes.data.data.events || []);
       if (rRes.data?.success) setRecent(rRes.data.data.students || []);
     } catch (err) {
-      // Provide a clearer error label including HTTP status when available
+      if (err?.code === 'ERR_CANCELED') return; // request was cancelled
       console.error('Ticker fetch error:', err);
       const status = err?.response?.status;
       setError(status ? `Could not load highlights (server ${status})` : 'Could not load highlights');
+    } finally {
+      if (fetchRef.current === controller) fetchRef.current = null;
     }
   };
 
   useEffect(() => {
     fetchData();
     const timer = setInterval(fetchData, 30000); // refresh every 30s
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      if (fetchRef.current) fetchRef.current.abort();
+    };
   }, []);
 
   // Respect reduced-motion: if user prefers reduced motion, show compact list without animation

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useRef } from 'react';
+import api from '../../services/api';
 
 export default function PlacedStudents() {
   const [currentIndex, setCurrentIndex] = useState(2);
@@ -7,23 +7,30 @@ export default function PlacedStudents() {
   const [loading, setLoading] = useState(false);
 
   // Fetch recent placed students for landing page (public endpoint)
+  const fetchRef = useRef(null);
   useEffect(() => {
-    let mounted = true;
     const fetchPlaced = async () => {
+      if (fetchRef.current) fetchRef.current.abort();
+      const controller = new AbortController();
+      fetchRef.current = controller;
+
       try {
         setLoading(true);
-        const res = await axios.get('/api/public/placed-students?limit=6');
-        if (mounted && res.data && res.data.success) {
+        const res = await api.get('/api/public/placed-students', { params: { limit: 6 }, signal: controller.signal });
+        if (res.data && res.data.success) {
           setStudents(res.data.data.students || []);
         }
       } catch (err) {
+        if (err?.code === 'ERR_CANCELED') return;
         console.error('Error fetching public placed students:', err);
       } finally {
-        if (mounted) setLoading(false);
+        setLoading(false);
+        if (fetchRef.current === controller) fetchRef.current = null;
       }
     };
+
     fetchPlaced();
-    return () => { mounted = false; };
+    return () => { if (fetchRef.current) fetchRef.current.abort(); };
   }, []);
 
 
