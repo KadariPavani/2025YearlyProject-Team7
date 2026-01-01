@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
-import api from '../../services/api';
+import axios from 'axios';
+
+const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000');
 
 const HighlightTicker = () => {
   const [upcoming, setUpcoming] = useState([]);
@@ -19,8 +21,8 @@ const HighlightTicker = () => {
 
     try {
       const [uRes, rRes] = await Promise.all([
-        api.get('/api/public/upcoming-events', { params: { limit: 6 }, signal: controller.signal }),
-        api.get('/api/public/placed-students', { params: { limit: 10 }, signal: controller.signal })
+        axios.get(`${API_BASE}/api/public/upcoming-events`, { params: { limit: 6 }, signal: controller.signal }),
+        axios.get(`${API_BASE}/api/public/placed-students`, { params: { limit: 10 }, signal: controller.signal })
       ]);
 
       if (uRes.data?.success) setUpcoming(uRes.data.data.events || []);

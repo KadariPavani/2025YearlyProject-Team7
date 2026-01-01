@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import api from '../services/api';
+import axios from 'axios';
+
+const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000');
 
 export default function PlacedStudentsPublic() {
   const [students, setStudents] = useState([]);
@@ -16,7 +18,7 @@ export default function PlacedStudentsPublic() {
 
       try {
         setLoading(true);
-        const res = await api.get('/api/public/placed-students', { params: { limit: 1000 }, signal: controller.signal });
+        const res = await axios.get(`${API_BASE}/api/public/placed-students`, { params: { limit: 1000 }, signal: controller.signal });
         if (res.data && res.data.success) {
           setStudents(res.data.data.students || []);
         } else {
