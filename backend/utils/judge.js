@@ -3,11 +3,20 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// Import external judge API for serverless environments
+const { runSubmissionExternal } = require('./judge0Api');
+
 // CRITICAL: Use /tmp for Vercel serverless environment
 // Vercel provides writable /tmp directory for serverless functions
 const TEMP_DIR = process.env.VERCEL === '1' 
   ? '/tmp' 
   : path.join(__dirname, '..', 'temp');
+
+// Detect if we're in a serverless/deployment environment without compilers
+// Force external API usage when deployed (Vercel, Netlify, etc.)
+const USE_EXTERNAL_JUDGE = process.env.VERCEL === '1' || 
+                          process.env.USE_EXTERNAL_JUDGE === 'true' ||
+                          process.env.NODE_ENV === 'production';
 
 // Ensure temp directory exists
 if (!fs.existsSync(TEMP_DIR)) {
@@ -100,6 +109,30 @@ function normalizeOutput(s) {
 }
 
 async function runSubmission({ language, code, testCases = [], timeLimit = 2000, memoryLimit = 256000 }) {
+  // Check if we should use external judge (for deployment environments)
+  if (USE_EXTERNAL_JUDGE) {
+    console.log('[judge] 🌐 Using external API (deployment mode) for language:', language);
+    try {
+      return await runSubmissionExternal({ language, code, testCases, timeLimit, memoryLimit });
+    } catch (error) {
+      console.error('[judge] ❌ External API failed:', error.message);
+      // For JavaScript, we can still fall back to local execution
+      if (['javascript', 'js', 'node'].includes(language)) {
+        console.log('[judge] ⚠️ Falling back to local Node.js execution for JavaScript');
+        // Continue with local execution below
+      } else {
+        return {
+          compilationError: `External judge API failed: ${error.message}. Please try again or contact support.`,
+          testCaseResults: [],
+          totalTime: 0
+        };
+      }
+    }
+  }
+
+  // LOCAL EXECUTION (for localhost/development)
+  console.log('[judge] 💻 Using local compilers (development mode) for language:', language);
+  
   // timeLimit in ms
   // memoryLimit in KB (not enforced here, just metadata)
   const results = [];
