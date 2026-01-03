@@ -139,16 +139,17 @@ api.interceptors.response.use(
       }
 
       // Otherwise, clear stored session data and redirect appropriately
+      localStorage.removeItem('token');
       localStorage.removeItem('userToken');
       localStorage.removeItem('userData');
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminData');
+      localStorage.removeItem('trainerToken');
+      localStorage.removeItem('trainerData');
 
       if (path.includes('admin')) {
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminData');
         window.location.href = '/super-admin-login';
       } else if (path.includes('trainer')) {
-        localStorage.removeItem('trainerToken');
-        localStorage.removeItem('trainerData');
         window.location.href = '/trainer-login';
       } else {
         window.location.href = '/';

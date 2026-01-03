@@ -670,6 +670,19 @@ const updateProfile = async (req, res) => {
 // @access  Private
 const logout = async (req, res) => {
   try {
+    // Clear auth cookie if set
+    try {
+      res.clearCookie('token', {
+        httpOnly: true,
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+      });
+    } catch (e) {
+      // non-fatal: clearing cookie failed
+      console.warn('Failed to clear token cookie on logout:', e && (e.message || e));
+    }
+
     return ok(res, { success: true, message: 'Logged out successfully' });
   } catch (error) {
     return serverError(res, 'Logout failed');

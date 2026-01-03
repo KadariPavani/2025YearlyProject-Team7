@@ -628,6 +628,18 @@ const getAdminDashboard = async (req, res) => {
 // @access  Private
 const logoutAdmin = async (req, res) => {
   try {
+    // Clear cookie token if present
+    try {
+      res.clearCookie('token', {
+        httpOnly: true,
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+      });
+    } catch (e) {
+      console.warn('Failed to clear token cookie on admin logout:', e && (e.message || e));
+    }
+
     res.status(200).json({
       success: true,
       message: 'Logged out successfully'

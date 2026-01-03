@@ -352,10 +352,16 @@ router.put('/change-password', generalAuth, async (req, res) => {
 // @access Private
 router.post('/logout', generalAuth, async (req, res) => {
   try {
-    res.cookie('token', 'none', {
-      expires: new Date(Date.now() + 10 * 1000),
-      httpOnly: true
-    });
+    try {
+      res.clearCookie('token', {
+        httpOnly: true,
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+      });
+    } catch (e) {
+      console.warn('Failed to clear token cookie on trainer logout:', e && (e.message || e));
+    }
 
     res.status(200).json({ success: true, message: 'Trainer logged out successfully' });
   } catch (error) {

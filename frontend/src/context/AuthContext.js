@@ -115,7 +115,29 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        authService.logout();
+        // Call server to notify logout, then clear all client-side session tokens
+        try {
+            authService.logout();
+        } catch (e) {
+            console.warn('Logout request failed (non-fatal):', e && (e.message || e));
+        }
+
+        // Clear all known token keys and session data
+        try {
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('userData');
+            localStorage.removeItem('token');
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminData');
+            localStorage.removeItem('trainerToken');
+            localStorage.removeItem('trainerData');
+            localStorage.removeItem('coordinatorToken');
+            localStorage.removeItem('coordinatorData');
+            sessionStorage.removeItem('adminEmail');
+          } catch (e) {
+            console.warn('Failed to clear local/session storage on logout:', e && (e.message || e));
+        }
+
         dispatch({ type: 'LOGOUT' });
     };
 

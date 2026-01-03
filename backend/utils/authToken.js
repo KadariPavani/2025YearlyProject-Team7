@@ -8,7 +8,11 @@ const getTokenFromRequest = (req) => {
   }
   if (req.cookies && req.cookies.token) {
     const cookieToken = String(req.cookies.token || '').trim();
-    if (cookieToken) return cookieToken;
+    // Ignore placeholder cookie values set during logout or by misconfigured clients
+    const invalidTokenPlaceholders = ['', 'none', 'null', 'undefined'];
+    if (cookieToken && !invalidTokenPlaceholders.includes(cookieToken.toLowerCase())) {
+      return cookieToken;
+    }
   }
   return null;
 };
