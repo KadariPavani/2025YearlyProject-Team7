@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const mongoose = require('mongoose');
 
 dotenv.config();
 
@@ -51,6 +52,21 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   optionsSuccessStatus: 200,
 }));
+
+// Middleware: Ensure a DB connection is available for serverless invocations
+app.use(async (req, res, next) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      console.warn('DB connection state is', mongoose.connection.readyState, '- attempting reconnect');
+      await connectDB();
+      console.log('DB reconnection completed');
+    }
+  } catch (err) {
+    console.error('DB reconnection attempt failed:', err && (err.message || err));
+    // proceed to let handlers return appropriate errors; this avoids blocking requests indefinitely
+  }
+  return next();
+});
 
 // Health check endpoint (crucial for serverless monitoring)
 app.get('/health', (req, res) => {

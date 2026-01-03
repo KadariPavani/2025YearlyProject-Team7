@@ -19,9 +19,25 @@ const connectDB = async () => {
       bufferCommands: true, // Enable buffering for serverless to handle slow connections
     };
 
-    const conn = await mongoose.connect(process.env.MONGO_URI, opts);
+    // Retry logic for serverless cold-starts and transient network issues
+    let conn;
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        conn = await mongoose.connect(process.env.MONGO_URI, opts);
+        console.log(`✅ MongoDB Connected (attempt ${attempt}): ${conn.connection.host}`);
+        break;
+      } catch (err) {
+        console.error(`MongoDB connect attempt ${attempt} failed:`, err && (err.message || err));
+        if (attempt < maxRetries) {
+          // Backoff before retrying
+          await new Promise(res => setTimeout(res, 1000 * attempt));
+        } else {
+          throw err;
+        }
+      }
+    }
 
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
     console.log(`📊 Connection State: ${mongoose.connection.readyState}`);
 
     // Cache the connection
