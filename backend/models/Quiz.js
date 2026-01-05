@@ -57,38 +57,39 @@ quizSchema.methods.canStudentAccess = function(student) {
 // Returns an object with allowed:boolean and reason:string for diagnostics
 quizSchema.methods.checkStudentAccess = function(student) {
   const now = new Date();
-  const [startHours, startMinutes] = this.startTime.split(':').map(Number);
-  const [endHours, endMinutes] = this.endTime.split(':').map(Number);
 
-  // Helper that builds start/end Date for two interpretations:
-  // 1) Treat scheduledDate as UTC date (use UTC components)
-  // 2) Treat scheduledDate as local date (use local components)
-  const buildWindowUTC = () => {
+  // PREFER explicit scheduledStart/scheduledEnd if they exist (these are already UTC datetimes)
+  let quizStart, quizEnd;
+  
+  if (this.scheduledStart && this.scheduledEnd) {
+    quizStart = new Date(this.scheduledStart);
+    quizEnd = new Date(this.scheduledEnd);
+    
+    // Sanity check: if end is before start, add a day
+    if (quizEnd <= quizStart) {
+      quizEnd = new Date(quizEnd.getTime() + 24 * 60 * 60 * 1000);
+    }
+  } else {
+    // FALLBACK: compute from scheduledDate + startTime/endTime
+    const [startHours, startMinutes] = (this.startTime || '00:00').split(':').map(Number);
+    const [endHours, endMinutes] = (this.endTime || '00:00').split(':').map(Number);
+    
     const sd = new Date(this.scheduledDate);
+    // Use UTC components to avoid timezone shifts in serverless environments
     const y = sd.getUTCFullYear();
     const m = sd.getUTCMonth();
     const d = sd.getUTCDate();
-    const start = new Date(Date.UTC(y, m, d, startHours, startMinutes, 0));
-    let end = new Date(Date.UTC(y, m, d, endHours, endMinutes, 0));
-    if (end <= start) end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
-    return { start, end, interpret: 'utc' };
-  };
-
-  const buildWindowLocal = () => {
-    const sd = new Date(this.scheduledDate);
-    const y = sd.getFullYear();
-    const m = sd.getMonth();
-    const d = sd.getDate();
-    const start = new Date(y, m, d, startHours, startMinutes, 0);
-    let end = new Date(y, m, d, endHours, endMinutes, 0);
-    if (end <= start) end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
-    return { start, end, interpret: 'local' };
-  };
-
-  const windows = [buildWindowUTC(), buildWindowLocal()];
+    
+    quizStart = new Date(Date.UTC(y, m, d, startHours, startMinutes, 0));
+    quizEnd = new Date(Date.UTC(y, m, d, endHours, endMinutes, 0));
+    
+    if (quizEnd <= quizStart) {
+      quizEnd = new Date(quizEnd.getTime() + 24 * 60 * 60 * 1000);
+    }
+  }
 
   const statusActive = this.status === 'active';
-  const withinAnyWindow = windows.some(w => now >= w.start && now <= w.end);
+  const withinTimeWindow = now >= quizStart && now <= quizEnd;
 
   const inRegular = this.batchType !== 'placement' && 
     student.batchId && 
@@ -98,10 +99,9 @@ quizSchema.methods.checkStudentAccess = function(student) {
     student.placementTrainingBatchId && 
     this.assignedPlacementBatches.map(id => id.toString()).includes(student.placementTrainingBatchId.toString());
 
-  if (!statusActive || !withinAnyWindow) {
-    // Log both windows to help debug deployment timezone mismatches
-    console.warn(`[Quiz Access TIME] quiz:${this._id} now:${now.toISOString()} windows:${windows.map(w => `{${w.interpret}:${w.start.toISOString()}->${w.end.toISOString()}}`).join(',')}`);
-    return { allowed: false, reason: 'time', windows };
+  if (!statusActive || !withinTimeWindow) {
+    console.warn(`[Quiz Access TIME] quiz:${this._id} now:${now.toISOString()} start:${quizStart.toISOString()} end:${quizEnd.toISOString()} hasExplicit:${!!(this.scheduledStart && this.scheduledEnd)}`);
+    return { allowed: false, reason: 'time', details: { now: now.toISOString(), start: quizStart.toISOString(), end: quizEnd.toISOString() } };
   }
 
   if (!inRegular && !inPlacement) {

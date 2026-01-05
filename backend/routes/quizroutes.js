@@ -758,4 +758,48 @@ router.get('/:id/batch-progress', generalAuth, async (req, res) => {
   }
 });
 
+// ADMIN/TRAINER: Backfill scheduledStart/scheduledEnd for existing quizzes
+router.post('/backfill-scheduled-times', generalAuth, async (req, res) => {
+  try {
+    const trainerId = req.user.id;
+    
+    // Find quizzes without explicit scheduledStart/scheduledEnd
+    const quizzes = await Quiz.find({
+      trainerId,
+      $or: [
+        { scheduledStart: { $exists: false } },
+        { scheduledStart: null },
+        { scheduledEnd: { $exists: false } },
+        { scheduledEnd: null }
+      ]
+    });
+
+    let updated = 0;
+    for (const quiz of quizzes) {
+      if (!quiz.scheduledStart || !quiz.scheduledEnd) {
+        const sd = new Date(quiz.scheduledDate);
+        const [sh, sm] = (quiz.startTime || '00:00').split(':').map(Number);
+        const [eh, em] = (quiz.endTime || '00:00').split(':').map(Number);
+        
+        const scheduledStart = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate(), sh, sm, 0));
+        let scheduledEnd = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate(), eh, em, 0));
+        
+        if (scheduledEnd <= scheduledStart) {
+          scheduledEnd = new Date(scheduledEnd.getTime() + 24 * 60 * 60 * 1000);
+        }
+        
+        quiz.scheduledStart = scheduledStart;
+        quiz.scheduledEnd = scheduledEnd;
+        await quiz.save();
+        updated++;
+      }
+    }
+
+    res.json({ message: `Backfilled ${updated} quizzes with explicit scheduled times`, updated });
+  } catch (error) {
+    console.error('Error backfilling scheduled times:', error);
+    res.status(500).json({ message: 'Failed to backfill scheduled times' });
+  }
+});
+
 module.exports = router;
