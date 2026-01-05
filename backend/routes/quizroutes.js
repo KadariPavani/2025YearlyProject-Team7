@@ -247,11 +247,31 @@ router.post('/', generalAuth, async (req, res) => {
       console.debug(`[Quiz Create] normalized scheduledDate ${scheduledDate} -> ${normalizedScheduledDate.toISOString()}`);
     }
 
+    // Respect explicit scheduledStart / scheduledEnd if provided (ISO strings from frontend)
+    const scheduledStartISO = req.body.scheduledStart;
+    const scheduledEndISO = req.body.scheduledEnd;
+    let scheduledStartFinal = scheduledStartISO ? new Date(scheduledStartISO) : null;
+    let scheduledEndFinal = scheduledEndISO ? new Date(scheduledEndISO) : null;
+
+    // Fall back to computing datetimes (UTC) from normalizedScheduledDate and provided times
+    if (!scheduledStartFinal || isNaN(scheduledStartFinal)) {
+      const sd = normalizedScheduledDate instanceof Date ? normalizedScheduledDate : new Date(normalizedScheduledDate);
+      const [sh, sm] = (startTime || '00:00').split(':').map(Number);
+      const [eh, em] = (endTime || '00:00').split(':').map(Number);
+      scheduledStartFinal = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate(), sh, sm, 0));
+      scheduledEndFinal = new Date(Date.UTC(sd.getUTCFullYear(), sd.getUTCMonth(), sd.getUTCDate(), eh, em, 0));
+      if (scheduledEndFinal <= scheduledStartFinal) scheduledEndFinal = new Date(scheduledEndFinal.getTime() + 24 * 60 * 60 * 1000);
+    }
+
+    console.debug(`[Quiz Create] final windows scheduledStart:${scheduledStartFinal?.toISOString()} scheduledEnd:${scheduledEndFinal?.toISOString()}`);
+
     const quiz = new Quiz({
       title,
       description,
       subject,
       scheduledDate: normalizedScheduledDate,
+      scheduledStart: scheduledStartFinal,
+      scheduledEnd: scheduledEndFinal,
       startTime,
       endTime,
       duration,
@@ -404,7 +424,7 @@ router.get('/student/list', generalAuth, async (req, res) => {
         { path: 'assignedBatches', select: 'name' },
         { path: 'assignedPlacementBatches', select: 'batchNumber techStack year' }
       ])
-      .select('title subject totalMarks passingMarks scheduledDate startTime endTime duration submissions batchType')
+      .select('title subject totalMarks passingMarks scheduledDate scheduledStart scheduledEnd startTime endTime duration submissions batchType')
       .sort({ scheduledDate: 1 });
 
     // For each quiz, check if the student has submitted
@@ -423,6 +443,8 @@ router.get('/student/list', generalAuth, async (req, res) => {
         startTime: quiz.startTime,
         endTime: quiz.endTime,
         duration: quiz.duration,
+        scheduledStart: quiz.scheduledStart,
+        scheduledEnd: quiz.scheduledEnd,
         batchType: quiz.batchType,
         assignedBatches: quiz.assignedBatches,
         assignedPlacementBatches: quiz.assignedPlacementBatches,
@@ -470,6 +492,8 @@ router.get('/student/:id', generalAuth, async (req, res) => {
       description: quiz.description,
       subject: quiz.subject,
       scheduledDate: quiz.scheduledDate,
+      scheduledStart: quiz.scheduledStart,
+      scheduledEnd: quiz.scheduledEnd,
       startTime: quiz.startTime,
       endTime: quiz.endTime,
       duration: quiz.duration,

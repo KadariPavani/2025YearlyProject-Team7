@@ -250,11 +250,26 @@ const Quiz = () => {
       // Calculate total marks
       const totalMarks = formData.questions.reduce((sum, q) => sum + (parseInt(q.marks) || 1), 0);
       
+      // Compute explicit scheduled start / end datetimes (frontend local time -> convert to ISO UTC)
       const payload = {
         ...formData,
         totalMarks,
         passingMarks: formData.passingMarks || Math.ceil(totalMarks * 0.4) // Default 40% passing
       };
+
+      if (formData.scheduledDate && formData.startTime) {
+        const [y, m, d] = formData.scheduledDate.split('-').map(Number);
+        const [sh, sm] = (formData.startTime || '00:00').split(':').map(Number);
+        const [eh, em] = (formData.endTime || '00:00').split(':').map(Number);
+        const scheduledStartISO = new Date(y, m - 1, d, sh, sm, 0).toISOString();
+        let scheduledEndISO = new Date(y, m - 1, d, eh, em, 0).toISOString();
+        // If end-time precedes or equals start-time, assume next day
+        if (new Date(scheduledEndISO) <= new Date(scheduledStartISO)) {
+          scheduledEndISO = new Date(new Date(scheduledEndISO).getTime() + 24 * 60 * 60 * 1000).toISOString();
+        }
+        payload.scheduledStart = scheduledStartISO;
+        payload.scheduledEnd = scheduledEndISO;
+      }
 
       // DEBUG: Show payload batches so we can verify regular vs placement assignment
       console.log('DEBUG creating quiz payload', {

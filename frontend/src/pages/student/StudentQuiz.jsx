@@ -173,7 +173,20 @@ export default function StudentQuiz() {
   const getQuizStatus = (quiz) => {
     const now = new Date();
 
-    // Robustly obtain YYYY-MM-DD date part from scheduledDate (handles ISO and plain date strings)
+    // If explicit scheduled start/end are provided, use them (they are ISO datetimes in UTC)
+    if (quiz.scheduledStart && quiz.scheduledEnd) {
+      const start = new Date(quiz.scheduledStart);
+      let end = new Date(quiz.scheduledEnd);
+      if (end <= start) end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+
+      if (quiz.hasSubmitted) return { status: 'completed', color: 'bg-green-100 text-green-800', text: 'Completed' };
+      if (now > end) return { status: 'missed', color: 'bg-red-100 text-red-800', text: 'Missed' };
+      if (now >= start && now <= end) return { status: 'active', color: 'bg-blue-100 text-blue-800', text: 'Active Now' };
+      if (now < start) return { status: 'upcoming', color: 'bg-yellow-100 text-yellow-800', text: 'Upcoming' };
+      return { status: 'inactive', color: 'bg-gray-100 text-gray-800', text: 'Unavailable' };
+    }
+
+    // Fallback: use scheduledDate + startTime/endTime (legacy behavior)
     const scheduledDateRaw = quiz.scheduledDate;
     let datePart = '';
     if (typeof scheduledDateRaw === 'string' && scheduledDateRaw.length >= 10) {
@@ -300,7 +313,7 @@ export default function StudentQuiz() {
 
                         <div className="flex items-center">
                           <Calendar className="w-4 h-4 mr-2" />
-                          <span>{new Date(quiz.scheduledDate).toLocaleDateString()} • {quiz.startTime} - {quiz.endTime}</span>
+                          <span>{quiz.scheduledStart ? `${new Date(quiz.scheduledStart).toLocaleDateString()} • ${new Date(quiz.scheduledStart).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} - ${new Date(quiz.scheduledEnd).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}` : `${new Date(quiz.scheduledDate).toLocaleDateString()} • ${quiz.startTime} - ${quiz.endTime}`}</span>
                         </div>
 
                         <div className="flex items-center">

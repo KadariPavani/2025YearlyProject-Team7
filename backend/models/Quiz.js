@@ -5,6 +5,9 @@ const quizSchema = new mongoose.Schema({
   description: { type: String, trim: true },
   subject: { type: String, required: true, trim: true },
   scheduledDate: { type: Date, required: true },
+  // Preferred: explicit start/end datetimes (ISO UTC) set at creation to avoid timezone ambiguity
+  scheduledStart: { type: Date },
+  scheduledEnd: { type: Date },
   startTime: { type: String, required: true }, 
   endTime: { type: String, required: true }, 
   duration: { type: Number, required: true, min: 1 },
