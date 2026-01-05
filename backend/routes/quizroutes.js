@@ -447,9 +447,11 @@ router.get('/student/:id', generalAuth, async (req, res) => {
       return res.status(404).json({ message: 'Quiz or student not found' });
     }
 
-    // Check if student can access this quiz
-    if (!quiz.canStudentAccess(student)) {
-      return res.status(403).json({ message: 'You are not authorized to access this quiz' });
+    // Check if student can access this quiz (verbose)
+    const access = quiz.checkStudentAccess(student);
+    if (!access.allowed) {
+      console.warn(`[Quiz Access Denied] quiz:${quiz._id} student:${student._id} - access denied reason:${access.reason}`);
+      return res.status(403).json({ message: 'You are not authorized to access this quiz', reason: access.reason });
     }
 
     // Remove sensitive information for student view
@@ -499,9 +501,11 @@ router.post('/:id/submit', generalAuth, async (req, res) => {
       return res.status(404).json({ message: 'Quiz or student not found' });
     }
 
-    // Check if student can access this quiz
-    if (!quiz.canStudentAccess(student)) {
-      return res.status(403).json({ message: 'You are not authorized to submit this quiz' });
+    // Check if student can access this quiz (verbose)
+    const access = quiz.checkStudentAccess(student);
+    if (!access.allowed) {
+      console.warn(`[Quiz Submit Denied] quiz:${quiz._id} student:${student._id} - submit denied reason:${access.reason}`);
+      return res.status(403).json({ message: 'You are not authorized to submit this quiz', reason: access.reason });
     }
 
     // Check if student has already submitted (if retakes are not allowed)

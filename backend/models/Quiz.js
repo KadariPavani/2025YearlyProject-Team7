@@ -60,18 +60,59 @@ quizSchema.methods.canStudentAccess = function(student) {
   quizEnd.setHours(endHours, endMinutes, 0, 0);
   
   // Ensure quiz is active and within time window
+  // Handle quizzes that may end after midnight: if end <= start, add one day to end
+  if (quizEnd <= quizStart) {
+    quizEnd.setDate(quizEnd.getDate() + 1);
+  }
+
   const isWithinTimeWindow = this.status === 'active' && now >= quizStart && now <= quizEnd;
   
   // Check batch assignment
-  const isInNonCrtBatch = this.batchType !== 'placement' && 
+  const isInRegularBatch = this.batchType !== 'placement' && 
     student.batchId && 
     this.assignedBatches.map(id => id.toString()).includes(student.batchId.toString());
   
   const isInPlacementBatch = this.batchType !== 'noncrt' && 
     student.placementTrainingBatchId && 
     this.assignedPlacementBatches.map(id => id.toString()).includes(student.placementTrainingBatchId.toString());
-  
+
+  // Debug logging to aid in diagnosing 403s
+  if (!isWithinTimeWindow || (!isInRegularBatch && !isInPlacementBatch)) {
+    // Avoid noisy logs in production - keep concise
+    console.debug(`[Quiz Access] quiz:${this._id} student:${student._id} isWithinTimeWindow:${!!isWithinTimeWindow} isInRegularBatch:${!!isInRegularBatch} isInPlacementBatch:${!!isInPlacementBatch}`);
+  }
+
   return isWithinTimeWindow && (isInRegularBatch || isInPlacementBatch);
+};
+
+// Returns an object with allowed:boolean and reason:string for diagnostics
+quizSchema.methods.checkStudentAccess = function(student) {
+  const now = new Date();
+  const [startHours, startMinutes] = this.startTime.split(':').map(Number);
+  const [endHours, endMinutes] = this.endTime.split(':').map(Number);
+
+  const quizStart = new Date(this.scheduledDate);
+  quizStart.setHours(startHours, startMinutes, 0, 0);
+
+  const quizEnd = new Date(this.scheduledDate);
+  quizEnd.setHours(endHours, endMinutes, 0, 0);
+
+  if (quizEnd <= quizStart) quizEnd.setDate(quizEnd.getDate() + 1);
+
+  const withinTime = this.status === 'active' && now >= quizStart && now <= quizEnd;
+
+  const inRegular = this.batchType !== 'placement' && 
+    student.batchId && 
+    this.assignedBatches.map(id => id.toString()).includes(student.batchId.toString());
+
+  const inPlacement = this.batchType !== 'noncrt' && 
+    student.placementTrainingBatchId && 
+    this.assignedPlacementBatches.map(id => id.toString()).includes(student.placementTrainingBatchId.toString());
+
+  if (!withinTime) return { allowed: false, reason: 'time' };
+  if (!inRegular && !inPlacement) return { allowed: false, reason: 'batch' };
+
+  return { allowed: true, reason: 'ok' };
 };
 
 module.exports = mongoose.model('Quiz', quizSchema);

@@ -75,6 +75,14 @@ export default function StudentQuiz() {
       });
 
       const quiz = response.data;
+
+      // Prevent starting if quiz is not active (robust check)
+      const statusCheck = getQuizStatus(quiz);
+      if (statusCheck.status !== 'active') {
+        setError('Quiz is not active at the moment.');
+        return;
+      }
+
       setCurrentQuiz(quiz);
       setActiveQuizId(quizId);
       setCurrentQuestionIndex(0);
@@ -89,7 +97,9 @@ export default function StudentQuiz() {
       
       setCurrentView("quiz");
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to start quiz');
+      const message = err.response?.data?.message || 'Failed to start quiz';
+      const reason = err.response?.data?.reason ? ` (${err.response?.data?.reason})` : '';
+      setError(`${message}${reason}`);
       console.error('Error starting quiz:', err);
     } finally {
       setLoading(false);
@@ -145,7 +155,9 @@ export default function StudentQuiz() {
       setQuizzes(Array.isArray(updatedQuizzes.data) ? updatedQuizzes.data : []);
       
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to submit quiz');
+      const message = err.response?.data?.message || 'Failed to submit quiz';
+      const reason = err.response?.data?.reason ? ` (${err.response?.data?.reason})` : '';
+      setError(`${message}${reason}`);
       console.error('Error submitting quiz:', err);
     } finally {
       setLoading(false);
@@ -161,16 +173,41 @@ export default function StudentQuiz() {
   const getQuizStatus = (quiz) => {
     const now = new Date();
 
-    // Properly format scheduledDate to YYYY-MM-DD
-    const scheduled = new Date(quiz.scheduledDate);
-    const year = scheduled.getFullYear();
-    const month = String(scheduled.getMonth() + 1).padStart(2, '0');
-    const day = String(scheduled.getDate()).padStart(2, '0');
-    const scheduledDateStr = `${year}-${month}-${day}`;
+    // Robustly obtain YYYY-MM-DD date part from scheduledDate (handles ISO and plain date strings)
+    const scheduledDateRaw = quiz.scheduledDate;
+    let datePart = '';
+    if (typeof scheduledDateRaw === 'string' && scheduledDateRaw.length >= 10) {
+      datePart = scheduledDateRaw.slice(0, 10);
+    } else {
+      const sd = new Date(scheduledDateRaw);
+      if (isNaN(sd)) {
+        return { status: 'inactive', color: 'bg-gray-100 text-gray-800', text: 'Unavailable' };
+      }
+      datePart = `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}-${String(sd.getDate()).padStart(2, '0')}`;
+    }
 
-    // Assume startTime and endTime are in 'HH:MM' format, add :00 for seconds
-    const startTime = new Date(`${scheduledDateStr}T${quiz.startTime}:00`);
-    const endTime = new Date(`${scheduledDateStr}T${quiz.endTime}:00`);
+    const normalizeTimeToDate = (timeStr) => {
+      if (!timeStr) return null;
+      const parts = timeStr.split(':');
+      if (parts.length < 2) return null;
+      const hh = parts[0].padStart(2, '0');
+      const mm = parts[1].padStart(2, '0');
+      return new Date(`${datePart}T${hh}:${mm}:00`);
+    };
+
+    let startTime = normalizeTimeToDate(quiz.startTime);
+    let endTime = normalizeTimeToDate(quiz.endTime);
+
+    // If times are invalid, mark as unavailable
+    if (!startTime || isNaN(startTime) || !endTime || isNaN(endTime)) {
+      return { status: 'inactive', color: 'bg-gray-100 text-gray-800', text: 'Unavailable' };
+    }
+
+    // Handle case where endTime is on next day (end <= start)
+    if (endTime <= startTime) {
+      endTime = new Date(endTime);
+      endTime.setDate(endTime.getDate() + 1);
+    }
 
     if (quiz.hasSubmitted) {
       return { status: 'completed', color: 'bg-green-100 text-green-800', text: 'Completed' };
@@ -181,7 +218,7 @@ export default function StudentQuiz() {
     } else if (now < startTime) {
       return { status: 'upcoming', color: 'bg-yellow-100 text-yellow-800', text: 'Upcoming' };
     } else {
-      return { status: 'inactive', color: 'bg-gray-100 text-gray-800', text: 'Inactive' };
+      return { status: 'inactive', color: 'bg-gray-100 text-gray-800', text: 'Unavailable' };
     }
   };
 
