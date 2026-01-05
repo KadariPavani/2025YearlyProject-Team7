@@ -47,42 +47,8 @@ const quizSchema = new mongoose.Schema({
 
 // Method to check if a student can access the quiz
 quizSchema.methods.canStudentAccess = function(student) {
-  const now = new Date();
-  
-  // Combine scheduledDate and startTime/endTime for comparison
-  const [startHours, startMinutes] = this.startTime.split(':').map(Number);
-  const [endHours, endMinutes] = this.endTime.split(':').map(Number);
-  
-  const quizStart = new Date(this.scheduledDate);
-  quizStart.setHours(startHours, startMinutes, 0, 0);
-  
-  const quizEnd = new Date(this.scheduledDate);
-  quizEnd.setHours(endHours, endMinutes, 0, 0);
-  
-  // Ensure quiz is active and within time window
-  // Handle quizzes that may end after midnight: if end <= start, add one day to end
-  if (quizEnd <= quizStart) {
-    quizEnd.setDate(quizEnd.getDate() + 1);
-  }
-
-  const isWithinTimeWindow = this.status === 'active' && now >= quizStart && now <= quizEnd;
-  
-  // Check batch assignment
-  const isInRegularBatch = this.batchType !== 'placement' && 
-    student.batchId && 
-    this.assignedBatches.map(id => id.toString()).includes(student.batchId.toString());
-  
-  const isInPlacementBatch = this.batchType !== 'noncrt' && 
-    student.placementTrainingBatchId && 
-    this.assignedPlacementBatches.map(id => id.toString()).includes(student.placementTrainingBatchId.toString());
-
-  // Debug logging to aid in diagnosing 403s
-  if (!isWithinTimeWindow || (!isInRegularBatch && !isInPlacementBatch)) {
-    // Avoid noisy logs in production - keep concise
-    console.debug(`[Quiz Access] quiz:${this._id} student:${student._id} isWithinTimeWindow:${!!isWithinTimeWindow} isInRegularBatch:${!!isInRegularBatch} isInPlacementBatch:${!!isInPlacementBatch}`);
-  }
-
-  return isWithinTimeWindow && (isInRegularBatch || isInPlacementBatch);
+  const result = this.checkStudentAccess(student);
+  return result.allowed;
 };
 
 // Returns an object with allowed:boolean and reason:string for diagnostics
@@ -91,15 +57,35 @@ quizSchema.methods.checkStudentAccess = function(student) {
   const [startHours, startMinutes] = this.startTime.split(':').map(Number);
   const [endHours, endMinutes] = this.endTime.split(':').map(Number);
 
-  const quizStart = new Date(this.scheduledDate);
-  quizStart.setHours(startHours, startMinutes, 0, 0);
+  // Helper that builds start/end Date for two interpretations:
+  // 1) Treat scheduledDate as UTC date (use UTC components)
+  // 2) Treat scheduledDate as local date (use local components)
+  const buildWindowUTC = () => {
+    const sd = new Date(this.scheduledDate);
+    const y = sd.getUTCFullYear();
+    const m = sd.getUTCMonth();
+    const d = sd.getUTCDate();
+    const start = new Date(Date.UTC(y, m, d, startHours, startMinutes, 0));
+    let end = new Date(Date.UTC(y, m, d, endHours, endMinutes, 0));
+    if (end <= start) end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    return { start, end, interpret: 'utc' };
+  };
 
-  const quizEnd = new Date(this.scheduledDate);
-  quizEnd.setHours(endHours, endMinutes, 0, 0);
+  const buildWindowLocal = () => {
+    const sd = new Date(this.scheduledDate);
+    const y = sd.getFullYear();
+    const m = sd.getMonth();
+    const d = sd.getDate();
+    const start = new Date(y, m, d, startHours, startMinutes, 0);
+    let end = new Date(y, m, d, endHours, endMinutes, 0);
+    if (end <= start) end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+    return { start, end, interpret: 'local' };
+  };
 
-  if (quizEnd <= quizStart) quizEnd.setDate(quizEnd.getDate() + 1);
+  const windows = [buildWindowUTC(), buildWindowLocal()];
 
-  const withinTime = this.status === 'active' && now >= quizStart && now <= quizEnd;
+  const statusActive = this.status === 'active';
+  const withinAnyWindow = windows.some(w => now >= w.start && now <= w.end);
 
   const inRegular = this.batchType !== 'placement' && 
     student.batchId && 
@@ -109,8 +95,16 @@ quizSchema.methods.checkStudentAccess = function(student) {
     student.placementTrainingBatchId && 
     this.assignedPlacementBatches.map(id => id.toString()).includes(student.placementTrainingBatchId.toString());
 
-  if (!withinTime) return { allowed: false, reason: 'time' };
-  if (!inRegular && !inPlacement) return { allowed: false, reason: 'batch' };
+  if (!statusActive || !withinAnyWindow) {
+    // Log both windows to help debug deployment timezone mismatches
+    console.warn(`[Quiz Access TIME] quiz:${this._id} now:${now.toISOString()} windows:${windows.map(w => `{${w.interpret}:${w.start.toISOString()}->${w.end.toISOString()}}`).join(',')}`);
+    return { allowed: false, reason: 'time', windows };
+  }
+
+  if (!inRegular && !inPlacement) {
+    console.warn(`[Quiz Access BATCH] quiz:${this._id} student:${student._id} batchType:${this.batchType} assignedBatches:${this.assignedBatches?.length||0} assignedPlacementBatches:${this.assignedPlacementBatches?.length||0} studentBatch:${student.batchId||student.placementTrainingBatchId}`);
+    return { allowed: false, reason: 'batch' };
+  }
 
   return { allowed: true, reason: 'ok' };
 };

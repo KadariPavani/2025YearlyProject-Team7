@@ -238,11 +238,20 @@ router.post('/', generalAuth, async (req, res) => {
       finalBatchType
     });
 
+    // Normalize scheduledDate if it's a YYYY-MM-DD string (avoid timezone surprises on deploy)
+    let normalizedScheduledDate = scheduledDate;
+    if (typeof scheduledDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)) {
+      const [y, m, d] = scheduledDate.split('-').map(Number);
+      // Save as UTC midnight for the date to keep it consistent between client & server
+      normalizedScheduledDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+      console.debug(`[Quiz Create] normalized scheduledDate ${scheduledDate} -> ${normalizedScheduledDate.toISOString()}`);
+    }
+
     const quiz = new Quiz({
       title,
       description,
       subject,
-      scheduledDate,
+      scheduledDate: normalizedScheduledDate,
       startTime,
       endTime,
       duration,
