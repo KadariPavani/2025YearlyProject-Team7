@@ -1201,15 +1201,56 @@ router.get('/pending-approvals', generalAuth, async (req, res) => {
 
     const tpoId = req.user.id;
 
-    // Find only CRT-related pending approvals
-    const studentsWithPendingApprovals = await Student.find({
+    // Find all batches managed by this TPO (both Academic and Placement batches)
+    const [academicBatches, placementBatches] = await Promise.all([
+      Batch.find({ tpoId }),
+      PlacementTrainingBatch.find({ tpoId })
+    ]);
+
+    const tpoBatchIds = [
+      ...academicBatches.map(b => b._id),
+      ...placementBatches.map(b => b._id)
+    ];
+
+    // Get the list of colleges this TPO is responsible for
+    const managedColleges = [
+      ...new Set([
+        ...academicBatches.flatMap(b => b.colleges || []),
+        ...placementBatches.flatMap(b => b.colleges || [])
+      ])
+    ];
+
+    // Build query to find students belonging to this TPO's batches or colleges
+    const studentQuery = {
       'pendingApprovals': {
         $elemMatch: {
           status: 'pending',
           requestType: { $in: ['crt_status_change', 'batch_change'] }
         }
       }
-    }).select('name rollNo email college branch yearOfPassing crtInterested techStack pendingApprovals placementTrainingBatchId')
+    };
+
+    // Add territory-based filtering
+    const territoryFilter = [
+      { placementTrainingBatchId: { $in: tpoBatchIds } },
+      { batchId: { $in: tpoBatchIds } }
+    ];
+
+    // If TPO manages certain colleges, also show students from those colleges who have no batch yet
+    if (managedColleges.length > 0) {
+      territoryFilter.push({
+        $and: [
+          { placementTrainingBatchId: { $in: [null, undefined] } },
+          { college: { $in: managedColleges } }
+        ]
+      });
+    }
+
+    studentQuery.$or = territoryFilter;
+
+    // Find only CRT-related pending approvals within this TPO's domain
+    const studentsWithPendingApprovals = await Student.find(studentQuery)
+      .select('name rollNo email college branch yearOfPassing crtInterested techStack pendingApprovals placementTrainingBatchId')
       .populate('placementTrainingBatchId', 'batchNumber techStack');
 
     // Filter and format approval requests
@@ -1270,10 +1311,25 @@ router.post('/approve-request', generalAuth, async (req, res) => {
 
     const { studentId, approvalId, action, rejectionReason } = req.body;
     const isApproved = action === 'approve';
+    const tpoId = req.user.id;
 
     const student = await Student.findById(studentId);
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    // Verify TPO permission for this student
+    const tpo = await TPO.findById(tpoId);
+    if (!tpo) {
+      return res.status(404).json({ success: false, message: 'TPO not found' });
+    }
+
+    const canApprove = await tpo.canApproveRequest(student);
+    if (!canApprove) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to process requests for this student'
+      });
     }
 
     // Handle approval
@@ -1331,6 +1387,20 @@ router.post('/reject-request', generalAuth, async (req, res) => {
     const student = await Student.findById(studentId);
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
+    }
+
+    // Verify TPO permission for this student
+    const tpo = await TPO.findById(tpoId);
+    if (!tpo) {
+      return res.status(404).json({ success: false, message: 'TPO not found' });
+    }
+
+    const canApprove = await tpo.canApproveRequest(student);
+    if (!canApprove) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to process requests for this student'
+      });
     }
 
     // Find the specific approval request
