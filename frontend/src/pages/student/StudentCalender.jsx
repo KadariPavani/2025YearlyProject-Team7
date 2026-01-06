@@ -385,19 +385,11 @@ const canRegisterForEvent = (eventStartDate) => {
                   <strong>Status:</strong> {event.status}
                 </p>
 
-                {/* Show participation stats for completed events */}
-                {event.status === "completed" && (
-                  <>
-                    <p className="text-sm text-green-600 mt-2">
-                      <strong>Number of Students Participated:</strong>{" "}
-                      {event.participated > 0 ? `${event.participated} students` : "Not updated yet"}
-                    </p>
-                    <p className="text-sm text-green-600 mt-1">
-                      <strong>Number of Students Placed:</strong>{" "}
-                      {event.placed > 0 ? `${event.placed} students` : "Not updated yet"}
-                    </p>
-                  </>
-                )}
+                {/* Always show participation stats (registered/selected counts) */}
+                {/* <div className="mt-2">
+                  <p className="text-sm text-gray-700"><strong>Registered:</strong> {event.participated ?? 0} students</p>
+                  <p className="text-sm text-gray-700 mt-1"><strong>Selected:</strong> {event.placed ?? 0} students</p>
+                </div> */}
 {event.status === "scheduled" && (
   <>
     {registeredEventIds.includes(event.id) ? (
