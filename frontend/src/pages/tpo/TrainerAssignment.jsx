@@ -165,7 +165,8 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate, compact = false }) => {
         schedule: assignment.schedule
       }));
 
-      const response = await fetch(`/api/tpo/assign-trainers/${batchId}`, {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${apiBase}/api/tpo/assign-trainers/${batchId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
