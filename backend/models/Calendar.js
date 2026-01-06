@@ -60,9 +60,21 @@ const CalendarSchema = new mongoose.Schema({
 
   targetGroup: {
     type: String,
-    enum: ["crt", "non-crt", "both"],
+    enum: ["crt", "non-crt", "both", "batch-specific", "specific-students"],
     default: "both"
   },
+
+  // ✅ NEW: Batch-specific targeting
+  targetBatchIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PlacementTrainingBatch'
+  }],
+
+  // ✅ NEW: Specific student targeting
+  targetStudentIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Student'
+  }],
 
   eventSummary: {
     totalAttendees: { type: Number, default: 0 },

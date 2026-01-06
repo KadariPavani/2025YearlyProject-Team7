@@ -9,15 +9,58 @@ const TrainerPlacementCalendar = () => {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedDateEvents, setSelectedDateEvents] = useState([]);
+  const [selectedDateLabel, setSelectedDateLabel] = useState("");
 
   // ✅ Fetch only events — no need for TPO ID
   useEffect(() => {
     fetchEvents();
   }, []);
+
+  // Keep display label in sync
+  useEffect(() => {
+    setSelectedDateLabel(selectedDate.toDateString());
+  }, [selectedDate]);
+
 const normalizeDate = (d) => {
   const date = new Date(d);
   date.setHours(0, 0, 0, 0);
   return date;
+};
+
+// Build fixed 6-row (42-cell) calendar grid so the calendar stays square and consistent
+const buildCalendarCells = (year, month) => {
+  const firstDay = new Date(year, month, 1);
+  const startDay = firstDay.getDay(); // 0 = Sunday
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [];
+
+  // leading empty cells
+  for (let i = 0; i < startDay; i++) cells.push(null);
+  // actual month days
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
+  // trailing empty cells to fill 42
+  while (cells.length < 42) cells.push(null);
+
+  return cells;
+};
+
+
+
+// Safe date click handler — keeps UI-only behavior (no logic changes)
+const handleDateClick = (day) => {
+  const formattedDate = day.toDateString();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  setSelectedDate(day);
+  setSelectedDateLabel(day.toDateString());
+
+  // Get events for the clicked day
+  const eventsForDay = events.filter(
+    (e) => new Date(e.startDate).toDateString() === formattedDate
+  );
+
+  setSelectedDateEvents(eventsForDay);
 };
 
 
@@ -96,6 +139,9 @@ targetGroup: e.targetGroup || "both",
 
   const days = getDaysInMonth(currentYear, currentMonth);
 
+  // Build calendar cells after currentYear/currentMonth are available
+  const calendarCells = buildCalendarCells(currentYear, currentMonth);
+
   const getEventsForDate = (date) => {
     const dateStr = date.toLocaleDateString("en-CA"); // YYYY-MM-DD
     return events.filter((e) => e.date === dateStr);
@@ -138,80 +184,84 @@ targetGroup: e.targetGroup || "both",
               {/* Month + Year Controls (centered above calendar column) */}
               <div className="flex justify-center items-center mb-3">
                 <button onClick={handlePrevMonth} className="p-2 bg-white border rounded-full hover:bg-blue-100"><ChevronLeft /></button>
-                <div className="mx-3 text-base font-semibold text-gray-800">
+                <div onClick={() => {}} className="mx-3 cursor-pointer text-base font-semibold text-gray-800 hover:text-blue-600 transition-all">
                   {selectedDate.toLocaleString("default", { month: "long" })} {currentYear}
                 </div>
                 <button onClick={handleNextMonth} className="p-2 bg-white border rounded-full hover:bg-blue-100"><ChevronRight /></button>
               </div>
 
-              {/* Weekday headings (compact) */}
+              {/* Weekday headings */}
               <div className="grid grid-cols-7 gap-1 text-center text-[10px] font-semibold text-blue-800 mb-2">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-                  <div key={d}>{d}</div>
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                  <div key={day} className="text-[10px] bg-blue-50 rounded-sm py-0.5">{day}</div>
                 ))}
               </div>
 
-              {/* Days */}
-              <div className="grid grid-cols-7 gap-1">
-                {days.map((day) => {
-                  const dateEvents = getEventsForDate(day);
-                  const today = normalizeDate(new Date());
+              {/* Responsive calendar grid (fixed 6 rows, square cells) */}
+              <div className="w-full bg-gradient-to-b from-blue-50 to-white rounded-md border border-blue-100 shadow-sm p-1">
+                <div className="w-full grid grid-rows-6 grid-cols-7 gap-0.5">
+                  {calendarCells.map((cellDate, idx) => {
+                    if (!cellDate) return <div key={idx} className="bg-white border border-blue-100 rounded-sm aspect-square"></div>;
 
-                  return (
-                    <div
-                      key={day}
-                      onClick={() => {
-                        const dayEvents = getEventsForDate(day);
-                        setSelectedDate(day);
-                        setSelectedDateEvents(dayEvents);
-                      }}
-                      className={`border rounded-lg p-2 cursor-pointer transition-all h-24 flex flex-col ${
-                        selectedDate.toDateString() === day.toDateString()
-                          ? "bg-purple-50 border-purple-400 shadow-sm"
-                          : "bg-white hover:shadow"
-                      }`}
-                    >
-                      <span className="text-[12px] font-medium text-gray-700">{day.getDate()}</span>
+                    const dateEvents = getEventsForDate(cellDate);
+                    const dayNormalized = normalizeDate(cellDate);
+                    const isSelected = selectedDate.toDateString() === dayNormalized.toDateString();
+                    const isToday = normalizeDate(new Date()).getTime() === dayNormalized.getTime();
 
-                      {dateEvents.length > 0 ? (
-                        <div className="mt-2 flex flex-wrap gap-1 items-start">
-                          {dateEvents.slice(0, 2).map((ev) => (
-                            <div
-                              key={ev.id}
-                              title={ev.title}
-                              className={`w-2.5 h-2.5 rounded-full ${
-                                ev.status === "completed"
-                                  ? "bg-green-500"
-                                  : ev.status === "ongoing"
-                                  ? "bg-orange-500"
-                                  : ev.status === "upcoming"
-                                  ? "bg-blue-500"
-                                  : ev.status === "cancelled"
-                                  ? "bg-red-500"
-                                  : "bg-purple-500"
-                              }`}
-                            />
-                          ))}
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => handleDateClick(dayNormalized)}
+                        className={`aspect-square min-h-0 overflow-hidden border border-blue-100 rounded-sm sm:rounded-md p-0.5 sm:p-0.5 cursor-pointer flex flex-col transition-all ${isSelected ? "bg-blue-200 border-blue-600 shadow-md" : "bg-white shadow-sm hover:shadow-md hover:bg-blue-50"} ${isToday ? "ring-2 ring-blue-200" : ""}`}>
 
-                          {dateEvents.length > 2 && (
-                            <div className="text-[10px] text-gray-500 mt-1">+{dateEvents.length - 2} more</div>
-                          )}
+                        <div className="flex items-start justify-between px-1">
+                          <span className="text-[10px] sm:text-sm font-medium text-gray-600">{cellDate.getDate()}</span>
                         </div>
-                      ) : (
-                        <span className="text-xs text-gray-400 mt-auto">No Events</span>
-                      )}
-                    </div>
-                  );
-                })}
+
+                        <div className="flex-1 mt-0 sm:mt-1 overflow-hidden px-1 flex flex-col justify-between h-full">
+                          {/* Mobile dots */}
+                          <div className="sm:hidden flex items-center justify-start gap-1 mt-0.5">
+                            <div className="flex items-start justify-start gap-0.5">
+                              {dateEvents.slice(0, 3).map((ev, i) => (
+                                <span key={i} className={`inline-block flex-shrink-0 w-1 h-1 rounded-full shadow-sm ${ev.status === 'completed' ? 'bg-green-500' : ev.status === 'ongoing' ? 'bg-orange-500' : ev.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`} />
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Desktop preview */}
+                          <div className="hidden sm:flex sm:flex-col sm:gap-1">
+                            {dateEvents.slice(0, 1).map((ev) => (
+                              <div
+                                key={ev.id}
+                                className={`text-[10px] rounded px-1 py-0.5 ${ev.status === 'completed' ? 'bg-green-50 text-green-700' : ev.status === 'ongoing' ? 'bg-orange-50 text-orange-700' : ev.status === 'cancelled' ? 'bg-red-50 text-red-700' : 'bg-blue-100 text-blue-800 border border-blue-200'}`}>
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <span className="inline-block truncate min-w-0" title={ev.title}>{ev.title}</span>
+                                  {dateEvents.length > 1 && (
+                                    <span className="hidden sm:inline text-[9px] text-gray-500 flex-shrink-0">+{Math.max(0, dateEvents.length - 1)}</span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+
+                            {dateEvents.length > 1 && (
+                              <div className="mt-1">
+                                <span className="hidden sm:inline text-[8px] text-gray-500">+{Math.max(0, dateEvents.length - 1)} more</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
-            {/* Right: details (hidden on small screens) */}
             <aside className="hidden sm:block w-full sm:w-3/5 sticky top-20 self-start">
               <div className="p-4 w-full border-l border-blue-50 pl-6">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <div className="text-xs text-blue-500 font-medium">Events on</div>
+                    <div className="text-xs text-blue-500 font-medium">{selectedDateLabel ? 'Events on' : ''}</div>
                     <div className="text-2xl font-bold text-blue-800">{selectedDate.toLocaleString("default", { weekday: "long" })}, <span className="text-blue-600">{ordinal(selectedDate.getDate())}</span></div>
                   </div>
                 </div>
@@ -221,22 +271,34 @@ targetGroup: e.targetGroup || "both",
                 {loading ? (
                   <div className="text-sm text-gray-500">Loading...</div>
                 ) : selectedDateEvents.length === 0 ? (
-                  <p className="text-gray-500 text-center">No events on this date.</p>
+                  <p className="text-gray-500 text-center">No events for this date.</p>
                 ) : (
                   <ul className="divide-y divide-gray-100">
                     {selectedDateEvents.map((event) => (
                       <li key={event.id} className="flex items-center justify-between py-3 relative">
                         <div className="flex items-start gap-3">
-                          <div className={`px-3 py-2 rounded-lg ${event.status === "completed" ? "bg-green-50 text-green-700" : event.status === "cancelled" ? "bg-red-50 text-red-700" : "bg-purple-50 text-purple-700"}`}>
-                            {event.title.length > 24 ? event.title.slice(0, 24) + "…" : event.title}
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-600">{event.company}</p>
-                            <p className="text-xs text-gray-500 mt-1">{event.startDate?.split("T")[0]} • {event.startTime}</p>
-                          </div>
+                          <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : event.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`} />
+                          <div className="min-w-0">
+                              <div className="text-sm font-medium text-gray-800 truncate">{event.title}</div>
+                              <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>
+
+                              <div className="text-xs text-gray-500 mt-1 truncate">
+                                {event.company && (<span className="block"><strong>Company:</strong> {event.company}</span>)}
+                                {event.description && (<span className="block truncate"><strong>Description:</strong> {event.description}</span>)}
+                              </div>
+
+                              <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                                <span><strong>Registered:</strong> {event.participated ?? 0}</span>
+                                <span><strong>Selected:</strong> {event.placed ?? 0}</span>
+                                <span><strong>Venue:</strong> {event.venue || 'N/A'}</span>
+                              </div>
+                            </div>
                         </div>
 
-                        <div className="text-[10px] text-gray-500 mt-1">{event.participated > 0 ? `${event.participated} participated` : "0"}</div>
+                        {/* <div className="flex items-center gap-2">
+                          <button title="More" className="p-2 rounded-md hover:bg-gray-100 text-gray-600">⋮</button>
+                        </div> */}
+
                       </li>
                     ))}
                   </ul>
@@ -244,34 +306,41 @@ targetGroup: e.targetGroup || "both",
 
               </div>
             </aside>
+
           </div>
 
-          {/* For small screens: show selected date details below */}
-          <div className="mt-8 bg-white rounded-xl shadow-lg p-6 w-full max-w-[520px] mx-auto sm:hidden">
-            <h2 className="text-xl font-bold text-purple-700 mb-4">Events on {selectedDate.toDateString()}</h2>
-            {selectedDateEvents.length > 0 ? (
-              <div className="space-y-4">
-                {selectedDateEvents.map((event) => (
-                  <div key={event.id} className={`border rounded-lg p-4 ${event.status === "completed" ? "bg-green-50 border-green-400" : event.status === "cancelled" ? "bg-red-50 border-red-400" : "bg-purple-50 border-purple-400"}`}>
-                    <h3 className="font-semibold text-gray-800 text-lg">{event.status === "completed" ? "✅ " : ""}{event.title}</h3>
-                    {event.company && <p className="text-sm text-gray-600 mt-1"><strong>Company:</strong> {event.company}</p>}
-                    {event.description && <p className="text-sm text-gray-600 mt-1"><strong>Description:</strong> {event.description}</p>}
-                    <p className="text-sm text-gray-600 mt-1"><strong>Start:</strong> {event.startDate?.split("T")[0]} {event.startTime}</p>
-                    <p className="text-sm text-gray-600 mt-1"><strong>End:</strong> {event.endDate?.split("T")[0]} {event.endTime}</p>
-                    <p className="text-sm text-gray-600 mt-1"><strong>Venue:</strong> {event.venue || "N/A"}</p>
-                    <p className="text-sm text-gray-600 mt-1"><strong>Status:</strong> {event.status}</p>
-                    <p className="text-sm text-gray-600 mt-1"><strong>Target Group:</strong> {event.targetGroup === "crt" ? "CRT Students" : event.targetGroup === "non-crt" ? "Non-CRT Students" : "Both CRT & Non-CRT Students"}</p>
-                    {event.status === "completed" && (
-                      <>
-                        <p className="text-sm text-green-600 mt-2"><strong>Number of Students Participated:</strong> {event.participated > 0 ? `${event.participated} students` : "Not updated yet"}</p>
-                        <p className="text-sm text-green-600 mt-1"><strong>Number of Students Placed:</strong> {event.placed > 0 ? `${event.placed} students` : "Not updated yet"}</p>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
+          {/* Selected Date Event Details (mobile only) */}
+          <div className="mt-8 bg-white rounded-lg shadow-lg p-3 w-full max-w-[560px] mx-auto border border-blue-100 block sm:hidden">
+            {loading ? (
+              <div className="text-sm text-gray-500">Loading...</div>
             ) : (
-              <p className="text-gray-500 text-center">No events on this date.</p>
+              <>
+                <div className="mb-3 text-center">
+                  <div className="text-2xl font-bold text-blue-800">{selectedDate.toLocaleString('default', { weekday: 'long' })}, <span className="text-blue-600">{ordinal(selectedDate.getDate())}</span></div>
+                </div>
+
+                <ul className="divide-y divide-gray-100">
+                  {selectedDateEvents.length > 0 ? (
+                    selectedDateEvents.map((event) => (
+                      <li key={event.id} className="flex items-center justify-between py-3">
+                        <div className="flex items-start gap-3">
+                          <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : event.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`} />
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-800 truncate">{event.title}</div>
+                            <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button title="More" className="p-2 rounded-md hover:bg-gray-100 text-gray-600">⋮</button>
+                        </div>
+                      </li>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500 p-3">No events for this date.</div>
+                  )}
+                </ul>
+              </>
             )}
           </div>
         </div>

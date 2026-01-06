@@ -33,6 +33,11 @@ const [showModal, setShowModal] = useState(false);
 const [deletedEvents, setDeletedEvents] = useState([]);
 const [showDeletedModal, setShowDeletedModal] = useState(false);
 const [targetGroup, setTargetGroup] = useState("both");
+const [selectedBatches, setSelectedBatches] = useState([]);
+const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+const [availableBatches, setAvailableBatches] = useState([]);
+const [availableStudents, setAvailableStudents] = useState([]);
+const [studentSearchTerm, setStudentSearchTerm] = useState("");
 const [selectedStudentEmail, setSelectedStudentEmail] = useState("");
 const [selectedEmail, setSelectedEmail] = useState("");
 const [highlightedEventId, setHighlightedEventId] = useState(null);
@@ -189,7 +194,90 @@ const handleUploadSelectedList = async () => {
     };
     fetchTpoId();
     fetchEvents();
+    fetchBatchesAndStudents();
   }, []);
+
+// Fetch batches and students for selection
+const fetchBatchesAndStudents = async () => {
+  try {
+    const token = localStorage.getItem("userToken");
+    
+    // 1️⃣ Fetch ALL placement training batches assigned to this TPO
+    const batchRes = await axios.get(
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/tpo/placement-training-batches`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    
+    console.log('📦 Full Batch Response:', JSON.stringify(batchRes.data, null, 2));
+    
+    // Parse the nested structure: year -> college -> techStack -> batches
+    let allBatches = [];
+    const allStudents = [];
+    const studentIds = new Set(); // To avoid duplicates
+    
+    const response = batchRes.data;
+    
+    // Handle nested structure with years
+    if (response.success && response.data && response.data.organized) {
+      const yearData = response.data.organized;
+      
+      // Iterate through years (2021, 2026, etc.)
+      Object.keys(yearData).forEach(year => {
+        console.log(`📅 Processing Year: ${year}`);
+        
+        // Iterate through colleges
+        Object.keys(yearData[year]).forEach(college => {
+          console.log(`  🏫 Processing College: ${college}`);
+          
+          // Iterate through tech stacks
+          Object.keys(yearData[year][college]).forEach(techStack => {
+            const techData = yearData[year][college][techStack];
+            console.log(`    💻 Processing TechStack: ${techStack}, Batches: ${techData.batches?.length || 0}`);
+            
+            if (Array.isArray(techData.batches)) {
+              techData.batches.forEach(batch => {
+                // Add batch to list
+                allBatches.push(batch);
+                
+                // Extract students from this batch
+                if (Array.isArray(batch.students)) {
+                  console.log(`      👥 Batch ${batch.batchNumber}: ${batch.students.length} students`);
+                  batch.students.forEach(student => {
+                    if (student && student._id && !studentIds.has(student._id)) {
+                      studentIds.add(student._id);
+                      allStudents.push({
+                        _id: student._id,
+                        name: student.name,
+                        rollNo: student.rollNo || student.rollNumber,
+                        email: student.email,
+                        college: student.college,
+                        branch: student.branch,
+                        batchName: batch.batchNumber,
+                        batchType: batch.techStack
+                      });
+                    }
+                  });
+                }
+              });
+            }
+          });
+        });
+      });
+    }
+    
+    console.log('✅ Extracted Batches Count:', allBatches.length);
+    console.log('✅ Extracted Students Count:', allStudents.length);
+    
+    setAvailableBatches(allBatches);
+    setAvailableStudents(allStudents);
+    
+  } catch (err) {
+    console.error("❌ Error fetching batches/students:", err.response?.data || err.message);
+    alert("Failed to load batches/students. Check console for details.");
+    setAvailableBatches([]);
+    setAvailableStudents([]);
+  }
+};
 const autoSelectOngoingDate = (eventsList) => {
   const today = normalizeDate(new Date());
 
@@ -596,6 +684,10 @@ const handleEditEvent = async (event) => {
     // ✅ Set target group if available
     setTargetGroup(e.targetGroup || "both");
 
+    // ✅ Set batch and student selections if available
+    setSelectedBatches(e.targetBatchIds || []);
+    setSelectedStudentIds(e.targetStudentIds || []);
+
     // ✅ Show form modal in edit mode
     setViewOnly(false);
     setShowForm(true);
@@ -686,9 +778,37 @@ companyDetails: {                            // ✅ fixed
   }
   });
 
+  setTargetGroup("both");
+  setSelectedBatches([]);
+  setSelectedStudentIds([]);
+  setStudentSearchTerm("");
   setViewOnly(false);
   setShowForm(true);
 };
+
+// Batch selection handlers
+const handleBatchToggle = (batchId) => {
+  setSelectedBatches(prev => 
+    prev.includes(batchId) 
+      ? prev.filter(id => id !== batchId)
+      : [...prev, batchId]
+  );
+};
+
+// Student selection handlers
+const handleStudentToggle = (studentId) => {
+  setSelectedStudentIds(prev =>
+    prev.includes(studentId)
+      ? prev.filter(id => id !== studentId)
+      : [...prev, studentId]
+  );
+};
+
+const filteredStudents = availableStudents.filter(student =>
+  student.name?.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+  student.rollNo?.toLowerCase().includes(studentSearchTerm.toLowerCase()) ||
+  student.email?.toLowerCase().includes(studentSearchTerm.toLowerCase())
+);
 
 
   // Submit handler
@@ -703,6 +823,8 @@ companyDetails: {                            // ✅ fixed
     const payload = {
   ...formData,
 targetGroup,
+targetBatchIds: selectedBatches,
+targetStudentIds: selectedStudentIds,
   companyDetails: {
     companyName: formData.companyName,
     companyFormLink: formData.companyFormLink,
@@ -748,10 +870,13 @@ targetGroup,
     console.warn("⚠️ External link not found in saved event data.");
   }
 
+  await fetchEvents(); // ✅ Refresh events list
   setShowForm(false);
 } catch (err) {
   console.error("Error saving event:", err.response?.data || err.message);
   alert(err.response?.data?.message || "Failed to save event");
+} finally {
+  setIsSubmitting(false);
 }
   }
 // 🔹 Remove duplicates by Roll Number or Email
@@ -916,6 +1041,18 @@ const uniqueStudents = registeredStudents.filter(
                             <div className="min-w-0">
                               <div className="text-sm font-medium text-gray-800 truncate">{event.title}</div>
                               <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>
+
+                              {/* Extra details shown inline under the title */}
+                              <div className="text-xs text-gray-500 mt-1 truncate">
+                                {event.company && (<span className="block"><strong>Company:</strong> {event.company}</span>)}
+                                {event.description && (<span className="block truncate"><strong>Description:</strong> {event.description}</span>)}
+                              </div>
+
+                              <div className="flex gap-3 mt-1 text-xs text-gray-500">
+                                <span><strong>Registered:</strong> {event.participated ?? 0}</span>
+                                <span><strong>Selected:</strong> {event.placed ?? 0}</span>
+                                <span><strong>Venue:</strong> {event.venue || 'N/A'}</span>
+                              </div>
                             </div>
                           </div>
 
@@ -1133,8 +1270,84 @@ const uniqueStudents = registeredStudents.filter(
                   <option value="both">Both CRT & Non-CRT Students</option>
                   <option value="crt">CRT Students Only</option>
                   <option value="non-crt">Non-CRT Students Only</option>
+                  <option value="batch-specific">Batch Specific</option>
+                  <option value="specific-students">Specific Students</option>
                 </select>
               </div>
+
+              {/* Batch Selection with Checkboxes - Show only when batch-specific */}
+              {targetGroup === 'batch-specific' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Select Batches (Optional)</label>
+                <div className="text-xs text-blue-600 mb-1">Debug: {availableBatches.length} batches loaded</div>
+                <div className="border rounded-lg p-3 max-h-48 overflow-y-auto bg-gray-50">
+                  {!Array.isArray(availableBatches) || availableBatches.length === 0 ? (
+                    <p className="text-sm text-gray-500">No batches available</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {availableBatches.map(batch => (
+                        <label key={batch._id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-100 p-2 rounded">
+                          <input
+                            type="checkbox"
+                            checked={selectedBatches.includes(batch._id)}
+                            onChange={() => handleBatchToggle(batch._id)}
+                            disabled={viewOnly}
+                            className="w-4 h-4"
+                          />
+                          <span>{batch.batchNumber} - {batch.techStack} ({batch.students?.length || 0} students)</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {selectedBatches.length > 0 ? `${selectedBatches.length} batch(es) selected` : 'Leave empty to target all students by group'}
+                </p>
+              </div>
+              )}
+
+              {/* Student Selection with Search and Checkboxes - Show only when specific-students */}
+              {targetGroup === 'specific-students' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Select Specific Students (Optional)</label>
+                <div className="text-xs text-blue-600 mb-1">Debug: {availableStudents.length} total students | {filteredStudents.length} filtered</div>
+                <input
+                  type="text"
+                  placeholder="Search by name, roll no, or email..."
+                  value={studentSearchTerm}
+                  onChange={(e) => setStudentSearchTerm(e.target.value)}
+                  disabled={viewOnly}
+                  className="w-full border rounded-lg px-3 py-2 mb-2 text-sm"
+                />
+                <div className="border rounded-lg p-3 max-h-64 overflow-y-auto bg-gray-50">
+                  {!Array.isArray(filteredStudents) || filteredStudents.length === 0 ? (
+                    <p className="text-sm text-gray-500">No students found</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredStudents.map(student => (
+                        <label key={student._id} className="flex items-start gap-2 text-xs cursor-pointer hover:bg-gray-100 p-2 rounded">
+                          <input
+                            type="checkbox"
+                            checked={selectedStudentIds.includes(student._id)}
+                            onChange={() => handleStudentToggle(student._id)}
+                            disabled={viewOnly}
+                            className="w-4 h-4 mt-0.5"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium">{student.name}</div>
+                            <div className="text-gray-600">{student.rollNo} • {student.email}</div>
+                            <div className="text-gray-500">{student.batchName}</div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {selectedStudentIds.length > 0 ? `${selectedStudentIds.length} student(s) selected` : 'Leave empty for batch/group-based targeting'}
+                </p>
+              </div>
+              )}
 
               {/* Status */}
               <div>
@@ -1244,8 +1457,81 @@ const uniqueStudents = registeredStudents.filter(
                     <option value="both">Both CRT & Non-CRT Students</option>
                     <option value="crt">CRT Students Only</option>
                     <option value="non-crt">Non-CRT Students Only</option>
+                    <option value="batch-specific">Batch Specific</option>
+                    <option value="specific-students">Specific Students</option>
                   </select>
                 </div>
+
+                {/* Batch Selection - Show only when batch-specific */}
+                {targetGroup === 'batch-specific' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Select Batches (Optional)</label>
+                  <div className="border rounded-lg p-2 max-h-40 overflow-y-auto bg-gray-50">
+                    {!Array.isArray(availableBatches) || availableBatches.length === 0 ? (
+                      <p className="text-xs text-gray-500">No batches available</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {availableBatches.map(batch => (
+                          <label key={batch._id} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-100 p-1.5 rounded">
+                            <input
+                              type="checkbox"
+                              checked={selectedBatches.includes(batch._id)}
+                              onChange={() => handleBatchToggle(batch._id)}
+                              disabled={viewOnly}
+                              className="w-3.5 h-3.5"
+                            />
+                            <span className="text-xs">{batch.batchNumber} - {batch.techStack}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    {selectedBatches.length > 0 ? `${selectedBatches.length} selected` : 'Optional'}
+                  </p>
+                </div>
+                )}
+
+                {/* Student Selection - Show only when specific-students */}
+                {targetGroup === 'specific-students' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Select Students (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="Search students..."
+                    value={studentSearchTerm}
+                    onChange={(e) => setStudentSearchTerm(e.target.value)}
+                    disabled={viewOnly}
+                    className="w-full border rounded-lg px-2 py-1.5 mb-2 text-xs"
+                  />
+                  <div className="border rounded-lg p-2 max-h-48 overflow-y-auto bg-gray-50">
+                    {!Array.isArray(filteredStudents) || filteredStudents.length === 0 ? (
+                      <p className="text-xs text-gray-500">No students found</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {filteredStudents.slice(0, 50).map(student => (
+                          <label key={student._id} className="flex items-start gap-2 text-[10px] cursor-pointer hover:bg-gray-100 p-1.5 rounded">
+                            <input
+                              type="checkbox"
+                              checked={selectedStudentIds.includes(student._id)}
+                              onChange={() => handleStudentToggle(student._id)}
+                              disabled={viewOnly}
+                              className="w-3 h-3 mt-0.5"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-xs">{student.name}</div>
+                              <div className="text-gray-600 truncate">{student.rollNo}</div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    {selectedStudentIds.length > 0 ? `${selectedStudentIds.length} selected` : 'Optional'}
+                  </p>
+                </div>
+                )}
 
                 {/* Status */}
                 <div>

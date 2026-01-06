@@ -62,7 +62,7 @@ exports.createEvent = async (req, res) => {
       title, description, startDate, endDate,
       startTime, endTime, venue, isOnline,
       companyDetails = {}, eventType, createdBy, createdByModel,
-      externalLink, targetGroup
+      externalLink, targetGroup, targetBatchIds = [], targetStudentIds = []
     } = req.body;
 
     // 1️⃣ Create event
@@ -79,6 +79,8 @@ exports.createEvent = async (req, res) => {
       createdBy,
       createdByModel,
       targetGroup,
+      targetBatchIds,
+      targetStudentIds,
       companyDetails: {
         ...companyDetails,
         companyFormLink: companyDetails.companyFormLink || "",
@@ -88,16 +90,28 @@ exports.createEvent = async (req, res) => {
 
     await newEvent.save();
 
-    // 2️⃣ Find students by target group
+    // 2️⃣ Find students by target criteria
     let studentFilter = {};
-    if (targetGroup === "crt") {
-      studentFilter = { $or: [{ batchType: "CRT" }, { crtInterested: true }] };
-    } else if (targetGroup === "non-crt") {
-      studentFilter = { $or: [{ batchType: "Non-CRT" }, { crtInterested: false }] };
+
+    // Priority 1: Specific students selected (highest priority)
+    if (targetGroup === 'specific-students' && targetStudentIds && targetStudentIds.length > 0) {
+      studentFilter = { _id: { $in: targetStudentIds } };
+    }
+    // Priority 2: Specific batches selected
+    else if (targetGroup === 'batch-specific' && targetBatchIds && targetBatchIds.length > 0) {
+      studentFilter = { placementTrainingBatchId: { $in: targetBatchIds } };
+    }
+    // Priority 3: Target group (CRT/Non-CRT/Both)
+    else {
+      if (targetGroup === "crt") {
+        studentFilter = { $or: [{ batchType: "CRT" }, { crtInterested: true }] };
+      } else if (targetGroup === "non-crt") {
+        studentFilter = { $or: [{ batchType: "Non-CRT" }, { crtInterested: false }] };
+      }
     }
 
     const students = await Student.find(studentFilter, "_id name email");
-    console.log(`👩‍🎓 Found ${students.length} students for ${targetGroup}`);
+    console.log(`👩‍🎓 Found ${students.length} students for event with filters:`, { targetGroup, targetBatchIds, targetStudentIds });
 
     // 3️⃣ Create student notifications
     if (students.length > 0) {
@@ -176,13 +190,16 @@ if (student.batchType) {
 
   // 4️⃣ Filter events:
   //    - Only show events created by student's assigned TPO
-  //    - And match student's type (crt/non-crt/both)
+  //    - Match student's type (crt/non-crt/both)
+  //    - Match batch-specific or student-specific targeting
   filter = {
     createdBy: student.assignedTpo,
     $or: [
       { targetGroup: studentType },
       { targetGroup: "both" },
-    ],
+      { targetGroup: "batch-specific", targetBatchIds: student.placementTrainingBatchId },
+      { targetGroup: "specific-students", targetStudentIds: student._id }
+    ]
   };
 }
 
