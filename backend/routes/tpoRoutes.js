@@ -768,13 +768,6 @@ if (isUpdate) {
         select: 'name email subjectDealing category experience'
       }
     ]);
-// 🔔 Send Weekly Class Schedule notification to all students in the batch
-await notificationController.notifyTrainerAssignment(
-  batch._id,
-  req.user.name || "TPO"
-);
-
-// ✅ Notify Trainers (so they see it in "My Classes")
 // ✅ Notify Trainers (so they see it in "My Classes")
 const Notification = require("../models/Notification");
 
@@ -811,8 +804,8 @@ for (const assignment of trainerAssignments) {
   }
 }
 
-// ✅ Continue your existing response
-res.json({
+// Single successful response (no duplicates)
+return res.json({
   success: true,
   message: 'Trainers assigned successfully',
   data: {
@@ -822,19 +815,6 @@ res.json({
     updatedAt: new Date()
   }
 });
-
-
-
-    res.json({
-      success: true,
-      message: 'Trainers assigned successfully',
-      data: {
-        batchId: batch._id,
-        batchNumber: batch.batchNumber,
-        assignedTrainers: batch.assignedTrainers,
-        updatedAt: new Date()
-      }
-    });
 
   } catch (error) {
     console.error('Error assigning trainers:', error);
