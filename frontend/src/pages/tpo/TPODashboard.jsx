@@ -1555,9 +1555,29 @@ const markAsRead = async (id) => {
 
   // Approval Detail Modal Component - Now a dropdown panel
   const ApprovalDetailModal = ({ approval, onClose, onApprove, onReject }) => {
-    if (!approval || !['crt_status_change', 'batch_change'].includes(approval.requestType)) {
+    if (!approval || !['crt_status_change', 'batch_change', 'profile_change'].includes(approval.requestType)) {
       return null;
     }
+
+    // Lock body scroll when modal is open
+    useEffect(() => {
+      const originalStyle = window.getComputedStyle(document.body).overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalStyle;
+      };
+    }, []);
+
+    // Create a stable close handler
+    const handleClose = useCallback((e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      if (typeof onClose === 'function') {
+        onClose();
+      }
+    }, [onClose]);
 
 const getRequestTypeLabel = (type) => {
   const labels = {
@@ -1570,7 +1590,7 @@ const getRequestTypeLabel = (type) => {
 
 const getRequestTypeColor = (type) => {
   const colors = {
-    'crt_status_change': 'from-purple-500 to-purple-600',
+    'crt_status_change': 'from-sky-500 to-sky-600',
     'batch_change': 'from-blue-500 to-blue-600',
     'profile_change': 'from-blue-500 to-blue-600'
   };
@@ -1578,177 +1598,327 @@ const getRequestTypeColor = (type) => {
 };
 
     return (
-      <div className="fixed inset-0 bg-black/20 z-50 flex items-start justify-center pt-4 px-4 overflow-y-auto">
+      <div 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-0"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            handleClose(e);
+          }
+        }}
+        style={{ overflow: 'hidden' }}
+      >
         <div 
-          className="relative w-full max-w-4xl bg-white rounded-xl shadow-2xl border-2 border-gray-200 mb-8"
-          style={{ maxHeight: 'calc(100vh - 2rem)' }}
+          className="relative w-full max-w-3xl bg-white rounded-lg sm:rounded-xl shadow-lg border border-gray-200 flex flex-col m-4"
+          style={{ maxHeight: 'calc(100vh - 2rem)', height: 'auto' }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <div className={`bg-gradient-to-r ${getRequestTypeColor(approval.requestType)} px-6 py-4 rounded-t-xl flex justify-between items-center sticky top-0 z-10`}>
-            <div>
-              <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
-                <AlertCircle className="h-6 w-6" />
-                Approval Request Details
+          {/* Header - Fixed at top */}
+          <div className={`bg-gradient-to-r ${getRequestTypeColor(approval.requestType)} px-4 sm:px-6 py-3 sm:py-4 rounded-t-lg sm:rounded-t-xl flex justify-between items-center flex-shrink-0 relative`}>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-white flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+                <span className="truncate">Approval Request Details</span>
               </h3>
-              <p className="text-white/90 text-sm mt-1">{getRequestTypeLabel(approval.requestType)}</p>
+              <p className="text-white/90 text-xs sm:text-sm mt-0.5 sm:mt-1">{getRequestTypeLabel(approval.requestType)}</p>
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors text-white"
+            {/* Close Button */}
+            <div
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClose?.();
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              className="ml-3 p-2 hover:bg-white/20 rounded-full transition-all flex-shrink-0 cursor-pointer relative z-50"
+              role="button"
+              tabIndex={0}
+              aria-label="Close"
             >
-              <X className="h-5 w-5" />
-            </button>
+              <svg
+                className="w-5 h-5 sm:w-6 sm:h-6 text-white pointer-events-none"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
           </div>
 
-          <div className="p-6 space-y-6 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 12rem)' }}>
+          {/* Scrollable Content Area */}
+          <div 
+            className="p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4 lg:space-y-6 overflow-y-auto flex-1"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             {/* Student Information */}
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <User className="h-5 w-5 text-blue-600" />
-                Student Information
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Name</p>
-                  <p className="font-semibold text-gray-900">{approval.student.name}</p>
+            <div className="bg-white rounded-xl p-4 sm:p-5 border border-sky-100 shadow-sm">
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-sky-100">
+                <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                  {approval.student.name.charAt(0)}
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600 mb-1">Roll Number</p>
-                  <p className="font-semibold text-gray-900 font-mono">{approval.student.rollNo}</p>
+                  <h4 className="text-base sm:text-lg font-bold text-gray-900">Student Information</h4>
+                  <p className="text-xs text-gray-500">Personal & Academic Details</p>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">College</p>
-                  <p className="font-semibold text-gray-900">{approval.student.college}</p>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-start gap-3 p-3 bg-gradient-to-r from-sky-50 to-blue-50 rounded-lg hover:shadow-sm transition-shadow">
+                  <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <User className="h-4 w-4 text-sky-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-500 font-medium mb-0.5">Full Name</p>
+                    <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{approval.student.name}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Branch</p>
-                  <p className="font-semibold text-gray-900">{approval.student.branch}</p>
+
+                <div className="flex items-start gap-3 p-3 bg-gradient-to-r from-sky-50 to-blue-50 rounded-lg hover:shadow-sm transition-shadow">
+                  <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg className="h-4 w-4 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-500 font-medium mb-0.5">Roll Number</p>
+                    <p className="font-bold text-gray-900 font-mono text-sm sm:text-base">{approval.student.rollNo}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Year of Passing</p>
-                  <p className="font-semibold text-gray-900">{approval.student.yearOfPassing}</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-start gap-3 p-3 bg-gradient-to-r from-sky-50 to-blue-50 rounded-lg hover:shadow-sm transition-shadow">
+                    <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Building2 className="h-4 w-4 text-sky-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-500 font-medium mb-0.5">College</p>
+                      <p className="font-semibold text-gray-900 text-xs sm:text-sm truncate">{approval.student.college}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 bg-gradient-to-r from-sky-50 to-blue-50 rounded-lg hover:shadow-sm transition-shadow">
+                    <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Code2 className="h-4 w-4 text-sky-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-500 font-medium mb-0.5">Branch</p>
+                      <p className="font-semibold text-gray-900 text-xs sm:text-sm">{approval.student.branch}</p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-600 mb-1">Current Batch</p>
-                  <p className="font-semibold text-gray-900">
-                    {approval.student.currentBatch ? approval.student.currentBatch.batchNumber : 'Not Assigned'}
-                  </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-start gap-3 p-3 bg-gradient-to-r from-sky-50 to-blue-50 rounded-lg hover:shadow-sm transition-shadow">
+                    <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Calendar className="h-4 w-4 text-sky-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-500 font-medium mb-0.5">Year of Passing</p>
+                      <p className="font-semibold text-gray-900 text-xs sm:text-sm">{approval.student.yearOfPassing}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 p-3 bg-gradient-to-r from-sky-50 to-blue-50 rounded-lg hover:shadow-sm transition-shadow">
+                    <div className="w-8 h-8 bg-sky-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <GraduationCap className="h-4 w-4 text-sky-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-500 font-medium mb-0.5">Current Batch</p>
+                      <p className="font-semibold text-gray-900 text-xs sm:text-sm truncate">
+                        {approval.student.currentBatch ? approval.student.currentBatch.batchNumber : 'Not Assigned'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Request Details */}
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <h4 className="text-base font-semibold text-gray-900 mb-3">Requested Changes</h4>
+            <div className="bg-white rounded-xl p-4 sm:p-5 border border-sky-100 shadow-sm">
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-sky-100">
+                <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center text-white">
+                  <AlertCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-base sm:text-lg font-bold text-gray-900">Requested Changes</h4>
+                  <p className="text-xs text-gray-500">Review the modification request</p>
+                </div>
+              </div>
 
               {approval.requestType === 'crt_status_change' && (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-white rounded border border-blue-200">
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-600 mb-1">Current CRT Status</p>
-                      <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${
-                        approval.requestedChanges.originalCrtInterested
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {approval.requestedChanges.originalCrtInterested ? 'CRT' : 'Non-CRT'}
-                      </span>
+                  <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-900">CRT Status Change</p>
                     </div>
-                    <div className="px-4">
-                      <ChevronRight className="h-6 w-6 text-gray-400" />
-                    </div>
-                    <div className="flex-1 text-right">
-                      <p className="text-sm text-gray-600 mb-1">Requested CRT Status</p>
-                      <span className={`inline-flex px-3 py-1 rounded-full text-sm font-semibold ${
-                        approval.requestedChanges.crtInterested
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {approval.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}
-                      </span>
+                    
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                      <div className="flex-1 w-full">
+                        <p className="text-xs text-gray-600 mb-2 font-medium">Current Status</p>
+                        <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-gray-300 shadow-sm">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-sm font-bold text-gray-800">
+                            {approval.requestedChanges.originalCrtInterested ? 'CRT' : 'Non-CRT'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex justify-center items-center sm:flex-shrink-0 sm:self-center">
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                          <ChevronRight className="h-5 w-5 text-gray-800 rotate-90 sm:rotate-0" />
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 w-full">
+                        <p className="text-xs text-gray-600 mb-2 font-medium">New Status</p>
+                        <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-gray-300 shadow-sm">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <span className="text-sm font-bold text-gray-800">
+                            {approval.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {approval.requestedChanges.crtBatchChoice && (
-                    <div className="p-3 bg-white rounded border border-blue-200">
-                      <p className="text-sm text-gray-600 mb-1">Requested CRT Batch</p>
-                      <span className="inline-flex px-3 py-1 rounded-full text-sm font-semibold bg-purple-100 text-purple-800 border border-purple-200">
-                        {approval.requestedChanges.crtBatchChoice}
-                      </span>
+                    <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <GraduationCap className="h-4 w-4 text-blue-500" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-900 font-medium mb-2">Requested CRT Batch</p>
+                          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span className="text-sm font-bold text-gray-800">{approval.requestedChanges.crtBatchChoice}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
               {approval.requestType === 'batch_change' && (
-                <div className="flex items-center justify-between p-3 bg-white rounded border border-blue-200">
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-600 mb-2">Current Tech Stack</p>
-                    <div className="flex flex-wrap gap-2">
-                      {approval.requestedChanges.originalTechStack?.map((tech, idx) => (
-                        <span
-                          key={idx}
-                          className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-semibold border border-gray-200"
-                        >
-                          {tech}
-                        </span>
-                      )) || <span className="text-gray-500 text-sm">None</span>}
+                <div className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <Code2 className="h-4 w-4 text-purple-600" />
                     </div>
+                    <p className="text-sm font-semibold text-gray-700">Tech Stack Change</p>
                   </div>
-                  <div className="px-4">
-                    <ChevronRight className="h-6 w-6 text-gray-400" />
-                  </div>
-                  <div className="flex-1 text-right">
-                    <p className="text-sm text-gray-600 mb-2">Requested Tech Stack</p>
-                    <div className="flex flex-wrap gap-2 justify-end">
-                      {approval.requestedChanges.techStack?.map((tech, idx) => (
-                        <span
-                          key={idx}
-                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold border border-blue-200"
-                        >
-                          {tech}
-                        </span>
-                      )) || <span className="text-gray-500 text-sm">None</span>}
+                  
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <div className="flex-1 w-full">
+                      <p className="text-xs text-gray-500 mb-2 font-medium">Current Tech Stack</p>
+                      <div className="p-3 bg-white rounded-lg border-2 border-gray-300 min-h-[60px] flex items-center shadow-sm">
+                        <div className="flex flex-wrap gap-2">
+                          {approval.requestedChanges.originalTechStack?.map((tech, idx) => (
+                            <span key={idx} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold border border-gray-300">
+                              {tech}
+                            </span>
+                          )) || <span className="text-gray-400 text-xs">None</span>}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-center items-center sm:flex-shrink-0 sm:self-center">
+                      <div className="w-10 h-10 bg-gradient-to-r from-sky-100 to-blue-100 rounded-full flex items-center justify-center">
+                        <ChevronRight className="h-5 w-5 text-sky-600 rotate-90 sm:rotate-0" />
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 w-full">
+                      <p className="text-xs text-gray-500 mb-2 font-medium">New Tech Stack</p>
+                      <div className="p-3 bg-gradient-to-r from-sky-50 to-blue-50 rounded-lg border-2 border-sky-300 min-h-[60px] flex items-center shadow-sm">
+                        <div className="flex flex-wrap gap-2">
+                          {approval.requestedChanges.techStack?.map((tech, idx) => (
+                            <span key={idx} className="px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-xs font-bold border border-sky-400 shadow-sm">
+                              {tech}
+                            </span>
+                          )) || <span className="text-gray-400 text-xs">None</span>}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               )}
             </div>
+
             {approval.requestType === 'profile_change' && (
-  <div className="space-y-3">
-    <h5 className="font-semibold text-gray-900 mb-2">Changed Fields:</h5>
-    {Object.entries(approval.requestedChanges.changedFields || {}).map(([field, newValue]) => {
-      const oldValue = approval.requestedChanges.originalFields?.[field];
-      return (
-        <div key={field} className="p-3 bg-white rounded border border-blue-200">
-          <p className="text-sm font-semibold text-gray-700 mb-2 capitalize">
-            {field.replace(/([A-Z])/g, ' $1').trim()}
-          </p>
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <p className="text-xs text-gray-600 mb-1">Current Value</p>
-              <p className="text-sm text-gray-800 bg-gray-50 p-2 rounded">
-                {typeof oldValue === 'object' ? JSON.stringify(oldValue, null, 2) : String(oldValue || 'Not set')}
-              </p>
-            </div>
-            <ChevronRight className="h-6 w-6 text-gray-400" />
-            <div className="flex-1">
-              <p className="text-xs text-gray-600 mb-1">Requested Value</p>
-              <p className="text-sm text-blue-800 bg-blue-50 p-2 rounded font-semibold">
-                {typeof newValue === 'object' ? JSON.stringify(newValue, null, 2) : String(newValue)}
-              </p>
-            </div>
-          </div>
-        </div>
-      );
-    })}
-  </div>
-)}
+              <div className="bg-white rounded-xl p-4 sm:p-5 border border-sky-100 shadow-sm">
+                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-sky-100">
+                  <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white">
+                    <Edit className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-base sm:text-lg font-bold text-gray-900">Profile Changes</h4>
+                    <p className="text-xs text-gray-500">Field modifications requested</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {Object.entries(approval.requestedChanges.changedFields || {}).map(([field, newValue]) => {
+                    const oldValue = approval.requestedChanges.originalFields?.[field];
+                    return (
+                      <div key={field} className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-4 border-2 border-gray-200 shadow-md">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-6 h-6 bg-indigo-100 rounded flex items-center justify-center">
+                            <svg className="h-3 w-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-700 capitalize">
+                            {field.replace(/([A-Z])/g, ' $1').trim()}
+                          </p>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                          <div className="flex-1 w-full">
+                            <p className="text-xs text-gray-500 mb-2 font-medium">Current</p>
+                            <div className="p-3 bg-white rounded-lg border-2 border-gray-300 shadow-sm">
+                              <p className="text-xs text-gray-700 break-words font-mono">
+                                {typeof oldValue === 'object' ? JSON.stringify(oldValue, null, 2) : String(oldValue || 'Not set')}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex justify-center items-center sm:flex-shrink-0 sm:self-center">
+                            <div className="w-10 h-10 bg-gradient-to-r from-sky-100 to-blue-100 rounded-full flex items-center justify-center">
+                              <ChevronRight className="h-5 w-5 text-sky-600 rotate-90 sm:rotate-0" />
+                            </div>
+                          </div>
+                          
+                          <div className="flex-1 w-full">
+                            <p className="text-xs text-gray-500 mb-2 font-medium">New</p>
+                            <div className="p-3 bg-gradient-to-r from-sky-50 to-blue-50 rounded-lg border-2 border-sky-300 shadow-sm">
+                              <p className="text-xs text-sky-800 break-words font-mono font-semibold">
+                                {typeof newValue === 'object' ? JSON.stringify(newValue, null, 2) : String(newValue)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Request Metadata */}
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Requested At</span>
+            <div className="bg-gradient-to-br from-gray-50 to-white rounded-lg p-3 sm:p-4 border border-gray-200 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 sm:gap-0 text-xs sm:text-sm">
+                <span className="text-gray-600 font-medium">Requested At</span>
                 <span className="font-semibold text-gray-900">
                   {new Date(approval.requestedAt).toLocaleDateString('en-US', {
                     year: 'numeric',
@@ -1761,37 +1931,37 @@ const getRequestTypeColor = (type) => {
               </div>
             </div>
 
-            {/* Action Buttons - Sticky Footer */}
-            <div className="sticky bottom-0 bg-white border-t-2 border-gray-200 px-6 py-4 rounded-b-xl flex gap-3">
+            {/* Action Buttons */}
+            <div className="bg-gradient-to-t from-white via-white to-transparent border-t-2 border-gray-200 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 flex flex-col sm:flex-row gap-2 sm:gap-3 shadow-lg mt-auto">
               <button
                 type="button"
-                onMouseUp={() => {
-                  console.log('🖱️ Approve mouseUp triggered', approval.approvalId);
-                  if (typeof onApprove === 'function') onApprove(approval.student.id, approval.approvalId);
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (typeof onApprove === 'function') {
+                    onApprove(approval.student.id, approval.approvalId);
+                  }
                 }}
-                onClick={() => {
-                  console.log('✅ Approving (click fallback):', approval.student.id, approval.approvalId);
-                  if (typeof onApprove === 'function') onApprove(approval.student.id, approval.approvalId);
-                }}
-                className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors font-semibold flex items-center justify-center gap-2 shadow-md"
+                className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg hover:from-green-700 hover:to-green-800 active:from-green-800 active:to-green-900 transition-all font-semibold flex items-center justify-center gap-2 shadow-md hover:shadow-lg text-sm sm:text-base"
               >
-                <CheckCircle className="h-5 w-5" />
-                Approve Request
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="hidden sm:inline">Approve Request</span>
+                <span className="sm:hidden">Approve</span>
               </button>
               <button
                 type="button"
-                onMouseUp={() => {
-                  console.log('🖱️ Reject mouseUp triggered', approval.approvalId);
-                  if (typeof onReject === 'function') onReject(approval);
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (typeof onReject === 'function') {
+                    onReject(approval);
+                  }
                 }}
-                onClick={() => {
-                  console.log('❌ Rejecting (click fallback):', approval);
-                  if (typeof onReject === 'function') onReject(approval);
-                }}
-                className="flex-1 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 active:bg-red-800 transition-colors font-semibold flex items-center justify-center gap-2 shadow-md"
+                className="flex-1 bg-gradient-to-r from-red-600 to-red-700 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg hover:from-red-700 hover:to-red-800 active:from-red-800 active:to-red-900 transition-all font-semibold flex items-center justify-center gap-2 shadow-md hover:shadow-lg text-sm sm:text-base"
               >
-                <X className="h-5 w-5" />
-                Reject Request
+                <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="hidden sm:inline">Reject Request</span>
+                <span className="sm:hidden">Reject</span>
               </button>
             </div>
           </div>
@@ -1839,21 +2009,10 @@ const getRequestTypeColor = (type) => {
             <textarea
               ref={textareaRef}
               value={localReason}
-              onFocus={() => console.log('📝 Reject textarea focused')}
-              onClick={() => console.log('🖱️ Reject textarea clicked')}
-              onMouseDown={() => console.log('👇 Reject textarea mouseDown')}
-              onInput={(e) => {
-                // onInput can capture composition correctly for IME
-                console.log('✍️ Reject textarea input:', e.target.value);
-                setLocalReason(e.target.value);
-              }}
-              onChange={(e) => {
-                console.log('✍️ Reject textarea change:', e.target.value);
-                setLocalReason(e.target.value);
-              }}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setLocalReason(e.target.value)}
               placeholder="Enter rejection reason..."
               className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-red-500"
-              style={{ direction: 'ltr' }}
               rows={4}
             />
 
@@ -1866,25 +2025,16 @@ const getRequestTypeColor = (type) => {
                 Cancel
               </button>
               <button
-                onMouseDown={(e) => {
-                  console.log('👇 Confirm mouseDown');
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (typeof onConfirm === 'function' && localReason && localReason.trim()) {
-                    console.log('🖱️ Calling onConfirm from mouseDown (fallback)');
-                    onConfirm(localReason);
-                  }
-                }}
-                onMouseUp={() => { console.log('👆 Confirm mouseUp'); }}
+                type="button"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('🗳️ Confirm rejection clicked (click). reason:', localReason);
-                  if (typeof onConfirm === 'function' && localReason && localReason.trim()) onConfirm(localReason);
+                  if (typeof onConfirm === 'function' && localReason && localReason.trim()) {
+                    onConfirm(localReason);
+                  }
                 }}
                 disabled={!localReason.trim()}
                 className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                type="button"
               >
                 Confirm Rejection
               </button>
@@ -1915,9 +2065,7 @@ const getRequestTypeColor = (type) => {
         userType="tpo"
         userId={tpoData?.user?._id || tpoData?._id}
         onIconClick={() => {
-          if (window.location.pathname === '/tpo-dashboard') {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          } else {
+          if (window.location.pathname !== '/tpo-dashboard') {
             navigate('/tpo-dashboard');
           }
         }}
@@ -2709,7 +2857,7 @@ const getRequestTypeColor = (type) => {
               <div className="flex items-center justify-between mb-5">
                 <div>
                   <h3 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <AlertCircle className="h-6 w-6 text-orange-600" />
+                    <AlertCircle className="h-6 w-6 text-sky-600" />
                     Pending Approval Requests
                   </h3>
                 </div>
@@ -2751,80 +2899,38 @@ const getRequestTypeColor = (type) => {
                   {pendingApprovals.map((approval, idx) => (
                     <div
                       key={idx}
-                      className="border border-orange-200 rounded-lg p-3 sm:p-4 bg-gradient-to-r from-orange-50 to-white hover:shadow-md transition-shadow"
+                      className="border border-sky-200 rounded-lg p-3 sm:p-4 bg-gradient-to-r from-sky-50 to-white hover:shadow-md transition-shadow"
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-lg flex-shrink-0">
-                              {approval.student.name.charAt(0)}
-                            </div>
-                            <div className="min-w-0">
-                              <h4 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
-                                {approval.student.name}
-                              </h4>
-                              <p className="text-xs sm:text-sm text-gray-600 truncate">
-                                {approval.student.rollNo} • {approval.student.college} • {approval.student.branch}
-                              </p>
-                            </div>
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-sky-500 to-sky-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-lg flex-shrink-0">
+                            {approval.student.name.charAt(0)}
                           </div>
-
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              approval.requestType === 'crt_status_change'
-                                ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                                : 'bg-blue-100 text-blue-800 border border-blue-200'
-                            }`}>
-                              {approval.requestType === 'crt_status_change'
-                                ? 'CRT Status Change'
-                                : 'Batch Change'}
-                            </span>
-
-                            <span className="text-[10px] text-gray-500">
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
+                              {approval.student.name}
+                            </h4>
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">
+                              {approval.student.rollNo}
+                            </p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">
                               {new Date(approval.requestedAt).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                                 hour: '2-digit',
                                 minute: '2-digit'
                               })}
-                            </span>
-                          </div>
-
-                          {/* Quick preview of changes */}
-                          <div className="mt-2 sm:mt-3 p-1 sm:p-2 bg-white rounded border border-gray-200 text-xs sm:text-sm">
-                            {approval.requestType === 'crt_status_change' ? (
-                              <div className="flex items-center gap-2">
-                                <span className="text-gray-600 text-xs">Status:</span>
-                                <span className="font-semibold text-gray-800 text-xs">
-                                  {approval.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}
-                                </span>
-                                <ChevronRight className="h-4 w-4 text-gray-400" />
-                                <span className="font-semibold text-orange-700 text-xs">
-                                  {approval.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2 text-xs">
-                                <span className="text-gray-600">Tech Stack:</span>
-                                <span className="font-semibold text-gray-800">
-                                  {approval.requestedChanges.techStack?.join(', ') || 'None'}
-                                </span>
-                                <ChevronRight className="h-4 w-4 text-gray-400" />
-                                <span className="font-semibold text-orange-700">
-                                  {approval.requestedChanges.techStack?.join(', ') || 'None'}
-                                </span>
-                              </div>
-                            )}
+                            </p>
                           </div>
                         </div>
 
-                        <div className="flex flex-col items-end gap-2 ml-3 sm:ml-4 flex-shrink-0">
+                        <div className="flex flex-col justify-end items-end ml-3 sm:ml-4 flex-shrink-0">
                           <button
                             onClick={() => {
                               setSelectedApproval(approval);
                               setShowApprovalDetail(true);
                             }}
-                            className="bg-orange-600 text-white px-3 py-1 rounded-sm sm:rounded-lg hover:bg-orange-700 transition-colors font-medium text-xs sm:text-sm flex items-center gap-2"
+                            className="bg-sky-600 text-white px-3 py-1 rounded-sm sm:rounded-lg hover:bg-sky-700 transition-colors font-medium text-xs sm:text-sm flex items-center gap-2"
                           >
                             <Eye className="h-4 w-4" />
                             <span className="hidden sm:inline">Review</span>
@@ -3126,8 +3232,15 @@ const getRequestTypeColor = (type) => {
         <ApprovalDetailModal
           approval={selectedApproval}
           onClose={() => {
+            console.log('✅ onClose called from parent component');
+            console.log('Before - showApprovalDetail:', showApprovalDetail);
+            console.log('Before - selectedApproval:', selectedApproval);
+            
+            // Use setTimeout to ensure state updates are not batched incorrectly
             setShowApprovalDetail(false);
             setSelectedApproval(null);
+            
+            console.log('✅ State updates dispatched');
           }}
           onApprove={handleApproveRequest}
           onReject={openRejectModal}
