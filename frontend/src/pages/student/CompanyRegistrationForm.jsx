@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import ToastNotification from '../../components/ui/ToastNotification';
 
 const CompanyRegistrationForm = ({  eventId, onClose, tpoExternalLink, onRegistered }) => {
   const [studentData, setStudentData] = useState(null);
   const [resumeFile, setResumeFile] = useState(null);
   const [externalLink, setExternalLink] = useState("");
+
+  const [toast, setToast] = useState(null);
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
 useEffect(() => {
   if (tpoExternalLink) {
     console.log("Received external link from TPO:", tpoExternalLink);
@@ -43,7 +50,7 @@ const handleSubmit = async (e) => {
   e.preventDefault();
 
   if (!studentData) {
-    alert("Student data not loaded yet!");
+    showToast('error','Student data not loaded yet!');
     return;
   }
 
@@ -62,7 +69,7 @@ const handleSubmit = async (e) => {
     );
 
     console.log("✅ Registration response:", res.data);
-    alert("Registration submitted successfully!");
+    showToast('success','Registration submitted successfully!');
 
     // ✅ Trigger parent to refresh registered list & hide register button
     // Inside handleSubmit, after successful registration
@@ -79,7 +86,7 @@ if (typeof onRegistered === "function") {
     onClose();
   } catch (err) {
     console.error("❌ Error submitting registration:", err?.response?.data || err.message || err);
-    alert(err.response?.data?.message || "Failed to submit registration");
+    showToast('error', err.response?.data?.message || "Failed to submit registration");
   }
 };
 
@@ -91,6 +98,13 @@ if (typeof onRegistered === "function") {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
+        {toast && (
+          <ToastNotification
+            type={toast.type}
+            message={toast.message}
+            onClose={() => setToast(null)}
+          />
+        )}
         <button
           onClick={onClose}
           className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"

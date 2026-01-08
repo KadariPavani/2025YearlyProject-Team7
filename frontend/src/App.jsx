@@ -616,7 +616,7 @@ const router = createBrowserRouter([
     path: "/student/feedback",
     element: (
       <ProtectedUserRoute>
-        <StudentFeedback />
+        <StudentDashboard initialTab="feedback" />
       </ProtectedUserRoute>
     ),
   },
@@ -959,7 +959,7 @@ function App() {
                 path="/student/feedback"
                 element={
                   <ProtectedUserRoute>
-                    <StudentFeedback />
+                    <StudentDashboard initialTab="feedback" />
                   </ProtectedUserRoute>
                 }
               />

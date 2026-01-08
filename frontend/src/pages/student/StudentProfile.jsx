@@ -690,7 +690,7 @@ const StudentProfile = () => {
             <div className="border-t border-gray-200"></div>
 
             <button
-              onClick={() => alert("Remove Profile (demo only, not functional)")}
+              onClick={() => setError('Remove Profile (demo only, not functional)')}
               className="block w-full text-left px-4 py-3 hover:bg-purple-50 text-red-500 font-medium"
             >
               Remove Profile
@@ -759,7 +759,7 @@ const StudentProfile = () => {
           <div className="border-t border-gray-200"></div>
 
           <button
-            onClick={() => alert("Remove Resume (demo only, not functional)")}
+            onClick={() => setError('Remove Resume (demo only, not functional)')}
             className="block w-full text-left px-4 py-3 hover:bg-purple-50 text-red-500 font-medium"
           >
             Remove Resume

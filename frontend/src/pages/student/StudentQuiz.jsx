@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Clock, CheckCircle, AlertTriangle, BookOpen, Calendar, User, BarChart3, Trophy } from "lucide-react";
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import ToastNotification from '../../components/ui/ToastNotification';
 
 // Main StudentQuiz component to manage the application's state and views.
 export default function StudentQuiz() {
@@ -15,6 +17,12 @@ export default function StudentQuiz() {
   const [quizResult, setQuizResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  }; 
 
   useEffect(() => {
     const fetchQuizzes = async () => {
@@ -22,7 +30,8 @@ export default function StudentQuiz() {
         setLoading(true);
         const token = localStorage.getItem('userToken');
         if (!token) {
-          setError('Please log in to view quizzes');
+          setLoading(false);
+          showToast('error', 'Please log in to view quizzes');
           return;
         }
 
@@ -33,7 +42,8 @@ export default function StudentQuiz() {
 
         setQuizzes(Array.isArray(response.data) ? response.data : []);
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to fetch quizzes');
+        const msg = err.response?.data?.message || 'Failed to fetch quizzes';
+        showToast('error', msg);
         console.error('Error fetching quizzes:', err);
       } finally {
         setLoading(false);
@@ -65,12 +75,13 @@ export default function StudentQuiz() {
       setLoading(true);
       const token = localStorage.getItem('userToken');
       if (!token) {
-        setError('Please log in to take the quiz');
+        setLoading(false);
+        showToast('error', 'Please log in to take the quiz');
         return;
       }
 
       // Fetch full quiz details for taking
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/student/${quizId}`, {
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/studenT/${quizId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -79,7 +90,7 @@ export default function StudentQuiz() {
       // Prevent starting if quiz is not active (robust check)
       const statusCheck = getQuizStatus(quiz);
       if (statusCheck.status !== 'active') {
-        setError('Quiz is not active at the moment.');
+        showToast('error', 'Quiz is not active at the moment.');
         return;
       }
 
@@ -99,7 +110,7 @@ export default function StudentQuiz() {
     } catch (err) {
       const message = err.response?.data?.message || 'Failed to start quiz';
       const reason = err.response?.data?.reason ? ` (${err.response?.data?.reason})` : '';
-      setError(`${message}${reason}`);
+      showToast('error', `${message}${reason}`);
       console.error('Error starting quiz:', err);
     } finally {
       setLoading(false);
@@ -132,7 +143,8 @@ export default function StudentQuiz() {
       setLoading(true);
       const token = localStorage.getItem('userToken');
       if (!token) {
-        setError('Please log in to submit quiz');
+        setLoading(false);
+        showToast('error', 'Please log in to submit quiz');
         return;
       }
 
@@ -147,6 +159,7 @@ export default function StudentQuiz() {
 
       setQuizResult(response.data);
       setCurrentView("review");
+      showToast('success', 'Quiz submitted successfully!');
       
       // Refresh quiz list to update submission status
       const updatedQuizzes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/student/list`, {
@@ -157,7 +170,7 @@ export default function StudentQuiz() {
     } catch (err) {
       const message = err.response?.data?.message || 'Failed to submit quiz';
       const reason = err.response?.data?.reason ? ` (${err.response?.data?.reason})` : '';
-      setError(`${message}${reason}`);
+      showToast('error', `${message}${reason}`);
       console.error('Error submitting quiz:', err);
     } finally {
       setLoading(false);
@@ -273,17 +286,16 @@ export default function StudentQuiz() {
               </h1>
             </div>
 
-            {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-700">{error}</p>
-              </div>
+            {toast && (
+              <ToastNotification
+                type={toast.type}
+                message={toast.message}
+                onClose={() => setToast(null)}
+              />
             )}
 
             {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading quizzes...</p>
-              </div>
+              <LoadingSkeleton />
             ) : quizzes.length === 0 ? (
               <div className="text-center py-12">
                 <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />

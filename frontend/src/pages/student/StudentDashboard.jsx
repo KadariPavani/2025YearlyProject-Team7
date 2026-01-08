@@ -4,7 +4,7 @@ import {
   Users, Calendar, Clock,
   BookOpen, Award, Activity, GraduationCap, Phone, Mail,
   CheckCircle, AlertCircle, UserCheck, Briefcase, School, Monitor, Building2, X,
-  PlusCircle, CheckSquare, FileText, User, Menu, Target, TrendingUp, MessageSquare, ChevronLeft, Bell, Settings, LogOut, ChevronDown
+  PlusCircle, CheckSquare, FileText, User, Menu, Home, Target, TrendingUp, MessageSquare, ChevronLeft, Bell, Settings, LogOut, ChevronDown
 } from 'lucide-react';
 import axios from 'axios';
 import StudentPlacementCalendar from './StudentCalender';
@@ -18,6 +18,7 @@ import StudentActivityView from './StudentActivityView';
 
 import FeedbackPreview from '../../components/feedbackPreview'; // Import feedback preview component
 import Header from '../../components/common/Header';
+import BottomNav from '../../components/common/BottomNav';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 // Keep placeholder components for the rest as in the first code
 
@@ -36,77 +37,12 @@ const StudentSyllabus = () => (
   </div>
 );
 
-const StudentProgress = () => (
-  <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-    <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-      <TrendingUp className="h-6 w-6 text-blue-600" />
-      My Progress
-    </h3>
 
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="bg-blue-600 p-2 rounded-lg">
-            <CheckSquare className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h4 className="font-semibold text-blue-900">Assignments</h4>
-            <p className="text-blue-700 text-sm">Completed Tasks</p>
-          </div>
-        </div>
-        <div className="text-3xl font-bold text-blue-900 mb-2">0/0</div>
-        <div className="w-full bg-blue-200 rounded-full h-2">
-          <div className="bg-blue-600 h-2 rounded-full" style={{ width: '0%' }}></div>
-        </div>
-      </div>
-
-      <div className="bg-green-50 rounded-xl p-6 border border-green-200">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="bg-green-600 p-2 rounded-lg">
-            <Target className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h4 className="font-semibold text-green-900">Quizzes</h4>
-            <p className="text-green-700 text-sm">Test Scores</p>
-          </div>
-        </div>
-        <div className="text-3xl font-bold text-green-900 mb-2">0/0</div>
-        <div className="w-full bg-green-200 rounded-full h-2">
-          <div className="bg-green-600 h-2 rounded-full" style={{ width: '0%' }}></div>
-        </div>
-      </div>
-
-      <div className="bg-purple-50 rounded-xl p-6 border border-purple-200">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="bg-purple-600 p-2 rounded-lg">
-            <Activity className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h4 className="font-semibold text-purple-900">Attendance</h4>
-            <p className="text-purple-700 text-sm">Class Participation</p>
-          </div>
-        </div>
-        <div className="text-3xl font-bold text-purple-900 mb-2">0%</div>
-        <div className="w-full bg-purple-200 rounded-full h-2">
-          <div className="bg-purple-600 h-2 rounded-full" style={{ width: '0%' }}></div>
-        </div>
-      </div>
-    </div>
-
-    <div className="bg-gray-50 rounded-xl p-6">
-      <h4 className="font-semibold text-gray-900 mb-4">Recent Activity</h4>
-      <div className="text-center py-8">
-        <Activity className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-        <p className="text-gray-500">No recent activity</p>
-        <p className="text-gray-400 text-sm">Your learning progress will appear here</p>
-      </div>
-    </div>
-  </div>
-);
-
-const StudentContests = ({ contests }) => {
+const StudentContests = ({ contests, loading=false }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('live');
+
+  if (loading) return <LoadingSkeleton />; 
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'cards'
 
   // Calculate stats
@@ -268,7 +204,7 @@ const StudentContests = ({ contests }) => {
           </div>
         )}
 
-        {/* Contest List */}
+  
         <div className="divide-y divide-gray-200">
           {filteredContests.length > 0 ? (
             filteredContests.map(c => {
@@ -394,21 +330,9 @@ const StudentContests = ({ contests }) => {
     </div>
   );
 };
-const StudentCertificates = () => (
-  <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-    <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-      <Award className="h-6 w-6 text-blue-600" />
-      My Certificates
-    </h3>
-    <div className="text-center py-12 bg-gray-50 rounded-xl">
-      <Award className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-      <p className="text-gray-500 font-medium">No certificates earned yet</p>
-      <p className="text-gray-400 text-sm">Complete assignments and quizzes to earn certificates</p>
-    </div>
-  </div>
-);
 
-const StudentDashboard = () => {
+
+const StudentDashboard = ({ initialTab }) => {
   const [studentData, setStudentData] = useState(null);
   const [batchInfo, setBatchInfo] = useState(null);
   const [placementBatchInfo, setPlacementBatchInfo] = useState(null);
@@ -436,8 +360,78 @@ const [categoryUnread, setCategoryUnread] = useState({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(initialTab || 'overview');
   const [selectedTrainer, setSelectedTrainer] = useState(null);
+
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: Home },
+    { id: 'trainers', label: 'My Trainers', icon: Users },
+    { id: 'schedule', label: 'Class Schedule', icon: Calendar },
+    { id: 'attendance', label: 'Attendance', icon: Clock },
+    { id: 'syllabus', label: 'Syllabus', icon: BookOpen },
+    { id: 'assignments', label: 'Assignments', icon: PlusCircle },
+    { id: 'student-activity', label: 'Student Activity', icon: Activity },
+    { id: 'contests', label: 'Contests', icon: Target },
+    { id: 'quizzes', label: 'Quizzes', icon: CheckSquare },
+    { id: 'resources', label: 'Resources', icon: FileText },
+    { id: 'calendar', label: 'Placement Calendar', icon: Calendar },
+    { id: 'feedback', label: 'Feedback', icon: MessageSquare },
+    { id: 'approvals', label: 'Approvals', icon: AlertCircle },
+  ];
+
+  const [showMoreDropdown, setShowMoreDropdown] = useState(false);
+  const [visibleTabsCount, setVisibleTabsCount] = useState(7);
+  const moreRef = useRef(null);
+
+  useEffect(() => {
+    const mq1440 = window.matchMedia('(min-width: 1440px)');
+    const mq1024 = window.matchMedia('(min-width: 1024px)');
+    const mq768 = window.matchMedia('(min-width: 768px)');
+
+    const setCountFromMQ = () => {
+      if (mq1440.matches) setVisibleTabsCount(7);
+      else if (mq1024.matches) setVisibleTabsCount(5);
+      else if (mq768.matches) setVisibleTabsCount(4);
+      else setVisibleTabsCount(3);
+    };
+
+    setCountFromMQ();
+    mq1440.addEventListener?.('change', setCountFromMQ);
+    mq1024.addEventListener?.('change', setCountFromMQ);
+    mq768.addEventListener?.('change', setCountFromMQ);
+
+    if (typeof mq1440.addEventListener !== 'function' && typeof mq1440.addListener === 'function') {
+      mq1440.addListener(setCountFromMQ);
+      mq1024.addListener(setCountFromMQ);
+      mq768.addListener(setCountFromMQ);
+    }
+
+    return () => {
+      mq1440.removeEventListener?.('change', setCountFromMQ);
+      mq1024.removeEventListener?.('change', setCountFromMQ);
+      mq768.removeEventListener?.('change', setCountFromMQ);
+      if (typeof mq1440.removeEventListener !== 'function' && typeof mq1440.removeListener === 'function') {
+        mq1440.removeListener(setCountFromMQ);
+        mq1024.removeListener(setCountFromMQ);
+        mq768.removeListener(setCountFromMQ);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (moreRef.current && !moreRef.current.contains(e.target)) setShowMoreDropdown(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  const handleTabClick = (tabId) => {
+    if (tabId === 'feedback') { setActiveTab('feedback'); return; }
+    setActiveTab(tabId);
+    if (tabId === 'schedule') fetchTodaySchedule();
+    if (tabId === 'approvals') fetchPendingApprovals();
+  };
   const [pendingApprovals, setPendingApprovals] = useState(null);
   const [formData, setFormData] = useState({
     crtInterested: false,
@@ -452,6 +446,7 @@ const [notifications, setNotifications] = useState([]);
 const [unreadCount, setUnreadCount] = useState(0);
 const [selectedCategory, setSelectedCategory] = useState(null);
 const [contests, setContests] = useState([]);
+const [loadingContests, setLoadingContests] = useState(false);
 // 🔔 Close notification when clicking outside
 const notificationRef = useRef(null);
 
@@ -489,14 +484,24 @@ useEffect(() => {
     }
   }, [activeTab]);
 
+  // When Schedule tab is activated on desktop, fetch today's schedule so skeletons show immediately
+  useEffect(() => {
+    if (activeTab === 'schedule') {
+      fetchTodaySchedule();
+    }
+  }, [activeTab]);
+
   // Fetch active contests for student
   const fetchContests = async () => {
+    setLoadingContests(true);
     try {
       const token = localStorage.getItem('userToken');
       const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/contests`, { headers: { Authorization: `Bearer ${token}` } });
       setContests(res.data.contests || []);
     } catch (err) {
       console.error('Error fetching contests:', err);
+    } finally {
+      setLoadingContests(false);
     }
   };
 
@@ -931,77 +936,75 @@ const studentId = studentData?.user?._id || studentData?._id;
         }}
       />
 
-      <div className="max-w-7xl mx-auto pt-20">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 pb-24 sm:pb-8">
+
+
         {/* Header Section */}
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="px-8 py-6">
+        <div className="bg-white border-gray-200 shadow-sm">
+          <div className="px-6 py-5">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h1 className="text-4xl font-bold text-blue-700">
+                <h1 className="text-3xl font-bold text-blue-700">
                   Welcome, {studentData?.user?.name || 'Student'}!
                 </h1>
-                <p className="text-gray-600 mt-2">{studentData?.message || 'Welcome to your placement training portal'}</p>
+                <p className="text-gray-600 mt-1">{studentData?.message || 'Welcome to your placement training portal'}</p>
 
               </div>
 
-              <div className="flex items-center gap-2 bg-green-50 px-4 py-2 rounded-full border border-green-200">
-                <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-green-700">Live Data</span>
+              <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-full border border-blue-200">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-blue-700">Live Data</span>
               </div>
             </div>
           </div>
 
           {/* Info Cards Row - Merged with stats from second code */}
-          <div className="px-8 pb-6">
+          <div className="px-6 pb-5">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-green-50 rounded-2xl p-5 border border-green-200">
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <div className="flex items-start gap-3">
-                  <div className="bg-green-600 p-2 rounded-lg">
+                  <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
                     <Calendar className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-1">Last Login</p>
-                    <p className="text-lg font-bold text-green-900">{studentData?.lastLogin ? new Date(studentData.lastLogin).toLocaleDateString() : 'N/A'}</p>
-                    <p className="text-xs text-green-700 mt-1">Welcome Back!</p>
+                    <p className="text-[11px] sm:text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Last Login</p>
+                    <p className="text-sm sm:text-base font-bold text-blue-900">{studentData?.lastLogin ? new Date(studentData.lastLogin).toLocaleDateString() : 'N/A'}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-pink-50 rounded-2xl p-5 border border-pink-200">
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <div className="flex items-start gap-3">
-                  <div className="bg-pink-500 p-2 rounded-lg">
+                  <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
                     <PlusCircle className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs font-semibold text-pink-600 uppercase tracking-wide mb-1">Assignments</p>
-                    <p className="text-lg font-bold text-pink-900">{dashboardStats.assignments.completed}/{dashboardStats.assignments.total}</p>
-                    <p className="text-xs text-pink-700 mt-1">Completed</p>
+                    <p className="text-[11px] sm:text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Assignments</p>
+                    <p className="text-sm sm:text-base font-bold text-blue-900">{dashboardStats.assignments.completed}/{dashboardStats.assignments.total}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-blue-50 rounded-2xl p-5 border border-blue-200">
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <div className="flex items-start gap-3">
-                  <div className="bg-blue-500 p-2 rounded-lg">
+                  <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
                     <CheckSquare className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Quizzes</p>
-                    <p className="text-lg font-bold text-blue-900">{dashboardStats.quizzes.completed}/{dashboardStats.quizzes.total}</p>
-                    <p className="text-xs text-blue-700 mt-1">Completed</p>
+                    <p className="text-[11px] sm:text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Quizzes</p>
+                    <p className="text-sm sm:text-base font-bold text-blue-900">{dashboardStats.quizzes.completed}/{dashboardStats.quizzes.total}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-amber-50 rounded-2xl p-5 border border-amber-200">
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <div className="flex items-start gap-3">
-                  <div className="bg-amber-500 p-2 rounded-lg">
+                  <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
                     <Award className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Average Score</p>
-                    <p className="text-lg font-bold text-amber-900">{dashboardStats.quizzes.average.toFixed(1)}%</p>
-                    <p className="text-xs text-amber-700 mt-1">Quiz Performance</p>
+                    <p className="text-[11px] sm:text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Average Score</p>
+                    <p className="text-sm sm:text-base font-bold text-blue-900">{dashboardStats.quizzes.average.toFixed(1)}%</p>
                   </div>
                 </div>
               </div>
@@ -1028,168 +1031,72 @@ const studentId = studentData?.user?._id || studentData?._id;
               </div>
             </div>
           )}
-
-
-
           {/* Tab Navigation */}
-          <div className="px-8">
-            <div className="flex gap-1 border-b border-gray-200 overflow-x-auto scrollbar-hide">
-              <button
-                onClick={() => setActiveTab('overview')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'overview'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Overview
-              </button>
+          <div>
+            <div className="bg-white rounded-lg shadow-md mb-6">
+              <div className="border-b border-gray-200">
+                <nav className="hidden sm:flex items-center space-x-2">
+                  {tabs.slice(0, visibleTabsCount).map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
+                          activeTab === tab.id
+                            ? 'border-b-2 border-blue-700 text-blue-700'
+                            : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
 
-              <button
-                onClick={() => setActiveTab('trainers')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'trainers'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                My Trainers
-              </button>
+                  {tabs.length > visibleTabsCount && (
+                    <div className="relative" ref={moreRef}>
+                      <button
+                        onClick={() => setShowMoreDropdown((s) => !s)}
+                        aria-label="More"
+                        className="flex items-center space-x-2 px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 border-transparent rounded"
+                      >
+                        <span>More</span>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${showMoreDropdown ? 'rotate-180' : ''}`} />
+                      </button>
 
-              <button
-                onClick={() => setActiveTab('schedule')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'schedule'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Class Schedule
-              </button>
+                      <div className={`absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 ${showMoreDropdown ? 'block' : 'hidden'}`}>
+                        <ul className="divide-y divide-gray-100">
+                          {tabs.slice(visibleTabsCount).map((tab) => {
+                            const Icon = tab.icon;
+                            return (
+                              <li key={tab.id}>
+                                <button
+                                  onClick={() => { handleTabClick(tab.id); setShowMoreDropdown(false); }}
+                                  className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 text-sm text-gray-700"
+                                >
+                                  <Icon className="h-4 w-4" />
+                                  <span>{tab.label}</span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </nav>
+              </div>
+            </div>
 
-              <button
-                onClick={() => setActiveTab('attendance')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'attendance'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Attendance
-              </button>
-              <button
-                onClick={() => setActiveTab('syllabus')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'syllabus'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Syllabus
-              </button>
-
-              <button
-                onClick={() => setActiveTab('assignments')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'assignments'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <PlusCircle className="h-4 w-4 inline mr-1" />
-                Assignments
-              </button>
-
-              <button
-                onClick={() => setActiveTab('student-activity')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'student-activity'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Student Activity
-              </button>
-
-              <button
-                onClick={() => setActiveTab('contests')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'contests'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Contests
-              </button>
-
-              <button
-                onClick={() => setActiveTab('quizzes')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'quizzes'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <CheckSquare className="h-4 w-4 inline mr-1" />
-                Quizzes
-              </button>
-
-              <button
-                onClick={() => setActiveTab('resources')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'resources'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <FileText className="h-4 w-4 inline mr-1" />
-                Resources
-              </button>
-
-              <button
-                onClick={() => setActiveTab('calendar')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'calendar'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <Calendar className="h-4 w-4 inline mr-1" />
-                Placement Calendar
-              </button>
-
-              <button
-                onClick={() => navigate('/student/feedback')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'feedback'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <MessageSquare className="h-4 w-4 inline mr-1" />
-                Feedback
-              </button>
-
-              <button
-                onClick={() => setActiveTab('approvals')}
-                className={`px-4 py-3 font-medium text-sm transition-all duration-200 border-b-2 whitespace-nowrap ${
-                  activeTab === 'approvals'
-                    ? 'border-blue-700 text-blue-700 bg-blue-100'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <AlertCircle className="h-4 w-4 inline mr-1" />
-                Approvals
-                {pendingApprovals && pendingApprovals.totalPending > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5 rounded">{pendingApprovals.totalPending}</span>
-                )}
-              </button>
+            <div className="sm:hidden">
+              <BottomNav tabs={tabs} active={activeTab} onChange={handleTabClick} />
             </div>
           </div>
         </div>
 
         {/* Content Area */}
-        <div className="p-8">
+        <div className="p-2">
           {/* Overview Tab - Merged with content from both codes */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
@@ -1569,6 +1476,7 @@ const studentId = studentData?.user?._id || studentData?._id;
             </div>
           )}
 
+
           {/* Use enhanced components from second code for these tabs */}
           {activeTab === 'assignments' && <StudentAssignment />}
           {activeTab === 'quizzes' && <StudentQuiz />}
@@ -1692,9 +1600,7 @@ const studentId = studentData?.user?._id || studentData?._id;
 )}
 
 
-          {activeTab === 'contests' && <StudentContests contests={contests} />}
-          {activeTab === 'progress' && <StudentProgress />}
-          {activeTab === 'certificates' && <StudentCertificates />}
+          {activeTab === 'contests' && <StudentContests contests={contests} loading={loadingContests} />}
           {activeTab === 'attendance' && <StudentAttendanceView />}
           {activeTab === "calendar" && <StudentPlacementCalendar />}
           {activeTab === 'student-activity' && <StudentActivityView />}

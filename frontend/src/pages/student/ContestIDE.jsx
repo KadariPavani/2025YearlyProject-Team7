@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import ToastNotification from '../../components/ui/ToastNotification';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
 
 const ContestIDE = () => {
@@ -27,6 +29,11 @@ const ContestIDE = () => {
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('userToken');
@@ -47,7 +54,7 @@ const ContestIDE = () => {
           }
         }
       })
-      .catch(err => setError(err.response?.data?.error || err.response?.data?.message || 'Failed to load question'))
+      .catch(err => showToast('error', err.response?.data?.error || err.response?.data?.message || 'Failed to load question'))
       .finally(() => setLoading(false));
   }, [contestId, questionId]);
 
@@ -158,19 +165,19 @@ const ContestIDE = () => {
 
   const validateBeforeSubmit = (currentCode) => {
     if (!isBalanced(currentCode)) {
-      setError('Unbalanced brackets or quotes detected. Please check matching pairs.');
+      showToast('error','Unbalanced brackets or quotes detected. Please check matching pairs.');
       return false;
     }
     setError('');
     return true;
   };
 
-  if (loading) return <div className="p-6">Loading...</div>;
+  if (loading) return <LoadingSkeleton />;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
   if (!question) return <div className="p-6">Question not found</div>;
 
   const submitCode = async (isFinal = true) => {
-    if (contest?.myFinalized) return alert('Contest already submitted; no further submissions allowed.');
+    if (contest?.myFinalized) return showToast('error','Contest already submitted; no further submissions allowed.');
     if (!validateBeforeSubmit(code)) return;
     setResult(null);
     setRunning(true);
@@ -178,10 +185,10 @@ const ContestIDE = () => {
     try {
       const res = await axios.post(`/api/contests/${contestId}/questions/${questionId}/submit`, { code, language }, { headers: { Authorization: `Bearer ${token}` } });
       setResult(res.data.submission || res.data);
-      if (isFinal) alert('Submission recorded');
+      if (isFinal) showToast('success','Submission recorded');
     } catch (err) {
       console.error('Submission error', err);
-      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to submit code');
+      showToast('error', err.response?.data?.error || err.response?.data?.message || 'Failed to submit code');
     } finally {
       setRunning(false);
     }
@@ -197,11 +204,11 @@ const ContestIDE = () => {
       const shouldSaveRun = !question?.userSubmission;
       const res = await axios.post(`/api/contests/${contestId}/questions/${questionId}/run`, { code, language, saveRun: shouldSaveRun }, { headers: { Authorization: `Bearer ${token}` } });
       if (res?.data?.compilationError) {
-        setError(res.data.compilationError);
+        showToast('error', res.data.compilationError);
       } else {
         setResult({ testCaseResults: res.data.testCaseResults, totalTime: res.data.totalTime });
         if (res.data.savedRun) {
-          alert('Run saved and visible on leaderboard');
+          showToast('success','Run saved and visible on leaderboard');
           const p1 = axios.get(`/api/contests/${contestId}`, { headers: { Authorization: `Bearer ${token}` } });
           const p2 = axios.get(`/api/contests/${contestId}/questions/${questionId}`, { headers: { Authorization: `Bearer ${token}` } });
           Promise.all([p1, p2]).then(([cRes, qRes]) => {
@@ -212,7 +219,7 @@ const ContestIDE = () => {
       }
     } catch (err) {
       console.error('Run error', err);
-      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to run code');
+      showToast('error', err.response?.data?.error || err.response?.data?.message || 'Failed to run code');
     } finally {
       setRunning(false);
     }
@@ -432,11 +439,9 @@ const ContestIDE = () => {
             </div>
           </div>
 
-          {/* Error Display */}
-          {error && (
-            <div className="border-t px-6 py-3 bg-red-50 text-red-700 text-sm">
-              {error}
-            </div>
+          {/* Toast for errors */}
+          {toast && (
+            <ToastNotification type={toast.type} message={toast.message} onClose={() => setToast(null)} />
           )}
         </div>
       </div>
