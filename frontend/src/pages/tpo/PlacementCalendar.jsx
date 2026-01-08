@@ -453,7 +453,7 @@ const handleSelectStudent = async (eventId) => {
 
 
   // Fetch all events
-const fetchEvents = async () => {
+const fetchEvents = async ({ notify = false, message = null } = {}) => {
   setLoading(true);
   try {
     const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar`, {
@@ -568,6 +568,11 @@ const fetchEvents = async () => {
     setEvents(combinedEvents);
     setDeletedEvents(deletedEvents);
     autoSelectOngoingDate(mappedEvents);
+
+    // If caller wants a user-facing toast (eg. delete action), show it once
+    if (notify) {
+      showToast('success', message || 'Events updated');
+    }
 
     // Notify other windows/components that calendar has been updated (helps student view stay in sync)
     try {
@@ -793,18 +798,12 @@ const handleCancelDeleteEvent = async (eventId) => {
     // 3) Update UI instantly
     setEvents((prev) => prev.filter((e) => e.id !== eventId));
     setSelectedDateEvents((prev) => prev.filter((e) => e.id !== eventId));
-    setDeletedEvents((prev) => [{ id: eventId, status: 'deleted' }, ...prev]);
+    setDeletedEvents((prev) => [{ _id: eventId, status: 'deleted' }, ...prev]);
 
-    // 4) Show toast and then refresh events to pick up backend state
-    showToast('success', 'Event cancelled and deleted');
+    // 4) Refresh events and show ONE toast after refresh (fetchEvents will show toast when notify=true)
+    try { await fetchEvents({ notify: true, message: 'Event cancelled and deleted' }); } catch (err) { console.warn('fetchEvents failed after delete', err); }
 
-    // notify other pages immediately
-    try { window.dispatchEvent(new Event('calendarUpdated')); } catch (err) { console.warn('dispatch failed', err); }
-
-    // small delay so toast is visible then refresh
-    setTimeout(() => {
-      fetchEvents();
-    }, 600);
+    // fetchEvents already dispatches 'calendarUpdated' so no additional dispatch needed here.
   } catch (err) {
     console.error("❌ Error cancelling/deleting event:", err);
     showToast('error', err.response?.data?.message || "Failed to cancel & delete event");
@@ -944,7 +943,9 @@ targetStudentIds: selectedStudentIds,
     console.warn("⚠️ External link not found in saved event data.");
   }
 
-  await fetchEvents(); // ✅ Refresh events list
+  // show a success toast after refresh
+  const actionMsg = formData.id ? 'Event updated' : 'Event created';
+  await fetchEvents({ notify: true, message: actionMsg }); // ✅ Refresh events list and show single toast
   setShowForm(false);
 } catch (err) {
   console.error("Error saving event:", err.response?.data || err.message);
@@ -1133,10 +1134,14 @@ const uniqueStudents = registeredStudents.filter(
 
                           <div className="flex items-center gap-2">
                             {/* Only the kebab shows; actions are in the menu */}
-                            <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === event.id ? null : event.id);}} className="p-2 rounded-md hover:bg-gray-100 text-gray-600">⋮</button>
+                            {event.status === 'deleted' ? (
+                              <span className="px-2 py-1 rounded text-red-600 text-sm font-semibold border border-red-100 bg-red-50">Deleted</span>
+                            ) : (
+                              <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === event.id ? null : event.id);}} className="p-2 rounded-md hover:bg-gray-100 text-gray-600">⋮</button>
+                            )}
 
                             {/* Action menu */}
-                            {openMenuId === event.id && (
+                            {openMenuId === event.id && event.status !== 'deleted' && (
                               <div className="absolute right-4 top-8 z-50 bg-white border rounded shadow-md w-44">
                                 <ul>
                                   <li>
@@ -1156,7 +1161,7 @@ const uniqueStudents = registeredStudents.filter(
                                   </li>
 
                                   <li>
-                                    {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'completed' && event.status !== 'cancelled' ? (
+                                    {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'completed' && event.status !== 'cancelled' && event.status !== 'deleted' ? (
                                       <button onClick={(e)=>{e.stopPropagation(); handleEditEvent(event); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Edit Event</button>
                                     ) : (
                                       <div className="w-full text-left px-3 py-2 text-sm text-gray-400">Edit (not available for past events)</div>
@@ -1164,7 +1169,7 @@ const uniqueStudents = registeredStudents.filter(
                                   </li>
 
                                   <li>
-                                    {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'cancelled' ? (
+                                    {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'cancelled' && event.status !== 'deleted' ? (
                                       <button onClick={(e)=>{e.stopPropagation(); handleCancelDeleteEvent(event.id); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50">Cancel & Delete</button>
                                     ) : (
                                       <div className="w-full text-left px-3 py-2 text-sm text-gray-400">Cancel & Delete (not available for past events)</div>
@@ -1212,9 +1217,13 @@ const uniqueStudents = registeredStudents.filter(
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === event.id ? null : event.id);}} className="p-2 rounded-md hover:bg-gray-100 text-gray-600">⋮</button>
+                      {event.status === 'deleted' ? (
+                        <span className="px-2 py-1 rounded text-red-600 text-sm font-semibold border border-red-100 bg-red-50">Deleted</span>
+                      ) : (
+                        <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === event.id ? null : event.id);}} className="p-2 rounded-md hover:bg-gray-100 text-gray-600">⋮</button>
+                      )}
 
-                      {openMenuId === event.id && (
+                      {openMenuId === event.id && event.status !== 'deleted' && (
                         <>
                           {/* Desktop: inline absolute menu */}
                           <div className="hidden sm:block absolute left-3 top-12 z-50 bg-white border rounded shadow-md w-44">
@@ -1236,7 +1245,7 @@ const uniqueStudents = registeredStudents.filter(
                               </li>
 
                               <li>
-                                {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'completed' && event.status !== 'cancelled' ? (
+                                {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'completed' && event.status !== 'cancelled' && event.status !== 'deleted' ? (
                                   <button onClick={(e)=>{e.stopPropagation(); handleEditEvent(event); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Edit Event</button>
                                 ) : (
                                   <div className="w-full text-left px-3 py-2 text-sm text-gray-400">Edit (not available for past events)</div>
@@ -1244,7 +1253,7 @@ const uniqueStudents = registeredStudents.filter(
                               </li>
 
                               <li>
-                                {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'cancelled' ? (
+                                {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'cancelled' && event.status !== 'deleted' ? (
                                   <button onClick={(e)=>{e.stopPropagation(); handleCancelDeleteEvent(event.id); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50">Cancel & Delete</button>
                                 ) : (
                                   <div className="w-full text-left px-3 py-2 text-sm text-gray-400">Cancel & Delete (not available for past events)</div>
@@ -1279,14 +1288,14 @@ const uniqueStudents = registeredStudents.filter(
                                   <button onClick={() => { handleViewSelectedStudents(event.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100">View Selected Students</button>
                                 </li>
                                 <li>
-                                  {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'completed' && event.status !== 'cancelled' ? (
+                                  {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'completed' && event.status !== 'cancelled' && event.status !== 'deleted' ? (
                                     <button onClick={() => { handleEditEvent(event); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100">Edit Event</button>
                                   ) : (
                                     <div className="w-full text-left px-4 py-3 text-sm text-gray-400 rounded-lg">Edit (not available for past events)</div>
                                   )}
                                 </li>
                                 <li>
-                                  {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'cancelled' ? (
+                                  {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'cancelled' && event.status !== 'deleted' ? (
                                     <button onClick={() => { handleCancelDeleteEvent(event.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-red-50 text-red-600 hover:bg-red-100">Cancel & Delete</button>
                                   ) : (
                                     <div className="w-full text-left px-4 py-3 text-sm text-gray-400 rounded-lg">Cancel & Delete (not available for past events)</div>
