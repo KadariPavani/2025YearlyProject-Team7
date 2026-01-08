@@ -74,21 +74,27 @@ const handleOpenRegistration = (event) => {
     const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar`, {
       headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` },
     });
-    const data = res.data?.data || [];
+    // Exclude events that are explicitly deleted on the server
+    const data = (res.data?.data || []).filter(e => e.status !== 'deleted');
 
     const now = new Date();
-const processedEvents = data.map((e) => {
+// Build processed events: normalize status, compute local date (yyyy-mm-dd), and dedupe by id
+const mapped = data.map((e) => {
   let computedStatus = e.status || "scheduled";
-  const endDate = new Date(e.endDate);
+  const endDate = e.endDate ? new Date(e.endDate) : null;
 
   // Normalize dates to ignore time component
-  const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  const endDateOnly = endDate ? new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()) : null;
   const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
   // Mark completed if endDate is before today
-  if (computedStatus === "scheduled" && endDateOnly < todayOnly) {
+  if (computedStatus === "scheduled" && endDateOnly && endDateOnly < todayOnly) {
     computedStatus = "completed";
   }
+
+  // Compute local yyyy-mm-dd for startDate without using toISOString (avoids timezone shifts)
+  const startLocal = parseLocalDate(e.startDate);
+  const dateStr = startLocal ? `${startLocal.getFullYear()}-${String(startLocal.getMonth() + 1).padStart(2, '0')}-${String(startLocal.getDate()).padStart(2, '0')}` : (e.startDate?.split('T')[0] || '');
 
   return {
     id: e._id,
@@ -102,7 +108,7 @@ const processedEvents = data.map((e) => {
     company: e.companyDetails?.companyName || "",
     eventType: e.eventType,
     status: computedStatus,
-    date: parseLocalDate(e.startDate).toISOString().split("T")[0],
+    date: dateStr,
 
     participated: e.eventSummary?.totalAttendees || 0,
     placed: e.eventSummary?.selectedStudents || 0,
@@ -111,15 +117,31 @@ const processedEvents = data.map((e) => {
   };
 });
 
+// Deduplicate by id (in-case backend returns duplicates)
+const seen = new Map();
+const processedEvents = [];
+for (const ev of mapped) {
+  if (!ev || !ev.id) continue;
+  if (!seen.has(ev.id)) {
+    seen.set(ev.id, true);
+    processedEvents.push(ev);
+  } else {
+    console.warn('Duplicate event id filtered:', ev.id);
+  }
+}
 
-    setEvents(processedEvents);
-    // Auto-select ongoing or today's events to mimic TPO behavior
-    autoSelectOngoingDate(processedEvents);
+setEvents(processedEvents);
+// Auto-select ongoing or today's events to mimic TPO behavior
+autoSelectOngoingDate(processedEvents);
 
-    // Update selected date events if there's a selected date
-    const currentDateStr = selectedDate.toISOString().split('T')[0];
-    const currentDateEvents = processedEvents.filter(e => e.date === currentDateStr);
-    setSelectedDateEvents(currentDateEvents);
+// Update selected date events if there's a selected date using robust date normalization
+const sel = normalizeDate(selectedDate);
+const currentDateEvents = processedEvents.filter((e) => {
+  const start = normalizeDate(e.startDate || e.date);
+  const end = e.endDate ? normalizeDate(e.endDate) : start;
+  return sel.getTime() >= start.getTime() && sel.getTime() <= end.getTime();
+});
+setSelectedDateEvents(currentDateEvents);
   } catch (err) {
     showToast('error', err.response?.data?.message || 'Error fetching events');
   }
@@ -152,6 +174,17 @@ const fetchRegisteredEvents = async () => {
 useEffect(() => {
   fetchEvents();
   fetchRegisteredEvents();
+
+  // Refresh when other parts of app (eg. TPO) update calendar
+  const onCalendarUpdated = () => {
+    console.log('📣 calendarUpdated event received — refreshing student calendar');
+    fetchEvents();
+  };
+
+  window.addEventListener('calendarUpdated', onCalendarUpdated);
+  return () => {
+    window.removeEventListener('calendarUpdated', onCalendarUpdated);
+  };
 }, []);
   // Calendar helpers
   const currentMonth = selectedDate.getMonth();
@@ -451,7 +484,7 @@ const canRegisterForEvent = (eventStartDate) => {
                                       // DO NOT open details modal on dot key press — wait for explicit card click
                                     }
                                   }}
-                                  className={`inline-block flex-shrink-0 w-1.5 h-1.5 rounded-full shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-200 ${ev.status === 'completed' ? 'bg-green-500' : ev.status === 'ongoing' ? 'bg-orange-500' : ev.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`}
+                                  className={`inline-block flex-shrink-0 w-1.5 h-1.5 rounded-full shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-200 ${ev.status === 'completed' ? 'bg-green-500' : ev.status === 'ongoing' ? 'bg-orange-500' : (ev.status === 'cancelled' || ev.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`}
                                 />
                               ))}
                               {dateEvents.length > 3 && (
@@ -504,7 +537,7 @@ const canRegisterForEvent = (eventStartDate) => {
                     selectedDateEvents.map(event => (
                       <li key={event.id} className="flex items-center justify-between py-3 relative">
                         <div className="flex items-start gap-3">
-                          <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : event.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`} />
+                          <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
                           <div className="min-w-0">
                             <div className="text-sm font-medium text-gray-800 truncate">{event.title}</div>
                             <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>
@@ -594,7 +627,7 @@ const canRegisterForEvent = (eventStartDate) => {
                   }} className="relative flex flex-col sm:flex-row items-start justify-between py-3 gap-3">
                     <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === event.id ? null : event.id);}} className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 text-gray-600 sm:static sm:mt-0 sm:p-2 sm:rounded-md sm:w-auto">⋮</button>
                     <div className="flex items-start gap-3 w-full">
-                      <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : event.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`} />
+                      <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-gray-800 sm:truncate">{event.title}</div>
                         <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>
@@ -694,7 +727,7 @@ const canRegisterForEvent = (eventStartDate) => {
             <li key={event.id || event._id} className="relative flex flex-col sm:flex-row items-start justify-between py-3 gap-3">
               <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === (event.id || event._id) ? null : (event.id || event._id));}} className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 text-gray-600 sm:static sm:p-2 sm:rounded-md">⋮</button>
               <div className="flex items-start gap-3 w-full">
-                <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : event.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`} />
+                <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium text-gray-800 sm:truncate">{event.title}</div>
                   <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>

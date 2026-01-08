@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Calendar, ChevronLeft, ChevronRight, RefreshCw, Plus, X } from "lucide-react";
 import { LoadingSkeleton, ListSkeleton } from '../../components/ui/LoadingSkeletons';
+import ToastNotification from '../../components/ui/ToastNotification';
 
 import TPOEventRegistrations from "./TPOEventRegistrations";
 // Parse date in local timezone without timezone shift
@@ -49,6 +50,9 @@ const [showSelectedStudentsModal, setShowSelectedStudentsModal] = useState(false
 const [selectedStudents, setSelectedStudents] = useState([]);
 const [eventRegistrations, setEventRegistrations] = useState([]);
 const [isSubmitting, setIsSubmitting] = useState(false);
+// Toast
+const [toast, setToast] = useState(null);
+const showToast = (type, message) => { setToast({ type, message }); setTimeout(() => setToast(null), 3500); };
 // Which event has an open action menu (three dots)
 const [openMenuId, setOpenMenuId] = useState(null);
 
@@ -457,14 +461,40 @@ const fetchEvents = async () => {
     });
     const data = res.data?.data || [];
 
-    // Separate deleted and active events
-    const deletedEvents = data.filter(
-      (e) => e.status === "cancelled" || e.status === "deleted"
-    );
+    // Separate deleted events (permanently deleted) and active/cancelled events
+    const deletedEvents = data.filter((e) => e.status === "deleted");
     const activeEvents = data.filter((e) => e.status !== "deleted");
 
-    // Map & compute active events
+    // Map & compute active events (preserve explicit 'cancelled' status)
     const mappedEvents = activeEvents.map((e) => {
+      // preserve cancelled status explicitly
+      if (e.status === 'cancelled') {
+        const startLocal = e.startDate ? new Date(e.startDate) : null;
+        const dateStr = startLocal
+          ? `${startLocal.getFullYear()}-${String(startLocal.getMonth() + 1).padStart(2, '0')}-${String(startLocal.getDate()).padStart(2, '0')}`
+          : (e.startDate?.split('T')[0] || '');
+        return {
+          id: e._id,
+          title: e.title || "",
+          description: e.description || "",
+          startDate: e.startDate || "",
+          endDate: e.endDate || "",
+          startTime: e.startTime || "",
+          endTime: e.endTime || "",
+          venue: e.venue || "",
+          isOnline: e.isOnline || false,
+          company: e.companyDetails?.companyName || "",
+          companyFormLink: e.companyDetails?.companyFormLink || "",
+          targetGroup: e.targetGroup || "both",
+          eventType: e.eventType || "",
+          status: 'cancelled',
+          date: dateStr,
+          participated: e.eventSummary?.totalAttendees || "",
+          placed: e.eventSummary?.selectedStudents || "",
+          externalLink: e.companyDetails?.externalLink || "",
+        };
+      }
+
       let computedStatus = e.status || "scheduled";
 
       const startDate = normalizeDate(e.startDate);
@@ -474,6 +504,12 @@ const fetchEvents = async () => {
       if (end < today) computedStatus = "completed";
       else if (startDate <= today && today <= end) computedStatus = "ongoing";
       else computedStatus = "scheduled";
+
+      // Compute local YYYY-MM-DD for start date to avoid timezone shifts
+      const startLocal = e.startDate ? new Date(e.startDate) : null;
+      const dateStr = startLocal
+        ? `${startLocal.getFullYear()}-${String(startLocal.getMonth() + 1).padStart(2, '0')}-${String(startLocal.getDate()).padStart(2, '0')}`
+        : (e.startDate?.split('T')[0] || '');
 
       return {
         id: e._id,
@@ -490,17 +526,55 @@ const fetchEvents = async () => {
         targetGroup: e.targetGroup || "both",
         eventType: e.eventType || "",
         status: computedStatus,
-        date: e.startDate?.split("T")[0] || "",
+        date: dateStr,
         participated: e.eventSummary?.totalAttendees || "",
         placed: e.eventSummary?.selectedStudents || "",
         externalLink: e.companyDetails?.externalLink || "",
       };
     });
 
+    // Map deleted events so they can be shown on calendar as red (but also listed in deleted modal)
+    const mappedDeleted = deletedEvents.map((e) => {
+      const startLocal = e.startDate ? new Date(e.startDate) : null;
+      const dateStr = startLocal
+        ? `${startLocal.getFullYear()}-${String(startLocal.getMonth() + 1).padStart(2, '0')}-${String(startLocal.getDate()).padStart(2, '0')}`
+        : (e.startDate?.split('T')[0] || '');
+      return {
+        id: e._id,
+        title: e.title || "(deleted)",
+        description: e.description || "",
+        startDate: e.startDate || "",
+        endDate: e.endDate || "",
+        startTime: e.startTime || "",
+        endTime: e.endTime || "",
+        venue: e.venue || "",
+        isOnline: e.isOnline || false,
+        company: e.companyDetails?.companyName || "",
+        companyFormLink: e.companyDetails?.companyFormLink || "",
+        targetGroup: e.targetGroup || "both",
+        eventType: e.eventType || "",
+        status: 'deleted',
+        date: dateStr,
+        participated: e.eventSummary?.totalAttendees || "",
+        placed: e.eventSummary?.selectedStudents || "",
+        externalLink: e.companyDetails?.externalLink || "",
+      };
+    });
+
+    // Combine active + deleted so deleted events show with red styling on calendar
+    const combinedEvents = [...mappedEvents, ...mappedDeleted];
+
     // ✅ Update state and handle deleted events
-    setEvents(mappedEvents);
+    setEvents(combinedEvents);
     setDeletedEvents(deletedEvents);
     autoSelectOngoingDate(mappedEvents);
+
+    // Notify other windows/components that calendar has been updated (helps student view stay in sync)
+    try {
+      window.dispatchEvent(new Event('calendarUpdated'));
+    } catch (err) {
+      console.warn('Could not dispatch calendarUpdated event', err);
+    }
   } catch (err) {
     console.error("Error fetching events:", err);
   }
@@ -704,36 +778,36 @@ const handleCancelDeleteEvent = async (eventId) => {
   if (!window.confirm("Are you sure you want to cancel and delete this event?")) return;
 
   try {
-    // 1️⃣ Mark as cancelled first
+    // 1) Mark cancelled on server (best-effort) so audit trail exists
     await axios.put(
       `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}`,
       { status: "cancelled" },
       { headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` } }
     );
 
-    // Update UI instantly
-    setEvents((prev) =>
-      prev.map((e) => (e.id === eventId ? { ...e, status: "cancelled" } : e))
-    );
-    setSelectedDateEvents((prev) =>
-      prev.map((e) => (e.id === eventId ? { ...e, status: "cancelled" } : e))
-    );
+    // 2) Immediately delete the event on server
+    await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` },
+    });
 
-    alert("Event cancelled! It will be deleted shortly.");
+    // 3) Update UI instantly
+    setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    setSelectedDateEvents((prev) => prev.filter((e) => e.id !== eventId));
+    setDeletedEvents((prev) => [{ id: eventId, status: 'deleted' }, ...prev]);
 
-    // 2️⃣ Actually delete after short delay
-    setTimeout(async () => {
-      await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("userToken")}` },
-      });
+    // 4) Show toast and then refresh events to pick up backend state
+    showToast('success', 'Event cancelled and deleted');
 
-      setEvents((prev) => prev.filter((e) => e.id !== eventId));
-      setSelectedDateEvents((prev) => prev.filter((e) => e.id !== eventId));
-      fetchEvents(); // ✅ Refresh from backend to stay consistent
-    }, 1500);
+    // notify other pages immediately
+    try { window.dispatchEvent(new Event('calendarUpdated')); } catch (err) { console.warn('dispatch failed', err); }
+
+    // small delay so toast is visible then refresh
+    setTimeout(() => {
+      fetchEvents();
+    }, 600);
   } catch (err) {
     console.error("❌ Error cancelling/deleting event:", err);
-    alert(err.response?.data?.message || "Failed to cancel & delete event");
+    showToast('error', err.response?.data?.message || "Failed to cancel & delete event");
   }
 };
 
@@ -900,6 +974,7 @@ const uniqueStudents = registeredStudents.filter(
 
   return (
     <div className="p-2 bg-gradient-to-b from-gray-50 to-white min-h-screen">
+      {toast && <ToastNotification type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-3">
@@ -974,7 +1049,7 @@ const uniqueStudents = registeredStudents.filter(
                       <div className="sm:hidden flex items-center justify-center gap-1 mt-0.5">
                         <div className="flex items-start justify-start gap-0.5">
                           {dateEvents.slice(0, 3).map((ev, i) => (
-                            <span key={i} title={ev.title} aria-label={ev.title} className={`inline-block flex-shrink-0 w-2 h-2 rounded-full shadow-sm ${ev.status === "completed" ? "bg-green-500" : ev.status === "ongoing" ? "bg-orange-500" : ev.status === "cancelled" ? "bg-red-500" : "bg-blue-600"}`} />
+                            <span key={i} title={ev.title} aria-label={ev.title} className={`inline-block flex-shrink-0 w-2 h-2 rounded-full shadow-sm ${ev.status === "completed" ? "bg-green-500" : ev.status === "ongoing" ? "bg-orange-500" : (ev.status === "cancelled" || ev.status === "deleted") ? "bg-red-500" : "bg-blue-600"}`} />
                           ))}
                         </div>
                       </div>
@@ -988,7 +1063,7 @@ const uniqueStudents = registeredStudents.filter(
                                 ? "bg-green-50 text-green-700"
                                 : ev.status === "ongoing"
                                 ? "bg-orange-50 text-orange-700"
-                                : ev.status === "cancelled"
+                                : (ev.status === "cancelled" || ev.status === "deleted")
                                 ? "bg-red-50 text-red-700"
                                 : "bg-blue-100 text-blue-800 border border-blue-200"
                             }`}
@@ -1037,7 +1112,7 @@ const uniqueStudents = registeredStudents.filter(
                       selectedDateEvents.map((event) => (
                         <li key={event.id} className="flex items-center justify-between py-3 relative">
                           <div className="flex items-start gap-3">
-                            <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : event.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`} />
+                            <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
                             <div className="min-w-0">
                               <div className="text-sm font-medium text-gray-800 truncate">{event.title}</div>
                               <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>
@@ -1129,7 +1204,7 @@ const uniqueStudents = registeredStudents.filter(
                 selectedDateEvents.map((event) => (
                   <li key={event.id} className="flex items-center justify-between py-3">
                     <div className="flex items-start gap-3">
-                      <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : event.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`} />
+                      <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-gray-800 truncate">{event.title}</div>
                         <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>

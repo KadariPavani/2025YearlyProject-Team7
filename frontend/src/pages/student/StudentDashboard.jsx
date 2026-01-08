@@ -941,70 +941,75 @@ const studentId = studentData?.user?._id || studentData?._id;
 
         {/* Header Section */}
         <div className="bg-white border-gray-200 shadow-sm">
-          <div className="px-6 py-5">
+          <div className="px-6 pt-12 pb-5">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-blue-700">
+                <h1 className="text-lg md:text-3xl font-bold text-blue-700">
                   Welcome, {studentData?.user?.name || 'Student'}!
                 </h1>
-                <p className="text-gray-600 mt-1">{studentData?.message || 'Welcome to your placement training portal'}</p>
-
-              </div>
-
-              <div className="flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-full border border-blue-200">
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-blue-700">Live Data</span>
               </div>
             </div>
           </div>
 
           {/* Info Cards Row - Merged with stats from second code */}
           <div className="px-6 pb-5">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <div className="flex items-start gap-3">
+            <div className="grid grid-cols-4 md:grid-cols-4 gap-2 md:gap-4">
+              <div className="bg-blue-50 rounded-md sm:rounded-lg p-0 sm:p-4 border border-blue-200 aspect-square sm:aspect-auto">
+                <div className="flex flex-col items-center justify-center sm:flex-row sm:items-start sm:gap-3 w-full h-full p-2 sm:p-0">
+                  <div className="flex sm:hidden bg-blue-600 p-1 rounded items-center justify-center">
+                    <Calendar className="h-3 w-3 text-white" />
+                  </div>
                   <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
                     <Calendar className="h-5 w-5 text-white" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[11px] sm:text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Last Login</p>
-                    <p className="text-sm sm:text-base font-bold text-blue-900">{studentData?.lastLogin ? new Date(studentData.lastLogin).toLocaleDateString() : 'N/A'}</p>
+                  <div className="sm:flex-1 text-center sm:text-left mt-1 sm:mt-0">
+                    <p className="hidden sm:block text-[9px] md:text-[11px] font-semibold text-blue-700 uppercase tracking-wide mb-1">Last Login</p>
+                    <p className="text-xs sm:text-sm md:text-base font-bold text-blue-900">{studentData?.lastLogin ? new Date(studentData.lastLogin).toLocaleDateString() : 'N/A'}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <div className="flex items-start gap-3">
+              <div className="bg-blue-50 rounded-md sm:rounded-lg p-0 sm:p-4 border border-blue-200 aspect-square sm:aspect-auto">
+                <div className="flex flex-col items-center justify-center sm:flex-row sm:items-start sm:gap-3 w-full h-full p-2 sm:p-0">
+                  <div className="flex sm:hidden bg-blue-600 p-1 rounded items-center justify-center">
+                    <PlusCircle className="h-3 w-3 text-white" />
+                  </div>
                   <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
                     <PlusCircle className="h-5 w-5 text-white" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[11px] sm:text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Assignments</p>
-                    <p className="text-sm sm:text-base font-bold text-blue-900">{dashboardStats.assignments.completed}/{dashboardStats.assignments.total}</p>
+                  <div className="sm:flex-1 text-center sm:text-left mt-1 sm:mt-0">
+                    <p className="hidden sm:block text-[9px] md:text-[11px] font-semibold text-blue-700 uppercase tracking-wide mb-1">Assignments</p>
+                    <p className="text-xs sm:text-sm md:text-base font-bold text-blue-900">{dashboardStats.assignments.completed}/{dashboardStats.assignments.total}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <div className="flex items-start gap-3">
+              <div className="bg-blue-50 rounded-md sm:rounded-lg p-0 sm:p-4 border border-blue-200 aspect-square sm:aspect-auto">
+                <div className="flex flex-col items-center justify-center sm:flex-row sm:items-start sm:gap-3 w-full h-full p-2 sm:p-0">
+                  <div className="flex sm:hidden bg-blue-600 p-1 rounded items-center justify-center">
+                    <CheckSquare className="h-3 w-3 text-white" />
+                  </div>
                   <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
                     <CheckSquare className="h-5 w-5 text-white" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[11px] sm:text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Quizzes</p>
-                    <p className="text-sm sm:text-base font-bold text-blue-900">{dashboardStats.quizzes.completed}/{dashboardStats.quizzes.total}</p>
+                  <div className="sm:flex-1 text-center sm:text-left mt-1 sm:mt-0">
+                    <p className="hidden sm:block text-[9px] md:text-[11px] font-semibold text-blue-700 uppercase tracking-wide mb-1">Quizzes</p>
+                    <p className="text-xs sm:text-sm md:text-base font-bold text-blue-900">{dashboardStats.quizzes.completed}/{dashboardStats.quizzes.total}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <div className="flex items-start gap-3">
+              <div className="bg-blue-50 rounded-md sm:rounded-lg p-0 sm:p-4 border border-blue-200 aspect-square sm:aspect-auto">
+                <div className="flex flex-col items-center justify-center sm:flex-row sm:items-start sm:gap-3 w-full h-full p-2 sm:p-0">
+                  <div className="flex sm:hidden bg-blue-600 p-1 rounded items-center justify-center">
+                    <Award className="h-3 w-3 text-white" />
+                  </div>
                   <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
                     <Award className="h-5 w-5 text-white" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-[11px] sm:text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Average Score</p>
-                    <p className="text-sm sm:text-base font-bold text-blue-900">{dashboardStats.quizzes.average.toFixed(1)}%</p>
+                  <div className="sm:flex-1 text-center sm:text-left mt-1 sm:mt-0">
+                    <p className="hidden sm:block text-[9px] md:text-[11px] font-semibold text-blue-700 uppercase tracking-wide mb-1">Average Score</p>
+                    <p className="text-xs sm:text-sm md:text-base font-bold text-blue-900">{dashboardStats.quizzes.average.toFixed(1)}%</p>
                   </div>
                 </div>
               </div>
