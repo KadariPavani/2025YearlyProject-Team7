@@ -6,6 +6,7 @@ import {
   GraduationCap, Download, FileText, Calendar, Tag, Award, ChevronDown, ChevronUp 
 } from "lucide-react";
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import ToastNotification from '../../components/ui/ToastNotification';
 
 const StudentResources = () => {
   const [resources, setResources] = useState([]);
@@ -14,8 +15,13 @@ const StudentResources = () => {
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedAccessLevel, setSelectedAccessLevel] = useState("all");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [expandedCards, setExpandedCards] = useState({}); // Track expanded state per card
+  const [toast, setToast] = useState(null);
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   useEffect(() => {
     fetchResources();
@@ -30,7 +36,8 @@ const StudentResources = () => {
       setLoading(true);
       const token = localStorage.getItem('userToken');
       if (!token) {
-        setError('Please log in to view resources');
+        setLoading(false);
+        showToast('error', 'Please log in to view resources');
         return;
       }
 
@@ -48,7 +55,8 @@ const StudentResources = () => {
         setResources([]);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch resources');
+      const msg = err.response?.data?.message || 'Failed to fetch resources';
+      showToast('error', msg);
       console.error('Error fetching resources:', err);
       setResources([]);
     } finally {
@@ -128,11 +136,13 @@ const StudentResources = () => {
           </p>
         </div>
 
-        {/* Error */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {error}
-          </div>
+        {/* Toast */}
+        {toast && (
+          <ToastNotification
+            type={toast.type}
+            message={toast.message}
+            onClose={() => setToast(null)}
+          />
         )}
 
         {/* Filters */}

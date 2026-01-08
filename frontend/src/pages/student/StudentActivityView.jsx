@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Award, TrendingUp, BookOpen, FileText, Code, Target, AlertCircle } from 'lucide-react';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import ToastNotification from '../../components/ui/ToastNotification';
 
 const StudentActivityView = () => {
   const [activityData, setActivityData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [toast, setToast] = useState(null);
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  }; 
 
   useEffect(() => {
     fetchStudentActivity();
@@ -23,16 +30,12 @@ const StudentActivityView = () => {
       setActivityData(response.data.data);
       setLoading(false);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch activity');
+      showToast('error', err.response?.data?.message || 'Failed to fetch activity');
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return <div className="flex items-center justify-center h-64">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-    </div>;
-  }
+  if (loading) return <LoadingSkeleton />;
 
   if (!activityData) return null;
 
@@ -40,6 +43,9 @@ const StudentActivityView = () => {
 
   return (
     <div className="space-y-6">
+      {toast && (
+        <ToastNotification type={toast.type} message={toast.message} onClose={() => setToast(null)} />
+      )}
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
         <div className="flex items-center justify-between">

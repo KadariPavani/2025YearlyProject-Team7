@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, Star, Send, Eye, CheckCircle, Clock, User, X, AlertCircle, Trash2 } from 'lucide-react';
 import axios from 'axios';
+import ToastNotification from '../../components/ui/ToastNotification';
 
 const StudentFeedback = () => {
   const [activeView, setActiveView] = useState('submit');
@@ -12,6 +13,12 @@ const StudentFeedback = () => {
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [feedbackToDelete, setFeedbackToDelete] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  }; 
 
   const [formData, setFormData] = useState({
     title: '',
@@ -45,11 +52,11 @@ const StudentFeedback = () => {
         setTrainers(res.data.data || []);
       } else {
         console.warn('Unexpected trainers payload:', res.data);
-        setError('Failed to fetch trainers');
+        showToast('error','Failed to fetch trainers');
       }
     } catch (err) {
       console.error('Error fetching trainers:', err);
-      setError('Could not load trainers. Please try again.');
+      showToast('error','Could not load trainers. Please try again.');
       setTrainers([]);
     }
   };
@@ -77,12 +84,12 @@ const StudentFeedback = () => {
       // Client-side validation
       if (formData.category === 'training') {
         if (!formData.toTrainer) {
-          setError('Please select a trainer or choose Other');
+          showToast('error','Please select a trainer or choose Other');
           setLoading(false);
           return;
         }
         if (formData.toTrainer === 'other' && !formData.otherTrainerName?.trim()) {
-          setError('Please enter the trainer name');
+          showToast('error','Please enter the trainer name');
           setLoading(false);
           return;
         }
@@ -95,7 +102,7 @@ const StudentFeedback = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setMessage('Feedback submitted successfully!');
+      showToast('success','Feedback submitted successfully!');
       setFormData({
         title: '',
         content: '',
@@ -109,7 +116,7 @@ const StudentFeedback = () => {
       fetchMyFeedbacks();
       setTimeout(() => setActiveView('history'), 1500);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to submit feedback');
+      showToast('error', err.response?.data?.message || 'Failed to submit feedback');
     } finally {
       setLoading(false);
     }
@@ -143,16 +150,16 @@ const StudentFeedback = () => {
       console.log('Delete response:', response); // Debug log
 
       if (response.data.success) {
-        setMessage('Feedback deleted successfully');
+        showToast('success','Feedback deleted successfully');
         setMyFeedbacks(prev => prev.filter(f => f._id !== feedbackId));
         setShowDeleteConfirm(false);
         setFeedbackToDelete(null);
       } else {
-        setError(response.data.message || 'Failed to delete feedback');
+        showToast('error', response.data.message || 'Failed to delete feedback');
       }
     } catch (err) {
       console.error('Delete error:', err);
-      setError(err.response?.data?.message || 'Failed to delete feedback');
+      showToast('error', err.response?.data?.message || 'Failed to delete feedback');
       setShowDeleteConfirm(false);
       setFeedbackToDelete(null);
     }
@@ -248,22 +255,12 @@ const StudentFeedback = () => {
       {/* Submit Feedback Form */}
       {activeView === 'submit' && (
         <div className="bg-white rounded-2xl shadow border border-gray-200 p-6">
-          {error && (
-            <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4 rounded">
-              <p className="text-red-700 flex items-center gap-2">
-                <AlertCircle className="h-5 w-5" />
-                {error}
-              </p>
-            </div>
-          )}
-
-          {message && (
-            <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4 rounded">
-              <p className="text-green-700 flex items-center gap-2">
-                <CheckCircle className="h-5 w-5" />
-                {message}
-              </p>
-            </div>
+          {toast && (
+            <ToastNotification
+              type={toast.type}
+              message={toast.message}
+              onClose={() => setToast(null)}
+            />
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">

@@ -1,15 +1,22 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import ToastNotification from '../../components/ui/ToastNotification';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 import { FileText, Upload, CheckCircle, XCircle, Download, Paperclip, Eye } from 'lucide-react';
 
 const StudentAssignment = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [selectedFiles, setSelectedFiles] = useState({});
   const [uploading, setUploading] = useState(false);
   const [expandedAssignment, setExpandedAssignment] = useState(null);
+
+  const [toast, setToast] = useState(null);
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   useEffect(() => {
     fetchAssignments();
@@ -19,14 +26,18 @@ const StudentAssignment = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('userToken');
-      if (!token) throw new Error('No user token found');
+      if (!token) {
+        showToast('error','Please log in to view assignments');
+        setLoading(false);
+        return;
+      }
 
       const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/assignments/student/list`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAssignments(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch assignments');
+      showToast('error', err.response?.data?.message || 'Failed to fetch assignments');
     } finally {
       setLoading(false);
     }
@@ -51,7 +62,7 @@ const StudentAssignment = () => {
       // Open in new tab
       window.open(viewUrl, '_blank', 'noopener,noreferrer');
     } else {
-      alert('File URL not available');
+      showToast('error','File URL not available');
     }
   };
 
@@ -77,7 +88,7 @@ const StudentAssignment = () => {
       link.click();
       document.body.removeChild(link);
     } else {
-      alert('File URL not available');
+      showToast('error','File URL not available');
     }
   };
 
@@ -118,10 +129,10 @@ const StudentAssignment = () => {
       const isValidSize = file.size <= 10 * 1024 * 1024;
       
       if (!isValidType) {
-        setError(`Invalid file type for ${file.name}`);
+        showToast('error', `Invalid file type for ${file.name}`);
       }
       if (!isValidSize) {
-        setError(`File ${file.name} exceeds 10MB limit`);
+        showToast('error', `File ${file.name} exceeds 10MB limit`);
       }
       
       return isValidType && isValidSize;
@@ -137,7 +148,7 @@ const StudentAssignment = () => {
     const files = selectedFiles[assignmentId];
     
     if (!files || files.length === 0) {
-      setError('Please select at least one file');
+      showToast('error','Please select at least one file');
       return;
     }
 
@@ -167,7 +178,7 @@ const StudentAssignment = () => {
       });
 
       await fetchAssignments();
-      alert('Assignment submitted successfully!');
+      showToast('success','Assignment submitted successfully!');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to submit assignment');
     } finally {
@@ -190,11 +201,7 @@ const StudentAssignment = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   return (
@@ -204,11 +211,8 @@ const StudentAssignment = () => {
         My Assignments
       </h1>
 
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex justify-between items-center">
-          <span>{error}</span>
-          <button onClick={() => setError('')} className="font-bold text-xl">×</button>
-        </div>
+      {toast && (
+        <ToastNotification type={toast.type} message={toast.message} onClose={() => setToast(null)} />
       )}
 
       {assignments.length === 0 ? (

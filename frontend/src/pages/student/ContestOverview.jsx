@@ -41,7 +41,7 @@ const ContestOverview = () => {
 
   const enterContest = () => {
     const firstQ = contest.questions && contest.questions[0];
-    if (!firstQ) return alert('No questions in this contest');
+    if (!firstQ) return showToast('error','No questions in this contest');
     navigate(`/student/contests/${id}/question/${firstQ._id}`);
   };
 

@@ -4,12 +4,17 @@ import {
   ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, GraduationCap
 } from 'lucide-react';
 import Header from '../../components/common/Header';
+import ToastNotification from '../../components/ui/ToastNotification';
 
 const StudentChangePassword = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [toast, setToast] = useState(null);
+
+  const showToast = (type, message) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  }; 
   
   const [changePasswordData, setChangePasswordData] = useState({
     currentPassword: '',
@@ -36,8 +41,8 @@ const StudentChangePassword = () => {
     setSuccessMessage('');
 
     if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
-      setError('New passwords do not match');
       setLoading(false);
+      showToast('error', 'New passwords do not match');
       return;
     }
 
@@ -57,7 +62,7 @@ const StudentChangePassword = () => {
 
       const result = await response.json();
       if (result.success) {
-        setSuccessMessage('Password changed successfully!');
+        showToast('success','Password changed successfully!');
         setChangePasswordData({
           currentPassword: '',
           newPassword: '',
@@ -68,10 +73,10 @@ const StudentChangePassword = () => {
           navigate('/student-dashboard');
         }, 2000);
       } else {
-        setError(result.message);
+        showToast('error', result.message);
       }
     } catch (err) {
-      setError('Failed to change password');
+      showToast('error','Failed to change password');
     } finally {
       setLoading(false);
     }
@@ -197,18 +202,12 @@ const StudentChangePassword = () => {
               </div>
             </div>
 
-            {successMessage && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center">
-                <Check className="h-5 w-5 text-green-600 mr-3" />
-                <span className="text-green-700">{successMessage}</span>
-              </div>
-            )}
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center">
-                <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
-                <span className="text-red-700">{error}</span>
-              </div>
+            {toast && (
+              <ToastNotification
+                type={toast.type}
+                message={toast.message}
+                onClose={() => setToast(null)}
+              />
             )}
 
             <div className="flex space-x-4 pt-4">

@@ -971,10 +971,10 @@ const uniqueStudents = registeredStudents.filter(
 
                     <div className="flex-1 mt-0 sm:mt-1 overflow-hidden px-1 flex flex-col justify-between h-full">
                       {/* Mobile: show dots only (smaller) */}
-                      <div className="sm:hidden flex items-center justify-start gap-1 mt-0.5">
+                      <div className="sm:hidden flex items-center justify-center gap-1 mt-0.5">
                         <div className="flex items-start justify-start gap-0.5">
                           {dateEvents.slice(0, 3).map((ev, i) => (
-                            <span key={i} className={`inline-block flex-shrink-0 w-1 h-1 rounded-full shadow-sm ${ev.status === "completed" ? "bg-green-500" : ev.status === "ongoing" ? "bg-orange-500" : ev.status === "cancelled" ? "bg-red-500" : "bg-blue-600"}`} />
+                            <span key={i} title={ev.title} aria-label={ev.title} className={`inline-block flex-shrink-0 w-2 h-2 rounded-full shadow-sm ${ev.status === "completed" ? "bg-green-500" : ev.status === "ongoing" ? "bg-orange-500" : ev.status === "cancelled" ? "bg-red-500" : "bg-blue-600"}`} />
                           ))}
                         </div>
                       </div>
