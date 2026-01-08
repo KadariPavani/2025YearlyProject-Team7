@@ -14,6 +14,13 @@ const TrainerPlacementCalendar = () => {
   // ✅ Fetch only events — no need for TPO ID
   useEffect(() => {
     fetchEvents();
+
+    const onCalendarUpdated = () => {
+      console.log('📣 calendarUpdated received on trainer calendar — refreshing');
+      fetchEvents();
+    };
+    window.addEventListener('calendarUpdated', onCalendarUpdated);
+    return () => window.removeEventListener('calendarUpdated', onCalendarUpdated);
   }, []);
 
   // Keep display label in sync
@@ -69,24 +76,32 @@ const handleDateClick = (day) => {
   try {
       const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar`, {
     });
-    const data = res.data?.data || [];
+    // Exclude deleted events and normalize data
+    const data = (res.data?.data || []).filter(e => e.status !== 'deleted');
 
     const today = normalizeDate(new Date());
 
-const processedEvents = data.map((e) => {
-  let computedStatus = e.status || "scheduled";
+    const mapped = data.map((e) => {
+      let computedStatus = e.status || "scheduled";
 
-  const start = normalizeDate(e.startDate);
-  const end = normalizeDate(e.endDate);
+      const start = e.startDate ? normalizeDate(e.startDate) : null;
+      const end = e.endDate ? normalizeDate(e.endDate) : start;
 
-  if (today < start) {
-    computedStatus = "upcoming";
-  } else if (today > end) {
-    computedStatus = "completed";
-  } else {
-    computedStatus = "ongoing";
-  }
+      if (!start) {
+        computedStatus = e.status || 'scheduled';
+      } else if (today < start) {
+        computedStatus = "upcoming";
+      } else if (today > end) {
+        computedStatus = "completed";
+      } else {
+        computedStatus = "ongoing";
+      }
 
+      // Build YYYY-MM-DD using local date (no timezone conversion)
+      const dateObj = start || new Date(e.startDate || new Date());
+      const dateStr = dateObj
+        ? `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`
+        : (e.startDate?.split("T")[0] || '');
 
       return {
         id: e._id,
@@ -100,19 +115,33 @@ const processedEvents = data.map((e) => {
         company: e.companyDetails?.companyName || "",
         eventType: e.eventType,
         status: computedStatus,
-        date: e.startDate?.split("T")[0],
+        date: dateStr,
         participated: e.eventSummary?.totalAttendees || 0,
         placed: e.eventSummary?.selectedStudents || 0,
-targetGroup: e.targetGroup || "both",
-
+        targetGroup: e.targetGroup || "both",
       };
     });
 
+    // Deduplicate
+    const seen = new Map();
+    const processedEvents = [];
+    for (const ev of mapped) {
+      if (!ev || !ev.id) continue;
+      if (!seen.has(ev.id)) {
+        seen.set(ev.id, true);
+        processedEvents.push(ev);
+      }
+    }
+
     setEvents(processedEvents);
 
-    // Update selected date events if there's a selected date
-    const currentDateStr = selectedDate.toLocaleDateString("en-CA");
-    const currentDateEvents = processedEvents.filter(e => e.date === currentDateStr);
+    // Update selected date events if there's a selected date using normalized compare
+    const sel = normalizeDate(selectedDate);
+    const currentDateEvents = processedEvents.filter((e) => {
+      const start = e.startDate ? normalizeDate(e.startDate) : normalizeDate(e.date);
+      const end = e.endDate ? normalizeDate(e.endDate) : start;
+      return sel.getTime() >= start.getTime() && sel.getTime() <= end.getTime();
+    });
     setSelectedDateEvents(currentDateEvents);
   } catch (err) {
     console.error("Error fetching events:", err);
@@ -223,7 +252,7 @@ targetGroup: e.targetGroup || "both",
                           <div className="sm:hidden flex items-center justify-start gap-1 mt-0.5">
                             <div className="flex items-start justify-start gap-0.5">
                               {dateEvents.slice(0, 3).map((ev, i) => (
-                                <span key={i} className={`inline-block flex-shrink-0 w-1 h-1 rounded-full shadow-sm ${ev.status === 'completed' ? 'bg-green-500' : ev.status === 'ongoing' ? 'bg-orange-500' : ev.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`} />
+                                <span key={i} className={`inline-block flex-shrink-0 w-1 h-1 rounded-full shadow-sm ${ev.status === 'completed' ? 'bg-green-500' : ev.status === 'ongoing' ? 'bg-orange-500' : (ev.status === 'cancelled' || ev.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
                               ))}
                             </div>
                           </div>
@@ -233,7 +262,7 @@ targetGroup: e.targetGroup || "both",
                             {dateEvents.slice(0, 1).map((ev) => (
                               <div
                                 key={ev.id}
-                                className={`text-[10px] rounded px-1 py-0.5 ${ev.status === 'completed' ? 'bg-green-50 text-green-700' : ev.status === 'ongoing' ? 'bg-orange-50 text-orange-700' : ev.status === 'cancelled' ? 'bg-red-50 text-red-700' : 'bg-blue-100 text-blue-800 border border-blue-200'}`}>
+                                className={`text-[10px] rounded px-1 py-0.5 ${ev.status === 'completed' ? 'bg-green-50 text-green-700' : ev.status === 'ongoing' ? 'bg-orange-50 text-orange-700' : (ev.status === 'cancelled' || ev.status === 'deleted') ? 'bg-red-50 text-red-700' : 'bg-blue-100 text-blue-800 border border-blue-200'}`}>
                                 <div className="flex items-center gap-1 min-w-0">
                                   <span className="inline-block truncate min-w-0" title={ev.title}>{ev.title}</span>
                                   {dateEvents.length > 1 && (
