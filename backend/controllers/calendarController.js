@@ -522,7 +522,7 @@ if (trainerIds.length > 0) {
 exports.updateEventStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    const validStatuses = ['scheduled', 'ongoing', 'completed', 'cancelled'];
+    const validStatuses = ['scheduled', 'ongoing', 'completed', 'cancelled', 'deleted'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid event status' });
     }

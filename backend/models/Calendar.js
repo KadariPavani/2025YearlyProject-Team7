@@ -256,7 +256,7 @@ const CalendarSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ['scheduled', 'ongoing', 'completed', 'cancelled'],
+    enum: ['scheduled', 'ongoing', 'completed', 'cancelled', 'deleted'],
     default: 'scheduled'
   },
 
