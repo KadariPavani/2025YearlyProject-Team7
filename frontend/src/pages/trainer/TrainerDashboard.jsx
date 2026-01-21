@@ -225,6 +225,7 @@ useEffect(() => {
 const fetchTrainerNotifications = async () => {
   try {
     const token = localStorage.getItem("trainerToken");
+    const currentTrainerId = trainerData?._id || trainerData?.id;
 
 
     const res = await axios.get("/api/trainer/notifications", {
@@ -243,13 +244,23 @@ const unreadByCategory = {
 // ✅ Auto-count unread manually if backend didn’t categorize it
 notifications.forEach(n => {
   const category = n.category || "Placement Calendar";
-  const isUnread = n.recipients?.some(
-    r => r.recipientModel === "Trainer" && !r.isRead
+  const currentTrainerId = trainerData?._id || trainerData?.id;
+  const recipient = n.recipients?.find(
+    r => r.recipientId?.toString() === currentTrainerId?.toString()
   );
-  if (isUnread) unreadByCategory[category] = (unreadByCategory[category] || 0) + 1;
+  const isUnread = recipient && !recipient.isRead;
+  if (isUnread) {
+    console.log(`📝 Trainer found unread: "${n.title}" in ${category}`);
+  }
 });
 
 const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+
+console.log("📊 Trainer unread counts:", {
+  totalUnread,
+  unreadByCategory,
+  notificationsCount: notifications.length
+});
 
 setNotifications(notifications);
 setCategoryUnread(unreadByCategory);
@@ -263,24 +274,41 @@ setUnreadCount(totalUnread);
 const markAsRead = async (id) => {
   try {
     const token = localStorage.getItem("trainerToken") || localStorage.getItem("userToken");
+    
+    // Call backend to mark as read
     await axios.put(`/api/notifications/mark-read/${id}`, {}, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n._id === id
-          ? {
-              ...n,
-              recipients: n.recipients.map((r) =>
-                r.recipientId === trainerData?._id ? { ...r, isRead: true } : r
-              ),
-            }
-          : n
-      )
-    );
-    setUnreadCount((prev) => Math.max(prev - 1, 0));
+    
+    console.log(`✅ Trainer: Marked notification ${id} as read, refreshing...`);
+    
+    // Refresh to get updated counts from backend
+    await fetchTrainerNotifications();
   } catch (error) {
     console.error("Error marking notification as read:", error);
+  }
+};
+
+// ✅ Mark all notifications as read
+const markAllAsRead = async () => {
+  try {
+    const token = localStorage.getItem("trainerToken") || localStorage.getItem("userToken");
+    
+    console.log("📬 Trainer: Marking all notifications as read...");
+    
+    // Call backend to mark all as read
+    await axios.put(`/api/notifications/mark-all-read`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    
+    console.log("✅ Trainer: Marked all as read, refreshing...");
+    
+    // Refresh to get updated counts from backend
+    await fetchTrainerNotifications();
+    
+    console.log("✅ Trainer: Successfully updated all notifications");
+  } catch (error) {
+    console.error("Error marking all notifications as read:", error);
   }
 };
 
@@ -644,6 +672,7 @@ const markAsRead = async (id) => {
         onLogout={handleLogout}
         notifications={notifications}
         onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
         fetchNotifications={fetchTrainerNotifications}
         categoryUnread={categoryUnread}
         unreadCount={unreadCount}

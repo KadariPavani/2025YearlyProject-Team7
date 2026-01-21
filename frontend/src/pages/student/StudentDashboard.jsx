@@ -545,38 +545,103 @@ const fetchNotifications = async () => {
     console.log("🔔 Notifications fetched:", res.data);
 
     const notifications = res.data.data || [];
-    const unreadByCategory = res.data.unreadByCategory || {
+    const currentStudentId = studentData?.user?.id || studentData?.user?._id || studentData?.id || studentData?._id;
+    
+    // Try to use backend counts first, fallback to frontend calculation
+    let unreadByCategory = res.data.unreadByCategory || {
       Placement: 0,
       "Weekly Class Schedule": 0,
       "My Assignments": 0,
       "Available Quizzes": 0,
       "Learning Resources": 0,
     };
+    
+    // Double-check by calculating on frontend as well
+    let totalUnread = 0;
+    notifications.forEach(notification => {
+      const recipient = notification.recipients?.find(
+        r => {
+          const rId = r.recipientId?._id || r.recipientId;
+          return rId?.toString() === currentStudentId?.toString();
+        }
+      );
+      const isUnread = recipient && !recipient.isRead;
+      
+      if (isUnread) {
+        console.log(`📝 Frontend counting unread: "${notification.title}" in ${notification.category}`);
+        totalUnread++;
+      }
+    });
 
-    const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+    // Use the sum from backend categories
+    const backendTotal = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+    
+    console.log("📊 Unread counts:", { 
+      backendTotal, 
+      frontendTotal: totalUnread, 
+      unreadByCategory,
+      notificationsCount: notifications.length
+    });
 
     setNotifications(notifications);
     setCategoryUnread(unreadByCategory);
-    setUnreadCount(totalUnread);
+    setUnreadCount(backendTotal); // Use backend total
   } catch (err) {
     console.error("Error fetching notifications:", err);
   }
 };
 
-// ✅ Initial fetch only - polling is handled by Header component
+// ✅ Fetch notifications only when studentData is available
 useEffect(() => {
-  fetchNotifications();
-}, []);
+  if (studentData) {
+    fetchNotifications();
+  }
+}, [studentData]);
 
 const markAsRead = async (id) => {
   try {
     const token = localStorage.getItem("userToken");
+    
+    // Call backend to mark as read
     await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-read/${id}`, {}, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    await fetchNotifications(); // ✅ works fine now
+    
+    console.log(`✅ Marked notification ${id} as read, refreshing...`);
+    
+    // Refresh to get updated counts from backend
+    await fetchNotifications();
   } catch (err) {
     console.error("Error marking notification as read:", err);
+  }
+};
+
+// ✅ Mark all notifications as read
+const markAllAsRead = async () => {
+  try {
+    const token = localStorage.getItem("userToken");
+    
+    console.log("� Mark All Read button clicked!");
+    console.log("📊 Current unread count:", unreadCount);
+    console.log("📊 Current notifications:", notifications.length);
+    
+    // Call backend to mark all as read
+    const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    
+    console.log("✅ Backend response:", response.data);
+    
+    // Small delay to ensure backend has processed
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Refresh to get updated counts from backend
+    await fetchNotifications();
+    
+    console.log("✅ Successfully refreshed notifications after mark all read");
+  } catch (err) {
+    console.error("❌ Error marking all notifications as read:", err);
+    console.error("Error details:", err.response?.data);
   }
 };
 
@@ -907,8 +972,9 @@ const markAsRead = async (id) => {
       </div>
     );
   }
-// ✅ Safe student ID for notification matching
-const studentId = studentData?.user?._id || studentData?._id;
+
+  // Compute student ID - uses .id not ._id for student data structure
+  const computedStudentId = studentData?.user?.id || studentData?.user?._id || studentData?.id || studentData?._id;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -922,11 +988,12 @@ const studentId = studentData?.user?._id || studentData?._id;
         onLogout={handleLogout}
         notifications={notifications}
         onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
         fetchNotifications={fetchNotifications}
         categoryUnread={categoryUnread}
         unreadCount={unreadCount}
         userType="student"
-        userId={studentId}
+        userId={computedStudentId}
         onIconClick={() => {
           if (window.location.pathname === '/student-dashboard') {
             window.scrollTo({ top: 0, behavior: 'smooth' });
