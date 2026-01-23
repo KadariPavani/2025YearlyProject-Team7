@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, GraduationCap
 } from 'lucide-react';
+import axios from 'axios';
 import Header from '../../components/common/Header';
 import ToastNotification from '../../components/ui/ToastNotification';
 
@@ -26,19 +27,92 @@ const StudentChangePassword = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Notification states
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [categoryUnread, setCategoryUnread] = useState({});
+
+  // User data state
+  const [userData, setUserData] = useState(null);
+
   const handleLogout = () => {
     localStorage.removeItem("userToken");
-    localStorage.removeItem("studentData");
+    localStorage.removeItem("userData");
     navigate("/student-login");
   };
 
-  const studentData = JSON.parse(localStorage.getItem('studentData') || '{}');
+  const studentData = userData ? { user: userData, ...userData } : null;
+  const computedStudentId = userData?.user?.id || userData?.user?._id || userData?.id || userData?._id;
+
+  useEffect(() => {
+    fetchUserData();
+    fetchNotifications();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setUserData(response.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user data:', err);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/student`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const notifications = res.data.data || [];
+      const unreadByCategory = res.data.unreadByCategory || {};
+      const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+
+      setNotifications(notifications);
+      setCategoryUnread(unreadByCategory);
+      setUnreadCount(totalUnread);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem("userToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking all as read:", err);
+    }
+  };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    setSuccessMessage('');
 
     if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
       setLoading(false);
@@ -92,6 +166,13 @@ const StudentChangePassword = () => {
         profileRoute="/student-profile"
         changePasswordRoute="/student-change-password"
         onLogout={handleLogout}
+        notifications={notifications}
+        onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
+        categoryUnread={categoryUnread}
+        unreadCount={unreadCount}
+        userType="student"
+        userId={computedStudentId}
         onIconClick={() => {
           if (window.location.pathname === '/student-dashboard') {
             window.scrollTo({ top: 0, behavior: 'smooth' });

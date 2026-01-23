@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, Users
 } from 'lucide-react';
+import axios from 'axios';
 import Header from '../../components/common/Header';
 
 const TPOChangePassword = () => {
@@ -20,6 +21,83 @@ const TPOChangePassword = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Notification states
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [categoryUnread, setCategoryUnread] = useState({});
+
+  // User data state
+  const [userData, setUserData] = useState(null);
+
+  useEffect(() => {
+    fetchUserData();
+    fetchNotifications();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/dashboard/tpo`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const result = await response.json();
+      if (result.success) {
+        setUserData(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user data:', err);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/tpo`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const notifications = res.data.data || [];
+      const unreadByCategory = res.data.unreadByCategory || {};
+      const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+
+      setNotifications(notifications);
+      setCategoryUnread(unreadByCategory);
+      setUnreadCount(totalUnread);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem("userToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking all as read:", err);
+    }
+  };
 
   const validatePassword = (password) => {
     // Add password validation rules
@@ -116,11 +194,12 @@ const TPOChangePassword = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("userToken");
-    localStorage.removeItem("tpoData");
+    localStorage.removeItem("userData");
     navigate("/tpo-login");
   };
 
-  const tpoData = JSON.parse(localStorage.getItem('tpoData') || '{}');
+  const tpoData = userData || JSON.parse(localStorage.getItem('userData') || '{}');
+  const computedTpoId = tpoData?.user?._id || tpoData?._id;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -132,6 +211,13 @@ const TPOChangePassword = () => {
         profileRoute="/tpo-profile"
         changePasswordRoute="/tpo-change-password"
         onLogout={handleLogout}
+        notifications={notifications}
+        onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
+        categoryUnread={categoryUnread}
+        unreadCount={unreadCount}
+        userType="tpo"
+        userId={computedTpoId}
         onIconClick={() => {
           if (window.location.pathname === '/tpo-dashboard') {
             window.scrollTo({ top: 0, behavior: 'smooth' });

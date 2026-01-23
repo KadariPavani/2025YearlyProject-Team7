@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, GraduationCap, UserCheck
 } from 'lucide-react';
+import axios from 'axios';
 import Header from '../../components/common/Header';
 
 const TrainerChangePassword = () => {
@@ -20,6 +21,87 @@ const TrainerChangePassword = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Notification states
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [categoryUnread, setCategoryUnread] = useState({});
+
+  // User data state
+  const [userData, setUserData] = useState(null);
+
+  useEffect(() => {
+    fetchUserData();
+    fetchNotifications();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('userToken') || localStorage.getItem('trainerToken');
+      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/trainer/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setUserData(response.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user data:', err);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/trainer/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const notifications = res.data.data || [];
+      
+      // Ensure Placement Calendar is tracked even if backend doesn't send it
+      const unreadByCategory = {
+        "My Classes": 0,
+        "Placement Calendar": 0,
+        ...(res.data.unreadByCategory || {})
+      };
+      
+      const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+
+      setNotifications(notifications);
+      setCategoryUnread(unreadByCategory);
+      setUnreadCount(totalUnread);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking all as read:", err);
+    }
+  };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
@@ -72,11 +154,12 @@ const TrainerChangePassword = () => {
   const handleLogout = () => {
     localStorage.removeItem("userToken");
     localStorage.removeItem("trainerToken");
-    localStorage.removeItem("trainerData");
+    localStorage.removeItem("userData");
     navigate("/trainer-login");
   };
 
-  const trainerData = JSON.parse(localStorage.getItem('trainerData') || '{}');
+  const trainerData = userData || JSON.parse(localStorage.getItem('userData') || '{}');
+  const computedTrainerId = trainerData?.user?._id || trainerData?._id;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -88,6 +171,13 @@ const TrainerChangePassword = () => {
         profileRoute="/trainer-profile"
         changePasswordRoute="/trainer-change-password"
         onLogout={handleLogout}
+        notifications={notifications}
+        onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
+        categoryUnread={categoryUnread}
+        unreadCount={unreadCount}
+        userType="trainer"
+        userId={computedTrainerId}
         onIconClick={() => {
           if (window.location.pathname === '/trainer-dashboard') {
             window.scrollTo({ top: 0, behavior: 'smooth' });

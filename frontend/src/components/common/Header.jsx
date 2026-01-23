@@ -276,7 +276,7 @@ const Header = ({
                   </div>
                 )}
                 <span className="text-sm font-medium hidden md:inline-block text-gray-800">
-                  {userData?.name || 'User'}
+                  {userData?.name || userData?.user?.name || 'User'}
                 </span>
                 <ChevronDown className="h-4 w-4 text-gray-700" />
               </button>

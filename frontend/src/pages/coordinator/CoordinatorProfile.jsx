@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { 
   User, Mail, Phone, Calendar, UserCheck, 
   Edit3, Save, X, Eye, EyeOff, Lock, AlertCircle, CheckCircle,
-  GraduationCap, Award, Users
+  GraduationCap, Award, Users, ArrowLeft
 } from 'lucide-react';
+import axios from 'axios';
 import { getProfile, updateProfile, changePassword, checkPasswordChange } from '../../services/generalAuthService';
 import Header from '../../components/common/Header';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import ToastNotification from '../../components/ui/ToastNotification';
 
 const CoordinatorProfile = () => {
   const navigate = useNavigate();
@@ -33,10 +35,21 @@ const CoordinatorProfile = () => {
     confirm: false
   });
 
+  // Notification states
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [categoryUnread, setCategoryUnread] = useState({});
+
   useEffect(() => {
     fetchProfile();
     checkPasswordStatus();
   }, []);
+
+  useEffect(() => {
+    if (profile) {
+      fetchNotifications();
+    }
+  }, [profile]);
 
   const fetchProfile = async () => {
     try {
@@ -63,6 +76,54 @@ const CoordinatorProfile = () => {
       }
     } catch (err) {
       console.error('Failed to check password status:', err);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/coordinator`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const notifications = res.data.data || [];
+      const currentCoordinatorId = profile?.user?._id || profile?._id;
+      const unreadByCategory = res.data.unreadByCategory || {};
+      const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+
+      setNotifications(notifications);
+      setCategoryUnread(unreadByCategory);
+      setUnreadCount(totalUnread);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem("userToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking all as read:", err);
     }
   };
 
@@ -172,62 +233,63 @@ const CoordinatorProfile = () => {
         }}
       />
 
-      {/* Main Content */}
-      <div className="pt-20 md:pt-24 px-4 sm:px-6 lg:px-8 pb-8">
-        {/* Back Button and Actions */}
-        <div className="max-w-7xl mx-auto mb-5 mt-5">
-          <div className="flex justify-end gap-3">
-              {!isEditing ? (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                >
-                  <Edit3 className="h-4 w-4" />
-                  <span>Edit Profile</span>
-                </button>
-              ) : (
-                <>
-                  <button
-                    onClick={handleSave}
-                    disabled={loading}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
-                  >
-                    <Save className="h-4 w-4" />
-                    <span>Save</span>
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
-                  >
-                    <X className="h-4 w-4" />
-                    <span>Cancel</span>
-                  </button>
-                </>
-              )}
-          </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate('/coordinator-dashboard')}
+          className="mb-4 flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Dashboard
+        </button>
+
+        {/* Toast Notification Component */}
+        {(error || success) && (
+          <ToastNotification
+            type={error ? "error" : "success"}
+            message={error || success}
+            onClose={() => {
+              setError("");
+              setSuccess("");
+            }}
+          />
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3 mb-6">
+          {!isEditing ? (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            >
+              <Edit3 className="h-4 w-4" />
+              <span>Edit Profile</span>
+            </button>
+          ) : (
+            <div className="flex space-x-2">
+              <button
+                onClick={handleSave}
+                disabled={loading}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
+              >
+                <Save className="h-4 w-4" />
+                <span>Save</span>
+              </button>
+              <button
+                onClick={handleCancel}
+                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
+              >
+                <X className="h-4 w-4" />
+                <span>Cancel</span>
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Alerts */}
-        {error && (
-          <div className="max-w-7xl mx-auto mb-4">
-            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center space-x-3 shadow-sm animate-fade-in">
-              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-              <p className="text-red-700 text-sm sm:text-base">{error}</p>
-            </div>
-          </div>
-        )}
-
-        {success && (
-          <div className="max-w-7xl mx-auto mb-4">
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center space-x-3 shadow-sm animate-fade-in">
-              <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-              <p className="text-green-700 text-sm sm:text-base">{success}</p>
-            </div>
-          </div>
-        )}
-
         {/* Profile Content */}
-        <div className="max-w-7xl mx-auto">
+        {/* Profile Content */}
+        <div className="max-w-4xl mx-auto">
+          {/* Profile Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left Column - Profile Card */}
             <div className="lg:col-span-1">
@@ -482,10 +544,9 @@ const CoordinatorProfile = () => {
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Password Change Modal */}
-      {(showPasswordModal || showPasswordChangeModal) && (
+        {/* Password Change Modal */}
+        {(showPasswordModal || showPasswordChangeModal) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-4">
@@ -598,6 +659,7 @@ const CoordinatorProfile = () => {
           </div>
         </div>
       )}
+      </main>
     </div>
   );
 };

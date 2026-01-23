@@ -8,6 +8,7 @@ import {
   Calendar, BookOpen, MapPin, Award, Users, 
   FileText, CheckCircle, Star, Shield, Bell, Settings, LogOut, ChevronDown
 } from 'lucide-react';
+import axios from 'axios';
 import BottomNav from '../../components/common/BottomNav';
 import PasswordChangeNotification from '../../components/common/PasswordChangeNotification';
 import AttendanceMarking from '../coordinator/AttandanceMarking';
@@ -95,6 +96,11 @@ const CoordinatorDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const navigate = useNavigate();
 
+  // Notification states
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [categoryUnread, setCategoryUnread] = useState({});
+
   // Tabs configuration (uses same icons and order as TPO for consistency)
   const tabs = [
     { id: 'dashboard', label: TEXT.tabs.dashboard, icon: UserCheck },
@@ -105,6 +111,12 @@ const CoordinatorDashboard = () => {
   useEffect(() => {
     fetchDashboard();
   }, []);
+
+  useEffect(() => {
+    if (coordinatorData) {
+      fetchNotifications();
+    }
+  }, [coordinatorData]);
 
   if (loading) return <LoadingSkeleton />; 
 
@@ -127,6 +139,53 @@ const CoordinatorDashboard = () => {
       setError(TEXT.errors.fetchFailed);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/coordinator`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const notifications = res.data.data || [];
+      const unreadByCategory = res.data.unreadByCategory || {};
+      const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+
+      setNotifications(notifications);
+      setCategoryUnread(unreadByCategory);
+      setUnreadCount(totalUnread);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem("userToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking all as read:", err);
     }
   }; 
 
@@ -164,6 +223,13 @@ const CoordinatorDashboard = () => {
         profileRoute="/coordinator-profile"
         changePasswordRoute="/coordinator-change-password"
         onLogout={handleLogout}
+        notifications={notifications}
+        onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
+        categoryUnread={categoryUnread}
+        unreadCount={unreadCount}
+        userType="coordinator"
+        userId={coordinatorData?.user?._id || coordinatorData?._id}
         onIconClick={() => {
           if (window.location.pathname === '/coordinator-dashboard') {
             window.scrollTo({ top: 0, behavior: 'smooth' });
