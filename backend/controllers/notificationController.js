@@ -265,10 +265,18 @@ exports.getStudentNotifications = asyncHandler(async (req, res) => {
       category: n.category || "Placement", // Default fallback
     }));
 
+    // Calculate unread counts - check if THIS specific user has read the notification
     const unreadByCategory = fixedNotifications.reduce(
       (acc, n) => {
         const cat = n.category || "Placement";
-        if (!n.recipients?.some((r) => r.isRead)) {
+        // Find if THIS user has read this notification
+        const userRecipient = n.recipients?.find(
+          (r) => r.recipientId?.toString() === userId?.toString()
+        );
+        const isUnread = userRecipient && !userRecipient.isRead;
+        
+        if (isUnread) {
+          console.log(`📝 Counting unread in ${cat}: "${n.title}"`);
           acc[cat] = (acc[cat] || 0) + 1;
         }
         return acc;
@@ -281,6 +289,9 @@ exports.getStudentNotifications = asyncHandler(async (req, res) => {
         "Learning Resources": 0,
       }
     );
+
+    console.log("📊 Unread by category:", unreadByCategory);
+    console.log("📊 Total unread:", Object.values(unreadByCategory).reduce((a, b) => a + b, 0));
 
     res.status(200).json({
       success: true,
@@ -328,6 +339,71 @@ exports.markNotificationAsRead = async (req, res) => {
   }
 };
 
+// Mark all notifications as read for a user (Student, Trainer, or TPO)
+exports.markAllNotificationsAsRead = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.userId || req.user.id;
+    let userModel = req.user.role || req.userType || "Student"; // Student, Trainer, or TPO
+    const { category } = req.body; // Optional: mark only specific category
+    
+    // Normalize the userModel to match database values
+    if (userModel.toLowerCase() === 'student') userModel = 'Student';
+    if (userModel.toLowerCase() === 'trainer') userModel = 'Trainer';
+    if (userModel.toLowerCase() === 'tpo') userModel = 'TPO';
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    console.log(`📬 Marking notifications as read for ${userModel}:`, userId, category ? `(Category: ${category})` : '(All categories)');
+
+    // Build query - if category is provided, filter by it
+    const query = { 
+      "recipients.recipientId": userId
+    };
+    
+    if (category) {
+      query.category = category;
+    }
+
+    // Find all notifications where this user is a recipient
+    const notifications = await Notification.find(query);
+
+    console.log(`📋 Found ${notifications.length} notifications for user ${userId}${category ? ` in category ${category}` : ''}`);
+
+    // Update all notifications where this user is a recipient
+    const result = await Notification.updateMany(
+      query,
+      {
+        $set: {
+          "recipients.$[elem].isRead": true,
+          "recipients.$[elem].readAt": new Date(),
+        },
+      },
+      {
+        arrayFilters: [{ 
+          "elem.recipientId": userId
+        }],
+      }
+    );
+
+    console.log(`✅ Updated ${result.modifiedCount} notifications, matched ${result.matchedCount}`);
+
+    return res.status(200).json({
+      success: true,
+      message: category ? `All notifications in ${category} marked as read` : "All notifications marked as read",
+      data: { 
+        modifiedCount: result.modifiedCount,
+        matchedCount: result.matchedCount,
+        category: category || 'all'
+      },
+    });
+  } catch (err) {
+    console.error("Error marking all notifications as read:", err);
+    res.status(500).json({ success: false, message: "Server error", error: err.message });
+  }
+};
+
 // ✅ Get only notifications for the logged-in trainer
 exports.getTrainerNotifications = asyncHandler(async (req, res) => {
   try {
@@ -348,15 +424,23 @@ exports.getTrainerNotifications = asyncHandler(async (req, res) => {
 
     console.log(`✅ Found ${notifications.length} notifications for trainer ${trainerId}.`);
 
-    // 🧮 Compute unread counts by category
+    // 🧮 Compute unread counts by category - check if THIS trainer has read it
     const unreadByCategory = notifications.reduce((acc, n) => {
       const category = n.category || "Placement Calendar";
-      const isUnread = n.recipients?.some(
-        (r) => r.recipientId.toString() === trainerId.toString() && !r.isRead
+      // Find if THIS specific trainer has read this notification
+      const recipient = n.recipients?.find(
+        (r) => r.recipientId?.toString() === trainerId?.toString()
       );
-      if (isUnread) acc[category] = (acc[category] || 0) + 1;
+      const isUnread = recipient && !recipient.isRead;
+      if (isUnread) {
+        console.log(`📝 Backend counting unread for trainer: "${n.title}" in ${category}`);
+        acc[category] = (acc[category] || 0) + 1;
+      }
       return acc;
     }, {});
+
+    console.log("📊 Backend trainer unread by category:", unreadByCategory);
+    console.log("📊 Backend trainer total unread:", Object.values(unreadByCategory).reduce((a, b) => a + b, 0));
 
     res.status(200).json({
       success: true,
@@ -406,10 +490,15 @@ exports.getTpoNotifications = asyncHandler(async (req, res) => {
 
     const unreadByCategory = notifications.reduce((acc, n) => {
       const category = n.category || "Placement";
-      const isUnread = n.recipients?.some(
-        (r) => r.recipientId.toString() === tpoId.toString() && !r.isRead
+      // Find if THIS specific TPO has read this notification
+      const recipient = n.recipients?.find(
+        (r) => r.recipientId?.toString() === tpoId?.toString()
       );
-      if (isUnread) acc[category] = (acc[category] || 0) + 1;
+      const isUnread = recipient && !recipient.isRead;
+      if (isUnread) {
+        console.log(`📝 Backend counting unread for TPO: "${n.title}" in ${category}`);
+        acc[category] = (acc[category] || 0) + 1;
+      }
       return acc;
     }, {
       Placement: 0,
@@ -418,6 +507,9 @@ exports.getTpoNotifications = asyncHandler(async (req, res) => {
       "Available Quizzes": 0,
       "Learning Resources": 0,
     });
+
+    console.log("📊 Backend TPO unread by category:", unreadByCategory);
+    console.log("📊 Backend TPO total unread:", Object.values(unreadByCategory).reduce((a, b) => a + b, 0));
 
     res.status(200).json({
       success: true,

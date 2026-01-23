@@ -543,7 +543,12 @@ const fetchNotifications = async () => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
+    console.log("🔔 TPO notifications fetched:", res.data);
+
     const notifications = res.data.data || [];
+    const currentTpoId = tpoData?.user?._id || tpoData?._id;
+    
+    // Use backend counts if available
     const unreadByCategory = res.data.unreadByCategory || {
       "Placement": 0,
       "Weekly Class Schedule": 0,
@@ -551,8 +556,14 @@ const fetchNotifications = async () => {
       "Available Quizzes": 0,
       "Learning Resources": 0,
     };
-
+    
     const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+
+    console.log("📊 TPO unread counts:", {
+      totalUnread,
+      unreadByCategory,
+      notificationsCount: notifications.length
+    });
 
     setNotifications(notifications);
     setCategoryUnread(unreadByCategory);
@@ -570,12 +581,41 @@ useEffect(() => {
 const markAsRead = async (id) => {
   try {
     const token = localStorage.getItem("userToken");
+    
+    // Call backend to mark as read
     await axios.put(`/api/notifications/mark-read/${id}`, {}, {
       headers: { Authorization: `Bearer ${token}` },
     });
+    
+    console.log(`✅ TPO: Marked notification ${id} as read, refreshing...`);
+    
+    // Refresh to get updated counts from backend
     await fetchNotifications();
   } catch (err) {
     console.error("Error marking TPO notification as read:", err);
+  }
+};
+
+// ✅ Mark all notifications as read
+const markAllAsRead = async () => {
+  try {
+    const token = localStorage.getItem("userToken");
+    
+    console.log("📬 TPO: Marking all notifications as read...");
+    
+    // Call backend to mark all as read
+    await axios.put(`/api/notifications/mark-all-read`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    
+    console.log("✅ TPO: Marked all as read, refreshing...");
+    
+    // Refresh to get updated counts from backend
+    await fetchNotifications();
+    
+    console.log("✅ TPO: Successfully updated all notifications");
+  } catch (err) {
+    console.error("Error marking all TPO notifications as read:", err);
   }
 };
 
@@ -2059,6 +2099,7 @@ const getRequestTypeColor = (type) => {
         onLogout={handleLogout}
         notifications={notifications}
         onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
         fetchNotifications={fetchNotifications}
         categoryUnread={categoryUnread}
         unreadCount={unreadCount}

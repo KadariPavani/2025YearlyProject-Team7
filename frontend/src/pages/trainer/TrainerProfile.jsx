@@ -2,9 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   User, Mail, Phone, Briefcase, Linkedin, Edit3, Save, X, 
-  AlertCircle, CheckCircle, BookOpen
+  AlertCircle, CheckCircle, BookOpen, UserCheck, ArrowLeft
 } from 'lucide-react';
+import axios from 'axios';
 import { getProfile, updateProfile } from '../../services/generalAuthService';
+import Header from '../../components/common/Header';
+import ToastNotification from '../../components/ui/ToastNotification';
 
 
 const TrainerProfile = () => {
@@ -18,19 +21,31 @@ const TrainerProfile = () => {
   // Form states
   const [formData, setFormData] = useState({});
 
+  // Notification states
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [categoryUnread, setCategoryUnread] = useState({});
+
   useEffect(() => {
     fetchProfile();
+    fetchNotifications();
   }, []);
+
+  useEffect(() => {
+    if (profile) {
+      fetchNotifications();
+    }
+  }, [profile]);
 
   const fetchProfile = async () => {
     setLoading(true);
     setError("");
     try {
-      const token = localStorage.getItem("trainerToken");
-      const res = await fetch("/api/trainer/profile", {
+      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/trainer/profile`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const data = await res.json();
+      const data = res.data;
       if (data.success) {
         setProfile(data.data);
         setFormData(data.data);
@@ -41,6 +56,60 @@ const TrainerProfile = () => {
       setError("Failed to fetch profile");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/trainer/notifications`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const notifications = res.data.data || [];
+      
+      // Ensure Placement Calendar is tracked even if backend doesn't send it
+      const unreadByCategory = {
+        "My Classes": 0,
+        "Placement Calendar": 0,
+        ...(res.data.unreadByCategory || {})
+      };
+      
+      const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+
+      setNotifications(notifications);
+      setCategoryUnread(unreadByCategory);
+      setUnreadCount(totalUnread);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking all as read:", err);
     }
   };
 
@@ -75,6 +144,16 @@ const TrainerProfile = () => {
     setError('');
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("userToken");
+    localStorage.removeItem("trainerToken");
+    localStorage.removeItem("userData");
+    navigate("/trainer-login");
+  };
+
+  const trainerData = profile ? { user: profile, ...profile } : null;
+  const computedTrainerId = profile?.user?._id || profile?._id;
+
   if (loading && !profile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -85,73 +164,84 @@ const TrainerProfile = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
+      <Header
+        title="Trainer Profile"
+        subtitle="Manage Your Profile"
+        icon={UserCheck}
+        userData={trainerData}
+        profileRoute="/trainer-profile"
+        changePasswordRoute="/trainer-change-password"
+        onLogout={handleLogout}
+        notifications={notifications}
+        onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
+        categoryUnread={categoryUnread}
+        unreadCount={unreadCount}
+        userType="trainer"
+        userId={computedTrainerId}
+        onIconClick={() => {
+          if (window.location.pathname === '/trainer-dashboard') {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          } else {
+            navigate('/trainer-dashboard');
+          }
+        }}
+      />
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate('/trainer-dashboard')}
+          className="mb-4 flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Dashboard
+        </button>
+
+        {/* Toast Notification Component */}
+        {(error || success) && (
+          <ToastNotification
+            type={error ? "error" : "success"}
+            message={error || success}
+            onClose={() => {
+              setError("");
+              setSuccess("");
+            }}
+          />
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3 mb-6">
+          {!isEditing ? (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            >
+              <Edit3 className="h-4 w-4" />
+              <span>Edit Profile</span>
+            </button>
+          ) : (
+            <div className="flex space-x-2">
               <button
-                onClick={() => navigate('/trainer-dashboard')}
-                className="text-gray-500 hover:text-gray-700"
+                onClick={handleSave}
+                disabled={loading}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
               >
-                ← Back to Dashboard
+                <Save className="h-4 w-4" />
+                <span>Save</span>
               </button>
-              <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
+              <button
+                onClick={handleCancel}
+                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
+              >
+                <X className="h-4 w-4" />
+                <span>Cancel</span>
+              </button>
             </div>
-            <div className="flex space-x-3">
-              {!isEditing ? (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                >
-                  <Edit3 className="h-4 w-4" />
-                  <span>Edit Profile</span>
-                </button>
-              ) : (
-                <div className="flex space-x-2">
-                  <button
-                    onClick={handleSave}
-                    disabled={loading}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
-                  >
-                    <Save className="h-4 w-4" />
-                    <span>Save</span>
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
-                  >
-                    <X className="h-4 w-4" />
-                    <span>Cancel</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          )}
         </div>
-      </div>
 
-      {/* Alerts */}
-      {error && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-2">
-            <AlertCircle className="h-5 w-5 text-red-500" />
-            <p className="text-red-700">{error}</p>
-          </div>
-        </div>
-      )}
-
-      {success && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center space-x-2">
-            <CheckCircle className="h-5 w-5 text-green-500" />
-            <p className="text-green-700">{success}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Profile Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Profile Card */}
           <div className="lg:col-span-1">
@@ -320,7 +410,7 @@ const TrainerProfile = () => {
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

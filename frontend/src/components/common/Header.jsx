@@ -6,7 +6,8 @@ import {
   ChevronDown,
   LogOut,
   Settings,
-  ChevronLeft
+  ChevronLeft,
+  CheckCheck
 } from 'lucide-react';
 
 /**
@@ -28,6 +29,7 @@ const Header = ({
   onLogout,
   notifications = [],
   onMarkAsRead,
+  onMarkAllAsRead,
   categoryUnread = {},
   unreadCount = 0,
   userType = 'user',
@@ -154,9 +156,24 @@ const Header = ({
                     <h3 className="text-gray-900 font-semibold flex items-center gap-2 text-sm md:text-base">
                       <Bell className="h-4 w-4 text-gray-600" /> Notifications
                     </h3>
-                    <span className="text-xs bg-blue-100 text-blue-700 px-2 sm:px-2.5 py-1 rounded-full font-medium whitespace-nowrap">
-                      {unreadCount} new
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {unreadCount > 0 && onMarkAllAsRead && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMarkAllAsRead();
+                          }}
+                          className="text-xs bg-green-100 text-green-700 hover:bg-green-200 px-2 sm:px-2.5 py-1 rounded-full font-medium whitespace-nowrap flex items-center gap-1 transition-colors"
+                          title="Mark all as read"
+                        >
+                          <CheckCheck className="h-3 w-3" />
+                          Mark All Read
+                        </button>
+                      )}
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 sm:px-2.5 py-1 rounded-full font-medium whitespace-nowrap">
+                        {unreadCount} new
+                      </span>
+                    </div>
                   </div>
 
                   {!selectedCategory && categories.length > 0 && (
@@ -165,11 +182,13 @@ const Header = ({
                         <div
                           key={category}
                           onClick={() => setSelectedCategory(category)}
-                          className="flex justify-between items-center p-2.5 sm:p-3 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 cursor-pointer transition-all gap-2"
+                          className="flex justify-between items-center p-2.5 sm:p-3 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 cursor-pointer transition-all gap-2 relative"
                         >
+                          {categoryUnread[category] > 0 && (
+                            <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full flex-shrink-0 ring-2 ring-white"></span>
+                          )}
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <span className="font-medium text-gray-900 text-xs sm:text-sm truncate">{category}</span>
-                            {categoryUnread[category] > 0 && <span className="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></span>}
                           </div>
                           <span className="text-xs text-gray-600 font-medium whitespace-nowrap flex-shrink-0">
                             {categoryUnread[category] > 0 ? `${categoryUnread[category]} new` : ''}
@@ -195,7 +214,7 @@ const Header = ({
                         >
                           <ChevronLeft className="h-4 w-4" /> Back
                         </button>
-                        <h4 className="text-gray-900 font-semibold text-xs sm:text-sm truncate">{selectedCategory}</h4>
+                        <h4 className="text-gray-900 font-semibold text-xs sm:text-sm truncate flex-1 text-center">{selectedCategory}</h4>
                       </div>
 
                       {notifications.filter(n => n.category === selectedCategory).length === 0 ? (
@@ -205,7 +224,10 @@ const Header = ({
                           .filter(n => n.category === selectedCategory)
                           .map((notification) => {
                             const recipient = notification.recipients?.find(
-                              (r) => r.recipientId?.toString() === userId?.toString()
+                              (r) => {
+                                const rId = r.recipientId?._id || r.recipientId;
+                                return rId?.toString() === userId?.toString();
+                              }
                             );
                             const isUnread = recipient && !recipient.isRead;
 
@@ -213,11 +235,14 @@ const Header = ({
                               <div
                                 key={notification._id}
                                 onClick={() => handleNotificationClick(notification)}
-                                className={`p-2.5 sm:p-3 mb-2 rounded-xl cursor-pointer border transition-all ${
+                                className={`p-2.5 sm:p-3 mb-2 rounded-xl cursor-pointer border transition-all relative ${
                                   isUnread ? 'bg-blue-50 border-blue-200 hover:bg-blue-100' : 'bg-white hover:bg-gray-50 border-gray-200'
                                 }`}
                               >
-                                <p className="text-xs sm:text-sm font-semibold text-gray-900 break-words">{notification.title}</p>
+                                {isUnread && (
+                                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white"></span>
+                                )}
+                                <p className="text-xs sm:text-sm font-semibold text-gray-900 break-words pr-4">{notification.title}</p>
                                 <p className="text-xs text-gray-600 mt-1 break-words whitespace-pre-wrap">{notification.message}</p>
                                 <p className="text-[10px] text-gray-400 mt-1">
                                   {new Date(notification.createdAt).toLocaleString()}
@@ -251,7 +276,7 @@ const Header = ({
                   </div>
                 )}
                 <span className="text-sm font-medium hidden md:inline-block text-gray-800">
-                  {userData?.name || 'User'}
+                  {userData?.name || userData?.user?.name || 'User'}
                 </span>
                 <ChevronDown className="h-4 w-4 text-gray-700" />
               </button>

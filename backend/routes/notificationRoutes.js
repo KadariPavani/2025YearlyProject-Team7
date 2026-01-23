@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getStudentNotifications,
   markNotificationAsRead,
+  markAllNotificationsAsRead,
   getTrainerNotifications,
   getTpoNotifications
 } = require("../controllers/notificationController");
@@ -13,6 +14,9 @@ router.get("/student", generalAuth, getStudentNotifications);
 
 // 🔹 Mark one as read
 router.put("/mark-read/:id", generalAuth, markNotificationAsRead);
+
+// 🔹 Mark all as read
+router.put("/mark-all-read", generalAuth, markAllNotificationsAsRead);
 // ✅ Get Notifications for Trainer
 router.get("/trainer/:trainerId", async (req, res) => {
   try {

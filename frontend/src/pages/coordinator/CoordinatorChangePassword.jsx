@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, UserCheck
 } from 'lucide-react';
+import axios from 'axios';
 import Header from '../../components/common/Header';
 
 const CoordinatorChangePassword = () => {
@@ -20,6 +21,83 @@ const CoordinatorChangePassword = () => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Notification states
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [categoryUnread, setCategoryUnread] = useState({});
+
+  // User data state
+  const [userData, setUserData] = useState(null);
+
+  useEffect(() => {
+    fetchUserData();
+    fetchNotifications();
+  }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('userToken');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/dashboard/coordinator`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const result = await response.json();
+      if (result.success) {
+        setUserData(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user data:', err);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/coordinator`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const notifications = res.data.data || [];
+      const unreadByCategory = res.data.unreadByCategory || {};
+      const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
+
+      setNotifications(notifications);
+      setCategoryUnread(unreadByCategory);
+      setUnreadCount(totalUnread);
+    } catch (err) {
+      console.error("Error fetching notifications:", err);
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      const token = localStorage.getItem("userToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      await axios.put(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      await fetchNotifications();
+    } catch (err) {
+      console.error("Error marking all as read:", err);
+    }
+  };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
@@ -71,11 +149,12 @@ const CoordinatorChangePassword = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("userToken");
-    localStorage.removeItem("coordinatorData");
+    localStorage.removeItem("userData");
     navigate("/coordinator-login");
   };
 
-  const coordinatorData = JSON.parse(localStorage.getItem('coordinatorData') || '{}');
+  const coordinatorData = userData || JSON.parse(localStorage.getItem('userData') || '{}');
+  const computedCoordinatorId = coordinatorData?.user?._id || coordinatorData?._id;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-24">
@@ -87,6 +166,13 @@ const CoordinatorChangePassword = () => {
         profileRoute="/coordinator-profile"
         changePasswordRoute="/coordinator-change-password"
         onLogout={handleLogout}
+        notifications={notifications}
+        onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
+        categoryUnread={categoryUnread}
+        unreadCount={unreadCount}
+        userType="coordinator"
+        userId={computedCoordinatorId}
         onIconClick={() => {
           if (window.location.pathname === '/coordinator-dashboard') {
             window.scrollTo({ top: 0, behavior: 'smooth' });
