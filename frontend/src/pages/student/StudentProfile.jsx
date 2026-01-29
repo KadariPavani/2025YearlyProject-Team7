@@ -528,7 +528,7 @@ const StudentProfile = () => {
         const result = response.data;
         // If backend returns requiresApproval flag
         if (result.requiresApproval) {
-          setSuccess('Profile updated. Changes requiring approval have been sent to TPO for review.');
+          setSuccess('Profile updated. Changes requiring approval have been sent to the assigned TPO for review.');
           await fetchPendingApprovals();
         } else {
           setProfile(result.data);

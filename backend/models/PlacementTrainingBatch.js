@@ -147,6 +147,102 @@ PlacementTrainingBatchSchema.statics.getAvailableTechStacks = async function() {
   return techStacks.filter(tech => tech && tech !== 'NonCRT');
 };
 
+// STATIC: Reassign pending approvals for this placement training batch to new TPO
+PlacementTrainingBatchSchema.statics.reassignPendingApprovalsForPlacementBatch = async function(batchId, newTpoId) {
+  const Student = mongoose.model('Student');
+  const Notification = require('./Notification');
+
+  try {
+    const approvalTypes = ['crt_status_change', 'batch_change'];
+
+    let newTpoObjectId = newTpoId || null;
+    if (newTpoObjectId && typeof newTpoObjectId === 'string' && mongoose.isValidObjectId(newTpoObjectId)) {
+      newTpoObjectId = new mongoose.Types.ObjectId(newTpoObjectId);
+    }
+
+    // Update pending approvals for students in this placement batch
+    const res1 = await Student.updateMany(
+      { placementTrainingBatchId: batchId },
+      { $set: { 'pendingApprovals.$[elem].assignedTo': newTpoObjectId } },
+      { arrayFilters: [{ 'elem.status': 'pending', 'elem.requestType': { $in: approvalTypes } }] }
+    );
+
+    // Fallback for approvals without assignedTo
+    const res1fb = await Student.updateMany(
+      { placementTrainingBatchId: batchId },
+      { $set: { 'pendingApprovals.$[elem].assignedTo': newTpoObjectId } },
+      { arrayFilters: [{ 'elem.status': 'pending', $or: [{ 'elem.assignedTo': null }, { 'elem.assignedTo': { $exists: false } }] }] }
+    );
+
+    // Notify new TPO
+    let pendingCount = 0;
+    if (newTpoObjectId) {
+      pendingCount = await Student.countDocuments({
+        placementTrainingBatchId: batchId,
+        pendingApprovals: { $elemMatch: { status: 'pending', requestType: { $in: approvalTypes }, assignedTo: newTpoObjectId } }
+      });
+
+      if (pendingCount > 0) {
+        await Notification.create({
+          title: 'Pending Approvals Reassigned',
+          message: `${pendingCount} pending approval request(s) for a placement batch have been reassigned to you.`,
+          category: 'Placement',
+          senderId: null,
+          senderModel: 'Admin',
+          recipients: [{ recipientId: newTpoObjectId, recipientModel: 'TPO', isRead: false }],
+          status: 'sent'
+        });
+      }
+    }
+
+    const updatedStudents = await Student.find({ placementTrainingBatchId: batchId }).select('name rollNo pendingApprovals').lean();
+
+    return { res1, res1fb, pendingCount, updatedStudents };
+  } catch (err) {
+    console.error('Error in reassignPendingApprovalsForPlacementBatch:', err);
+    throw err;
+  }
+};
+
+// Hooks to catch updates that change tpoId
+PlacementTrainingBatchSchema.pre('findOneAndUpdate', async function(next) {
+  try {
+    const docToUpdate = await this.model.findOne(this.getQuery()).select('tpoId');
+    this._originalTpoId = docToUpdate ? (docToUpdate.tpoId ? docToUpdate.tpoId.toString() : null) : null;
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+PlacementTrainingBatchSchema.post('findOneAndUpdate', async function(result) {
+  try {
+    const original = this._originalTpoId;
+    const updated = result && result.tpoId ? result.tpoId.toString() : null;
+
+    if (original !== updated) {
+      await mongoose.model('PlacementTrainingBatch').reassignPendingApprovalsForPlacementBatch(result._id, result.tpoId);
+    }
+  } catch (err) {
+    console.error('Error in post findOneAndUpdate hook for PlacementTrainingBatch:', err);
+  }
+});
+
+PlacementTrainingBatchSchema.pre('save', function(next) {
+  this._tpoWillChange = this.isModified('tpoId');
+  next();
+});
+
+PlacementTrainingBatchSchema.post('save', async function(doc) {
+  try {
+    if (this._tpoWillChange) {
+      await mongoose.model('PlacementTrainingBatch').reassignPendingApprovalsForPlacementBatch(doc._id, doc.tpoId);
+    }
+  } catch (err) {
+    console.error('Error in post save hook for PlacementTrainingBatch:', err);
+  }
+});
+
 PlacementTrainingBatchSchema.set('toJSON', { virtuals: true });
 
 module.exports = mongoose.model('PlacementTrainingBatch', PlacementTrainingBatchSchema);

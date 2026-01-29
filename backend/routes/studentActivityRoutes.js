@@ -194,13 +194,22 @@ router.get('/tpo', generalAuth, async (req, res) => {
 
     const { batchId } = req.query;
 
-    let filter = { isActive: true };
-    if (batchId) {
-      filter.placementTrainingBatchId = batchId;
+    // Restrict to batches assigned to this TPO
+    const tpoId = req.user._id;
+    const batchQuery = { tpoId, isActive: true };
+    if (batchId) batchQuery._id = batchId;
+
+    const batches = await PlacementTrainingBatch.find(batchQuery).lean();
+
+    // If TPO has no batches (or requested batch doesn't belong to them), return empty set
+    if (!batches || batches.length === 0) {
+      return res.json({ success: true, count: 0, data: [], message: 'No batches available for this TPO' });
     }
 
-    // ✅ FIXED: Properly populate placementTrainingBatchId with all fields
-    const students = await Student.find(filter)
+    const batchIds = batches.map(b => b._id);
+
+    // Only fetch students belonging to the TPO's batches
+    const students = await Student.find({ isActive: true, placementTrainingBatchId: { $in: batchIds } })
       .populate('batchId', 'batchNumber')
       .populate('placementTrainingBatchId', 'batchNumber techStack year')
       .lean();

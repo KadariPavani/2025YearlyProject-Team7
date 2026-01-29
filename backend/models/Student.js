@@ -407,6 +407,12 @@ const StudentSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     },
+    // Explicitly record which TPO this approval is assigned to (helps when admin reassigns batches)
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'TPO',
+      default: null
+    },
     reviewedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'TPO'
@@ -465,10 +471,14 @@ StudentSchema.methods.createApprovalRequest = async function(type, changes) {
     if (changes.crtBatchChoice) {
       await this.validateCRTBatchChoice(changes.crtBatchChoice);
     }
-    
+
+    // Determine current TPO responsible for this student (if any)
+    const assignedTo = await this.findAssignedTpoId();
+
     const request = {
       requestType: type,
       requestedChanges: changes,
+      assignedTo: assignedTo || null,
       status: 'pending',
       requestedAt: new Date()
     };
@@ -492,10 +502,29 @@ StudentSchema.methods.createApprovalRequest = async function(type, changes) {
     };
 
     await save();
+
     return request;
   } catch (error) {
     throw error;
   }
+};
+
+// New helper: find which TPO currently owns this student's batch/placement batch
+StudentSchema.methods.findAssignedTpoId = async function() {
+  const PlacementTrainingBatch = mongoose.model('PlacementTrainingBatch');
+  const Batch = mongoose.model('Batch');
+
+  if (this.placementTrainingBatchId) {
+    const ptb = await PlacementTrainingBatch.findById(this.placementTrainingBatchId).select('tpoId');
+    if (ptb && ptb.tpoId) return ptb.tpoId;
+  }
+
+  if (this.batchId) {
+    const batch = await Batch.findById(this.batchId).select('tpoId');
+    if (batch && batch.tpoId) return batch.tpoId;
+  }
+
+  return null;
 };
 
 // Check for pending approvals

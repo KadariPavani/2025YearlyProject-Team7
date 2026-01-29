@@ -666,9 +666,40 @@ const markAllAsRead = async () => {
       const response = await api.get('/api/tpo/placement-training-batches');
       const data = response.data;
       if (data.success) {
-        setPlacementBatchData(data.data.organized);
+        // Defensive cleanup: remove any batches that have zero students (should be filtered server-side but keep client-safe)
+        const sanitizeOrganized = (organized) => {
+          const out = {};
+          Object.keys(organized || {}).forEach(year => {
+            const colleges = organized[year];
+            const collegeOut = {};
+            Object.keys(colleges).forEach(college => {
+              const techMap = colleges[college];
+              const techOut = {};
+              Object.keys(techMap).forEach(tech => {
+                const group = techMap[tech];
+                const filteredBatches = (group.batches || []).filter(b => (b.studentCount || (b.students && b.students.length)) && (b.studentCount || b.students.length) > 0);
+                if (filteredBatches.length > 0) {
+                  techOut[tech] = { ...group, batches: filteredBatches, totalBatches: filteredBatches.length, totalStudents: filteredBatches.reduce((acc, b) => acc + (b.studentCount || (b.students ? b.students.length : 0)), 0) };
+                }
+              });
+              if (Object.keys(techOut).length > 0) {
+                collegeOut[college] = techOut;
+              }
+            });
+            if (Object.keys(collegeOut).length > 0) {
+              out[year] = collegeOut;
+            }
+          });
+          return out;
+        };
+
+        const cleaned = sanitizeOrganized(data.data.organized);
+        // Debug log to help track unexpected empty batches
+        console.log('📦 Placement batches fetched (cleaned):', { originalYears: Object.keys(data.data.organized || {}).length, cleanedYears: Object.keys(cleaned).length });
+
+        setPlacementBatchData(cleaned);
         setPlacementStats(data.data.stats);
-        const years = Object.keys(data.data.organized).sort().reverse();
+        const years = Object.keys(cleaned).sort().reverse();
         if (years.length > 0) setSelectedYear(years[0]);
       }
     } catch (err) {
@@ -881,7 +912,7 @@ const markAllAsRead = async () => {
     if (!approvalToReject || !reasonToUse || !reasonToUse.trim()) {
       setError('Please provide a reason for rejection');
       console.error('❌ Rejection aborted - missing data', { approvalToReject, reasonToUse });
-      return;
+      return false;
     }
 
     try {
@@ -909,13 +940,16 @@ const markAllAsRead = async () => {
         console.log('✅ Rejection successful, refreshing data...');
         await fetchPendingApprovals(); // Refresh the approvals list
         closeRejectModal();
+        return true;
       } else {
         setError(data.message || 'Failed to reject request');
         console.error('❌ Rejection failed:', data);
+        return false;
       }
     } catch (error) {
       console.error('Error rejecting request:', error);
       setError('Failed to process rejection');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -2013,10 +2047,14 @@ const getRequestTypeColor = (type) => {
   // Reject Modal Component (uses local state to avoid parent re-renders interfering with input)
   const RejectModal = ({ approval, onClose, onConfirm }) => {
     const [localReason, setLocalReason] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [localError, setLocalError] = useState('');
     const textareaRef = useRef(null);
 
     useEffect(() => {
       setLocalReason('');
+      setLocalError('');
+      setSubmitting(false);
       // Autofocus textarea after modal opens and move caret to end
       setTimeout(() => {
         const el = textareaRef.current;
@@ -2026,9 +2064,47 @@ const getRequestTypeColor = (type) => {
           try { el.setSelectionRange(len, len); } catch (e) { /* ignore */ }
         }
       }, 50);
+
+      // Debug: log modal state on open
+      console.log('RejectModal opened for approval:', approval?.approvalId, 'initial reason prop:', approval?.rejectionReason);
     }, [approval]);
 
     if (!approval) return null;
+
+    const handleConfirm = async () => {
+      console.log('RejectModal: handleConfirm invoked (no event), localReason=', localReason);
+      setLocalError('');
+      if (!localReason || !localReason.trim()) {
+        setLocalError('Please provide a reason for rejection');
+        console.warn('RejectModal: no reason provided');
+        // focus textarea so user can immediately type
+        try { textareaRef.current?.focus(); } catch (e) { /* ignore */ }
+        return;
+      }
+      if (typeof onConfirm !== 'function') {
+        setLocalError('No handler configured');
+        console.error('RejectModal: onConfirm not a function');
+        return;
+      }
+
+      try {
+        setSubmitting(true);
+        console.log('RejectModal: calling onConfirm...');
+        const success = await onConfirm(localReason);
+        console.log('RejectModal: onConfirm result:', success);
+        if (success) {
+          // let parent close modal (it already does), but ensure we also call onClose for instant UI response
+          try { onClose?.(); } catch (e) { /* ignore */ }
+        } else {
+          setLocalError('Failed to reject request. See error message on the page.');
+        }
+      } catch (err) {
+        console.error('RejectModal confirm error:', err);
+        setLocalError('An error occurred while rejecting.');
+      } finally {
+        setSubmitting(false);
+      }
+    };
 
     return (
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
@@ -2050,33 +2126,39 @@ const getRequestTypeColor = (type) => {
               ref={textareaRef}
               value={localReason}
               onClick={(e) => e.stopPropagation()}
-              onChange={(e) => setLocalReason(e.target.value)}
-              placeholder="Enter rejection reason..."
+              onChange={(e) => { console.log('RejectModal textarea change:', e.target.value); setLocalReason(e.target.value); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { console.log('RejectModal: Ctrl+Enter pressed, submitting'); handleConfirm(); } }}
+              placeholder="Enter rejection reason... (Ctrl+Enter to submit)"
               className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-red-500"
               rows={4}
             />
+
+            {localError && <p className="text-sm text-red-600 mt-2">{localError}</p>}
+
+            {/* Debug panel (temporary) */}
+            <div className="mt-3 text-xs text-gray-500">
+              <div>Debug: localReason length = {localReason.length} | trimmed = {String(Boolean(localReason && localReason.trim()))}</div>
+              <div>Debug: submitting = {String(submitting)}</div>
+            </div>
 
             <div className="flex gap-3 mt-6">
               <button
                 onClick={onClose}
                 className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors font-medium"
                 type="button"
+                disabled={submitting}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (typeof onConfirm === 'function' && localReason && localReason.trim()) {
-                    onConfirm(localReason);
-                  }
-                }}
-                disabled={!localReason.trim()}
-                className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                onMouseDown={() => console.log('RejectModal: Confirm mouseDown')}
+                onClick={() => { console.log('RejectModal: Confirm button clicked'); handleConfirm(); }}
+                // Allow clicks even with empty reason so we can show inline validation and focus
+                style={{ pointerEvents: submitting ? 'none' : 'auto' }}
+                className={`flex-1 ${submitting ? 'bg-red-400' : 'bg-red-600 hover:bg-red-700'} text-white px-4 py-2 rounded-lg transition-colors font-medium`}
               >
-                Confirm Rejection
+                {submitting ? 'Rejecting...' : 'Confirm Rejection'}
               </button>
             </div>
           </div>
