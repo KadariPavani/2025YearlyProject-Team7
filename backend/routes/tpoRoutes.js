@@ -16,6 +16,7 @@ const sendEmail = require('../utils/sendEmail');
 const notificationController = require("../controllers/notificationController");
 
 const { getAvailableTechStacks, getTechStackColor } = require('../utils/techStackUtils');
+const mongoose = require('mongoose');
 
 // GET TPO Profile
 router.get('/profile', generalAuth, async (req, res) => {
@@ -540,7 +541,8 @@ router.get('/placement-training-batches', generalAuth, async (req, res) => {
 
     const tpoId = req.user._id;
 
-    const batches = await PlacementTrainingBatch.find({ tpoId })
+    // Only return placement batches that actually contain students to avoid showing empty batches in the TPO UI
+    const batches = await PlacementTrainingBatch.find({ tpoId, 'students.0': { $exists: true } })
       .populate('students', 'name rollNo email college branch techStack crtInterested yearOfPassing')
       .populate('tpoId', 'name email')
       .populate('createdBy', 'name email')
@@ -1201,11 +1203,28 @@ router.get('/pending-approvals', generalAuth, async (req, res) => {
     ];
 
     // Build query to find students belonging to this TPO's batches or colleges
+    // Ensure we use a proper ObjectId instance when possible; fall back to raw id string if invalid
+    let tpoObjectId = tpoId;
+    if (mongoose.isValidObjectId(tpoId)) {
+      try {
+        tpoObjectId = new mongoose.Types.ObjectId(tpoId);
+      } catch (err) {
+        console.warn('Invalid TPO id for ObjectId conversion, using raw id string:', tpoId);
+        tpoObjectId = tpoId;
+      }
+    }
+
     const studentQuery = {
       'pendingApprovals': {
         $elemMatch: {
           status: 'pending',
-          requestType: { $in: ['crt_status_change', 'batch_change'] }
+          requestType: { $in: ['crt_status_change', 'batch_change'] },
+          $or: [
+            { assignedTo: tpoObjectId },
+            { assignedTo: tpoId },
+            { assignedTo: { $exists: false } },
+            { assignedTo: null }
+          ]
         }
       }
     };
@@ -1227,6 +1246,11 @@ router.get('/pending-approvals', generalAuth, async (req, res) => {
     }
 
     studentQuery.$or = territoryFilter;
+
+    // Debug: log query computation for troubleshooting
+    console.log('[pending-approvals] TPO:', tpoId, 'tpoObjectId:', tpoObjectId);
+    console.log('[pending-approvals] tpoBatchIds:', tpoBatchIds.length, 'managedColleges:', managedColleges);
+    console.log('[pending-approvals] studentQuery (snippet):', JSON.stringify({ pendingApprovalsMatch: studentQuery.pendingApprovals.$elemMatch, orCount: studentQuery.$or ? studentQuery.$or.length : 0 }));
 
     // Find only CRT-related pending approvals within this TPO's domain
     const studentsWithPendingApprovals = await Student.find(studentQuery)
@@ -1261,7 +1285,8 @@ router.get('/pending-approvals', generalAuth, async (req, res) => {
           requestType: approval.requestType,
           requestedChanges: approval.requestedChanges,
           requestedAt: approval.requestedAt,
-          status: approval.status
+          status: approval.status,
+          assignedTo: approval.assignedTo || null
         });
       });
     });
@@ -1375,7 +1400,35 @@ router.post('/reject-request', generalAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'TPO not found' });
     }
 
-    const canApprove = await tpo.canApproveRequest(student);
+    console.log('[reject-request] Incoming reject:', { tpoId, studentId, approvalId, rejectionReason });
+
+    let canApprove = await tpo.canApproveRequest(student);
+    console.log('[reject-request] Initial canApprove:', canApprove);
+
+    // If TPO currently lacks permission, attempt to auto-assign the student's batch(s) to them (transient race fix)
+    if (!canApprove) {
+      try {
+        const batchIdsToEnsure = [];
+        if (student.placementTrainingBatchId) batchIdsToEnsure.push(student.placementTrainingBatchId);
+        if (student.batchId) batchIdsToEnsure.push(student.batchId);
+
+        for (const bid of batchIdsToEnsure) {
+          try {
+            await tpo.ensureBatchAssignment(bid);
+            console.log('[reject-request] ensureBatchAssignment succeeded for', bid);
+          } catch (e) {
+            console.warn('[reject-request] ensureBatchAssignment failed for', bid, e && e.message);
+          }
+        }
+
+        // Re-evaluate permission
+        canApprove = await tpo.canApproveRequest(student);
+        console.log('[reject-request] Post-ensure canApprove:', canApprove);
+      } catch (err) {
+        console.error('[reject-request] Error while trying to ensure batch assignment:', err);
+      }
+    }
+
     if (!canApprove) {
       return res.status(403).json({
         success: false,
@@ -1402,7 +1455,27 @@ router.post('/reject-request', generalAuth, async (req, res) => {
     approval.reviewedAt = new Date();
     approval.rejectionReason = rejectionReason || 'No reason provided';
 
+    console.log('[reject-request] Saving student after marking rejection');
     await student.save();
+    console.log('[reject-request] Saved student, approval status:', approval.status);
+
+    // Notify student about rejection
+    try {
+      const Notification = require('../models/Notification');
+      await Notification.create({
+        title: 'Request Rejected',
+        message: `Your approval request (${approval.requestType}) has been rejected by ${tpo.name || 'TPO'}. Reason: ${approval.rejectionReason}`,
+        category: 'Placement',
+        senderId: tpo._id,
+        senderModel: 'TPO',
+        recipients: [{ recipientId: student._id, recipientModel: 'Student', isRead: false }],
+        relatedEntity: { entityId: student._id, entityModel: 'Student' },
+        status: 'sent'
+      });
+      console.log('[reject-request] Notification sent to student', student._id);
+    } catch (notifyErr) {
+      console.error('[reject-request] Error sending rejection notification:', notifyErr);
+    }
 
     res.json({
       success: true,
@@ -2755,11 +2828,8 @@ router.get('/placed-students', generalAuth, async (req, res) => {
 
     const tpoId = req.user._id;
 
-    // Fetch all placement events created by this TPO with selected students (ALL STATUSES)
-    const events = await Calendar.find({
-      createdBy: tpoId,
-      'selectedStudents.0': { $exists: true }  // Only fetch events that have selected students
-    })
+    // Fetch all placement events that have selected students (ALL STATUSES) — allow all TPOs to view placed students
+    const events = await Calendar.find({ 'selectedStudents.0': { $exists: true } })
     .populate({
       path: 'selectedStudents.studentId',
       select: 'name rollNo email phonenumber branch yearOfPassing'
@@ -2769,6 +2839,8 @@ router.get('/placed-students', generalAuth, async (req, res) => {
       select: 'batchNumber colleges _id'
     })
     .lean();
+
+    console.log('[placed-students] TPO access: returned events count:', events.length);
 
     if (!events || events.length === 0) {
       return res.json({ 
@@ -2855,14 +2927,13 @@ router.get('/placed-students/download-excel', generalAuth, async (req, res) => {
 
     const tpoId = req.user._id;
 
-    // Include any events that have selected students (any status)
-    const events = await Calendar.find({
-      createdBy: tpoId,
-      'selectedStudents.0': { $exists: true }
-    })
+    // Include any events that have selected students (any status) — allow all TPOs to download data
+    const events = await Calendar.find({ 'selectedStudents.0': { $exists: true } })
     .populate('selectedStudents.studentId', 'name rollNo email phonenumber branch yearOfPassing')
     .populate('selectedStudents.batchId', 'batchNumber colleges _id')
     .lean();
+
+    console.log('[placed-students:download-excel] events found:', events.length);
 
     const ExcelJS = require('exceljs');
     const workbook = new ExcelJS.Workbook();
@@ -2973,14 +3044,13 @@ router.get('/placed-students/download-company/:companyName', generalAuth, async 
     // Use the raw param (Express already decodes params) and normalize for comparison
     const companyName = (req.params.companyName || '').trim();
 
-    // Fetch events that actually have selected students (any status)
-    const events = await Calendar.find({
-      createdBy: tpoId,
-      'selectedStudents.0': { $exists: true }
-    })
+    // Fetch events that actually have selected students (any status) — allow downloads of data for all companies across TPOs
+    const events = await Calendar.find({ 'selectedStudents.0': { $exists: true } })
     .populate('selectedStudents.studentId', 'name rollNo email phonenumber branch yearOfPassing')
     .populate('selectedStudents.batchId', 'batchNumber colleges _id')
     .lean();
+
+    console.log('[placed-students:download-company] events found:', events.length);
 
     const ExcelJS = require('exceljs');
     const workbook = new ExcelJS.Workbook();

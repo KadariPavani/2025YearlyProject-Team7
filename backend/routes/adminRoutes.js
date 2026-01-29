@@ -1,5 +1,6 @@
 // backend/routes/adminRoutes.js
 const express = require('express');
+const mongoose = require('mongoose');
 const {
   initializeSuperAdmin,
   superAdminLogin,
@@ -38,6 +39,7 @@ const bcrypt = require('bcryptjs');
 const { excelUploadMiddleware } = require('../middleware/fileUpload'); // Import the middleware
 const router = express.Router();
 const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
+const Notification = require('../models/Notification');
 // Public routes
 router.post('/initialize-super-admin', initializeSuperAdmin);
 router.post('/super-admin-login', superAdminLogin);
@@ -170,6 +172,9 @@ router.put('/batches/:batchId', auth, async (req, res) => {
     const normColleges = colleges ? colleges.map(c => c.trim().toUpperCase()) : batch.colleges;
 
     // Update batch fields
+    // Capture original TPO (before mutation) so we can detect a true change after save
+    const originalTpoId = batch.tpoId ? batch.tpoId.toString() : null;
+
     batch.batchNumber = batchNumber || batch.batchNumber;
     batch.colleges = normColleges;
     batch.tpoId = tpoId || batch.tpoId;
@@ -177,6 +182,81 @@ router.put('/batches/:batchId', auth, async (req, res) => {
     batch.endDate = endDate ? new Date(endDate) : batch.endDate;
 
     const updatedBatch = await batch.save();
+
+    // Cascade update: ensure PlacementTrainingBatch entries referencing this batch are updated with new tpoId
+    try {
+      // Find students in this regular batch
+      const studentIds = (await Student.find({ batchId: updatedBatch._id }).select('_id')).map(s => s._id);
+
+      // Update placement training batches that either have matching batchNumber OR contain any of these students
+      const updateResult1 = await PlacementTrainingBatch.updateMany(
+        { batchNumber: updatedBatch.batchNumber },
+        { $set: { tpoId: updatedBatch.tpoId } }
+      );
+
+      const updateResult2 = await PlacementTrainingBatch.updateMany(
+        { students: { $in: studentIds } },
+        { $set: { tpoId: updatedBatch.tpoId } }
+      );
+
+      console.log('Cascaded TPO update to PlacementTrainingBatch:', { updateResult1, updateResult2 });
+
+      // If TPO changed for this batch, make sure assignedBatches on TPO documents stay in sync
+      const newTpoId = updatedBatch.tpoId ? updatedBatch.tpoId.toString() : null;
+
+      if (originalTpoId !== newTpoId) {
+        try {
+          // Remove this regular batch id from any TPO assignedBatches arrays (old owners)
+          await TPO.updateMany({ assignedBatches: updatedBatch._id }, { $pull: { assignedBatches: updatedBatch._id } });
+
+          // Find all placement training batches affected (by batchNumber or students) and synchronize their TPO assignments
+          const affectedPTBs = await PlacementTrainingBatch.find({
+            $or: [
+              { batchNumber: updatedBatch.batchNumber },
+              { students: { $in: studentIds } }
+            ]
+          }).select('_id');
+
+          const affectedPTBIds = affectedPTBs.map(b => b._id);
+
+          if (affectedPTBIds.length > 0) {
+            // Remove these placement batch ids from any TPO assignedBatches arrays where they currently exist
+            await TPO.updateMany({ assignedBatches: { $in: affectedPTBIds } }, { $pull: { assignedBatches: { $in: affectedPTBIds } } });
+
+            // Add the affected placement batch ids to the new TPO's assignedBatches
+            if (newTpoId) {
+              await TPO.findByIdAndUpdate(newTpoId, { $addToSet: { assignedBatches: { $each: [updatedBatch._id, ...affectedPTBIds] } } });
+            }
+          } else {
+            // No placement batch affected, but still add the regular batch to the new TPO's assignedBatches
+            if (newTpoId) {
+              await TPO.findByIdAndUpdate(newTpoId, { $addToSet: { assignedBatches: updatedBatch._id } });
+            }
+          }
+
+          // Also ensure old TPO does not retain this regular batch as assigned (defensive)
+          if (originalTpoId) {
+            await TPO.findByIdAndUpdate(originalTpoId, { $pull: { assignedBatches: updatedBatch._id } });
+          }
+
+          console.log('Synchronized TPO assignedBatches for moved batch and its placement batches');
+
+          // --- Reassign any pending student approval requests to the new TPO (centralized helper) ---
+          try {
+            const reassignResult = await mongoose.model('Batch').reassignPendingApprovalsForBatch(updatedBatch._id, updatedBatch.tpoId);
+            console.log('Reassign result:', { pendingCount: reassignResult.pendingCount });
+          } catch (reassignErr) {
+            console.error('Error reassigning pending approvals to new TPO (via Batch helper):', reassignErr);
+          }
+        } catch (syncErr) {
+          console.error('Error synchronizing TPO assignedBatches after batch reassign:', syncErr);
+        }
+      }
+
+    } catch (cascadeErr) {
+      console.error('Error cascading TPO update to PlacementTrainingBatch:', cascadeErr);
+      // non-fatal - continue
+    }
 
     // Return populated batch with TPO info
     const populatedBatch = await Batch.findById(updatedBatch._id).populate('tpoId', 'name email');
@@ -227,6 +307,26 @@ router.delete('/batches/:batchId', auth, async (req, res) => {
       message: 'Error deleting batch',
       error: error.message
     });
+  }
+});
+
+// Admin endpoint: reassign pending approvals for a batch to its current TPO
+router.post('/batches/:batchId/reassign-pending-approvals', auth, async (req, res) => {
+  try {
+    const batch = await Batch.findById(req.params.batchId);
+    if (!batch) return res.status(404).json({ success: false, message: 'Batch not found' });
+
+    // Call centralized Batch helper
+    const result = await mongoose.model('Batch').reassignPendingApprovalsForBatch(batch._id, batch.tpoId);
+
+    res.json({
+      success: true,
+      message: 'Reassignment completed',
+      data: result
+    });
+  } catch (err) {
+    console.error('Error in reassign-pending-approvals:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

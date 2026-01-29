@@ -146,7 +146,10 @@ const downloadExcel = async (companyName = null) => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <Users size={28} className="text-blue-600" />
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Placed Students</h2>
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Placed Students</h2>
+              <p className="text-xs text-gray-500 mt-1">Showing placed students across all TPOs</p>
+            </div>
           </div>
           <button
             onClick={() => downloadExcel()}

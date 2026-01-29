@@ -85,7 +85,14 @@ const TPOAttendanceView = () => {
 
   if (!reportData) return <div className="p-4 text-gray-500">No data available</div>;
 
-  const { summary, batchStats, studentWiseReport = [], sessionWiseReport = [], lowAttendanceStudents = [] } = reportData;
+  // Provide safe defaults so we never call .map on undefined
+  const {
+    summary = {},
+    batchStats = [],
+    studentWiseReport = [],
+    sessionWiseReport = [],
+    lowAttendanceStudents = []
+  } = reportData;
 
   return (
     <div className="space-y-6">
@@ -209,6 +216,10 @@ const TPOAttendanceView = () => {
         <div className="p-4">
           {/* Summary Table */}
           {activeView === 'summary' && (
+        <>
+          {batchStats.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">No attendance recorded</div>
+          ) : (
             <>
               {/* Desktop table */}
               <div className="hidden sm:block">
@@ -258,11 +269,17 @@ const TPOAttendanceView = () => {
               </div>
             </>
           )}
+            </>
+          )}
 
           {/* Student Details */}
           {activeView === 'students' && (
             <div>
-              <p className="text-sm text-gray-500 mb-3">Showing {getFilteredStudents().length} of {studentWiseReport.length} students</p>
+              {studentWiseReport.length === 0 ? (
+                <div className="p-6 text-center text-gray-500">No attendance recorded</div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500 mb-3">Showing {getFilteredStudents().length} of {studentWiseReport.length} students</p>
 
               {/* Desktop table */}
               <div className="hidden sm:block overflow-x-auto">
@@ -317,12 +334,18 @@ const TPOAttendanceView = () => {
                   </div>
                 ))}
               </div>
+            </>
+          )}
             </div>
           )}
 
           {/* Session History */}
           {activeView === 'sessions' && (
             <div className="space-y-3 max-h-[40vh] sm:max-h-[60vh] overflow-y-auto">
+          {sessionWiseReport.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">No attendance recorded</div>
+          ) : (
+            <>
               {/* Desktop: table similar to Student Details */}
               <div className="hidden sm:block overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -384,13 +407,19 @@ const TPOAttendanceView = () => {
                   </div>
                 ))}
               </div>
+            </>
+          )}
             </div>
           )}
 
           {/* Low Attendance Alerts */}
           {activeView === 'alerts' && (
             <>
-              <p className="text-sm text-gray-500 mb-3">{lowAttendanceStudents.length} students below 75% attendance</p>
+              {lowAttendanceStudents.length === 0 ? (
+                <div className="p-6 text-center text-gray-500">No students below threshold</div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500 mb-3">{lowAttendanceStudents.length} students below 75% attendance</p>
 
               {/* Desktop table */}
               <div className="hidden sm:block">
@@ -438,6 +467,8 @@ const TPOAttendanceView = () => {
                   </div>
                 ))}
               </div>
+            </>
+          )}
             </>
           )}
         </div>

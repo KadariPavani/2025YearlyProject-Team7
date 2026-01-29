@@ -8,7 +8,8 @@ const Admin = require('../models/Admin');
 // GET /api/placement-training-batches - Get all placement training batches grouped
 router.get('/', auth, async (req, res) => {
   try {
-    const batches = await PlacementTrainingBatch.find()
+    // Only fetch batches that have at least one student (hide empty batches from all users)
+    const batches = await PlacementTrainingBatch.find({ 'students.0': { $exists: true } })
       .populate('students', 'name rollNo email college branch techStack crtInterested yearOfPassing')
       .populate('tpoId', 'name email')
       .populate('createdBy', 'name email')
@@ -110,7 +111,8 @@ router.get('/:id', auth, async (req, res) => {
       .populate('tpoId', 'name email')
       .populate('createdBy', 'name email');
 
-    if (!batch) {
+    // Hide empty batches: treat as not found for all users
+    if (!batch || !batch.students || batch.students.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Batch not found'

@@ -204,9 +204,10 @@ if (student.batchType) {
 }
 
 
-    // 🧑‍🏫 TPO → Only their own events
+    // 🧑‍🏫 TPO → See all events (allow TPOs to view events created by any TPO)
     else if (req.userType === "tpo") {
-      filter.createdBy = req.user._id;
+      // Intentionally not filtering by createdBy so TPOs can view events across TPOs
+      filter = {};
     }
 
     // 👑 Admin → sees all

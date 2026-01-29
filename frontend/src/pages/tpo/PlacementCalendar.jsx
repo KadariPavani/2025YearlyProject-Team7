@@ -240,28 +240,32 @@ const fetchBatchesAndStudents = async () => {
             
             if (Array.isArray(techData.batches)) {
               techData.batches.forEach(batch => {
+                // Skip empty batches (should already be filtered by backend)
+                if (!Array.isArray(batch.students) || batch.students.length === 0) {
+                  console.log(`      ⚠️ Skipping empty batch ${batch.batchNumber || batch._id}`);
+                  return;
+                }
+
                 // Add batch to list
                 allBatches.push(batch);
                 
                 // Extract students from this batch
-                if (Array.isArray(batch.students)) {
-                  console.log(`      👥 Batch ${batch.batchNumber}: ${batch.students.length} students`);
-                  batch.students.forEach(student => {
-                    if (student && student._id && !studentIds.has(student._id)) {
-                      studentIds.add(student._id);
-                      allStudents.push({
-                        _id: student._id,
-                        name: student.name,
-                        rollNo: student.rollNo || student.rollNumber,
-                        email: student.email,
-                        college: student.college,
-                        branch: student.branch,
-                        batchName: batch.batchNumber,
-                        batchType: batch.techStack
-                      });
-                    }
-                  });
-                }
+                console.log(`      👥 Batch ${batch.batchNumber}: ${batch.students.length} students`);
+                batch.students.forEach(student => {
+                  if (student && student._id && !studentIds.has(student._id)) {
+                    studentIds.add(student._id);
+                    allStudents.push({
+                      _id: student._id,
+                      name: student.name,
+                      rollNo: student.rollNo || student.rollNumber,
+                      email: student.email,
+                      college: student.college,
+                      branch: student.branch,
+                      batchName: batch.batchNumber,
+                      batchType: batch.techStack
+                    });
+                  }
+                });
               });
             }
           });

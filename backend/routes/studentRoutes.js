@@ -9,6 +9,7 @@ const generalAuth = require('../middleware/generalAuth');
 const { profileUpload, resumeUpload } = require('../middleware/fileUpload');
 const router = express.Router();
 const Attendance = require('../models/Attendance');
+const Notification = require('../models/Notification');
 // Function to get TPO based on student's assigned batch
 async function getTPOForStudent(student) {
   let assignedTPO = null;
@@ -235,18 +236,36 @@ router.put('/profile', generalAuth, async (req, res) => {
         });
       }
 
-      await student.createApprovalRequest('crt_status_change', {
+      const request = await student.createApprovalRequest('crt_status_change', {
         crtInterested: crtInterested !== undefined ? crtInterested : student.crtInterested,
         crtBatchChoice: crtBatchChoice || student.crtBatchChoice,
         originalCrtInterested: student.crtInterested,
         originalCrtBatchChoice: student.crtBatchChoice
       });
 
+      // Notify assigned TPO (if any)
+      try {
+        if (request.assignedTo) {
+          await Notification.create({
+            title: 'Approval Request Submitted',
+            message: `${student.name} (${student.rollNo}) submitted a CRT change request and it requires your approval.`,
+            category: 'Placement',
+            senderId: student._id,
+            senderModel: 'Student', 
+            recipients: [{ recipientId: request.assignedTo, recipientModel: 'TPO', isRead: false }],
+            status: 'sent'
+          });
+        }
+      } catch (notifyErr) {
+        console.error('Error creating approval notification:', notifyErr);
+      }
+
       return res.json({
         success: true,
         message: 'CRT change request submitted for TPO approval',
         requiresApproval: true,
-        data: student
+        data: student,
+        approval: request
       });
     }
 

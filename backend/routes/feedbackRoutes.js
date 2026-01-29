@@ -6,6 +6,7 @@ const Student = require('../models/Student');
 const Trainer = require('../models/Trainer');
 const TPO = require('../models/TPO');
 const Coordinator = require('../models/Coordinator');
+const Batch = require('../models/Batch');
 const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 
 // helper: robust student lookup for different schemas
@@ -262,21 +263,19 @@ router.get('/trainer/received', authenticateUser, async (req, res) => {
 });
 
 // @route   GET /api/feedback/tpo/all
-// @desc    Get all feedback for TPO's college
+// @desc    Get all feedback relevant to this TPO
 // @access  Private (TPO)
 router.get('/tpo/all', authenticateUser, async (req, res) => {
   try {
-      // Determine TPO id robustly: prefer a TPO doc linked via user, but also accept requests where the token itself belongs to a TPO
+    // Determine TPO id robustly
     let tpo = await TPO.findOne({ user: req.user.id });
     let tpoId = tpo ? tpo._id : null;
 
     if (!tpoId) {
-      // If the authenticated token is for a TPO model, use the req.user id directly
       if (req.userType && String(req.userType).toLowerCase() === 'tpo') {
         tpoId = req.user._id || req.user.id;
         console.log('[feedbackRoutes] Using req.user as TPO id:', tpoId);
       } else {
-        // Last resort: try finding a TPO document by the requester's id
         try {
           const byId = await TPO.findById(req.user.id);
           if (byId) tpoId = byId._id;
@@ -291,12 +290,35 @@ router.get('/tpo/all', authenticateUser, async (req, res) => {
       return res.status(404).json({ success: false, message: 'TPO not found' });
     }
 
-    const feedbacks = await Feedback.find({
-      $or: [
-        { toTPO: tpoId },
-        { category: { $in: ['placement', 'facilities', 'general', 'training'] } }
-      ]
-    })
+    // Load TPO and determine batches this TPO should see
+    const tpoDoc = await TPO.findById(tpoId).select('assignedBatches');
+    const tpoAssigned = (tpoDoc?.assignedBatches || []).map(id => id.toString());
+
+    // Regular batches owned by this TPO
+    const ownedBatchIds = (await Batch.find({ tpoId }).select('_id')).map(b => b._id.toString());
+    // Placement training batches owned by this TPO
+    const ownedPlacementIds = (await PlacementTrainingBatch.find({ tpoId }).select('_id')).map(b => b._id.toString());
+
+    const batchIds = Array.from(new Set([...tpoAssigned, ...ownedBatchIds]));
+    const placementIds = Array.from(new Set([...tpoAssigned, ...ownedPlacementIds]));
+
+    // Collect students belonging to these batches
+    let studentIds = [];
+    if (batchIds.length > 0 || placementIds.length > 0) {
+      const students = await Student.find({
+        $or: [
+          { batchId: { $in: batchIds } },
+          { placementTrainingBatchId: { $in: placementIds } }
+        ]
+      }).select('_id');
+      studentIds = students.map(s => s._id);
+    }
+
+    // Build query: feedbacks explicitly to this TPO OR feedbacks from students under this TPO
+    const feedbackQuery = { $or: [ { toTPO: tpoId } ] };
+    if (studentIds.length > 0) feedbackQuery.$or.push({ fromStudent: { $in: studentIds } });
+
+    const feedbacks = await Feedback.find(feedbackQuery)
       .populate('fromStudent', 'name rollNo college branch')
       .populate('toTrainer', 'name subjectDealing')
       .populate('toCoordinator', 'name')

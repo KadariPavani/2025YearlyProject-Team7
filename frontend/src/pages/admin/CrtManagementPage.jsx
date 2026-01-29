@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Layers, Plus, X, GraduationCap } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import Header from '../../components/common/Header';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 import { Skeleton } from '../../components/ui/skeleton';
 const CrtManagementPage = () => {
   const navigate = useNavigate();
