@@ -25,6 +25,7 @@ const seedUsers = async () => {
         email: process.env.SUPER_ADMIN_EMAIL,
         password: process.env.SUPER_ADMIN_PASSWORD,
         name: "Super Admin",
+        role: "super_admin",
       });
     }
 

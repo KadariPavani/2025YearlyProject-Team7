@@ -20,6 +20,7 @@ import FeedbackPreview from '../../components/feedbackPreview'; // Import feedba
 import Header from '../../components/common/Header';
 import BottomNav from '../../components/common/BottomNav';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import ProfileCompletionModal from '../../components/ui/ProfileCompletionModal';
 // Keep placeholder components for the rest as in the first code
 
 
@@ -978,6 +979,12 @@ const markAllAsRead = async () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ProfileCompletionModal
+        studentData={studentData}
+        show={!loading && !!studentData}
+        pendingApprovals={pendingApprovals}
+        placementBatchInfo={placementBatchInfo}
+      />
       <Header
         title="Student Dashboard"
         subtitle="Placement Training Portal"

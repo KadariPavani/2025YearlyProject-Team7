@@ -6,6 +6,7 @@ const OTP = require('../models/OTP');
 const generateOTP = require('../utils/generateOTP');
 const sendEmail = require('../utils/sendEmail');
 const generateToken = require('../utils/generateToken');
+const User = require('../models/User');
 const { ok, badRequest, notFound, serverError, unauthorized } = require('../utils/http');
 const { USER_TYPES, getModelByUserType, isValidUserType } = require('../utils/userType');
 const jwt = require('jsonwebtoken');
@@ -373,6 +374,23 @@ const getDashboard = async (req, res) => {
 
     // Add user-type specific data
     switch (userType) {
+      case 'student':
+        dashboardData.user = {
+          ...dashboardData.user,
+          phonenumber: user.phonenumber,
+          gender: user.gender,
+          dob: user.dob,
+          college: user.college,
+          branch: user.branch,
+          yearOfPassing: user.yearOfPassing,
+          currentLocation: user.currentLocation,
+          hometown: user.hometown,
+          crtInterested: user.crtInterested,
+          crtBatchChoice: user.crtBatchChoice,
+          crtBatchName: user.crtBatchName,
+          placementTrainingBatchId: user.placementTrainingBatchId,
+        };
+        break;
       case 'tpo':
         dashboardData = {
           ...dashboardData,
@@ -665,6 +683,21 @@ const updateProfile = async (req, res) => {
   }
 };
 
+// @desc    Get password status for logged-in user
+// @route   GET /api/auth/password-status
+// @access  Private
+const getPasswordStatus = async (req, res) => {
+  try {
+    // Example: return password status for logged-in user
+    const userId = req.user._id;
+    // Find user and return password status (customize as needed)
+    const user = await User.findById(userId);
+    res.json({ passwordChanged: user.passwordChanged || false });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to check password status' });
+  }
+};
+
 // @desc    Logout
 // @route   POST /api/auth/logout
 // @access  Private
@@ -699,5 +732,6 @@ module.exports = {
   checkPasswordChange,
   forgotPassword,
   resetPassword,
+  getPasswordStatus,
   logout
 };
