@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Shield,
@@ -54,53 +54,81 @@ const AdminDashboard = () => {
   });
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
-  const [visibleTabsCount, setVisibleTabsCount] = useState(7);
+  const [visibleTabsCount, setVisibleTabsCount] = useState(100);
   const [showMoreDropdown, setShowMoreDropdown] = useState(false);
   const moreRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const navRef = useRef(null);
+  const [dropdownCoords, setDropdownCoords] = useState(null);
 
-  useEffect(() => {
-    // Use matchMedia for exact breakpoint behavior (768, 1024, 1440)
-    const mq1440 = window.matchMedia('(min-width: 1440px)');
-    const mq1024 = window.matchMedia('(min-width: 1024px)');
-    const mq768 = window.matchMedia('(min-width: 768px)');
-
-    const setCountFromMQ = () => {
-      if (mq1440.matches) setVisibleTabsCount(7);
-      else if (mq1024.matches) setVisibleTabsCount(5);
-      else if (mq768.matches) setVisibleTabsCount(4);
-      else setVisibleTabsCount(3);
-    };
-
-    setCountFromMQ();
-    mq1440.addEventListener?.('change', setCountFromMQ);
-    mq1024.addEventListener?.('change', setCountFromMQ);
-    mq768.addEventListener?.('change', setCountFromMQ);
-
-    // Fallback for older browsers that only support addListener
-    if (typeof mq1440.addEventListener !== 'function' && typeof mq1440.addListener === 'function') {
-      mq1440.addListener(setCountFromMQ);
-      mq1024.addListener(setCountFromMQ);
-      mq768.addListener(setCountFromMQ);
+  const handleMoreToggle = (e) => {
+    e.stopPropagation();
+    if (!moreRef.current) {
+      setShowMoreDropdown(s => !s);
+      return;
     }
+    const rect = moreRef.current.getBoundingClientRect();
+    const width = 224;
+    const top = rect.bottom + 8;
+    const left = Math.max(8, rect.right - width);
+    setDropdownCoords({ top, left, width });
+    setShowMoreDropdown(s => !s);
+  };
 
-    return () => {
-      mq1440.removeEventListener?.('change', setCountFromMQ);
-      mq1024.removeEventListener?.('change', setCountFromMQ);
-      mq768.removeEventListener?.('change', setCountFromMQ);
-      if (typeof mq1440.removeEventListener !== 'function' && typeof mq1440.removeListener === 'function') {
-        mq1440.removeListener(setCountFromMQ);
-        mq1024.removeListener(setCountFromMQ);
-        mq768.removeListener(setCountFromMQ);
-      }
+  // Recompute dropdown position on resize/scroll while open
+  useEffect(() => {
+    if (!showMoreDropdown) return;
+    const handleReposition = () => {
+      if (!moreRef.current) return;
+      const rect = moreRef.current.getBoundingClientRect();
+      const width = 224;
+      const top = rect.bottom + 8;
+      const left = Math.max(8, rect.right - width);
+      setDropdownCoords({ top, left, width });
     };
+    window.addEventListener('resize', handleReposition);
+    window.addEventListener('scroll', handleReposition, true);
+    return () => {
+      window.removeEventListener('resize', handleReposition);
+      window.removeEventListener('scroll', handleReposition, true);
+    };
+  }, [showMoreDropdown]);
+
+  // Reset to all tabs on resize, then let useLayoutEffect trim
+  useEffect(() => {
+    const reset = () => { setVisibleTabsCount(100); setShowMoreDropdown(false); };
+    window.addEventListener('resize', reset);
+    // Also re-trigger when crossing the sm breakpoint (nav hidden ↔ visible)
+    const mql = window.matchMedia('(min-width: 640px)');
+    const onBreakpoint = () => { setVisibleTabsCount(100); setShowMoreDropdown(false); };
+    mql.addEventListener('change', onBreakpoint);
+    return () => { window.removeEventListener('resize', reset); mql.removeEventListener('change', onBreakpoint); };
   }, []);
+
+  // Cascade: after each render, if nav overflows, reduce by 1 (runs before paint)
+  // No dependency array so it re-runs when nav first appears after loading
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav || nav.offsetWidth === 0) return; // skip if nav is hidden
+    // Fast-forward: jump to actual child count instead of decrementing one-by-one
+    const childCount = nav.children.length;
+    if (childCount > 0 && visibleTabsCount > childCount) {
+      setVisibleTabsCount(childCount);
+      return;
+    }
+    if (nav.scrollWidth > nav.clientWidth + 2 && visibleTabsCount > 1) {
+      setVisibleTabsCount(v => v - 1);
+    }
+  });
 
   useEffect(() => {
     const onDocClick = (e) => {
-      if (moreRef.current && !moreRef.current.contains(e.target)) setShowMoreDropdown(false);
+      if (moreRef.current && moreRef.current.contains(e.target)) return;
+      if (dropdownRef.current && dropdownRef.current.contains(e.target)) return;
+      setShowMoreDropdown(false);
     };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
   }, []);
 
   const [trainers, setTrainers] = useState([]);
@@ -613,7 +641,7 @@ const handleDelete = async (entityType, id) => {
         {/* Tabs */}
         <div className="bg-white rounded-lg shadow-md mb-6">
           <div className="border-b border-gray-200">
-            <nav className="hidden sm:flex items-center space-x-2">
+            <nav ref={navRef} className="hidden sm:flex items-center space-x-2 overflow-hidden">
               {tabs.slice(0, visibleTabsCount).map((tab) => {
                 const Icon = tab.icon;
                 return (
@@ -633,9 +661,9 @@ const handleDelete = async (entityType, id) => {
               })}
 
               {tabs.length > visibleTabsCount && (
-                <div className="relative" ref={moreRef}>
+                <div className="relative ml-auto" ref={moreRef}>
                   <button
-                    onClick={() => setShowMoreDropdown((s) => !s)}
+                    onClick={handleMoreToggle}
                     aria-label="More"
                     className="flex items-center space-x-2 px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 border-transparent rounded"
                   >
@@ -643,24 +671,30 @@ const handleDelete = async (entityType, id) => {
                     <ChevronDown className={`h-4 w-4 transition-transform ${showMoreDropdown ? 'rotate-180' : ''}`} />
                   </button>
 
-                  <div className={`absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 ${showMoreDropdown ? 'block' : 'hidden'}`}>
-                    <ul className="divide-y divide-gray-100">
-                      {tabs.slice(visibleTabsCount).map((tab) => {
-                        const Icon = tab.icon;
-                        return (
-                          <li key={tab.id}>
-                            <button
-                              onClick={() => { handleTabChange(tab.id); setShowMoreDropdown(false); }}
-                              className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 text-sm text-gray-700"
-                            >
-                              <Icon className="h-4 w-4" />
-                              <span>{tab.label}</span>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
+                  {showMoreDropdown && dropdownCoords && (
+                    <div
+                      ref={dropdownRef}
+                      style={{ position: 'fixed', top: dropdownCoords.top, left: dropdownCoords.left, width: dropdownCoords.width }}
+                      className="bg-white rounded-lg shadow-lg border border-gray-200 z-50"
+                    >
+                      <ul className="divide-y divide-gray-100">
+                        {tabs.slice(visibleTabsCount).map((tab) => {
+                          const Icon = tab.icon;
+                          return (
+                            <li key={tab.id}>
+                              <button
+                                onClick={() => { handleTabChange(tab.id); setShowMoreDropdown(false); }}
+                                className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-2 text-sm text-gray-700"
+                              >
+                                <Icon className="h-4 w-4" />
+                                <span>{tab.label}</span>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </nav>
