@@ -30,9 +30,9 @@ const ActionsTab = ({
             {adminData.permissions?.canSuspendTrainer && (
               <button
                 onClick={() => handleSuspendToggle("trainers", trainer._id)}
-                className="px-2 py-0.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                className="px-2 py-0.5 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
               >
-                Activate
+                Unsuspend
               </button>
             )}
             {adminData.permissions?.canDeleteTrainer && (
@@ -62,9 +62,9 @@ const ActionsTab = ({
             {adminData.permissions?.canSuspendTPO && (
               <button
                 onClick={() => handleSuspendToggle("tpos", tpo._id)}
-                className="px-2 py-0.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                className="px-2 py-0.5 text-xs font-medium text-green-600 hover:bg-green-50 rounded transition-colors"
               >
-                Activate
+                Unsuspend
               </button>
             )}
             {adminData.permissions?.canDeleteTPO && (

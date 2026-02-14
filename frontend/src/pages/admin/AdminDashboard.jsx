@@ -23,7 +23,6 @@ import TrainersTab from "./tabs/TrainersTab";
 import TpoTab from "./tabs/TpoTab";
 import AdminsTab from "./tabs/AdminsTab";
 import ContactsTab from "./tabs/ContactsTab";
-import ActionsTab from "./tabs/ActionsTab";
 import CRTBatchSection from "./CRTBatchSection";
 import PlacementTrainingBatches from "./PlacementTrainingBatches";
 
@@ -368,7 +367,6 @@ const AdminDashboard = () => {
     { id: "tpos", label: "TPOs", icon: Users },
     { id: "admins", label: "Admins", icon: Shield },
     { id: "contacts", label: "Contacts", icon: MessageSquare },
-    { id: "actions", label: "Actions", icon: AlertCircle },
     { id: "crt-batches", label: "CRT Batches", icon: BookOpen },
     { id: "placement-batches", label: "Placement Batches", icon: Briefcase },
   ];
@@ -379,7 +377,6 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-white">
       <Header
         title="Welcome Admin..!"
-        subtitle="Manage Trainers, Batches & Students"
         icon={Shield}
         userData={adminData}
         profileRoute="/admin-profile"
@@ -391,11 +388,10 @@ const AdminDashboard = () => {
         }}
       />
 
-      <main className="max-w-7xl mx-auto px-4 py-6 pt-24 pb-[220px] sm:pb-8">
+      <main className="max-w-full mx-auto px-0 sm:px-8 lg:px-12 py-6 pt-24 pb-[220px] sm:pb-8">
         {/* Page header */}
-        <div className="mb-4">
-          <h1 className="text-lg sm:text-2xl font-semibold text-gray-900">{`Welcome, ${adminData?.name || "Admin"}`}</h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">Manage Trainers, Batches & Students</p>
+        <div className="mb-4 px-5 sm:px-0">
+          <h1 className="text-lg sm:text-2xl font-semibold text-gray-900">{`Welcome, ${adminData?.name || "Admin"}..!`}</h1>
         </div>
 
         {/* Desktop Tab Navigation */}
@@ -530,20 +526,6 @@ const AdminDashboard = () => {
               filteredContacts={filteredContacts}
               handleDeleteContact={handleDeleteContact}
             />
-          )}
-
-          {activeTab === "actions" && (
-            (trainersLoading || tposLoading) ? <LoadingSkeleton /> : (
-              <ActionsTab
-                adminData={adminData}
-                trainers={trainers}
-                tpos={tpos}
-                trainersLoading={trainersLoading}
-                tposLoading={tposLoading}
-                handleSuspendToggle={handleSuspendToggle}
-                handleDelete={handleDelete}
-              />
-            )
           )}
 
           {activeTab === "crt-batches" && (
