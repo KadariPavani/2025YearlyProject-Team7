@@ -1,94 +1,127 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import { HiChevronUp } from 'react-icons/hi';
 
-const BottomNav = ({ tabs = [], active, onChange = () => {}, counts = {} }) => {
+const TabButton = ({ tab, isActive, onClick }) => {
+  const Icon = tab.icon;
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={isActive}
+      aria-label={tab.label}
+      className="flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0"
+    >
+      <div
+        className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+          isActive
+            ? 'bg-blue-50 text-blue-600'
+            : 'bg-transparent text-gray-500'
+        }`}
+        style={{ transition: 'background-color 0.3s ease, color 0.3s ease' }}
+      >
+        <Icon className="h-5 w-5" />
+      </div>
+      <span
+        className={`text-[10px] leading-tight truncate max-w-[60px] text-center ${
+          isActive ? 'text-blue-600 font-semibold' : 'text-gray-400 font-medium'
+        }`}
+        style={{ transition: 'color 0.3s ease' }}
+      >
+        {tab.label}
+      </span>
+    </button>
+  );
+};
+
+const MAX_PER_ROW = 4;
+
+const BottomNav = ({ tabs = [], active, onChange = () => {} }) => {
   const [expanded, setExpanded] = useState(false);
-  // chunk tabs into rows of 5
-  const chunkSize = 5;
-  const rows = [];
-  for (let i = 0; i < tabs.length; i += chunkSize) rows.push(tabs.slice(i, i + chunkSize));
-  const firstRow = rows[0] || [];
-  const remainingRows = rows.slice(1);
+  const contentRef = useRef(null);
+  const [contentHeight, setContentHeight] = useState(0);
+
+  // if all tabs fit in one row (<=MAX_PER_ROW), show them all; otherwise reserve last slot for More
+  const hasMore = tabs.length > MAX_PER_ROW;
+  const firstRow = hasMore ? tabs.slice(0, MAX_PER_ROW) : tabs;
+  const remaining = hasMore ? tabs.slice(MAX_PER_ROW) : [];
+
+  const extraRows = [];
+  for (let i = 0; i < remaining.length; i += MAX_PER_ROW) {
+    extraRows.push(remaining.slice(i, i + MAX_PER_ROW));
+  }
+
+  useLayoutEffect(() => {
+    if (contentRef.current) {
+      setContentHeight(contentRef.current.scrollHeight);
+    }
+  }, [tabs]);
 
   return (
-    <nav
-      className={`fixed bottom-0 left-0 right-0 bg-white text-blue-600 rounded-t-3xl shadow-2xl z-40 overflow-hidden transition-all duration-500 ease-in-out border-t border-blue-200`}
-      style={{ height: expanded ? 'auto' : '96px', willChange: 'height, transform' }}
-    >
-      {/* top handle like the sheet modal */}
-      <div className="absolute inset-x-0 top-0 flex justify-center pt-2 pointer-events-none">
-        <div className="w-12 h-1.5 bg-gray-200 rounded-full" />
+    <nav className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-[0_-4px_24px_rgba(0,0,0,0.08)] z-40 border-t border-gray-100">
+      {/* drag handle */}
+      <div className="flex justify-center pt-2 pb-1">
+        <div className="w-8 h-1 bg-gray-200 rounded-full" />
       </div>
 
-      <div className={`max-w-3xl mx-auto px-4 h-full flex flex-col`}>
-        <div className="w-full flex items-center justify-around h-20 relative">
-          {firstRow.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = active === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => { onChange(tab.id); setExpanded(false); }}
-                aria-pressed={isActive}
-                aria-label={tab.label}
-                title={tab.label}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-500 ease-in-out transform ${isActive ? 'bg-blue-600 text-white shadow-lg scale-105' : 'bg-transparent text-blue-600 hover:scale-105'}`} style={{ willChange: 'transform' }}
-              >
-                <Icon className={`h-5 w-5`} />
-              </button>
-            );
-          })}
+      <div className="mx-auto px-3">
+        {/* First row */}
+        <div className="flex items-start pb-2">
+          {firstRow.map((tab) => (
+            <TabButton
+              key={tab.id}
+              tab={tab}
+              isActive={active === tab.id}
+              onClick={() => { onChange(tab.id); setExpanded(false); }}
+            />
+          ))}
 
-          {remainingRows.length > 0 && (
+          {hasMore && (
             <button
               onClick={() => setExpanded((s) => !s)}
-              aria-label={expanded ? 'Collapse' : 'Expand'}
-              className="flex items-center justify-center w-11 h-11 text-blue-600 transition-colors transform-gpu hover:text-blue-700 z-50"
+              aria-label={expanded ? 'Show less' : 'Show more'}
+              className="flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0"
             >
-              <HiChevronUp
-                className="h-5 w-5 text-current transition-transform duration-500 ease-in-out"
-                style={{
-                  transform: expanded ? 'translateZ(0) rotate(180deg)' : 'translateZ(0) rotate(0deg)',
-                  backfaceVisibility: 'hidden',
-                  willChange: 'transform',
-                  transformOrigin: 'center'
-                }}
-              />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500">
+                <HiChevronUp
+                  className="h-5 w-5"
+                  style={{
+                    transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                />
+              </div>
+              <span className="text-[10px] leading-tight text-gray-400 font-medium">
+                {expanded ? 'Less' : 'More'}
+              </span>
             </button>
-          )} 
+          )}
         </div>
 
-        <div
-          className={`mt-2 w-full transition-all duration-500 ease-in-out ${expanded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full pointer-events-none'}`}
-          style={{
-            maxHeight: expanded ? `${remainingRows.length * 84 + 20}px` : 0,
-            overflowY: 'hidden',
-            willChange: 'max-height, opacity, transform'
-          }}
-        >
-          {/* Render remaining tabs in rows of up to 5 icons */}
-          <div className="w-full py-2">
-            {remainingRows.map((row, rIdx) => (
-              <div key={rIdx} className="w-full flex items-center justify-around py-1">
-                {row.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = active === tab.id;
-                  return (
-                    <div key={tab.id} className="flex items-center justify-center w-1/5 px-2">
-                      <button
-                        onClick={() => { onChange(tab.id); setExpanded(false); }}
-                        aria-pressed={isActive}
-                        aria-label={tab.label}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-500 ease-in-out transform ${isActive ? 'bg-blue-600 text-white shadow-lg scale-105' : 'bg-transparent text-blue-600 hover:scale-105 hover:bg-gray-50'}`} style={{ willChange: 'transform' }}>
-                        <Icon className={`h-5 w-5`} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+        {/* Expanded rows */}
+        {hasMore && (
+          <div
+            style={{
+              height: expanded ? `${contentHeight}px` : '0px',
+              opacity: expanded ? 1 : 0,
+              transition: 'height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease',
+              overflow: 'hidden',
+            }}
+          >
+            <div ref={contentRef} className="pt-2 pb-3">
+              {extraRows.map((row, rIdx) => (
+                <div key={rIdx} className="flex items-start py-1">
+                  {row.map((tab) => (
+                    <TabButton
+                      key={tab.id}
+                      tab={tab}
+                      isActive={active === tab.id}
+                      onClick={() => { onChange(tab.id); setExpanded(false); }}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </nav>
   );

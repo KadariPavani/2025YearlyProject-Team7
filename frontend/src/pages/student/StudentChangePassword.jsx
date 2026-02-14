@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, GraduationCap
+import {
+  ArrowLeft, Lock, Eye, EyeOff
 } from 'lucide-react';
-import axios from 'axios';
 import Header from '../../components/common/Header';
 import ToastNotification from '../../components/ui/ToastNotification';
+import useHeaderData from '../../hooks/useHeaderData';
 
 const StudentChangePassword = () => {
   const navigate = useNavigate();
@@ -15,100 +15,19 @@ const StudentChangePassword = () => {
   const showToast = (type, message) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 4000);
-  }; 
-  
+  };
+
   const [changePasswordData, setChangePasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
-  
+
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Notification states
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [categoryUnread, setCategoryUnread] = useState({});
-
-  // User data state
-  const [userData, setUserData] = useState(null);
-
-  const handleLogout = () => {
-    localStorage.removeItem("userToken");
-    localStorage.removeItem("userData");
-    navigate("/student-login");
-  };
-
-  const studentData = userData ? { user: userData, ...userData } : null;
-  const computedStudentId = userData?.user?.id || userData?.user?._id || userData?.id || userData?._id;
-
-  useEffect(() => {
-    fetchUserData();
-    fetchNotifications();
-  }, []);
-
-  const fetchUserData = async () => {
-    try {
-      const token = localStorage.getItem('userToken');
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/profile`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.data.success) {
-        setUserData(response.data.data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch user data:', err);
-    }
-  };
-
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem("userToken");
-      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/student`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const notifications = res.data.data || [];
-      const unreadByCategory = res.data.unreadByCategory || {};
-      const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
-
-      setNotifications(notifications);
-      setCategoryUnread(unreadByCategory);
-      setUnreadCount(totalUnread);
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
-    }
-  };
-
-  const markAsRead = async (notificationId) => {
-    try {
-      const token = localStorage.getItem("userToken");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking notification as read:", err);
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      const token = localStorage.getItem("userToken");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking all as read:", err);
-    }
-  };
+  const header = useHeaderData('student');
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
@@ -142,7 +61,7 @@ const StudentChangePassword = () => {
           newPassword: '',
           confirmPassword: ''
         });
-        
+
         setTimeout(() => {
           navigate('/student-dashboard');
         }, 2000);
@@ -161,25 +80,7 @@ const StudentChangePassword = () => {
       <Header
         title="Change Password"
         subtitle="Student Security Settings"
-        icon={GraduationCap}
-        userData={studentData}
-        profileRoute="/student-profile"
-        changePasswordRoute="/student-change-password"
-        onLogout={handleLogout}
-        notifications={notifications}
-        onMarkAsRead={markAsRead}
-        onMarkAllAsRead={markAllAsRead}
-        categoryUnread={categoryUnread}
-        unreadCount={unreadCount}
-        userType="student"
-        userId={computedStudentId}
-        onIconClick={() => {
-          if (window.location.pathname === '/student-dashboard') {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          } else {
-            navigate('/student-dashboard');
-          }
-        }}
+        {...header.headerProps}
       />
 
       {/* Main Content */}
@@ -191,7 +92,7 @@ const StudentChangePassword = () => {
           <ArrowLeft className="h-5 w-5" />
           <span className="font-medium">Back to Dashboard</span>
         </button>
-        
+
         <div className="bg-white rounded-xl shadow-lg p-8">
           <div className="text-center mb-8">
             <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">

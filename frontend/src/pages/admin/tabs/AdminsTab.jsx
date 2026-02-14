@@ -1,32 +1,29 @@
 import React, { useState } from "react";
-import { Shield, ChevronDown, ChevronUp, Pencil, Trash2, Plus } from "lucide-react";
+import { Shield, Pencil, Trash2, Plus } from "lucide-react";
 
-const Badge = ({ label, enabled, color = "gray" }) => {
-  const map = {
-    purple: "bg-blue-100 text-blue-800",
-    blue: "bg-blue-100 text-blue-800",
-    green: "bg-blue-100 text-blue-800",
-    gray: "bg-gray-100 text-gray-800",
-  };
-  const cls = map[color] || map.gray;
-  return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold select-none ${cls}`}>
-      {enabled ? "✔️" : "✖️"} {label}
-    </span>
-  );
-};
+const Badge = ({ label, enabled }) => (
+  <span
+    className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold border ${
+      enabled
+        ? "bg-blue-50 text-blue-700 border-blue-200"
+        : "bg-gray-50 text-gray-500 border-gray-200"
+    }`}
+  >
+    {enabled ? "+" : "-"} {label}
+  </span>
+);
 
-const PermissionGroup = ({ title, permissions = {}, color }) => {
+const PermissionGroup = ({ title, permissions = {} }) => {
   const keys = ["add", "edit", "delete", "suspend"];
   return (
     <div>
-      <h4 className={`mb-2 font-semibold ${color === 'purple' ? 'text-blue-600' : color === 'blue' ? 'text-blue-600' : color === 'green' ? 'text-blue-600' : 'text-gray-700'}`}>{title}</h4>
-      <div className="flex flex-wrap gap-2">
-        {keys.map((k) => (
+      <h4 className="mb-1 text-xs font-semibold text-gray-700">{title}</h4>
+      <div className="flex flex-wrap gap-1">
+        {keys.map((k) =>
           permissions.hasOwnProperty(k) ? (
-            <Badge key={k} label={k.charAt(0).toUpperCase() + k.slice(1)} enabled={!!permissions[k]} color={color} />
+            <Badge key={k} label={k.charAt(0).toUpperCase() + k.slice(1)} enabled={!!permissions[k]} />
           ) : null
-        ))}
+        )}
       </div>
     </div>
   );
@@ -53,56 +50,45 @@ const AdminsTab = ({
   handleDeleteAdmin,
   navigate,
 }) => {
-  const [showFilters, setShowFilters] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
 
   return (
     <div className="relative overflow-x-hidden">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h2 className="text-lg sm:text-2xl font-bold text-gray-900">Admin Management</h2>
-        <div className="flex items-center gap-2">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-sm sm:text-lg font-semibold text-gray-900">Admin Management</h2>
+        {adminData?.permissions?.adminControls?.add && (
           <button
-            onClick={() => setShowFilters((s) => !s)}
-            className="sm:hidden inline-flex items-center px-2 py-2 border rounded-md text-sm bg-white"
-            aria-expanded={showFilters}
-            aria-label="Toggle filters"
+            onClick={() => navigate("/add-admin")}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded text-xs sm:text-sm font-medium hover:bg-blue-700 transition-colors"
+            aria-label="Add Admin"
+            title="Add Admin"
           >
-            {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Admin</span>
           </button>
-
-          {adminData?.permissions?.adminControls?.add && (
-            <button
-              onClick={() => navigate('/add-admin')}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-md focus:outline-none ml-2"
-              aria-label="Add Admin"
-              title="Add Admin"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        )}
       </div>
 
-      {/* Filters - responsive: collapsible on mobile, visible on sm+ */}
-      <div className={`mb-6 bg-gray-50 p-3 sm:p-4 rounded-lg border ${showFilters ? 'block' : 'hidden'} sm:block`}>
-        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2">
+      {/* Filters - always visible */}
+      <div className="mb-4 bg-white rounded-lg border border-gray-200 p-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Search</label>
             <input
               type="search"
               placeholder="Search by email or role"
-              className="border border-gray-300 rounded px-2 py-1 h-8 text-xs w-full appearance-none"
+              className="w-full px-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
               value={adminSearch}
               onChange={(e) => setAdminSearch(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Role</label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Role</label>
             <select
               value={adminRoleFilter}
               onChange={(e) => setAdminRoleFilter(e.target.value)}
-              className="border border-gray-300 rounded px-2 py-1 h-8 text-xs w-full appearance-none"
+              className="w-full px-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
             >
               <option value="">All Roles</option>
               <option value="super_admin">Super Admin</option>
@@ -113,11 +99,11 @@ const AdminsTab = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Status</label>
             <select
               value={adminStatusFilter}
               onChange={(e) => setAdminStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded px-2 py-1 h-8 text-xs w-full appearance-none"
+              className="w-full px-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
             >
               <option value="">All Status</option>
               <option value="active">Active</option>
@@ -126,11 +112,11 @@ const AdminsTab = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Permissions</label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Permissions</label>
             <select
               value={adminPermissionFilter}
               onChange={(e) => setAdminPermissionFilter(e.target.value)}
-              className="border border-gray-300 rounded px-2 py-1 h-8 text-xs w-full appearance-none"
+              className="w-full px-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
             >
               <option value="">All Permissions</option>
               <option value="can_add_admin">Can Add Admin</option>
@@ -146,141 +132,129 @@ const AdminsTab = ({
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-4 gap-2">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
-            <div className="flex items-center space-x-2">
-              <label className="text-xs sm:text-sm font-medium text-gray-700">Sort by:</label>
-              <select
-                value={adminSortBy}
-                onChange={(e) => setAdminSortBy(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 text-xs sm:text-sm"
-              >
-                <option value="email">Email</option>
-                <option value="role">Role</option>
-                <option value="status">Status</option>
-                <option value="createdAt">Created Date</option>
-                <option value="lastLogin">Last Login</option>
-              </select>
-            </div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-3 gap-2">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-700">Sort:</label>
+            <select
+              value={adminSortBy}
+              onChange={(e) => setAdminSortBy(e.target.value)}
+              className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+            >
+              <option value="email">Email</option>
+              <option value="role">Role</option>
+              <option value="status">Status</option>
+              <option value="createdAt">Created Date</option>
+              <option value="lastLogin">Last Login</option>
+            </select>
 
             <button
-              onClick={() => setAdminSortOrder(adminSortOrder === 'asc' ? 'desc' : 'asc')}
-              className="flex items-center space-x-1 px-2 py-1 border border-gray-300 rounded text-xs hover:bg-gray-50"
+              onClick={() => setAdminSortOrder(adminSortOrder === "asc" ? "desc" : "asc")}
+              className="px-2 py-1 border border-gray-200 rounded text-xs hover:bg-gray-50"
             >
-              <span>{adminSortOrder === 'asc' ? '↑' : '↓'}</span>
-              <span className="hidden sm:inline text-xs">{adminSortOrder === 'asc' ? 'Ascending' : 'Descending'}</span>
+              {adminSortOrder === "asc" ? "Asc" : "Desc"}
             </button>
 
             <button
               onClick={clearAdminFilters}
-              className="px-2 py-1 text-xs text-red-600 hover:text-red-800 hover:underline"
+              className="px-2 py-1 text-xs text-red-600 hover:text-red-800"
             >
               Clear
             </button>
           </div>
 
-          <div className="text-xs sm:text-sm text-gray-600 truncate whitespace-nowrap">Showing {filteredAndSortedAdmins.length} of {admins.length} admins</div>
+          <div className="text-xs text-gray-500">
+            {filteredAndSortedAdmins.length} of {admins.length} admins
+          </div>
         </div>
       </div>
 
-      {/* Admin Cards Grid */}
-      <div className="grid gap-4">
-        {filteredAndSortedAdmins.length === 0 ? (
-          <div className="text-center text-gray-600 py-8">
-            <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-base font-medium">No admins found</p>
-            <p className="text-xs">Try adjusting your filters or search criteria</p>
-          </div>
-        ) : (
-          filteredAndSortedAdmins.map((admin) => (
-            <article key={admin._id} className="bg-white border rounded-lg p-2 sm:p-3 shadow-sm hover:shadow-md transition">
-              {/* Desktop layout (sm+) - original structure restored */}
-              <header className="hidden sm:flex items-start justify-between gap-3 w-full">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-base font-semibold text-gray-900 truncate">{admin.email}</h3>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${admin.status === 'active' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>{admin.status}</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-gray-600">
-                    <p className="capitalize"><strong>Role:</strong> {admin.role.replace(/_/g, " ")}</p>
-                    <p><strong>Created:</strong> {new Date(admin.createdAt).toLocaleDateString()}</p>
-                    {admin.lastLogin && <p><strong>Last Login:</strong> {new Date(admin.lastLogin).toLocaleDateString()}</p>}
-                  </div>
-                </div>
-
-                <div className="flex-shrink-0 ml-4 flex flex-col items-end gap-2">
-                  {adminData?.permissions?.adminControls?.edit && (
-                    <button onClick={() => handleEditAdmin(admin)} className="text-blue-600 hover:text-blue-800 text-sm font-medium">✏️ Edit</button>
-                  )}
-                  {adminData?.permissions?.adminControls?.delete && admin._id !== adminData?._id && (
-                    <button onClick={() => handleDeleteAdmin(admin._id)} className="text-red-600 hover:text-red-800 text-sm font-medium">🗑️ Delete</button>
-                  )}
-                  <button
-                    onClick={() => setExpandedId(expandedId === admin._id ? null : admin._id)}
-                    aria-expanded={expandedId === admin._id}
-                    className="p-1 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                    title="Toggle details"
-                  >
-                    {expandedId === admin._id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </button>
-                </div>
-              </header>
-
-              {/* Mobile layout (<sm) - compact */}
-              <header className="sm:hidden">
-                <h3 className="text-sm font-semibold text-gray-900 truncate break-words">{admin.email}</h3>
-                <div className="mt-2 flex items-center gap-3 text-xs">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${admin.status === 'active' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>{admin.status}</span>
-
-                  {adminData?.permissions?.adminControls?.edit && (
-                    <button onClick={() => handleEditAdmin(admin)} className="inline-flex items-center text-indigo-600 hover:text-indigo-800 text-xs">
-                      <Pencil className="h-4 w-4" />
+      {filteredAndSortedAdmins.length === 0 ? (
+        <div className="text-center py-8">
+          <Shield className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+          <p className="text-xs sm:text-sm font-medium text-gray-600">No admins found</p>
+          <p className="text-xs text-gray-500">Try adjusting your filters</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto bg-white rounded-lg shadow border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead>
+              <tr className="bg-blue-50">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Email</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Role</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Status</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Created</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Last Login</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Permissions</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredAndSortedAdmins.map((admin, idx) => (
+                <tr
+                  key={admin._id}
+                  className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50 transition-colors`}
+                >
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-900 whitespace-nowrap">{admin.email}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 capitalize whitespace-nowrap">{admin.role.replace(/_/g, " ")}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
+                        admin.status === "active"
+                          ? "bg-green-50 text-green-700 border-green-200"
+                          : "bg-red-50 text-red-700 border-red-200"
+                      }`}
+                    >
+                      {admin.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{new Date(admin.createdAt).toLocaleDateString()}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{admin.lastLogin ? new Date(admin.lastLogin).toLocaleDateString() : "-"}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <button
+                      onClick={() => setExpandedId(expandedId === admin._id ? null : admin._id)}
+                      className="text-xs text-blue-600 hover:text-blue-800"
+                    >
+                      {expandedId === admin._id ? "Hide" : "View"}
                     </button>
-                  )}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      {adminData?.permissions?.adminControls?.edit && (
+                        <button onClick={() => handleEditAdmin(admin)} className="p-1 text-blue-600 hover:bg-blue-100 rounded" title="Edit">
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                      )}
+                      {adminData?.permissions?.adminControls?.delete && admin._id !== adminData?._id && (
+                        <button onClick={() => handleDeleteAdmin(admin._id)} className="p-1 text-red-600 hover:bg-red-100 rounded" title="Delete">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-                  {adminData?.permissions?.adminControls?.delete && admin._id !== adminData?._id && (
-                    <button onClick={() => handleDeleteAdmin(admin._id)} className="inline-flex items-center text-red-600 hover:text-red-800 text-xs">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => setExpandedId(expandedId === admin._id ? null : admin._id)}
-                    aria-expanded={expandedId === admin._id}
-                    className="p-1 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-                    title="Toggle details"
-                  >
-                    {expandedId === admin._id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </button>
+          {/* Expanded permissions panel */}
+          {expandedId && (() => {
+            const admin = filteredAndSortedAdmins.find((a) => a._id === expandedId);
+            if (!admin) return null;
+            return (
+              <div className="border-t border-gray-200 p-4 bg-gray-50">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <PermissionGroup title="Admin Controls" permissions={admin.permissions?.adminControls} />
+                  <PermissionGroup title="TPO Controls" permissions={admin.permissions?.tpoControls} />
+                  <PermissionGroup title="Trainer Controls" permissions={admin.permissions?.trainerControls} />
                 </div>
-              </header>
-
-              <div className={`${expandedId === admin._id ? 'mt-4 block' : 'hidden mt-4'} border-t pt-4`}> 
-                <div className="mb-3 text-xs sm:text-sm text-gray-600 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <p className="truncate"><strong>Role:</strong> {admin.role.replace(/_/g, " ")}</p>
-                  <p className="truncate"><strong>Created:</strong> {new Date(admin.createdAt).toLocaleDateString()}</p>
-                  {admin.lastLogin && <p className="truncate"><strong>Last Login:</strong> {new Date(admin.lastLogin).toLocaleDateString()}</p>}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <PermissionGroup title="Admin Controls" permissions={admin.permissions?.adminControls} color="purple" />
-                  <PermissionGroup title="TPO Controls" permissions={admin.permissions?.tpoControls} color="blue" />
-                  <PermissionGroup title="Trainer Controls" permissions={admin.permissions?.trainerControls} color="green" />
-                </div>
-
-                <div className="mt-4 flex items-center justify-start">
-                  <div className="flex items-center gap-2">
-                    <Badge label="Can View Activity" enabled={!!admin.permissions?.canViewActivity} color="gray" />
-                  </div>
+                <div className="mt-3">
+                  <Badge label="Can View Activity" enabled={!!admin.permissions?.canViewActivity} />
                 </div>
               </div>
-            </article>
-          ))
-        )}
-      </div>
-
-
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 };

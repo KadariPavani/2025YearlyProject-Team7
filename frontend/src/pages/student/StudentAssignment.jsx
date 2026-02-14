@@ -13,6 +13,7 @@ const StudentAssignment = () => {
   const [expandedAssignment, setExpandedAssignment] = useState(null);
 
   const [toast, setToast] = useState(null);
+  const [error, setError] = useState('');
   const showToast = (type, message) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 4000);
@@ -180,7 +181,9 @@ const StudentAssignment = () => {
       await fetchAssignments();
       showToast('success','Assignment submitted successfully!');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to submit assignment');
+      const msg = err.response?.data?.message || 'Failed to submit assignment';
+      setError(msg);
+      showToast('error', msg);
     } finally {
       setUploading(false);
     }

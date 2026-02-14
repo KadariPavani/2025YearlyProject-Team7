@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Users, UserCheck, Calendar, Clock,
@@ -21,6 +21,7 @@ import TrainerStudentActivity from './TrainerStudentActivity';
 import Header from '../../components/common/Header';
 import BottomNav from '../../components/common/BottomNav';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import ToastNotification from '../../components/ui/ToastNotification';
 const TrainerDashboard = () => {
   const [trainerData, setTrainerData] = useState(null);
   const [feedbackStats, setFeedbackStats] = useState(null);
@@ -71,14 +72,14 @@ const notificationRef = useRef(null);
     { id: 'contests', label: 'Contests', icon: Monitor },
     { id: 'syllabus', label: 'Syllabus', icon: BookOpen },
     { id: 'references', label: 'References', icon: FileText },
-    { id: 'placementCalendar', label: 'Placement Calendar', icon: Calendar },
-    { id: 'feedback', label: 'Feedback', icon: MessageSquare }
+    { id: 'placementCalendar', label: 'Placement Calendar', icon: Calendar }
   ];
 
   const [showMoreDropdown, setShowMoreDropdown] = useState(false);
-  const [visibleTabsCount, setVisibleTabsCount] = useState(7);
+  const [visibleTabsCount, setVisibleTabsCount] = useState(tabs.length);
   const moreRef = useRef(null);
   const dropdownRef = useRef(null);
+  const navRef = useRef(null);
   const [dropdownCoords, setDropdownCoords] = useState(null);
 
   const handleMoreToggle = (e) => {
@@ -118,24 +119,30 @@ const notificationRef = useRef(null);
     setActiveTab(id);
   };
 
-  // responsive visible tab count (mimic TPO dashboard breakpoints)
+  // Dynamic overflow: reset on resize, then cascade to find how many tabs fit
   useEffect(() => {
-    const mq1440 = window.matchMedia('(min-width: 1440px)');
-    const mq1024 = window.matchMedia('(min-width: 1024px) and (max-width: 1439px)');
-    const mq768 = window.matchMedia('(min-width: 768px) and (max-width: 1023px)');
+    const reset = () => { setVisibleTabsCount(tabs.length); setShowMoreDropdown(false); };
+    window.addEventListener('resize', reset);
+    // Also re-trigger when crossing the sm breakpoint (nav hidden ↔ visible)
+    const mql = window.matchMedia('(min-width: 640px)');
+    mql.addEventListener('change', reset);
+    return () => { window.removeEventListener('resize', reset); mql.removeEventListener('change', reset); };
+  }, [tabs.length]);
 
-    const setCount = () => {
-      if (mq1440.matches) setVisibleTabsCount(7);
-      else if (mq1024.matches) setVisibleTabsCount(5);
-      else if (mq768.matches) setVisibleTabsCount(4);
-      else setVisibleTabsCount(3);
-    };
-
-    setCount();
-
-    window.addEventListener('resize', setCount);
-    return () => window.removeEventListener('resize', setCount);
-  }, []);
+  // No dependency array so it re-runs when nav first appears after loading
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav || nav.offsetWidth === 0) return; // skip if nav is hidden
+    // Fast-forward: jump to actual child count instead of decrementing one-by-one
+    const childCount = nav.children.length;
+    if (childCount > 0 && visibleTabsCount > childCount) {
+      setVisibleTabsCount(childCount);
+      return;
+    }
+    if (nav.scrollWidth > nav.clientWidth + 2 && visibleTabsCount > 1) {
+      setVisibleTabsCount(v => v - 1);
+    }
+  });
 
   // close 'More' on outside click
   useEffect(() => {
@@ -643,15 +650,6 @@ const markAllAsRead = async () => {
 
   if (loading) return <LoadingSkeleton />;
 
-  if (error && !trainerData) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex justify-center items-center">
-        <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-lg max-w-md">
-          <p className="text-red-700 font-medium">{error}</p>
-        </div>
-      </div>
-    );
-  }
 
   const todaySchedule = getTodaySchedule();
   const weeklySchedule = getWeeklySchedule();
@@ -686,6 +684,15 @@ const markAllAsRead = async () => {
           }
         }}
       />
+
+      {/* Toast Notification for errors */}
+      {error && (
+        <ToastNotification
+          type="error"
+          message={error}
+          onClose={() => setError("")}
+        />
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 pb-24 sm:pb-8">
 
@@ -763,7 +770,7 @@ const markAllAsRead = async () => {
           <div className="px-0">
             <div className="bg-white rounded-lg shadow-md mb-6">
               <div className="border-b border-gray-200">
-                <nav className="hidden sm:flex items-center space-x-2 px-2 overflow-x-auto scrollbar-hide">
+                <nav ref={navRef} className="hidden sm:flex items-center space-x-2 px-2 overflow-hidden">
                   {tabs.slice(0, visibleTabsCount).map((tab) => {
                     const Icon = tab.icon;
                     return (
@@ -783,7 +790,7 @@ const markAllAsRead = async () => {
                   })}
 
                   {tabs.length > visibleTabsCount && (
-                    <div className="relative" ref={moreRef}>
+                    <div className="relative ml-auto" ref={moreRef}>
                       <button
                         onClick={handleMoreToggle}
                         aria-label="More"
@@ -1297,16 +1304,6 @@ const markAllAsRead = async () => {
 
           {activeTab === 'references' && <Reference availableBatches={availableBatches} />}
           {activeTab === "placementCalendar" && <TrainerPlacementCalendar />}
-
-          {/* Feedback Tab - New Section */}
-          {activeTab === 'feedback' && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6">Student Feedback</h3>
-                {/* Feedback content will be added here */}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

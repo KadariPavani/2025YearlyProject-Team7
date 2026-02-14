@@ -1,15 +1,15 @@
 // File: src/components/TPOProfile.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  User, Mail, Phone, Calendar, Users, 
+import {
+  User, Mail, Phone, Calendar, Users,
   Edit3, Save, X, Lock, AlertCircle, CheckCircle,
   Briefcase, Linkedin, Building, BookOpen, Target, ArrowLeft
 } from 'lucide-react';
-import axios from 'axios';
 import { getProfile, updateProfile, checkPasswordChange } from '../../services/generalAuthService';
 import Header from '../../components/common/Header';
 import ToastNotification from '../../components/ui/ToastNotification';
+import useHeaderData from '../../hooks/useHeaderData';
 
 const TPOProfile = () => {
   const navigate = useNavigate();
@@ -27,21 +27,12 @@ const TPOProfile = () => {
     linkedIn: ''
   });
 
-  // Notification states
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [categoryUnread, setCategoryUnread] = useState({});
+  const header = useHeaderData('tpo', profile ? { user: profile, ...profile } : null);
 
   useEffect(() => {
     fetchProfile();
     checkPasswordStatus();
   }, []);
-
-  useEffect(() => {
-    if (profile) {
-      fetchNotifications();
-    }
-  }, [profile]);
 
   const fetchProfile = async () => {
     try {
@@ -89,54 +80,6 @@ const TPOProfile = () => {
     }
   };
 
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem("userToken");
-      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/tpo`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const notifications = res.data.data || [];
-      const currentTpoId = profile?.user?._id || profile?._id;
-      const unreadByCategory = res.data.unreadByCategory || {};
-      const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
-
-      setNotifications(notifications);
-      setCategoryUnread(unreadByCategory);
-      setUnreadCount(totalUnread);
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
-    }
-  };
-
-  const markAsRead = async (notificationId) => {
-    try {
-      const token = localStorage.getItem("userToken");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking notification as read:", err);
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      const token = localStorage.getItem("userToken");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking all as read:", err);
-    }
-  };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -177,15 +120,6 @@ const TPOProfile = () => {
     setError('');
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("userToken");
-    localStorage.removeItem("userData");
-    navigate("/tpo-login");
-  };
-
-  const tpoData = profile ? { user: profile, ...profile } : null;
-  const computedTpoId = profile?.user?._id || profile?._id;
-
   if (loading && !profile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -202,25 +136,7 @@ const TPOProfile = () => {
       <Header
         title="TPO Profile"
         subtitle="Manage Your Profile"
-        icon={Users}
-        userData={tpoData}
-        profileRoute="/tpo-profile"
-        changePasswordRoute="/tpo-change-password"
-        onLogout={handleLogout}
-        notifications={notifications}
-        onMarkAsRead={markAsRead}
-        onMarkAllAsRead={markAllAsRead}
-        categoryUnread={categoryUnread}
-        unreadCount={unreadCount}
-        userType="tpo"
-        userId={computedTpoId}
-        onIconClick={() => {
-          if (window.location.pathname === '/tpo-dashboard') {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          } else {
-            navigate('/tpo-dashboard');
-          }
-        }}
+        {...header.headerProps}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">

@@ -1,107 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, GraduationCap, UserCheck
+import {
+  ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle
 } from 'lucide-react';
-import axios from 'axios';
 import Header from '../../components/common/Header';
+import useHeaderData from '../../hooks/useHeaderData';
 
 const TrainerChangePassword = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  
+
   const [changePasswordData, setChangePasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
-  
+
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Notification states
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [categoryUnread, setCategoryUnread] = useState({});
-
-  // User data state
-  const [userData, setUserData] = useState(null);
-
-  useEffect(() => {
-    fetchUserData();
-    fetchNotifications();
-  }, []);
-
-  const fetchUserData = async () => {
-    try {
-      const token = localStorage.getItem('userToken') || localStorage.getItem('trainerToken');
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/trainer/profile`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (response.data.success) {
-        setUserData(response.data.data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch user data:', err);
-    }
-  };
-
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
-      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/trainer/notifications`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const notifications = res.data.data || [];
-      
-      // Ensure Placement Calendar is tracked even if backend doesn't send it
-      const unreadByCategory = {
-        "My Classes": 0,
-        "Placement Calendar": 0,
-        ...(res.data.unreadByCategory || {})
-      };
-      
-      const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
-
-      setNotifications(notifications);
-      setCategoryUnread(unreadByCategory);
-      setUnreadCount(totalUnread);
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
-    }
-  };
-
-  const markAsRead = async (notificationId) => {
-    try {
-      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking notification as read:", err);
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking all as read:", err);
-    }
-  };
+  const header = useHeaderData('trainer');
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
@@ -137,7 +58,7 @@ const TrainerChangePassword = () => {
           newPassword: '',
           confirmPassword: ''
         });
-        
+
         setTimeout(() => {
           navigate('/trainer-dashboard');
         }, 2000);
@@ -151,40 +72,12 @@ const TrainerChangePassword = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("userToken");
-    localStorage.removeItem("trainerToken");
-    localStorage.removeItem("userData");
-    navigate("/trainer-login");
-  };
-
-  const trainerData = userData || JSON.parse(localStorage.getItem('userData') || '{}');
-  const computedTrainerId = trainerData?.user?._id || trainerData?._id;
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
         title="Change Password"
         subtitle="Trainer Security Settings"
-        icon={UserCheck}
-        userData={trainerData}
-        profileRoute="/trainer-profile"
-        changePasswordRoute="/trainer-change-password"
-        onLogout={handleLogout}
-        notifications={notifications}
-        onMarkAsRead={markAsRead}
-        onMarkAllAsRead={markAllAsRead}
-        categoryUnread={categoryUnread}
-        unreadCount={unreadCount}
-        userType="trainer"
-        userId={computedTrainerId}
-        onIconClick={() => {
-          if (window.location.pathname === '/trainer-dashboard') {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          } else {
-            navigate('/trainer-dashboard');
-          }
-        }}
+        {...header.headerProps}
       />
 
       {/* Main Content */}
@@ -196,7 +89,7 @@ const TrainerChangePassword = () => {
           <ArrowLeft className="h-5 w-5" />
           <span className="font-medium">Back to Dashboard</span>
         </button>
-        
+
         <div className="bg-white rounded-xl shadow-lg p-8">
           <div className="text-center mb-8">
             <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">

@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { MessageSquare, Star, Send, Eye, CheckCircle, Clock, User, X, AlertCircle, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import ToastNotification from '../../components/ui/ToastNotification';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
 const StudentFeedback = () => {
   const [activeView, setActiveView] = useState('submit');
   const [trainers, setTrainers] = useState([]);
   const [myFeedbacks, setMyFeedbacks] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [selectedFeedback, setSelectedFeedback] = useState(null);
@@ -63,6 +65,7 @@ const StudentFeedback = () => {
 
   const fetchMyFeedbacks = async () => {
     try {
+      setHistoryLoading(true);
       const token = localStorage.getItem('userToken');
       const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/feedback/student/my-feedback`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -70,6 +73,8 @@ const StudentFeedback = () => {
       setMyFeedbacks(response.data.data || []);
     } catch (err) {
       console.error('Error fetching feedbacks:', err);
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -450,7 +455,9 @@ const StudentFeedback = () => {
             My Feedback History ({myFeedbacks.length})
           </h4>
 
-          {myFeedbacks.length === 0 ? (
+          {historyLoading ? (
+            <LoadingSkeleton />
+          ) : myFeedbacks.length === 0 ? (
             <div className="text-center py-12">
               <MessageSquare className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500 font-medium">No feedback submitted yet</p>

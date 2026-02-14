@@ -105,11 +105,11 @@ const Header = ({
           {/* Left Section */}
           <div className="flex items-center space-x-3 md:space-x-4">
             {logoSrc ? (
-              <div 
-                className={`p-1 md:p-1 rounded-md ${onIconClick ? 'cursor-pointer hover:bg-white/10 transition-colors duration-200' : ''}`}
+              <div
+                className={`rounded-md ${onIconClick ? 'cursor-pointer hover:bg-white/10 transition-colors duration-200' : ''}`}
                 onClick={onIconClick}
               >
-                <img src={logoSrc} alt={logoAlt} className="h-10 w-10 md:h-12 md:w-12 object-contain" />
+                <img src={logoSrc} alt={logoAlt} className="h-16 w-16 -my-2 md:-my-1 object-contain" />
               </div>
             ) : Icon && (
               <div 

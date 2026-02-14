@@ -15,6 +15,11 @@ const contactSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true
+    },
+    message: {
+      type: String,
+      trim: true,
+      default: ""
     }
   },
   { timestamps: true }
