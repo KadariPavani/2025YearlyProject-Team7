@@ -29,6 +29,7 @@ import Header from "../../components/common/Header";
 import TrainersTab from "./tabs/TrainersTab";
 import TpoTab from "./tabs/TpoTab";
 import AdminsTab from "./tabs/AdminsTab";
+import ContactsTab from "./tabs/ContactsTab";
 import BottomNav from '../../components/common/BottomNav';
 
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
@@ -134,14 +135,17 @@ const AdminDashboard = () => {
   const [trainers, setTrainers] = useState([]);
   const [tpos, setTpos] = useState([]);
   const [admins, setAdmins] = useState([]);
+  const [contacts, setContacts] = useState([]);
 
   const [trainersLoading, setTrainersLoading] = useState(false);
   const [tposLoading, setTposLoading] = useState(false);
   const [adminsLoading, setAdminsLoading] = useState(false);
+  const [contactsLoading, setContactsLoading] = useState(false);
 
   const [trainerSearch, setTrainerSearch] = useState("");
   const [tpoSearch, setTpoSearch] = useState("");
   const [adminSearch, setAdminSearch] = useState("");
+  const [contactSearch, setContactSearch] = useState("");
 // Admin filtering states
 const [adminRoleFilter, setAdminRoleFilter] = useState("");
 const [adminStatusFilter, setAdminStatusFilter] = useState("");
@@ -313,11 +317,19 @@ const [adminSortOrder, setAdminSortOrder] = useState("asc");
     setAdminsLoading(false);
   };
 
+  const fetchContacts = async () => {
+    setContactsLoading(true);
+    const data = await fetchWithAuth("/api/contacts");
+    setContacts(data || []);
+    setContactsLoading(false);
+  };
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     if (tab === "trainers") fetchTrainers();
     if (tab === "tpos") fetchTpos();
     if (tab === "admins") fetchAdmins();
+    if (tab === "contacts") fetchContacts();
     if (tab === "actions") {
       fetchTrainers();
       fetchTpos();
@@ -351,6 +363,18 @@ const [adminSortOrder, setAdminSortOrder] = useState("asc");
     [tpos, tpoSearch]
   );
 
+  const filteredContacts = useMemo(
+    () =>
+      contacts.filter(
+        (c) =>
+          c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+          (c.email && c.email.toLowerCase().includes(contactSearch.toLowerCase())) ||
+          c.phone.toLowerCase().includes(contactSearch.toLowerCase()) ||
+          (c.message && c.message.toLowerCase().includes(contactSearch.toLowerCase()))
+      ),
+    [contacts, contactSearch]
+  );
+  
 // Enhanced filtering and sorting for admins
 const filteredAndSortedAdmins = useMemo(() => {
   let filtered = admins.filter(admin => {
@@ -472,13 +496,23 @@ const handleDeleteAdmin = async (id) => {
     showToast("error", "You don't have permission to delete admins");
     return;
   }
-  
+
   if (!window.confirm("Are you sure you want to delete this admin? This cannot be undone.")) return;
-  
+
   const res = await apiCall(`/api/admin/admins/${id}`, "DELETE");
   if (res) {
     showToast("success", "Admin deleted successfully.");
     setAdmins(admins.filter(a => a._id !== id));
+  }
+};
+
+const handleDeleteContact = async (id) => {
+  if (!window.confirm("Are you sure you want to delete this contact submission?")) return;
+
+  const res = await apiCall(`/api/contacts/${id}`, "DELETE");
+  if (res) {
+    showToast("success", "Contact deleted successfully.");
+    setContacts(contacts.filter(c => c._id !== id));
   }
 };
 
@@ -521,6 +555,7 @@ const handleDelete = async (entityType, id) => {
     { id: "trainers", label: "Trainers", icon: GraduationCap },
     { id: "tpos", label: "TPOs", icon: Users },
     { id: "admins", label: "Admins", icon: Shield },
+    { id: "contacts", label: "Contacts", icon: MessageSquare },
     { id: "actions", label: "Actions", icon: AlertCircle },
     { id: "crt-batches", label: "CRT Batches", icon: BookOpen },
     { id: "placement-batches", label: "Placement Batches", icon: Briefcase },
@@ -1059,6 +1094,18 @@ const handleDelete = async (entityType, id) => {
     />
   )
 )}
+
+          {activeTab === "contacts" && (
+            <ContactsTab
+              adminData={adminData}
+              contactsLoading={contactsLoading}
+              contactSearch={contactSearch}
+              setContactSearch={setContactSearch}
+              filteredContacts={filteredContacts}
+              handleDeleteContact={handleDeleteContact}
+              SectionTable={SectionTable}
+            />
+          )}
 
 
           {activeTab === "crt-batches" && (

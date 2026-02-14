@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  User, Mail, Phone, Briefcase, Linkedin, Edit3, Save, X, 
+import {
+  User, Mail, Phone, Briefcase, Linkedin, Edit3, Save, X,
   AlertCircle, CheckCircle, BookOpen, UserCheck, ArrowLeft
 } from 'lucide-react';
 import axios from 'axios';
 import { getProfile, updateProfile } from '../../services/generalAuthService';
 import Header from '../../components/common/Header';
 import ToastNotification from '../../components/ui/ToastNotification';
-
+import useHeaderData from '../../hooks/useHeaderData';
 
 const TrainerProfile = () => {
   const navigate = useNavigate();
@@ -21,21 +21,11 @@ const TrainerProfile = () => {
   // Form states
   const [formData, setFormData] = useState({});
 
-  // Notification states
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [categoryUnread, setCategoryUnread] = useState({});
+  const header = useHeaderData('trainer', profile ? { user: profile, ...profile } : null);
 
   useEffect(() => {
     fetchProfile();
-    fetchNotifications();
   }, []);
-
-  useEffect(() => {
-    if (profile) {
-      fetchNotifications();
-    }
-  }, [profile]);
 
   const fetchProfile = async () => {
     setLoading(true);
@@ -56,60 +46,6 @@ const TrainerProfile = () => {
       setError("Failed to fetch profile");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
-      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/trainer/notifications`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const notifications = res.data.data || [];
-      
-      // Ensure Placement Calendar is tracked even if backend doesn't send it
-      const unreadByCategory = {
-        "My Classes": 0,
-        "Placement Calendar": 0,
-        ...(res.data.unreadByCategory || {})
-      };
-      
-      const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
-
-      setNotifications(notifications);
-      setCategoryUnread(unreadByCategory);
-      setUnreadCount(totalUnread);
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
-    }
-  };
-
-  const markAsRead = async (notificationId) => {
-    try {
-      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking notification as read:", err);
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      const token = localStorage.getItem("userToken") || localStorage.getItem("trainerToken");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking all as read:", err);
     }
   };
 
@@ -144,16 +80,6 @@ const TrainerProfile = () => {
     setError('');
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("userToken");
-    localStorage.removeItem("trainerToken");
-    localStorage.removeItem("userData");
-    navigate("/trainer-login");
-  };
-
-  const trainerData = profile ? { user: profile, ...profile } : null;
-  const computedTrainerId = profile?.user?._id || profile?._id;
-
   if (loading && !profile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -167,25 +93,7 @@ const TrainerProfile = () => {
       <Header
         title="Trainer Profile"
         subtitle="Manage Your Profile"
-        icon={UserCheck}
-        userData={trainerData}
-        profileRoute="/trainer-profile"
-        changePasswordRoute="/trainer-change-password"
-        onLogout={handleLogout}
-        notifications={notifications}
-        onMarkAsRead={markAsRead}
-        onMarkAllAsRead={markAllAsRead}
-        categoryUnread={categoryUnread}
-        unreadCount={unreadCount}
-        userType="trainer"
-        userId={computedTrainerId}
-        onIconClick={() => {
-          if (window.location.pathname === '/trainer-dashboard') {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          } else {
-            navigate('/trainer-dashboard');
-          }
-        }}
+        {...header.headerProps}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">

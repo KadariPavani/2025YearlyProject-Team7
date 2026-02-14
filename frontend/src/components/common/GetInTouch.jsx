@@ -42,8 +42,9 @@ export default function GetInTouch() {
   const name = e.target.name.value;
   const email = e.target.email.value;
   const phone = e.target.phone.value;
+  const message = e.target.message.value;
 
-  console.log("Sending 👉", { name, email, phone }); // 🧪 debug
+  console.log("Sending 👉", { name, email, phone, message }); // 🧪 debug
 
   try {
     const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/contact`, {
@@ -51,7 +52,7 @@ export default function GetInTouch() {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name, email, phone }),
+      body: JSON.stringify({ name, email, phone, message }),
     });
 
     const data = await response.json();
@@ -159,6 +160,14 @@ export default function GetInTouch() {
                   placeholder="Phone number *"
                   required
                   style={{ ...sharedInput, height: 46 }}
+                />
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <textarea
+                  name="message"
+                  placeholder="Your message..."
+                  rows={4}
+                  style={{ ...sharedInput, resize: 'vertical', minHeight: 100 }}
                 />
               </div>
 

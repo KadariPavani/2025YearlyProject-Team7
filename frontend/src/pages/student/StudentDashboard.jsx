@@ -20,6 +20,7 @@ import FeedbackPreview from '../../components/feedbackPreview'; // Import feedba
 import Header from '../../components/common/Header';
 import BottomNav from '../../components/common/BottomNav';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import ToastNotification from '../../components/ui/ToastNotification';
 import ProfileCompletionModal from '../../components/ui/ProfileCompletionModal';
 // Keep placeholder components for the rest as in the first code
 
@@ -991,15 +992,6 @@ const markAllAsRead = async () => {
 
   if (loading) return <LoadingSkeleton />;
 
-  if (error && !studentData) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex justify-center items-center">
-        <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-lg max-w-md">
-          <p className="text-red-700 font-medium">{error}</p>
-        </div>
-      </div>
-    );
-  }
 
   // Compute student ID - uses .id not ._id for student data structure
   const computedStudentId = studentData?.user?.id || studentData?.user?._id || studentData?.id || studentData?._id;
@@ -1036,6 +1028,18 @@ const markAllAsRead = async () => {
           }
         }}
       />
+
+      {/* Toast Notification for errors/messages */}
+      {(error || message) && (
+        <ToastNotification
+          type={error ? "error" : "success"}
+          message={error || message}
+          onClose={() => {
+            setError("");
+            setMessage("");
+          }}
+        />
+      )}
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 pb-24 sm:pb-8">
 

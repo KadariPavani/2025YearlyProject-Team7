@@ -7,6 +7,12 @@ import ToastNotification from '../../components/ui/ToastNotification';
 
 const AddTPOPage = () => {
   const navigate = useNavigate();
+  const adminData = JSON.parse(localStorage.getItem('adminData') || '{}');
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminData");
+    navigate("/super-admin-login");
+  };
 
   const [tpoData, setTpoData] = useState({
     name: '',
@@ -64,9 +70,10 @@ const AddTPOPage = () => {
         title="Add TPO"
         subtitle="Create TPO profile"
         showTitleInHeader={false}
-        icon={Users}
+        userData={adminData}
         profileRoute="/admin-profile"
         changePasswordRoute="/admin-change-password"
+        onLogout={handleLogout}
         onIconClick={() => navigate('/admin-dashboard')}
       />
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 pt-24 w-full">

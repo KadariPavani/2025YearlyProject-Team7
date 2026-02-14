@@ -18,6 +18,12 @@ function AddAdmin() {
   const [role, setRole] = useState("admin_level_3");
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const adminData = JSON.parse(localStorage.getItem('adminData') || '{}');
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminData");
+    navigate("/super-admin-login");
+  };
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -58,9 +64,10 @@ function AddAdmin() {
         title="Add Admin"
         subtitle="Create admin profile"
         showTitleInHeader={false}
-        icon={Shield}
+        userData={adminData}
         profileRoute="/admin-profile"
         changePasswordRoute="/admin-change-password"
+        onLogout={handleLogout}
         onIconClick={() => navigate('/admin-dashboard')}
       />
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 pt-24 w-full">

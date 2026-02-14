@@ -15,6 +15,7 @@ import AttendanceMarking from '../coordinator/AttandanceMarking';
 import CoordinatorStudentActivity from './CoordinatorStudentActivity';
 import Header from '../../components/common/Header';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import ToastNotification from '../../components/ui/ToastNotification';
 
 // TEXT LOGIC - All UI strings in one place for consistency
 const TEXT = {
@@ -238,6 +239,18 @@ const CoordinatorDashboard = () => {
           }
         }}
       />
+
+      {/* Toast Notification for errors/messages */}
+      {(error || message) && (
+        <ToastNotification
+          type={error ? "error" : "success"}
+          message={error || message}
+          onClose={() => {
+            setError("");
+            setMessage("");
+          }}
+        />
+      )}
 
       {/* Welcome / Hero (moved above tabs to match TPO layout) */}
       <div className="bg-white rounded-lg shadow-sm mx-4 md:mx-0">

@@ -1,118 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle, Users
+import {
+  ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle
 } from 'lucide-react';
-import axios from 'axios';
 import Header from '../../components/common/Header';
+import useHeaderData from '../../hooks/useHeaderData';
 
 const TPOChangePassword = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  
+
   const [changePasswordData, setChangePasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
-  
+
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Notification states
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [categoryUnread, setCategoryUnread] = useState({});
-
-  // User data state
-  const [userData, setUserData] = useState(null);
-
-  useEffect(() => {
-    fetchUserData();
-    fetchNotifications();
-  }, []);
-
-  const fetchUserData = async () => {
-    try {
-      const token = localStorage.getItem('userToken');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/dashboard/tpo`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const result = await response.json();
-      if (result.success) {
-        setUserData(result.data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch user data:', err);
-    }
-  };
-
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem("userToken");
-      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/tpo`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const notifications = res.data.data || [];
-      const unreadByCategory = res.data.unreadByCategory || {};
-      const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
-
-      setNotifications(notifications);
-      setCategoryUnread(unreadByCategory);
-      setUnreadCount(totalUnread);
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
-    }
-  };
-
-  const markAsRead = async (notificationId) => {
-    try {
-      const token = localStorage.getItem("userToken");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking notification as read:", err);
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      const token = localStorage.getItem("userToken");
-      await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking all as read:", err);
-    }
-  };
+  const header = useHeaderData('tpo');
 
   const validatePassword = (password) => {
-    // Add password validation rules
     const minLength = 8;
-    // const hasUpperCase = /[A-Z]/.test(password);
     const hasLowerCase = /[a-z]/.test(password);
-    const hasNumbers = /\d/.test(password);
-    // const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
     const errors = [];
     if (password.length < minLength) errors.push(`Password must be at least ${minLength} characters long`);
-    // if (!hasUpperCase) errors.push('Password must contain at least one uppercase letter');
     if (!hasLowerCase) errors.push('Password must contain at least one lowercase letter');
-    // if (!hasNumbers) errors.push('Password must contain at least one number');
-    // if (!hasSpecialChar) errors.push('Password must contain at least one special character');
 
     return errors;
   };
@@ -123,21 +41,18 @@ const TPOChangePassword = () => {
     setError('');
     setSuccessMessage('');
 
-    // Validate password fields are not empty
     if (!changePasswordData.currentPassword || !changePasswordData.newPassword || !changePasswordData.confirmPassword) {
       setError('All password fields are required');
       setLoading(false);
       return;
     }
 
-    // Validate new password matches confirm password
     if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
       setError('New passwords do not match');
       setLoading(false);
       return;
     }
 
-    // Validate new password meets requirements
     const passwordErrors = validatePassword(changePasswordData.newPassword);
     if (passwordErrors.length > 0) {
       setError(passwordErrors.join('\\n'));
@@ -166,11 +81,11 @@ const TPOChangePassword = () => {
       });
 
       const result = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(result.message || 'Failed to change password');
       }
-      
+
       if (result.success) {
         setSuccessMessage('Password changed successfully!');
         setChangePasswordData({
@@ -178,7 +93,7 @@ const TPOChangePassword = () => {
           newPassword: '',
           confirmPassword: ''
         });
-        
+
         setTimeout(() => {
           navigate('/tpo-dashboard');
         }, 2000);
@@ -192,39 +107,12 @@ const TPOChangePassword = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("userToken");
-    localStorage.removeItem("userData");
-    navigate("/tpo-login");
-  };
-
-  const tpoData = userData || JSON.parse(localStorage.getItem('userData') || '{}');
-  const computedTpoId = tpoData?.user?._id || tpoData?._id;
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
         title="Change Password"
         subtitle="TPO Security Settings"
-        icon={Users}
-        userData={tpoData}
-        profileRoute="/tpo-profile"
-        changePasswordRoute="/tpo-change-password"
-        onLogout={handleLogout}
-        notifications={notifications}
-        onMarkAsRead={markAsRead}
-        onMarkAllAsRead={markAllAsRead}
-        categoryUnread={categoryUnread}
-        unreadCount={unreadCount}
-        userType="tpo"
-        userId={computedTpoId}
-        onIconClick={() => {
-          if (window.location.pathname === '/tpo-dashboard') {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          } else {
-            navigate('/tpo-dashboard');
-          }
-        }}
+        {...header.headerProps}
       />
 
       {/* Main Content */}
@@ -236,7 +124,7 @@ const TPOChangePassword = () => {
           <ArrowLeft className="h-5 w-5" />
           <span className="font-medium">Back to Dashboard</span>
         </button>
-        
+
         <div className="bg-white rounded-xl shadow-lg p-8">
           <div className="text-center mb-8">
             <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">

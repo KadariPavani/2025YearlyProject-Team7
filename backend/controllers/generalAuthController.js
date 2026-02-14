@@ -174,7 +174,7 @@ const generalLogin = async (req, res) => {
       return badRequest(res, 'Invalid userType model');
     }
 
-    const user = await Model.findOne({ email }).select('+password isActive status batchId failedLoginAttempts lockUntil');
+    const user = await Model.findOne({ email }).select('+password name email role isActive status batchId failedLoginAttempts lockUntil');
 
     if (!user) {
       // allow client to focus username field

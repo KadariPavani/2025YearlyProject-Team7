@@ -163,6 +163,7 @@ import StudentActivity from './StudentActivity';
 import Header from '../../components/common/Header';
 import BottomNav from '../../components/common/BottomNav';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import ToastNotification from '../../components/ui/ToastNotification';
 
 const InfoRow = ({ label, value, icon: Icon }) => (
   <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
@@ -1665,15 +1666,6 @@ const markAllAsRead = async () => {
 
   if (loading) return <LoadingSkeleton />;
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
-        <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-lg max-w-md">
-          <p className="text-red-700 font-medium">{error}</p>
-        </div>
-      </div>
-    );
-  }
 
 
   // Approval Detail Modal Component - Now a dropdown panel
@@ -2242,6 +2234,18 @@ const getRequestTypeColor = (type) => {
           }
         }}
       />
+
+      {/* Toast Notification for errors/messages */}
+      {(error || message) && (
+        <ToastNotification
+          type={error ? "error" : "success"}
+          message={error || message}
+          onClose={() => {
+            setError("");
+            setMessage("");
+          }}
+        />
+      )}
 
       <div className="max-w-7xl mx-auto pt-12 sm:pt-20 pb-24 sm:pb-8">
         {/* Header Section */}
@@ -3051,18 +3055,6 @@ const getRequestTypeColor = (type) => {
                 </button>
               </div>
 
-              {/* Display error messages for approvals */}
-              {error && (
-                <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-                  <p className="text-red-700">{error}</p>
-                </div>
-              )}
-
-              {message && (
-                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
-                  <p className="text-blue-700">{message}</p>
-                </div>
-              )}
 
               {loadingApprovals ? (
                 <LoadingSkeleton />
@@ -3260,7 +3252,10 @@ const getRequestTypeColor = (type) => {
                       </span>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
-                      {selectedBatch.coordinators && selectedBatch.coordinators.length > 0 && selectedBatch.coordinators[0].student && String(selectedBatch.coordinators[0].student._id) === String(student._id) ? (
+                      {selectedBatch.coordinators && selectedBatch.coordinators.length > 0 && selectedBatch.coordinators.some(coord => {
+                        // Match by rollNo (coordinator has same rollNo as the student)
+                        return coord.rollNo && student.rollNo && String(coord.rollNo) === String(student.rollNo);
+                      }) ? (
                         <span className="px-2 py-1 text-[10px] rounded bg-green-100 text-green-800">Coordinator</span>
                       ) : (
                         <button
@@ -3273,7 +3268,7 @@ const getRequestTypeColor = (type) => {
                           }`}
                         >
                           {assigningCoordinatorId === student._id ? 'Assigning...' : 'Make Coordinator'}
-                        </button> 
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -3312,7 +3307,10 @@ const getRequestTypeColor = (type) => {
                       </span>
                     </div>
                   </div>
-                  {selectedBatch.coordinators && selectedBatch.coordinators.length > 0 && selectedBatch.coordinators[0].student && String(selectedBatch.coordinators[0].student._id) === String(student._id) ? (
+                  {selectedBatch.coordinators && selectedBatch.coordinators.length > 0 && selectedBatch.coordinators.some(coord => {
+                    // Match by rollNo (coordinator has same rollNo as the student)
+                    return coord.rollNo && student.rollNo && String(coord.rollNo) === String(student.rollNo);
+                  }) ? (
                     <div className="w-full px-2 py-1.5 text-xs rounded bg-green-100 text-green-800 text-center">Coordinator</div>
                   ) : (
                     <button

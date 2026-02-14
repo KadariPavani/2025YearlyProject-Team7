@@ -30,10 +30,10 @@ import {
   checkPasswordChange,
 } from "../../services/generalAuthService";
 import api from '../../services/api';
-import axios from 'axios';
 import ToastNotification from "../../components/ui/ToastNotification";
 import Header from "../../components/common/Header";
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import useHeaderData from '../../hooks/useHeaderData';
 const backendURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const emptyProject = {
@@ -124,23 +124,13 @@ const StudentProfile = () => {
   const menuRef = useRef(null);
   const resumeMenuRef = useRef(null);
 
-  // Notification states
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [categoryUnread, setCategoryUnread] = useState({});
+  const header = useHeaderData('student', profile ? { user: profile, ...profile } : null);
 
   useEffect(() => {
     fetchProfile();
     checkPasswordStatus();
     fetchPendingApprovals();
   }, []);
-
-  // Fetch notifications when profile is loaded
-  useEffect(() => {
-    if (profile) {
-      fetchNotifications();
-    }
-  }, [profile]);
 
   useEffect(() => {
     const fetchAvailableTechStacks = async () => {
@@ -257,71 +247,6 @@ const StudentProfile = () => {
         setNeedsPasswordChange(response.data.needsPasswordChange);
       }
     } catch {}
-  };
-
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem("userToken");
-      const res = await axios.get(`${backendURL}/api/notifications/student`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const notifications = res.data.data || [];
-      const currentStudentId = profile?.user?.id || profile?.user?._id || profile?.id || profile?._id;
-      
-      let unreadByCategory = res.data.unreadByCategory || {};
-      
-      let totalUnread = 0;
-      notifications.forEach(notification => {
-        const recipient = notification.recipients?.find(
-          r => {
-            const rId = r.recipientId?._id || r.recipientId;
-            return rId?.toString() === currentStudentId?.toString();
-          }
-        );
-        const isUnread = recipient && !recipient.isRead;
-        
-        if (isUnread) {
-          totalUnread++;
-        }
-      });
-
-      const backendTotal = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
-
-      setNotifications(notifications);
-      setCategoryUnread(unreadByCategory);
-      setUnreadCount(backendTotal);
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
-    }
-  };
-
-  const markAsRead = async (notificationId) => {
-    try {
-      const token = localStorage.getItem("userToken");
-      await axios.put(
-        `${backendURL}/api/notifications/${notificationId}/read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking notification as read:", err);
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      const token = localStorage.getItem("userToken");
-      await axios.put(
-        `${backendURL}/api/notifications/mark-all-read`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking all as read:", err);
-    }
   };
 
   const handleEducationTypeChange = (e) => {
@@ -652,39 +577,12 @@ const StudentProfile = () => {
 
   if (loading && !profile) return <LoadingSkeleton />;
 
-  const handleLogout = () => {
-    localStorage.removeItem("userToken");
-    localStorage.removeItem("userData");
-    navigate("/student-login");
-  };
-
-  const studentData = profile ? { user: profile, ...profile } : null;
-  const computedStudentId = profile?.user?.id || profile?.user?._id || profile?.id || profile?._id;
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
         title="Student Profile"
         subtitle="Manage your profile and information"
-        icon={GraduationCap}
-        userData={studentData}
-        profileRoute="/student-profile"
-        changePasswordRoute="/student-change-password"
-        onLogout={handleLogout}
-        notifications={notifications}
-        onMarkAsRead={markAsRead}
-        onMarkAllAsRead={markAllAsRead}
-        categoryUnread={categoryUnread}
-        unreadCount={unreadCount}
-        userType="student"
-        userId={computedStudentId}
-        onIconClick={() => {
-          if (window.location.pathname === '/student-dashboard') {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          } else {
-            navigate('/student-dashboard');
-          }
-        }}
+        {...header.headerProps}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">

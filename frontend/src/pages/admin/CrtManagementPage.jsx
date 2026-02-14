@@ -9,6 +9,12 @@ import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 import { Skeleton } from '../../components/ui/skeleton';
 const CrtManagementPage = () => {
   const navigate = useNavigate();
+  const adminData = JSON.parse(localStorage.getItem('adminData') || '{}');
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminData");
+    navigate("/super-admin-login");
+  };
   const [batchNumber, setBatchNumber] = useState('');
   const [colleges, setColleges] = useState([]);
   const [tpos, setTpos] = useState([]);
@@ -204,12 +210,13 @@ const CrtManagementPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6">
             <Header
-        title="Add Trainer"
-        subtitle="Create trainer profile"
+        title="CRT Batch Management"
+        subtitle="Manage CRT batches"
         showTitleInHeader={false}
-        icon={GraduationCap}
+        userData={adminData}
         profileRoute="/admin-profile"
         changePasswordRoute="/admin-change-password"
+        onLogout={handleLogout}
         onIconClick={() => navigate('/admin-dashboard')}
       />
       <Toaster position="top-center" reverseOrder={false} />

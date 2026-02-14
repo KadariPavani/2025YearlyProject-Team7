@@ -21,6 +21,7 @@ import TrainerStudentActivity from './TrainerStudentActivity';
 import Header from '../../components/common/Header';
 import BottomNav from '../../components/common/BottomNav';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import ToastNotification from '../../components/ui/ToastNotification';
 const TrainerDashboard = () => {
   const [trainerData, setTrainerData] = useState(null);
   const [feedbackStats, setFeedbackStats] = useState(null);
@@ -71,8 +72,7 @@ const notificationRef = useRef(null);
     { id: 'contests', label: 'Contests', icon: Monitor },
     { id: 'syllabus', label: 'Syllabus', icon: BookOpen },
     { id: 'references', label: 'References', icon: FileText },
-    { id: 'placementCalendar', label: 'Placement Calendar', icon: Calendar },
-    { id: 'feedback', label: 'Feedback', icon: MessageSquare }
+    { id: 'placementCalendar', label: 'Placement Calendar', icon: Calendar }
   ];
 
   const [showMoreDropdown, setShowMoreDropdown] = useState(false);
@@ -650,15 +650,6 @@ const markAllAsRead = async () => {
 
   if (loading) return <LoadingSkeleton />;
 
-  if (error && !trainerData) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex justify-center items-center">
-        <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-lg shadow-lg max-w-md">
-          <p className="text-red-700 font-medium">{error}</p>
-        </div>
-      </div>
-    );
-  }
 
   const todaySchedule = getTodaySchedule();
   const weeklySchedule = getWeeklySchedule();
@@ -693,6 +684,15 @@ const markAllAsRead = async () => {
           }
         }}
       />
+
+      {/* Toast Notification for errors */}
+      {error && (
+        <ToastNotification
+          type="error"
+          message={error}
+          onClose={() => setError("")}
+        />
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 pb-24 sm:pb-8">
 
@@ -1304,16 +1304,6 @@ const markAllAsRead = async () => {
 
           {activeTab === 'references' && <Reference availableBatches={availableBatches} />}
           {activeTab === "placementCalendar" && <TrainerPlacementCalendar />}
-
-          {/* Feedback Tab - New Section */}
-          {activeTab === 'feedback' && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6">Student Feedback</h3>
-                {/* Feedback content will be added here */}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

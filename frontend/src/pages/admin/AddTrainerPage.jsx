@@ -19,6 +19,12 @@ import ToastNotification from '../../components/ui/ToastNotification';
 
 const AddTrainerPage = () => {
   const navigate = useNavigate();
+  const adminData = JSON.parse(localStorage.getItem('adminData') || '{}');
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminData");
+    navigate("/super-admin-login");
+  };
 
   const [trainerData, setTrainerData] = useState({
     name: '',
@@ -79,9 +85,10 @@ const AddTrainerPage = () => {
         title="Add Trainer"
         subtitle="Create trainer profile"
         showTitleInHeader={false}
-        icon={GraduationCap}
+        userData={adminData}
         profileRoute="/admin-profile"
         changePasswordRoute="/admin-change-password"
+        onLogout={handleLogout}
         onIconClick={() => navigate('/admin-dashboard')}
       />
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 pt-24 w-full">
