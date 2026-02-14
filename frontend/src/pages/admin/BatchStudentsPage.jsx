@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getBatchStudents, updateStudent, deleteStudent } from '../../services/adminService';
-import { ArrowLeft, Pencil, Trash2, Search, ChevronUp, ChevronDown, AlertCircle, X } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2, Search, AlertCircle, X } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
-import { Skeleton } from '../../components/ui/skeleton';
+import Header from '../../components/common/Header';
 
 const BatchStudentsPage = () => {
   const { batchId } = useParams();
   const navigate = useNavigate();
+  const adminData = JSON.parse(localStorage.getItem('adminData') || '{}');
+
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminData");
+    navigate("/super-admin-login");
+  };
   const [students, setStudents] = useState([]);
-  const [filteredStudents, setFilteredStudents] = useState([]);
   const [batchDetails, setBatchDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,7 +24,10 @@ const BatchStudentsPage = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchFilter, setSearchFilter] = useState('all'); // all, name, email, branch, rollNo
+  const [filters, setFilters] = useState({
+    branch: '',
+    college: ''
+  });
   const [editForm, setEditForm] = useState({
     name: '',
     rollNo: '',
@@ -27,71 +36,23 @@ const BatchStudentsPage = () => {
     yearOfPassing: '',
     college: ''
   });
-  const [expandedId, setExpandedId] = useState(null);
-
-  // Compute batch status (mobile-friendly summary)
-  const getBatchStatus = (batch) => {
-    if (!batch) return 'Unknown';
-    const now = new Date();
-    const start = batch.startDate ? new Date(batch.startDate) : null;
-    const end = batch.endDate ? new Date(batch.endDate) : null;
-    if (start && now < start) return 'Not Yet Started';
-    if (end && now > end) return 'Completed';
-    return 'Ongoing';
-  };
 
   useEffect(() => {
     fetchBatchStudents();
   }, [batchId]);
 
-  // Search functionality - filters students based on query and filter type
-  useEffect(() => {
-    if (!searchQuery.trim()) {
-      setFilteredStudents(students);
-      return;
-    }
-
-    const filtered = students.filter((student) => {
-      const query = searchQuery.toLowerCase().trim();
-      
-      switch (searchFilter) {
-        case 'name':
-          return student.name.toLowerCase().includes(query);
-        case 'email':
-          return student.email.toLowerCase().includes(query);
-        case 'branch':
-          return student.branch.toLowerCase().includes(query);
-        case 'rollNo':
-          return student.rollNo.toLowerCase().includes(query);
-        default: // 'all'
-          return (
-            student.name.toLowerCase().includes(query) ||
-            student.email.toLowerCase().includes(query) ||
-            student.branch.toLowerCase().includes(query) ||
-            student.rollNo.toLowerCase().includes(query)
-          );
-      }
-    });
-
-    setFilteredStudents(filtered);
-  }, [searchQuery, searchFilter, students]);
-
   const fetchBatchStudents = async () => {
     try {
+      setLoading(true);
       const response = await getBatchStudents(batchId);
       setStudents(response.data.data);
-      setFilteredStudents(response.data.data);
       setBatchDetails(response.data.batchDetails);
-      setLoading(false);
     } catch (error) {
       setError('Failed to fetch students');
+      toast.error('Failed to fetch students');
+    } finally {
       setLoading(false);
     }
-  };
-
-  const clearSearch = () => {
-    setSearchQuery('');
-    setSearchFilter('all');
   };
 
   const handleEdit = (student) => {
@@ -118,14 +79,11 @@ const BatchStudentsPage = () => {
     try {
       await updateStudent(selectedStudent._id, editForm);
       setShowEditModal(false);
-      await fetchBatchStudents(); // Refresh the list
-      setError(null);
-      setLoading(false);
-      // Show success message
-      toast.success('Student updated successfully! 🎉');
+      await fetchBatchStudents();
+      toast.success('Student updated successfully');
     } catch (error) {
-      console.error('Update error:', error);
-      setError(error.response?.data?.message || 'Failed to update student');
+      toast.error(error.response?.data?.message || 'Failed to update student');
+    } finally {
       setLoading(false);
     }
   };
@@ -135,383 +93,272 @@ const BatchStudentsPage = () => {
     try {
       await deleteStudent(selectedStudent._id);
       setShowDeleteModal(false);
-      await fetchBatchStudents(); // Refresh the list
-      setError(null);
-      setLoading(false);
-      // Show success message
-      toast.success('Student deleted successfully! 🎉');
+      await fetchBatchStudents();
+      toast.success('Student deleted successfully');
     } catch (error) {
-      console.error('Delete error:', error);
-      setError(error.response?.data?.message || 'Failed to delete student');
+      toast.error(error.response?.data?.message || 'Failed to delete student');
+    } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="bg-white rounded-lg p-4 shadow">
-            <Skeleton className="h-8 w-1/4 mb-4" />
-            <div className="space-y-3">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="grid grid-cols-6 gap-4 items-center">
-                  <Skeleton className="h-6 col-span-2" />
-                  <Skeleton className="h-6 col-span-1" />
-                  <Skeleton className="h-6 col-span-1" />
-                  <Skeleton className="h-6 col-span-1" />
-                  <Skeleton className="h-6 col-span-1" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const filteredStudents = students.filter(student => {
+    const matchesSearch = student.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         student.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         student.rollNo?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesFilters = (!filters.branch || student.branch === filters.branch) &&
+                          (!filters.college || student.college === filters.college);
+
+    return matchesSearch && matchesFilters;
+  });
+
+  if (loading && !batchDetails) {
+    return <LoadingSkeleton />;
   }
 
   return (
-    <div className="p-4 sm:p-6 min-h-screen bg-gray-50">
-      <Toaster 
-        position="top-right"
-        reverseOrder={false}
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: '#10b981',
-            color: '#fff',
-            fontWeight: '500',
-            borderRadius: '8px',
-            padding: '12px',
-          },
-        }}
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Header
+        title={`Batch ${batchDetails?.batchNumber || ''} Students`}
+        subtitle="Manage batch students"
+        showTitleInHeader={false}
+        userData={adminData}
+        profileRoute="/admin-profile"
+        changePasswordRoute="/admin-change-password"
+        onLogout={handleLogout}
+        onIconClick={() => navigate('/admin-dashboard')}
       />
-      {/* Header Section - compact, mobile-first */}
-      <div className="mb-6">
-        <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-100">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-lg font-bold text-gray-900 truncate">Batch {batchDetails?.batchNumber}</h1>
-              <div className="mt-1 text-xs text-gray-600 flex flex-wrap gap-3 items-center">
-                <span className="truncate"><strong>TPO:</strong> {batchDetails?.tpoId?.name || 'Not assigned'}</span>
-                <span>•</span>
-                <span className="truncate"><strong>Status:</strong> {getBatchStatus(batchDetails)}</span>
-                <span>•</span>
-                <span className="truncate"><strong>Students:</strong> {filteredStudents.length}</span>
-                <select
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  className="ml-2 px-2 py-1 text-xs border rounded-md bg-white"
-                >
-                  <option value="all">All</option>
-                  <option value="name">Name</option>
-                  <option value="email">Email</option>
-                  <option value="branch">Branch</option>
-                  <option value="rollNo">Roll Number</option>
-                </select>
+      <Toaster position="top-center" reverseOrder={false} />
 
-                {/* Inline desktop search (appears next to filter on sm+) */}
-                <div className="hidden sm:inline-flex items-center ml-3">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                      <Search className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search students..."
-                      className="pl-8 pr-8 py-1 text-sm border rounded-md"
-                    />
-                    {searchQuery && (
-                      <button onClick={clearSearch} className="absolute inset-y-0 right-0 pr-1 flex items-center">
-                        <X className="h-4 w-4 text-gray-400" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+      {/* Back Button - Fixed at top right */}
+      <div className="fixed top-24 right-4 sm:right-8 z-10">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1 px-3 py-2 text-xs sm:text-sm text-gray-600 bg-white border border-gray-200 rounded-lg shadow-sm hover:text-gray-900 hover:bg-gray-50"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+      </div>
 
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={() => navigate(-1)}
-                className="px-2 py-1 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-                title="Go back"
-              >
-                Back
-              </button>
-            </div>
-          </div>
+      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 py-6 pt-24 w-full space-y-4">
+        {/* Page Header */}
+        <div>
+          <h1 className="text-sm sm:text-lg font-semibold text-gray-900">
+            Batch {batchDetails?.batchNumber} Students
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            TPO: {batchDetails?.tpoId?.name || 'Not assigned'} • {students.length} students
+          </p>
+        </div>
 
-          {/* Mobile small search under header */}
-          <div className="sm:hidden mt-3">
+      {/* Search and Filters */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
-              </div>
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search students..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+                className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
               {searchQuery && (
-                <button onClick={clearSearch} className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                  <X className="h-4 w-4 text-gray-400" />
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2"
+                >
+                  <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
                 </button>
               )}
             </div>
           </div>
-        </div>
-      </div>
-
-
-
-
-
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
-
-      {/* Mobile Scroll Hint - Only shows on mobile */}
-      <div className="block sm:hidden mb-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <p className="text-blue-800 text-sm flex items-center">
-            <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-            Swipe left to see all student details →
-          </p>
-        </div>
-      </div>
-
-      {/* Students Table - FIXED COLUMN ALIGNMENT */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        {/* Desktop View - Fixed Height with Scrollable Body */}
-        <div className="hidden sm:block">
-          {/* Fixed Header */}
-          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-            <div className="grid grid-cols-12 gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div className="col-span-3">Name</div>
-              <div className="col-span-3">Email</div>
-              <div className="col-span-2">Branch</div>
-              <div className="col-span-2">Roll Number</div>
-              <div className="col-span-2">Actions</div>
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Branch</label>
+            <select
+              value={filters.branch}
+              onChange={(e) => setFilters({ ...filters, branch: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+            >
+              <option value="">All Branches</option>
+              <option value="AID">AID</option>
+              <option value="CSM">CSM</option>
+              <option value="CAI">CAI</option>
+              <option value="CSD">CSD</option>
+              <option value="CSC">CSC</option>
+            </select>
           </div>
-          
-          {/* Scrollable Body */}
-          <div className="max-h-[450px] overflow-y-auto">
-            {filteredStudents.length > 0 ? (
-              filteredStudents.map((student) => (
-                <div key={student._id} className="px-4 py-2 border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                  <div className="grid grid-cols-12 gap-4 items-center text-sm">
-                    {/* Name Column */}
-                    <div className="col-span-3">
-                      <div className="text-sm font-medium text-gray-900">
-                        {student.name}
-                      </div>
-                    </div>
-                    {/* Email Column */}
-                    <div className="col-span-3">
-                      <div className="text-sm text-gray-500">
-                        {student.email}
-                      </div>
-                    </div>
-                    {/* Branch Column */}
-                    <div className="col-span-2">
-                      <div className="text-sm text-gray-500">
-                        {student.branch}
-                      </div>
-                    </div>
-                    {/* Roll Number Column */}
-                    <div className="col-span-2">
-                      <div className="text-sm text-gray-500">
-                        {student.rollNo}
-                      </div>
-                    </div>
-                    {/* Actions Column */}
-                    <div className="col-span-2">
-                      <div className="flex space-x-2">
-                        <button 
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">College</label>
+            <select
+              value={filters.college}
+              onChange={(e) => setFilters({ ...filters, college: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+            >
+              <option value="">All Colleges</option>
+              <option value="KIET">KIET</option>
+              <option value="KIEK">KIEK</option>
+              <option value="KIEW">KIEW</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Students Table */}
+      <div className="bg-white rounded-lg shadow border border-gray-200">
+        {loading ? (
+          <div className="p-8">
+            <LoadingSkeleton />
+          </div>
+        ) : filteredStudents.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-xs sm:text-sm text-gray-500">
+              {searchQuery ? 'No students found matching your search' : 'No students in this batch'}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr className="bg-blue-50">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Name</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Roll No</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Email</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Branch</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">College</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Year</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredStudents.map((student, idx) => (
+                  <tr
+                    key={student._id}
+                    className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}
+                  >
+                    <td className="px-3 py-2 text-xs sm:text-sm text-gray-900 whitespace-nowrap">{student.name}</td>
+                    <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{student.rollNo}</td>
+                    <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{student.email}</td>
+                    <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{student.branch}</td>
+                    <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{student.college}</td>
+                    <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{student.yearOfPassing || '-'}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="flex items-center gap-1">
+                        <button
                           onClick={() => handleEdit(student)}
-                          className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded transition-colors"
-                          disabled={loading}
-                          title="Edit Student"
+                          className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                          title="Edit"
                         >
-                          <Pencil size={16} />
+                          <Pencil className="h-4 w-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(student)}
-                          className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded transition-colors"
-                          disabled={loading}
-                          title="Delete Student"
+                          className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                          title="Delete"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="px-6 py-12 text-center">
-                <div className="text-gray-500">
-                  {searchQuery ? (
-                    <div>
-                      <Search className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <h3 className="text-sm font-medium text-gray-900 mb-1">No students found</h3>
-                      <p className="text-sm text-gray-500">Try adjusting your search terms or filters</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900 mb-1">No students in this batch</h3>
-                      <p className="text-sm text-gray-500">Students will appear here once added</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-
-        {/* Mobile stacked cards - compact, mobile-first */}
-        <div className="sm:hidden space-y-3">
-          {filteredStudents.length > 0 ? (
-            filteredStudents.map((student) => (
-              <article key={student._id} className="w-full overflow-hidden box-border bg-white border rounded-lg p-3 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-semibold text-gray-900 truncate">{student.name}</h4>
-                    <p className="text-xs text-gray-500 mt-1 truncate">{student.email}</p>
-                    <div className="mt-2 text-xs text-gray-600 flex flex-wrap gap-3">
-                      <span className="truncate">{student.branch || '-'}</span>
-                      <span>•</span>
-                      <span className="truncate">Roll: {student.rollNo || '-'}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                    <button onClick={() => handleEdit(student)} className="p-1 rounded text-blue-600" title="Edit"><Pencil size={16} /></button>
-                    <button onClick={() => handleDelete(student)} className="p-1 rounded text-red-600" title="Delete"><Trash2 size={16} /></button>
-                    <button onClick={() => setExpandedId(expandedId === student._id ? null : student._id)} className="p-1 rounded border text-gray-600" title="Toggle details"><ChevronDown size={16} /></button>
-                  </div>
-                </div>
-
-                {expandedId === student._id && (
-                  <div className="mt-3 text-xs text-gray-700 space-y-1">
-                    <div><strong>College:</strong> {student.college || '-'}</div>
-                    <div><strong>Year:</strong> {student.yearOfPassing || '-'}</div>
-                    <div><strong>Email:</strong> {student.email}</div>
-                  </div>
-                )}
-              </article>
-            ))
-          ) : (
-            <div className="px-4 py-12 text-center">
-              <div className="text-gray-500">
-                {searchQuery ? (
-                  <div>
-                    <Search className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <h3 className="text-sm font-medium text-gray-900 mb-1">No students found</h3>
-                    <p className="text-sm text-gray-500">Try adjusting your search terms or filters</p>
-                  </div>
-                ) : (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-1">No students in this batch</h3>
-                    <p className="text-sm text-gray-500">Students will appear here once added</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-screen overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Edit Student</h3>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-sm sm:text-lg font-semibold text-gray-900 mb-4">Edit Student</h3>
             <form onSubmit={handleUpdateStudent} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Name</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
                 <input
                   type="text"
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="w-full px-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Roll No</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Roll No</label>
                 <input
                   type="text"
                   value={editForm.rollNo}
                   onChange={(e) => setEditForm({ ...editForm, rollNo: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="w-full px-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
                 <input
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="w-full px-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Branch</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Branch</label>
                 <select
                   value={editForm.branch}
                   onChange={(e) => setEditForm({ ...editForm, branch: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="w-full px-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                  required
                 >
+                  <option value="">Select Branch</option>
                   {['AID', 'CSM', 'CAI', 'CSC', 'CSD'].map(branch => (
                     <option key={branch} value={branch}>{branch}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Year of Passing</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Year of Passing</label>
                 <input
                   type="text"
                   value={editForm.yearOfPassing}
                   onChange={(e) => setEditForm({ ...editForm, yearOfPassing: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="w-full px-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">College</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">College</label>
                 <select
                   value={editForm.college}
                   onChange={(e) => setEditForm({ ...editForm, college: e.target.value })}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="w-full px-3 py-2 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                  required
                 >
+                  <option value="">Select College</option>
                   {['KIET', 'KIEK', 'KIEW'].map(college => (
                     <option key={college} value={college}>{college}</option>
                   ))}
                 </select>
               </div>
-              <div className="flex justify-end space-x-3 mt-6">
+              <div className="flex justify-end gap-2 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200"
+                  className="px-4 py-2 text-xs sm:text-sm bg-white text-gray-700 border border-gray-300 rounded hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  disabled={loading}
+                  className="px-4 py-2 text-xs sm:text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Save Changes
+                  {loading ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -521,32 +368,34 @@ const BatchStudentsPage = () => {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <div className="flex items-center mb-4">
-              <AlertCircle className="text-red-600 mr-2" size={24} />
-              <h3 className="text-lg font-semibold">Confirm Delete</h3>
+            <div className="flex items-center gap-2 mb-4">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              <h3 className="text-sm sm:text-lg font-semibold text-gray-900">Confirm Delete</h3>
             </div>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete this student? This action cannot be undone.
+            <p className="text-xs sm:text-sm text-gray-600 mb-6">
+              Are you sure you want to delete <strong>{selectedStudent?.name}</strong>? This action cannot be undone.
             </p>
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200"
+                className="px-4 py-2 text-xs sm:text-sm bg-white text-gray-700 border border-gray-300 rounded hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-200"
+                disabled={loading}
+                className="px-4 py-2 text-xs sm:text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
               >
-                Delete
+                {loading ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
         </div>
       )}
+      </main>
     </div>
   );
 };

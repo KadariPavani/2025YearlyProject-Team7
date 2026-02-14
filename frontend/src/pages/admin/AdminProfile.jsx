@@ -1,19 +1,10 @@
 import React, { useState, useEffect } from "react";
-import Navbar from "../../components/common/Navbar";
 import Header from "../../components/common/Header";
-import {
-  Shield,
-  Mail,
-  Clock,
-  UserCheck,
-  Calendar,
-  ArrowLeft,
-  Edit,
-} from "lucide-react";
+import { Shield, Mail, Clock, Calendar, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Skeleton } from '../../components/ui/skeleton';
 import { getAdminProfile } from "../../services/adminService";
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+
 const AdminProfile = () => {
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,10 +14,8 @@ const AdminProfile = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        // fetch admin profile with proper auth token
         const token = localStorage.getItem("adminToken");
         if (!token) throw new Error("No authentication token found");
-        // assuming getAdminProfile handles auth token, or pass it explicitly
         const response = await getAdminProfile();
         if (response && response.data && response.data.success) {
           setProfileData(response.data.data);
@@ -50,6 +39,12 @@ const AdminProfile = () => {
     fetchProfile();
   }, [navigate]);
 
+  const handleLogout = () => {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminData");
+    navigate("/super-admin-login");
+  };
+
   if (loading) {
     return <LoadingSkeleton />;
   }
@@ -60,124 +55,80 @@ const AdminProfile = () => {
   const tpoControls = permissions.tpoControls || {};
   const canViewActivity = permissions.canViewActivity;
 
-  const renderPermissionsSection = (title, permissionsObj) => (
-    <div className="col-span-1">
-      <h3 className="mb-2 text-lg font-semibold text-gray-800">{title}</h3>
-      <div className="space-y-1">
-        {Object.entries(permissionsObj).map(([key, value]) => (
-          <div
-            key={key}
-            className="flex justify-between p-2 bg-gray-50 rounded-md"
-          >
-            <span className="capitalize">{key}</span>
-            <span
-              className={`font-semibold px-2 rounded-md ${
-                value ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"
-              }`}
-            >
-              {value ? "Enabled" : "Disabled"}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const handleLogout = () => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminData");
-    navigate("/super-admin-login");
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       <Header
         title="Admin Profile"
-        subtitle="View and manage your profile"
-        icon={Shield}
+        subtitle="View your profile details"
+        showTitleInHeader={false}
         userData={profileData}
         profileRoute="/admin-profile"
         changePasswordRoute="/admin-change-password"
         onLogout={handleLogout}
-        onIconClick={() => {
-          if (window.location.pathname === '/admin-dashboard') {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          } else {
-            navigate('/admin-dashboard');
-          }
-        }}
+        onIconClick={() => navigate('/admin-dashboard')}
       />
-      
-      <main className="p-6 pt-24">
-        <button
-          onClick={() => navigate("/admin-dashboard")}
-          className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 transition-colors mb-6"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span className="font-medium">Back to Dashboard</span>
-        </button>
 
-        <div className="max-w-5xl mx-auto">
+      {/* Back Button - Fixed at top right */}
+      <div className="fixed top-20 right-4 sm:right-8 z-10">
+        <button
+          onClick={() => navigate('/admin-dashboard')}
+          className="flex items-center gap-1 px-3 py-2 text-xs sm:text-sm text-gray-600 bg-white border border-gray-200 rounded-lg shadow-sm hover:text-gray-900 hover:bg-gray-50"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+      </div>
+
+      <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-6 pt-24 w-full space-y-4">
+        {/* Header */}
+        <div>
+          <h1 className="text-sm sm:text-lg font-semibold text-gray-900">Profile Details</h1>
+        </div>
+
         {error ? (
-          <div className="bg-red-50 border border-red-300 rounded-md p-6 text-center shadow">
-            <p className="text-red-600 text-lg font-semibold">{error}</p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <p className="text-xs sm:text-sm text-red-600 font-medium">{error}</p>
             <button
               onClick={() => window.location.reload()}
-              className="mt-4 px-6 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+              className="mt-4 px-4 py-2 text-xs sm:text-sm bg-red-600 text-white rounded hover:bg-red-700"
             >
               Retry
             </button>
           </div>
         ) : (
           <>
-            {/* Page Title */}
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">
-              Your Account
-            </h1>
-
-            {/* Profile Section */}
-            <div className="bg-white rounded-md shadow-sm border border-gray-200 mb-6">
-              <div className="flex items-center justify-between border-b border-gray-200 p-4">
-                <div className="flex items-center gap-3">
-                  <Shield className="h-6 w-6 text-red-600" />
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Admin Profile
-                  </h2>
-                </div>
-                <button className="flex items-center gap-1 text-sm text-blue-600 hover:underline cursor-not-allowed" disabled>
-                  <Edit className="h-4 w-4" /> Edit
-                </button>
+            {/* Profile Information */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Shield className="h-5 w-5 text-blue-600" />
+                <h2 className="text-sm sm:text-base font-semibold text-gray-900">Account Information</h2>
               </div>
 
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Email */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Email Address</p>
-                  <p className="text-gray-900 font-medium">{profileData?.email}</p>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Email Address</label>
+                  <p className="text-xs sm:text-sm text-gray-900">{profileData?.email}</p>
                 </div>
 
-                {/* Role */}
                 <div>
-                  <p className="text-sm text-gray-600">Role</p>
-                  <p className="text-gray-900 font-medium capitalize">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Role</label>
+                  <p className="text-xs sm:text-sm text-gray-900 capitalize">
                     {profileData?.role?.replace(/_/g, " ")}
                   </p>
                 </div>
 
-                {/* Last Login */}
                 <div>
-                  <p className="text-sm text-gray-600">Last Login</p>
-                  <p className="text-gray-900 font-medium">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Last Login</label>
+                  <p className="text-xs sm:text-sm text-gray-900">
                     {profileData?.lastLogin
                       ? new Date(profileData.lastLogin).toLocaleString()
                       : "Never"}
                   </p>
                 </div>
 
-                {/* Created At */}
                 <div>
-                  <p className="text-sm text-gray-600">Account Created</p>
-                  <p className="text-gray-900 font-medium">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Account Created</label>
+                  <p className="text-xs sm:text-sm text-gray-900">
                     {profileData?.createdAt &&
                       new Date(profileData.createdAt).toLocaleDateString()}
                   </p>
@@ -186,18 +137,69 @@ const AdminProfile = () => {
             </div>
 
             {/* Permissions */}
-            <div className="bg-white rounded-md shadow-sm border border-gray-200 p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              {renderPermissionsSection("Admin Controls", adminControls)}
-              {renderPermissionsSection("Trainer Controls", trainerControls)}
-              {renderPermissionsSection("TPO Controls", tpoControls)}
-              <div className="col-span-full mt-4">
-                <div className="flex justify-between p-3 bg-gray-50 rounded-md">
-                  <span>View Activity Access</span>
-                  <span
-                    className={`font-semibold px-2 rounded-md ${
-                      canViewActivity ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"
-                    }`}
-                  >
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
+              <h2 className="text-sm sm:text-base font-semibold text-gray-900 mb-4">Permissions</h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Admin Controls */}
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-700 mb-2">Admin Controls</h3>
+                  <div className="space-y-1.5">
+                    {Object.entries(adminControls).map(([key, value]) => (
+                      <div key={key} className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600 capitalize">{key}</span>
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${
+                          value ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
+                        }`}>
+                          {value ? "Yes" : "No"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Trainer Controls */}
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-700 mb-2">Trainer Controls</h3>
+                  <div className="space-y-1.5">
+                    {Object.entries(trainerControls).map(([key, value]) => (
+                      <div key={key} className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600 capitalize">{key}</span>
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${
+                          value ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
+                        }`}>
+                          {value ? "Yes" : "No"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* TPO Controls */}
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-700 mb-2">TPO Controls</h3>
+                  <div className="space-y-1.5">
+                    {Object.entries(tpoControls).map(([key, value]) => (
+                      <div key={key} className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600 capitalize">{key}</span>
+                        <span className={`px-2 py-0.5 rounded-full font-semibold ${
+                          value ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
+                        }`}>
+                          {value ? "Yes" : "No"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* View Activity Access */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <span className="text-gray-700 font-medium">View Activity Access</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    canViewActivity ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"
+                  }`}>
                     {canViewActivity ? "Enabled" : "Disabled"}
                   </span>
                 </div>
@@ -205,7 +207,6 @@ const AdminProfile = () => {
             </div>
           </>
         )}
-        </div>
       </main>
     </div>
   );
