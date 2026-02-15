@@ -151,7 +151,7 @@ const CoordinatorProfile = () => {
           className="mb-4 flex items-center text-gray-600 hover:text-gray-900 transition-colors"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Dashboard
+          Back
         </button>
 
         {/* Toast Notification Component */}

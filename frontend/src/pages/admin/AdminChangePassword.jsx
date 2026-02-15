@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
 import { changeAdminPassword } from '../../services/adminService';
-import Header from '../../components/common/Header';
-import toast, { Toaster } from 'react-hot-toast';
 
 const AdminChangePassword = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
   const [changePasswordData, setChangePasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -20,15 +20,17 @@ const AdminChangePassword = () => {
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
+    setMessage('');
 
     if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
-      toast.error('New passwords do not match');
+      setError('New passwords do not match');
       setLoading(false);
       return;
     }
 
     if (changePasswordData.newPassword.length < 6) {
-      toast.error('New password must be at least 6 characters');
+      setError('New password must be at least 6 characters');
       setLoading(false);
       return;
     }
@@ -41,72 +43,41 @@ const AdminChangePassword = () => {
         newPassword: changePasswordData.newPassword
       });
 
-      toast.success('Password changed successfully!');
-      setChangePasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
-
+      setMessage('Password changed successfully! Redirecting...');
       setTimeout(() => {
         navigate('/admin-dashboard');
       }, 2000);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to change password');
+      setError(err.response?.data?.message || 'Failed to change password');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminData");
-    navigate("/super-admin-login");
-  };
-
-  const adminData = JSON.parse(localStorage.getItem('adminData') || '{}');
-
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <Header
-        title="Change Password"
-        subtitle="Update your password"
-        showTitleInHeader={false}
-        userData={adminData}
-        profileRoute="/admin-profile"
-        changePasswordRoute="/admin-change-password"
-        onLogout={handleLogout}
-        onIconClick={() => navigate('/admin-dashboard')}
-      />
-      <Toaster position="top-center" reverseOrder={false} />
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-100 flex items-center justify-center p-4">
+      <button
+        onClick={() => navigate('/admin-dashboard')}
+        className="fixed top-4 left-4 z-10 flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm text-[13px] font-medium"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <span>Back</span>
+      </button>
 
-      {/* Back Button - Fixed at top right */}
-      <div className="fixed top-24 right-4 sm:right-8 z-10">
-        <button
-          onClick={() => navigate('/admin-dashboard')}
-          className="flex items-center gap-1 px-3 py-2 text-xs sm:text-sm text-gray-600 bg-white border border-gray-200 rounded-lg shadow-sm hover:text-gray-900 hover:bg-gray-50"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </button>
-      </div>
+      <div className="w-full max-w-[420px]">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <img src="/IFlogo.png" alt="Infoverse" className="h-12 mx-auto mb-4" />
+          <h1 className="text-[22px] font-bold text-slate-800 mb-1">Change Password</h1>
+        </div>
 
-      <main className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 pt-24">
-        <div className="w-full max-w-md">
-          {/* Header */}
-          <div className="mb-4">
-            <h1 className="text-sm sm:text-lg font-semibold text-gray-900">Change Password</h1>
-          </div>
-
-          {/* Change Password Form */}
-          <div className="bg-white rounded-lg shadow border border-gray-200 p-6">
-          <form onSubmit={handleChangePassword} className="space-y-4">
+        <div className="bg-white rounded-2xl shadow-lg shadow-blue-100/50 border border-blue-100/50 p-7">
+          <form onSubmit={handleChangePassword} className="space-y-5">
             {/* Current Password */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Current Password <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Current Password</label>
               <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-[18px] w-[18px]" />
                 <input
                   type={showCurrentPassword ? 'text' : 'password'}
                   value={changePasswordData.currentPassword}
@@ -115,25 +86,24 @@ const AdminChangePassword = () => {
                     currentPassword: e.target.value
                   })}
                   required
-                  className="w-full px-3 py-2 pr-10 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full pl-10 pr-11 py-2.5 border border-slate-200 rounded-xl text-[14px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                   placeholder="Enter current password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
-                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showCurrentPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
                 </button>
               </div>
             </div>
 
             {/* New Password */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                New Password <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">New Password</label>
               <div className="relative">
+                <KeyRound className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-[18px] w-[18px]" />
                 <input
                   type={showNewPassword ? 'text' : 'password'}
                   value={changePasswordData.newPassword}
@@ -142,26 +112,25 @@ const AdminChangePassword = () => {
                     newPassword: e.target.value
                   })}
                   required
-                  className="w-full px-3 py-2 pr-10 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full pl-10 pr-11 py-2.5 border border-slate-200 rounded-xl text-[14px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                   placeholder="Enter new password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
-                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showNewPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Must be at least 6 characters</p>
+              <p className="text-[12px] text-slate-500 mt-1.5">Must be at least 6 characters</p>
             </div>
 
             {/* Confirm New Password */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Confirm New Password <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Confirm New Password</label>
               <div className="relative">
+                <KeyRound className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-[18px] w-[18px]" />
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={changePasswordData.confirmPassword}
@@ -170,40 +139,46 @@ const AdminChangePassword = () => {
                     confirmPassword: e.target.value
                   })}
                   required
-                  className="w-full px-3 py-2 pr-10 border border-gray-200 rounded text-xs sm:text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full pl-10 pr-11 py-2.5 border border-slate-200 rounded-xl text-[14px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
                   placeholder="Confirm new password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showConfirmPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
                 </button>
               </div>
             </div>
 
-            {/* Buttons */}
-            <div className="flex justify-end gap-2 pt-4">
-              <button
-                type="button"
-                onClick={() => navigate('/admin-dashboard')}
-                className="px-4 py-2 text-xs sm:text-sm bg-white text-gray-700 border border-gray-300 rounded hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-4 py-2 text-xs sm:text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-              >
-                {loading ? 'Updating...' : 'Update Password'}
-              </button>
-            </div>
+            {error && (
+              <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+                <p className="text-red-600 text-[13px]">{error}</p>
+              </div>
+            )}
+
+            {message && (
+              <div className="bg-green-50 border border-green-100 rounded-xl p-3">
+                <p className="text-green-700 text-[13px]">{message}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white py-2.5 px-4 rounded-xl text-[14px] font-semibold transition-all duration-200 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md shadow-blue-200/50"
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-white"></div>
+              ) : (
+                <KeyRound className="h-[18px] w-[18px]" />
+              )}
+              {loading ? 'Updating...' : 'Update Password'}
+            </button>
           </form>
         </div>
-        </div>
-      </main>
+      </div>
     </div>
   );
 };

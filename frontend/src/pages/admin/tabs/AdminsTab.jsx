@@ -132,36 +132,7 @@ const AdminsTab = ({
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-3 gap-2">
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-gray-700">Sort:</label>
-            <select
-              value={adminSortBy}
-              onChange={(e) => setAdminSortBy(e.target.value)}
-              className="px-2 py-1 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
-            >
-              <option value="email">Email</option>
-              <option value="role">Role</option>
-              <option value="status">Status</option>
-              <option value="createdAt">Created Date</option>
-              <option value="lastLogin">Last Login</option>
-            </select>
-
-            <button
-              onClick={() => setAdminSortOrder(adminSortOrder === "asc" ? "desc" : "asc")}
-              className="px-2 py-1 border border-gray-200 rounded text-xs hover:bg-gray-50"
-            >
-              {adminSortOrder === "asc" ? "Asc" : "Desc"}
-            </button>
-
-            <button
-              onClick={clearAdminFilters}
-              className="px-2 py-1 text-xs text-red-600 hover:text-red-800"
-            >
-              Clear
-            </button>
-          </div>
-
+        <div className="flex items-center justify-end mt-3">
           <div className="text-xs text-gray-500">
             {filteredAndSortedAdmins.length} of {admins.length} admins
           </div>

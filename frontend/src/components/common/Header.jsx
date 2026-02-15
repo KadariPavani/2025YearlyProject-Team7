@@ -109,7 +109,7 @@ const Header = ({
                 className={`rounded-md ${onIconClick ? 'cursor-pointer hover:bg-white/10 transition-colors duration-200' : ''}`}
                 onClick={onIconClick}
               >
-                <img src={logoSrc} alt={logoAlt} className="h-16 w-16 -my-2 md:-my-1 object-contain" />
+                <img src={logoSrc} alt={logoAlt} className="h-14 w-14 -my-2 md:-my-1 object-contain" />
               </div>
             ) : Icon && (
               <div 

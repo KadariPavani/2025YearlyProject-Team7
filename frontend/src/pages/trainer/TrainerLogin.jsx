@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, BookOpen, ArrowLeft, Mail, Lock, LogIn } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, Mail, Lock, LogIn } from 'lucide-react';
 import axios from 'axios';
 
 const TrainerLogin = () => {
@@ -51,20 +51,18 @@ const TrainerLogin = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
     setLoading(true);
     try {
       const response = await axios.post('/api/trainer/login', formData);
-      
+
       if (response.data.success) {
-        console.log('Login response:', response.data);
-        
         localStorage.setItem('trainerToken', response.data.token);
         localStorage.setItem('userToken', response.data.token);
         localStorage.setItem('trainerData', JSON.stringify(response.data.data));
-        
+
         setTimeout(() => {
           alert('Login successful!');
           navigate('/trainer-dashboard');
@@ -75,7 +73,6 @@ const TrainerLogin = () => {
       console.error('Login error:', error);
       toast.error(message);
 
-      // focus input according to server message
       if (/Trainer not found|User not found|Admin not found/i.test(message)) {
         emailRef.current?.focus();
       } else if (/Invalid password|password/i.test(message)) {
@@ -94,67 +91,65 @@ const TrainerLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-green-25 to-white flex items-center justify-center p-4">
-      {/* Fixed Back to Home Button */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-100 flex items-center justify-center p-4">
+      {/* Back to Home Button */}
       <button
         onClick={() => navigate('/')}
-        className="fixed top-4 left-4 z-10 flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-md"
+        className="fixed top-4 left-4 z-10 flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm text-[13px] font-medium"
       >
         <ArrowLeft className="h-4 w-4" />
-        <span className="text-sm">Home</span>
+        <span>Home</span>
       </button>
 
-      <div className="max-w-md w-full mt-8 sm:mt-0">
+      <div className="w-full max-w-[420px]">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="bg-green-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <BookOpen className="h-8 w-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Trainer Login</h1>
-          <p className="text-gray-600">Access your training dashboard</p>
+        <div className="text-center mb-6">
+          <img src="/IFlogo.png" alt="Infoverse" className="h-12 mx-auto mb-4" />
+          <h1 className="text-[22px] font-bold text-slate-800 mb-1">Trainer Login</h1>
+          <p className="text-[13px] text-slate-500">Access your training dashboard</p>
         </div>
 
         {/* Login Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="bg-white rounded-2xl shadow-lg shadow-blue-100/50 border border-blue-100/50 p-7">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-[18px] w-[18px]" />
                 <input
                   ref={emailRef}
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500 transition-colors ${
-                    errors.email ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full pl-10 pr-4 py-2.5 border rounded-xl text-[14px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all ${
+                    errors.email ? 'border-red-400' : 'border-slate-200'
                   }`}
                   placeholder="Enter your email"
                   disabled={!!lockedUntil}
                 />
               </div>
-              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+              {errors.email && <p className="mt-1 text-[12px] text-red-500">{errors.email}</p>}
             </div>
 
             {/* Password Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-[18px] w-[18px]" />
                 <input
                   ref={passwordRef}
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500 transition-colors ${
-                    errors.password ? 'border-red-500' : 'border-gray-300'
+                  className={`w-full pl-10 pr-11 py-2.5 border rounded-xl text-[14px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all ${
+                    errors.password ? 'border-red-400' : 'border-slate-200'
                   }`}
                   placeholder="Enter your password"
                   disabled={!!lockedUntil}
@@ -162,18 +157,18 @@ const TrainerLogin = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
                 </button>
               </div>
-              {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
+              {errors.password && <p className="mt-1 text-[12px] text-red-500">{errors.password}</p>}
             </div>
 
-            {/* Message area */}
+            {/* Locked message */}
             {lockedUntil && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
-                <p className="text-yellow-800 text-sm">Account locked until {lockedUntil.toLocaleString()}</p>
+              <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+                <p className="text-amber-700 text-[13px]">Account locked until {lockedUntil.toLocaleString()}</p>
               </div>
             )}
 
@@ -181,12 +176,12 @@ const TrainerLogin = () => {
             <button
               type="submit"
               disabled={loading || !!lockedUntil}
-              className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-all duration-200 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed shadow-lg flex items-center justify-center"
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white py-2.5 px-4 rounded-xl text-[14px] font-semibold transition-all duration-200 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md shadow-blue-200/50"
             >
               {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-white"></div>
               ) : (
-                <LogIn className="h-5 w-5 mr-2" />
+                <LogIn className="h-[18px] w-[18px]" />
               )}
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
@@ -196,7 +191,7 @@ const TrainerLogin = () => {
               <button
                 type="button"
                 onClick={() => navigate('/trainer-forgot-password')}
-                className="text-green-600 hover:text-green-800 text-sm font-medium"
+                className="text-blue-600 hover:text-blue-700 text-[13px] font-medium"
               >
                 Forgot your password?
               </button>
@@ -205,11 +200,11 @@ const TrainerLogin = () => {
         </div>
 
         {/* Admin contact info */}
-        <div className="mt-6 p-4 bg-white/50 backdrop-blur-sm rounded-lg shadow-lg">
-          <p className="text-gray-700 text-sm text-center">
+        {/* <div className="mt-5 p-3.5 bg-blue-50/60 backdrop-blur-sm rounded-xl border border-blue-100/50">
+          <p className="text-slate-500 text-[13px] text-center">
             New trainer? Contact your administrator for account setup.
           </p>
-        </div>
+        </div> */}
       </div>
     </div>
   );

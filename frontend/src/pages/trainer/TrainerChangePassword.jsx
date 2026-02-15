@@ -1,37 +1,35 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft, Lock, Eye, EyeOff, Check, AlertCircle
-} from 'lucide-react';
-import Header from '../../components/common/Header';
-import useHeaderData from '../../hooks/useHeaderData';
+import { ArrowLeft, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
 
 const TrainerChangePassword = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-
   const [changePasswordData, setChangePasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
-
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  const header = useHeaderData('trainer');
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setSuccessMessage('');
+    setMessage('');
 
     if (changePasswordData.newPassword !== changePasswordData.confirmPassword) {
       setError('New passwords do not match');
+      setLoading(false);
+      return;
+    }
+
+    if (changePasswordData.newPassword.length < 6) {
+      setError('New password must be at least 6 characters');
       setLoading(false);
       return;
     }
@@ -52,13 +50,7 @@ const TrainerChangePassword = () => {
 
       const result = await response.json();
       if (result.success) {
-        setSuccessMessage('Password changed successfully!');
-        setChangePasswordData({
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        });
-
+        setMessage('Password changed successfully! Redirecting...');
         setTimeout(() => {
           navigate('/trainer-dashboard');
         }, 2000);
@@ -73,39 +65,29 @@ const TrainerChangePassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header
-        title="Change Password"
-        subtitle="Trainer Security Settings"
-        {...header.headerProps}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-100 flex items-center justify-center p-4">
+      <button
+        onClick={() => navigate('/trainer-dashboard')}
+        className="fixed top-4 left-4 z-10 flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm text-[13px] font-medium"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <span>Back</span>
+      </button>
 
-      {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
-        <button
-          onClick={() => navigate('/trainer-dashboard')}
-          className="flex items-center gap-2 text-gray-700 hover:text-blue-600 transition-colors mb-6"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span className="font-medium">Back to Dashboard</span>
-        </button>
+      <div className="w-full max-w-[420px]">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <img src="/IFlogo.png" alt="Infoverse" className="h-12 mx-auto mb-4" />
+          <h1 className="text-[22px] font-bold text-slate-800 mb-1">Change Password</h1>
+        </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <div className="text-center mb-8">
-            <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Lock className="h-8 w-8 text-green-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Change Your Password</h2>
-            <p className="text-gray-600">Update your password to keep your account secure</p>
-          </div>
-
-          <form onSubmit={handleChangePassword} className="space-y-6">
+        <div className="bg-white rounded-2xl shadow-lg shadow-blue-100/50 border border-blue-100/50 p-7">
+          <form onSubmit={handleChangePassword} className="space-y-5">
+            {/* Current Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Current Password
-              </label>
+              <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Current Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-[18px] w-[18px]" />
                 <input
                   type={showCurrentPassword ? 'text' : 'password'}
                   value={changePasswordData.currentPassword}
@@ -114,25 +96,24 @@ const TrainerChangePassword = () => {
                     currentPassword: e.target.value
                   })}
                   required
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="Enter your current password"
+                  className="w-full pl-10 pr-11 py-2.5 border border-slate-200 rounded-xl text-[14px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+                  placeholder="Enter current password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
-                  {showCurrentPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showCurrentPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
                 </button>
               </div>
             </div>
 
+            {/* New Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                New Password
-              </label>
+              <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">New Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <KeyRound className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-[18px] w-[18px]" />
                 <input
                   type={showNewPassword ? 'text' : 'password'}
                   value={changePasswordData.newPassword}
@@ -141,25 +122,25 @@ const TrainerChangePassword = () => {
                     newPassword: e.target.value
                   })}
                   required
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="Enter your new password"
+                  className="w-full pl-10 pr-11 py-2.5 border border-slate-200 rounded-xl text-[14px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+                  placeholder="Enter new password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
-                  {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showNewPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
                 </button>
               </div>
+              <p className="text-[12px] text-slate-500 mt-1.5">Must be at least 6 characters</p>
             </div>
 
+            {/* Confirm New Password */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm New Password
-              </label>
+              <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Confirm New Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <KeyRound className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-[18px] w-[18px]" />
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={changePasswordData.confirmPassword}
@@ -168,59 +149,46 @@ const TrainerChangePassword = () => {
                     confirmPassword: e.target.value
                   })}
                   required
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                  placeholder="Confirm your new password"
+                  className="w-full pl-10 pr-11 py-2.5 border border-slate-200 rounded-xl text-[14px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+                  placeholder="Confirm new password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
-                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showConfirmPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
                 </button>
               </div>
             </div>
 
-            {successMessage && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center">
-                <Check className="h-5 w-5 text-green-600 mr-3" />
-                <span className="text-green-700">{successMessage}</span>
-              </div>
-            )}
-
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center">
-                <AlertCircle className="h-5 w-5 text-red-600 mr-3" />
-                <span className="text-red-700">{error}</span>
+              <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+                <p className="text-red-600 text-[13px]">{error}</p>
               </div>
             )}
 
-            <div className="flex space-x-4 pt-4">
-              <button
-                type="button"
-                onClick={() => navigate('/trainer-dashboard')}
-                className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 font-medium flex items-center justify-center"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Updating...
-                  </>
-                ) : (
-                  'Update Password'
-                )}
-              </button>
-            </div>
+            {message && (
+              <div className="bg-green-50 border border-green-100 rounded-xl p-3">
+                <p className="text-green-700 text-[13px]">{message}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white py-2.5 px-4 rounded-xl text-[14px] font-semibold transition-all duration-200 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md shadow-blue-200/50"
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-white"></div>
+              ) : (
+                <KeyRound className="h-[18px] w-[18px]" />
+              )}
+              {loading ? 'Updating...' : 'Update Password'}
+            </button>
           </form>
         </div>
-      </main>
+      </div>
     </div>
   );
 };
