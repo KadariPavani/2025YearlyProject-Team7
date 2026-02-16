@@ -1,14 +1,16 @@
-// File: src/components/TPOProfile.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  User, Mail, Phone, Calendar, Users,
-  Edit3, Save, X, Lock, AlertCircle, CheckCircle,
-  Briefcase, Linkedin, Building, BookOpen, Target, ArrowLeft
+  Mail, Phone, Calendar, Briefcase,
+  Edit3, Save, X, Linkedin, ArrowLeft,
+  Users, BookOpen, Building, Clock, GraduationCap,
+  CalendarDays, UserCheck, Activity, Shield
 } from 'lucide-react';
-import { getProfile, updateProfile, checkPasswordChange } from '../../services/generalAuthService';
+import { getProfile, updateProfile } from '../../services/generalAuthService';
+import api from '../../services/api';
 import Header from '../../components/common/Header';
 import ToastNotification from '../../components/ui/ToastNotification';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 import useHeaderData from '../../hooks/useHeaderData';
 
 const TPOProfile = () => {
@@ -18,11 +20,11 @@ const TPOProfile = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
-  // Form states - only fields that exist in your schema
   const [formData, setFormData] = useState({
     name: '',
-    phone: '',
     experience: 0,
     linkedIn: ''
   });
@@ -31,7 +33,7 @@ const TPOProfile = () => {
 
   useEffect(() => {
     fetchProfile();
-    checkPasswordStatus();
+    fetchStats();
   }, []);
 
   const fetchProfile = async () => {
@@ -39,13 +41,10 @@ const TPOProfile = () => {
       setLoading(true);
       setError('');
       const response = await getProfile('tpo');
-      
       if (response.data.success) {
         setProfile(response.data.data);
-        // Only set the fields that exist in your schema
         setFormData({
           name: response.data.data.name || '',
-          phone: response.data.data.phone || '',
           experience: response.data.data.experience || 0,
           linkedIn: response.data.data.linkedIn || ''
         });
@@ -55,7 +54,6 @@ const TPOProfile = () => {
     } catch (err) {
       console.error('Profile fetch error:', err);
       setError(err.response?.data?.message || 'Failed to fetch profile');
-      
       if (err.response?.status === 401) {
         setTimeout(() => {
           localStorage.removeItem('userToken');
@@ -68,15 +66,72 @@ const TPOProfile = () => {
     }
   };
 
-  const checkPasswordStatus = async () => {
+  const fetchStats = async () => {
+    setLoadingStats(true);
     try {
-      const response = await checkPasswordChange('tpo');
-      if (response.data.success) {
-        // Handle password change requirement if needed
-        console.log('Password change status:', response.data.needsPasswordChange);
-      }
+      const token = localStorage.getItem('userToken');
+      const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const headers = { 'Authorization': `Bearer ${token}` };
+
+      const [batchesRes, placementRes, studentsRes, scheduleRes, approvalsRes] = await Promise.allSettled([
+        fetch(`${baseURL}/api/tpo/batches`, { headers }).then(r => r.json()),
+        fetch(`${baseURL}/api/tpo/placement-training-batches`, { headers }).then(r => r.json()),
+        fetch(`${baseURL}/api/tpo/students-by-batch`, { headers }).then(r => r.json()),
+        fetch(`${baseURL}/api/tpo/schedule-timetable`, { headers }).then(r => r.json()),
+        fetch(`${baseURL}/api/tpo/pending-approvals`, { headers }).then(r => r.json())
+      ]);
+
+      const assignedBatches = batchesRes.status === 'fulfilled' && batchesRes.value.success
+        ? batchesRes.value.data : [];
+
+      const placementData = placementRes.status === 'fulfilled' && placementRes.value.success
+        ? placementRes.value.data : {};
+
+      const studentData = studentsRes.status === 'fulfilled' && studentsRes.value.success
+        ? studentsRes.value.data : {};
+
+      const scheduleData = scheduleRes.status === 'fulfilled' && scheduleRes.value.success
+        ? scheduleRes.value.data : [];
+
+      const pendingApprovals = approvalsRes.status === 'fulfilled' && approvalsRes.value.success
+        ? approvalsRes.value.data : [];
+
+      let placementBatchCount = 0;
+      let placementStudentCount = 0;
+      const organized = placementData.organized || {};
+      Object.values(organized).forEach(colleges => {
+        Object.values(colleges).forEach(techMap => {
+          Object.values(techMap).forEach(group => {
+            const batches = (group.batches || []).filter(b => (b.studentCount || b.students?.length || 0) > 0);
+            placementBatchCount += batches.length;
+            placementStudentCount += batches.reduce((acc, b) => acc + (b.studentCount || b.students?.length || 0), 0);
+          });
+        });
+      });
+
+      const trainerIds = new Set();
+      let totalClasses = 0;
+      (Array.isArray(scheduleData) ? scheduleData : []).forEach(batch => {
+        (batch.assignedTrainers || []).forEach(t => {
+          if (t.trainer?._id) trainerIds.add(t.trainer._id);
+          totalClasses += (t.schedule?.length || 0);
+        });
+      });
+
+      setStats({
+        assignedBatches: assignedBatches.length,
+        totalStudents: studentData.stats?.totalStudents || 0,
+        crtStudents: studentData.stats?.crtStudents || 0,
+        placementBatches: placementBatchCount,
+        placementStudents: placementStudentCount,
+        trainerAssignments: trainerIds.size,
+        scheduledClasses: totalClasses,
+        pendingApprovals: pendingApprovals.length
+      });
     } catch (err) {
-      console.error('Failed to check password status:', err);
+      console.error('Stats fetch error:', err);
+    } finally {
+      setLoadingStats(false);
     }
   };
 
@@ -93,7 +148,6 @@ const TPOProfile = () => {
       setLoading(true);
       setError('');
       const response = await updateProfile('tpo', formData);
-      
       if (response.data.success) {
         setProfile(response.data.data);
         setIsEditing(false);
@@ -112,7 +166,6 @@ const TPOProfile = () => {
   const handleCancel = () => {
     setFormData({
       name: profile?.name || '',
-      phone: profile?.phone || '',
       experience: profile?.experience || 0,
       linkedIn: profile?.linkedIn || ''
     });
@@ -120,292 +173,344 @@ const TPOProfile = () => {
     setError('');
   };
 
-  if (loading && !profile) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your profile...</p>
-        </div>
-      </div>
-    );
-  }
+  const getInitials = (name) => {
+    if (!name) return 'TP';
+    return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  if (loading && !profile) return <LoadingSkeleton />;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       <Header
         title="TPO Profile"
         subtitle="Manage Your Profile"
         {...header.headerProps}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
-        {/* Back Button */}
+      <main className="flex-1 w-full max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6 pt-20 sm:pt-24">
+        {/* Back */}
         <button
           onClick={() => navigate('/tpo-dashboard')}
-          className="mb-4 flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+          className="mb-3 sm:mb-4 flex items-center gap-1.5 text-xs sm:text-sm text-gray-500 hover:text-gray-900"
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
+          <ArrowLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           Back to Dashboard
         </button>
 
-        {/* Toast Notification Component */}
+        {/* Toast */}
         {(error || success) && (
           <ToastNotification
-            type={error ? "error" : "success"}
+            type={error ? 'error' : 'success'}
             message={error || success}
-            onClose={() => {
-              setError("");
-              setSuccess("");
-            }}
+            onClose={() => { setError(''); setSuccess(''); }}
           />
         )}
 
-        {/* Action Buttons */}
-        <div className="flex justify-end gap-3 mb-6">
-          {!isEditing ? (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
-                >
-              <Edit3 className="h-4 w-4" />
-              <span>Edit Profile</span>
-            </button>
-          ) : (
-            <div className="flex space-x-2">
-              <button
-                onClick={handleSave}
-                disabled={loading}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 disabled:opacity-50"
-              >
-                <Save className="h-4 w-4" />
-                <span>{loading ? 'Saving...' : 'Save'}</span>
-              </button>
-              <button
-                onClick={handleCancel}
-                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2"
-              >
-                <X className="h-4 w-4" />
-                <span>Cancel</span>
-              </button>
-            </div>
-          )}
-        </div>
+        {/* ──── PROFILE HEADER CARD ──── */}
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden mb-4 sm:mb-5">
+          {/* Thin accent strip */}
+          <div className="h-1.5 bg-blue-600" />
 
-        {/* Profile Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Profile Card */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="text-center">
-                <div className="w-32 h-32 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-white shadow-lg">
-                  <Users className="h-16 w-16 text-blue-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  {profile?.name || 'TPO Name'}
-                </h2>
-                <p className="text-gray-600 mb-4 flex items-center justify-center">
-                  <Briefcase className="h-4 w-4 mr-2" />
-                  Training & Placement Officer
-                </p>
-                <div className="flex items-center justify-center space-x-2 text-sm text-gray-500 mb-4">
-                  <Mail className="h-4 w-4" />
-                  <span>{profile?.email || 'email@college.edu'}</span>
-                </div>
-                <div className="bg-blue-50 rounded-lg p-3">
-                  <div className="flex items-center justify-center space-x-2 text-blue-700">
-                    <Calendar className="h-4 w-4" />
-                    <span className="font-semibold">{profile?.experience || 0} years experience</span>
-                  </div>
+          <div className="p-4 sm:p-6">
+            {/* Desktop: row | Mobile: centered stack */}
+            <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-5">
+              {/* Avatar */}
+              <div className="flex-shrink-0 mx-auto sm:mx-0">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-blue-600 flex items-center justify-center">
+                  <span className="text-lg sm:text-2xl font-bold text-white">{getInitials(profile?.name)}</span>
                 </div>
               </div>
-            </div>
 
-            {/* Quick Stats */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <Target className="h-5 w-5 mr-2 text-blue-600" />
-                Quick Stats
-              </h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <span className="text-gray-600 flex items-center">
-                    <Users className="h-4 w-4 mr-2" />
-                    Assigned Trainers
-                  </span>
-                  <span className="font-bold text-blue-600 text-lg">
-                    {profile?.assignedTrainers?.length || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <span className="text-gray-600 flex items-center">
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    Assigned Batches
-                  </span>
-                  <span className="font-bold text-green-600 text-lg">
-                    {profile?.assignedBatches?.length || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <span className="text-gray-600 flex items-center">
-                    <Building className="h-4 w-4 mr-2" />
-                    Managed Companies
-                  </span>
-                  <span className="font-bold text-purple-600 text-lg">
-                    {profile?.managedCompanies?.length || 0}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Profile Details */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center">
-                  <User className="h-6 w-6 mr-2 text-blue-600" />
-                  Personal Information
-                </h3>
-                {!isEditing && profile?.updatedAt && (
-                  <span className="text-sm text-gray-500">
-                    Last updated: {new Date(profile.updatedAt).toLocaleDateString()}
-                  </span>
-                )}
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Info */}
+              <div className="flex-1 min-w-0 text-center sm:text-left">
                 {/* Name */}
-                <div>
-                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                    <User className="h-4 w-4 mr-1" />
-                    Full Name *
-                  </label>
+                {isEditing ? (
                   <input
                     type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 transition-colors"
-                    placeholder="Enter your full name"
-                    required
+                    className="w-full sm:w-auto px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-lg font-semibold text-gray-900"
+                    placeholder="Full Name"
                   />
+                ) : (
+                  <h1 className="text-base sm:text-xl font-bold text-gray-900 truncate">{profile?.name || '—'}</h1>
+                )}
+                <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Training & Placement Officer</p>
+
+                {/* Badges */}
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 mt-2">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium border ${
+                    profile?.status === 'active'
+                      ? 'bg-green-50 text-green-700 border-green-200'
+                      : 'bg-red-50 text-red-700 border-red-200'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${profile?.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
+                    {profile?.status || 'active'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                    <Briefcase className="h-3 w-3" />
+                    {profile?.experience || 0} yrs experience
+                  </span>
                 </div>
 
-                {/* Email (Read-only) */}
-                <div>
-                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                    <Mail className="h-4 w-4 mr-1" />
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      value={profile?.email || ''}
-                      disabled
-                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-                      placeholder="your.email@college.edu"
-                    />
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                {/* Contact row */}
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1.5 mt-3 text-xs sm:text-sm text-gray-600">
+                  {profile?.email && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Mail className="h-3.5 w-3.5 text-gray-400" />
+                      <span className="truncate max-w-[200px]">{profile.email}</span>
+                    </span>
+                  )}
+                  {profile?.phone && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Phone className="h-3.5 w-3.5 text-gray-400" />
+                      {profile.phone}
+                    </span>
+                  )}
+                  {profile?.linkedIn ? (
+                    <a href={profile.linkedIn} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-blue-600 hover:underline">
+                      <Linkedin className="h-3.5 w-3.5" />
+                      LinkedIn
+                    </a>
+                  ) : isEditing ? null : (
+                    <span className="inline-flex items-center gap-1.5 text-gray-400 italic">
+                      <Linkedin className="h-3.5 w-3.5" />
+                      Not linked
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Edit button - top right on desktop */}
+              <div className="flex-shrink-0 flex justify-center sm:justify-end">
+                {!isEditing ? (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1.5"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                    Edit Profile
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleSave}
+                      disabled={loading}
+                      className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1.5 disabled:opacity-50"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      Save
+                    </button>
+                    <button
+                      onClick={handleCancel}
+                      className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 flex items-center gap-1.5"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Cancel
+                    </button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-                </div>
+                )}
+              </div>
+            </div>
 
-                {/* Phone */}
+            {/* Edit fields (inline, below profile info when editing) */}
+            {isEditing && (
+              <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                    <Phone className="h-4 w-4 mr-1" />
-                    Phone Number *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      disabled={!isEditing}
-                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 transition-colors"
-                      placeholder="9876543210"
-                      pattern="[0-9]{10}"
-                      required
-                    />
-                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">10 digits required</p>
-                </div>
-
-                {/* Experience */}
-                <div>
-                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    Experience (Years)
-                  </label>
+                  <label className="block text-[10px] sm:text-xs text-gray-500 font-medium mb-1">Experience (Years)</label>
                   <input
                     type="number"
                     name="experience"
                     value={formData.experience}
                     onChange={handleInputChange}
-                    disabled={!isEditing}
-                    min="0"
-                    max="50"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 transition-colors"
+                    min="0" max="50"
+                    className="w-full px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
                   />
                 </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] sm:text-xs text-gray-500 font-medium mb-1">LinkedIn URL</label>
+                  <input
+                    type="url"
+                    name="linkedIn"
+                    value={formData.linkedIn}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
+                    placeholder="https://linkedin.com/in/..."
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
-                {/* LinkedIn */}
-                <div className="md:col-span-2">
-                  <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
-                    <Linkedin className="h-4 w-4 mr-1" />
-                    LinkedIn Profile
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="url"
-                      name="linkedIn"
-                      value={formData.linkedIn}
-                      onChange={handleInputChange}
-                      disabled={!isEditing}
-                      placeholder="https://linkedin.com/in/yourprofile"
-                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:text-gray-500 transition-colors"
-                    />
-                    <Linkedin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+        {/* ──── STATS SECTION: Training & Placement ──── */}
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden mb-4 sm:mb-5">
+          <div className="bg-blue-50 px-4 py-2.5 border-b border-gray-200">
+            <h2 className="text-xs sm:text-sm font-semibold text-gray-700">Training & Batches</h2>
+          </div>
+          <div className="p-3 sm:p-4">
+            {loadingStats ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+                {[1,2,3,4].map(i => (
+                  <div key={i} className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-4 animate-pulse">
+                    <div className="h-3 bg-gray-200 rounded w-20 mb-2" />
+                    <div className="h-5 bg-gray-200 rounded w-10" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+                <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-md bg-blue-50 items-center justify-center flex-shrink-0">
+                      <BookOpen className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] sm:text-xs text-gray-500">Assigned Batches</p>
+                      <p className="text-sm sm:text-xl font-bold text-gray-900">{stats?.assignedBatches ?? 0}</p>
+                    </div>
                   </div>
                 </div>
-
-                {/* Status (Read-only) */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Account Status
-                  </label>
-                  <div className={`px-4 py-3 rounded-lg ${
-                    profile?.status === 'active' 
-                      ? 'bg-green-50 text-green-700 border border-green-200' 
-                      : 'bg-red-50 text-red-700 border border-red-200'
-                  }`}>
-                    <span className="font-medium capitalize">{profile?.status || 'active'}</span>
+                <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-md bg-green-50 items-center justify-center flex-shrink-0">
+                      <GraduationCap className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] sm:text-xs text-gray-500">Placement Batches</p>
+                      <p className="text-sm sm:text-xl font-bold text-gray-900">{stats?.placementBatches ?? 0}</p>
+                    </div>
                   </div>
                 </div>
-
-                {/* Role (Read-only) */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    User Role
-                  </label>
-                  <div className="px-4 py-3 bg-blue-50 text-blue-700 rounded-lg border border-blue-200">
-                    <span className="font-medium capitalize">{profile?.role || 'tpo'}</span>
+                <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-md bg-amber-50 items-center justify-center flex-shrink-0">
+                      <Users className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] sm:text-xs text-gray-500">Trainer Assignments</p>
+                      <p className="text-sm sm:text-xl font-bold text-gray-900">{stats?.trainerAssignments ?? 0}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-md bg-purple-50 items-center justify-center flex-shrink-0">
+                      <CalendarDays className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] sm:text-xs text-gray-500">Scheduled Classes</p>
+                      <p className="text-sm sm:text-xl font-bold text-gray-900">{stats?.scheduledClasses ?? 0}</p>
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
+          </div>
+        </div>
 
-              {isEditing && (
-                <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center space-x-2 text-blue-700">
-                    <AlertCircle className="h-4 w-4" />
-                    <p className="text-sm">Fields marked with * are required. Email cannot be changed.</p>
+        {/* ──── STATS SECTION: Students ──── */}
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden mb-4 sm:mb-5">
+          <div className="bg-green-50 px-4 py-2.5 border-b border-gray-200">
+            <h2 className="text-xs sm:text-sm font-semibold text-gray-700">Students Overview</h2>
+          </div>
+          <div className="p-3 sm:p-4">
+            {loadingStats ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+                {[1,2,3,4].map(i => (
+                  <div key={i} className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-4 animate-pulse">
+                    <div className="h-3 bg-gray-200 rounded w-20 mb-2" />
+                    <div className="h-5 bg-gray-200 rounded w-10" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+                <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-md bg-blue-50 items-center justify-center flex-shrink-0">
+                      <Users className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] sm:text-xs text-gray-500">Total Students</p>
+                      <p className="text-sm sm:text-xl font-bold text-gray-900">{stats?.totalStudents ?? 0}</p>
+                    </div>
                   </div>
                 </div>
-              )}
+                <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-md bg-green-50 items-center justify-center flex-shrink-0">
+                      <UserCheck className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] sm:text-xs text-gray-500">CRT Students</p>
+                      <p className="text-sm sm:text-xl font-bold text-gray-900">{stats?.crtStudents ?? 0}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-md bg-amber-50 items-center justify-center flex-shrink-0">
+                      <Building className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] sm:text-xs text-gray-500">In Placement Training</p>
+                      <p className="text-sm sm:text-xl font-bold text-gray-900">{stats?.placementStudents ?? 0}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg border border-gray-200 p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-md bg-red-50 items-center justify-center flex-shrink-0">
+                      <Activity className="h-5 w-5 text-red-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] sm:text-xs text-gray-500">Pending Approvals</p>
+                      <p className="text-sm sm:text-xl font-bold text-gray-900">{stats?.pendingApprovals ?? 0}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ──── BOTTOM ROW: Account Info ──── */}
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+          <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+            <h2 className="text-xs sm:text-sm font-semibold text-gray-700">Account Information</h2>
+          </div>
+          <div className="p-3 sm:p-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              <div>
+                <p className="text-[10px] sm:text-xs text-gray-400 font-medium">Role</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-900 mt-0.5 flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5 text-blue-500" />
+                  TPO
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] sm:text-xs text-gray-400 font-medium">Experience</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-900 mt-0.5">{profile?.experience || 0} years</p>
+              </div>
+              <div>
+                <p className="text-[10px] sm:text-xs text-gray-400 font-medium">Joined</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-900 mt-0.5">
+                  {profile?.createdAt
+                    ? new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] sm:text-xs text-gray-400 font-medium">Last Login</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-900 mt-0.5">
+                  {profile?.lastLogin
+                    ? new Date(profile.lastLogin).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                    : 'Never'}
+                </p>
+              </div>
             </div>
           </div>
         </div>

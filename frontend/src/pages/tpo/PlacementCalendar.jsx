@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Calendar, ChevronLeft, ChevronRight, RefreshCw, Plus, X } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, RefreshCw, Plus, X, Download } from "lucide-react";
 import { LoadingSkeleton, ListSkeleton } from '../../components/ui/LoadingSkeletons';
 import ToastNotification from '../../components/ui/ToastNotification';
 
@@ -33,7 +33,7 @@ const [selectedEvent, setSelectedEvent] = useState(null);
 const [showModal, setShowModal] = useState(false);
 const [deletedEvents, setDeletedEvents] = useState([]);
 const [showDeletedModal, setShowDeletedModal] = useState(false);
-const [targetGroup, setTargetGroup] = useState("both");
+const [targetGroup, setTargetGroup] = useState("batch-specific");
 const [selectedBatches, setSelectedBatches] = useState([]);
 const [selectedStudentIds, setSelectedStudentIds] = useState([]);
 const [availableBatches, setAvailableBatches] = useState([]);
@@ -104,7 +104,7 @@ const [formData, setFormData] = useState({
   isOnline: false,
   companyName: "",
   companyFormLink: "",
-  eventType: "",
+  eventType: "drive",
   status: "scheduled",
   participated: "",
   placed: "",
@@ -489,8 +489,8 @@ const fetchEvents = async ({ notify = false, message = null } = {}) => {
           isOnline: e.isOnline || false,
           company: e.companyDetails?.companyName || "",
           companyFormLink: e.companyDetails?.companyFormLink || "",
-          targetGroup: e.targetGroup || "both",
-          eventType: e.eventType || "",
+          targetGroup: e.targetGroup || "batch-specific",
+          eventType: e.eventType || "drive",
           status: 'cancelled',
           date: dateStr,
           participated: e.eventSummary?.totalAttendees || "",
@@ -527,8 +527,8 @@ const fetchEvents = async ({ notify = false, message = null } = {}) => {
         isOnline: e.isOnline || false,
         company: e.companyDetails?.companyName || "",
         companyFormLink: e.companyDetails?.companyFormLink || "",
-        targetGroup: e.targetGroup || "both",
-        eventType: e.eventType || "",
+        targetGroup: e.targetGroup || "batch-specific",
+        eventType: e.eventType || "drive",
         status: computedStatus,
         date: dateStr,
         participated: e.eventSummary?.totalAttendees || "",
@@ -555,8 +555,8 @@ const fetchEvents = async ({ notify = false, message = null } = {}) => {
         isOnline: e.isOnline || false,
         company: e.companyDetails?.companyName || "",
         companyFormLink: e.companyDetails?.companyFormLink || "",
-        targetGroup: e.targetGroup || "both",
-        eventType: e.eventType || "",
+        targetGroup: e.targetGroup || "batch-specific",
+        eventType: e.eventType || "drive",
         status: 'deleted',
         date: dateStr,
         participated: e.eventSummary?.totalAttendees || "",
@@ -704,7 +704,7 @@ const handleDateClick = (day) => {
     isOnline: false,
     companyName: "",
     companyFormLink: "",
-    eventType: "",
+    eventType: "drive",
     status: "scheduled",
     participated: "",
     placed: "",
@@ -752,7 +752,7 @@ const handleEditEvent = async (event) => {
       isOnline: e.isOnline || false,
       companyName: e.companyDetails?.companyName || "",
       companyFormLink: e.companyDetails?.companyFormLink || "",
-      eventType: e.eventType || "",
+      eventType: e.eventType || "drive",
       status: e.status || "scheduled",
       participated: e.eventSummary?.totalAttendees || "",
       placed: e.eventSummary?.selectedStudents || "",
@@ -846,7 +846,7 @@ const handleNewEvent = () => {
     isOnline: false,
     companyName: "",
     companyFormLink: "https://companyform.com",
-    eventType: "",
+    eventType: "drive",
     status: "scheduled",
     participated: "",
     placed: "",
@@ -855,7 +855,7 @@ companyDetails: {                            // ✅ fixed
   }
   });
 
-  setTargetGroup("both");
+  setTargetGroup("batch-specific");
   setSelectedBatches([]);
   setSelectedStudentIds([]);
   setStudentSearchTerm("");
@@ -967,6 +967,36 @@ const uniqueStudents = registeredStudents.filter(
     )
 );
 
+const handleExportRegisteredStudents = async () => {
+  const eventId = selectedEvent || selectedEventId;
+  if (!eventId) return;
+  try {
+    const token = localStorage.getItem("userToken");
+    const res = await axios.get(
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}/registered-students/export`,
+      { headers: { Authorization: `Bearer ${token}` }, responseType: 'blob' }
+    );
+    // Extract filename from Content-Disposition header (uses company name)
+    const disposition = res.headers['content-disposition'];
+    let fileName = `Registered_Students_${new Date().toISOString().split('T')[0]}.xlsx`;
+    if (disposition) {
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      if (match) fileName = match[1];
+    }
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Error exporting registered students:", err);
+    showToast('error', 'Failed to export registered students');
+  }
+};
+
   const ordinal = (n) => {
     const j = n % 10, k = n % 100;
     if (j === 1 && k !== 11) return `${n}st`;
@@ -1009,9 +1039,9 @@ const uniqueStudents = registeredStudents.filter(
         <LoadingSkeleton />
       ) : (
         <div className="w-full max-w-[1200px] mx-auto">
-          <div className="flex flex-col sm:flex-row gap-6 items-start">
+          <div className="flex flex-col md:flex-row gap-6 items-start">
             {/* Left: calendar (40%) */}
-            <div className="w-full sm:w-2/5">
+            <div className="w-full md:w-2/5">
               {/* Month + Year Controls (centered above calendar column) */}
               <div className="flex justify-center items-center mb-3">
                 <button onClick={handlePrevMonth} className="p-2 bg-white border rounded-full hover:bg-blue-100"><ChevronLeft /></button>
@@ -1049,17 +1079,17 @@ const uniqueStudents = registeredStudents.filter(
                       <span className="text-[10px] sm:text-sm font-medium text-gray-600">{cellDate.getDate()}</span>
                     </div>
 
-                    <div className="flex-1 mt-0 sm:mt-1 overflow-hidden px-1 flex flex-col justify-between h-full">
-                      {/* Mobile: show dots only (smaller) */}
-                      <div className="sm:hidden flex items-center justify-center gap-1 mt-0.5">
+                    <div className="flex-1 mt-0 md:mt-1 overflow-hidden px-1 flex flex-col justify-between h-full">
+                      {/* Mobile/Tablet: dots below date */}
+                      <div className="md:hidden flex items-center justify-start gap-1">
                         <div className="flex items-start justify-start gap-0.5">
                           {dateEvents.slice(0, 3).map((ev, i) => (
-                            <span key={i} title={ev.title} aria-label={ev.title} className={`inline-block flex-shrink-0 w-2 h-2 rounded-full shadow-sm ${ev.status === "completed" ? "bg-green-500" : ev.status === "ongoing" ? "bg-orange-500" : (ev.status === "cancelled" || ev.status === "deleted") ? "bg-red-500" : "bg-blue-600"}`} />
+                            <span key={i} title={ev.title} aria-label={ev.title} className={`inline-block flex-shrink-0 w-1 h-1 rounded-full shadow-sm ${ev.status === "completed" ? "bg-green-500" : ev.status === "ongoing" ? "bg-orange-500" : (ev.status === "cancelled" || ev.status === "deleted") ? "bg-red-500" : "bg-blue-600"}`} />
                           ))}
                         </div>
                       </div>
-
-                      <div className="hidden sm:flex sm:flex-col sm:gap-1">
+                      {/* Desktop: event title chips */}
+                      <div className="hidden md:flex md:flex-col md:gap-1">
                         {dateEvents.slice(0, 1).map((ev) => (
                           <div
                             key={ev.id}
@@ -1076,7 +1106,7 @@ const uniqueStudents = registeredStudents.filter(
                             <div className="flex items-center gap-1 min-w-0">
                               <span className="inline-block truncate min-w-0" title={ev.title}>{ev.title}</span>
                               {dateEvents.length > 1 && (
-                                <span className="hidden sm:inline text-[9px] text-gray-500 flex-shrink-0">+{Math.max(0, dateEvents.length - 1)}</span>
+                                <span className="hidden md:inline text-[9px] text-gray-500 flex-shrink-0">+{Math.max(0, dateEvents.length - 1)}</span>
                               )}
                             </div>
                           </div>
@@ -1084,7 +1114,7 @@ const uniqueStudents = registeredStudents.filter(
 
                         {dateEvents.length > 1 && (
                           <div className="mt-1">
-                            <span className="hidden sm:inline text-[8px] text-gray-500">+{Math.max(0, dateEvents.length - 1)} more</span>
+                            <span className="hidden md:inline text-[8px] text-gray-500">+{Math.max(0, dateEvents.length - 1)} more</span>
                           </div>
                         )}
 
@@ -1096,7 +1126,7 @@ const uniqueStudents = registeredStudents.filter(
             </div>
           </div>
             </div>
-            <aside className="hidden sm:block w-full sm:w-3/5 sticky top-20 self-start">
+            <aside className="hidden md:block w-full md:w-3/5 sticky top-20 self-start">
               <div className="p-4 w-full border-l border-blue-50 pl-6">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
@@ -1198,125 +1228,119 @@ const uniqueStudents = registeredStudents.filter(
       </div>
       )}
 
-      {/* Selected Date Event Details (mobile only) */}
-      <div className="mt-8 bg-white rounded-lg shadow-lg p-3 w-full max-w-[560px] mx-auto border border-blue-100 block sm:hidden">
+      {/* Selected Date Event Details (mobile + tablet) */}
+      <div className="mt-4 bg-white rounded-lg shadow border border-gray-200 w-full mx-auto block md:hidden">
         {loading ? (
           <ListSkeleton />
         ) : (
           <>
-            <div className="mb-3 text-center">
-              <div className="text-2xl font-bold text-blue-800">{selectedDate.toLocaleString('default', { weekday: 'long' })}, <span className="text-blue-600">{ordinal(selectedDate.getDate())}</span></div>
+            {/* Date header */}
+            <div className="px-3 py-2 border-b border-gray-100 bg-blue-50 rounded-t-lg">
+              <div className="text-xs text-blue-500 font-medium">Events on</div>
+              <div className="text-sm font-bold text-blue-800">{selectedDate.toLocaleString('default', { weekday: 'long' })}, {ordinal(selectedDate.getDate())} {selectedDate.toLocaleString('default', { month: 'long' })}</div>
             </div>
 
-            <ul className="divide-y divide-gray-100">
-              {selectedDateEvents.length > 0 ? (
-                selectedDateEvents.map((event) => (
-                  <li key={event.id} className="flex items-center justify-between py-3">
-                    <div className="flex items-start gap-3">
-                      <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-gray-800 truncate">{event.title}</div>
-                        <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>
+            {selectedDateEvents.length > 0 ? (
+              <div className="divide-y divide-gray-100">
+                {selectedDateEvents.map((event) => (
+                  <div key={event.id} className="p-3">
+                    {/* Title row with status badge and action button */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2 min-w-0 flex-1">
+                        <div className={`w-1 mt-0.5 self-stretch rounded-full flex-shrink-0 ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-gray-900 truncate">{event.title}</span>
+                            <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold ${event.status === 'completed' ? 'bg-green-100 text-green-700' : event.status === 'ongoing' ? 'bg-orange-100 text-orange-700' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{event.status.charAt(0).toUpperCase() + event.status.slice(1)}</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
                       {event.status === 'deleted' ? (
-                        <span className="px-2 py-1 rounded text-red-600 text-sm font-semibold border border-red-100 bg-red-50">Deleted</span>
+                        <span className="px-2 py-0.5 rounded text-red-600 text-xs font-semibold border border-red-100 bg-red-50 flex-shrink-0">Deleted</span>
                       ) : (
-                        <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === event.id ? null : event.id);}} className="p-2 rounded-md hover:bg-gray-100 text-gray-600">⋮</button>
-                      )}
-
-                      {openMenuId === event.id && event.status !== 'deleted' && (
-                        <>
-                          {/* Desktop: inline absolute menu */}
-                          <div className="hidden sm:block absolute left-3 top-12 z-50 bg-white border rounded shadow-md w-44">
-                            <ul>
-                              <li>
-                                <button onClick={(e)=>{e.stopPropagation(); handleViewRegisteredStudents(event.id); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">View Registered Students</button>
-                              </li>
-
-                              <li>
-                                {event.status === 'completed' ? (
-                                  <button onClick={(e)=>{e.stopPropagation(); setSelectedEventId(event.id); setShowSelectModal(true); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">➕ Add Selected Students</button>
-                                ) : (
-                                  <div className="w-full text-left px-3 py-2 text-sm text-gray-400">➕ Add Selected Students (only after completion)</div>
-                                )}
-                              </li>
-
-                              <li>
-                                <button onClick={(e)=>{e.stopPropagation(); handleViewSelectedStudents(event.id); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">View Selected Students</button>
-                              </li>
-
-                              <li>
-                                {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'completed' && event.status !== 'cancelled' && event.status !== 'deleted' ? (
-                                  <button onClick={(e)=>{e.stopPropagation(); handleEditEvent(event); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Edit Event</button>
-                                ) : (
-                                  <div className="w-full text-left px-3 py-2 text-sm text-gray-400">Edit (not available for past events)</div>
-                                )}
-                              </li>
-
-                              <li>
-                                {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'cancelled' && event.status !== 'deleted' ? (
-                                  <button onClick={(e)=>{e.stopPropagation(); handleCancelDeleteEvent(event.id); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-50">Cancel & Delete</button>
-                                ) : (
-                                  <div className="w-full text-left px-3 py-2 text-sm text-gray-400">Cancel & Delete (not available for past events)</div>
-                                )}
-                              </li>
-                            </ul>
-                          </div>
-
-                          {/* Mobile: centered modal (matches other mobile modals) */}
-                          <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black/50" onClick={() => setOpenMenuId(null)}>
-                            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-4 mx-4 max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={`menu-title-${event.id}`}>
-                              <div className="flex items-center justify-between mb-3">
-                                <div>
-                                  <div id={`menu-title-${event.id}`} className="text-sm font-semibold truncate" title={event.title}>{event.title}</div>
-                                  <div className="text-xs text-gray-500">{event.startDate ? new Date(event.startDate).toLocaleDateString() : ''}{event.startTime ? ` • ${event.startTime}` : ''}</div>
-                                </div>
-                                <button onClick={() => setOpenMenuId(null)} aria-label="Close" className="p-1 text-gray-600">✕</button>
-                              </div>
-
-                              <ul className="space-y-2">
-                                <li>
-                                  <button onClick={() => { handleViewRegisteredStudents(event.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100">View Registered Students</button>
-                                </li>
-                                <li>
-                                  {event.status === 'completed' ? (
-                                    <button onClick={() => { setSelectedEventId(event.id); setShowSelectModal(true); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100">➕ Add Selected Students</button>
-                                  ) : (
-                                    <div className="w-full text-left px-4 py-3 text-sm text-gray-400 rounded-lg">➕ Add Selected Students (only after completion)</div>
-                                  )}
-                                </li>
-                                <li>
-                                  <button onClick={() => { handleViewSelectedStudents(event.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100">View Selected Students</button>
-                                </li>
-                                <li>
-                                  {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'completed' && event.status !== 'cancelled' && event.status !== 'deleted' ? (
-                                    <button onClick={() => { handleEditEvent(event); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100">Edit Event</button>
-                                  ) : (
-                                    <div className="w-full text-left px-4 py-3 text-sm text-gray-400 rounded-lg">Edit (not available for past events)</div>
-                                  )}
-                                </li>
-                                <li>
-                                  {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'cancelled' && event.status !== 'deleted' ? (
-                                    <button onClick={() => { handleCancelDeleteEvent(event.id); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-red-50 text-red-600 hover:bg-red-100">Cancel & Delete</button>
-                                  ) : (
-                                    <div className="w-full text-left px-4 py-3 text-sm text-gray-400 rounded-lg">Cancel & Delete (not available for past events)</div>
-                                  )}
-                                </li>
-                              </ul>
-                            </div>
-                          </div>
-                        </>
+                        <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === event.id ? null : event.id);}} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-500 flex-shrink-0">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><circle cx="10" cy="4" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
+                        </button>
                       )}
                     </div>
-                  </li>
-                ))
-              ) : (
-                <div className="text-sm text-gray-500">No events for this date.</div>
-              )}
-            </ul>
+
+                    {/* Event details - only show fields with real values */}
+                    <div className="mt-2 ml-3">
+                      <table className="w-full text-xs">
+                        <tbody>
+                          {event.company && (
+                            <tr>
+                              <td className="py-0.5 pr-2 text-gray-400 font-medium whitespace-nowrap align-top w-20">Company</td>
+                              <td className="py-0.5 text-gray-700">{event.company}</td>
+                            </tr>
+                          )}
+                          {(event.startTime || event.endTime) && (
+                            <tr>
+                              <td className="py-0.5 pr-2 text-gray-400 font-medium whitespace-nowrap w-20">Time</td>
+                              <td className="py-0.5 text-gray-700">{event.startTime}{event.endTime ? ` - ${event.endTime}` : ''}</td>
+                            </tr>
+                          )}
+                          {event.venue && (
+                            <tr>
+                              <td className="py-0.5 pr-2 text-gray-400 font-medium whitespace-nowrap w-20">Venue</td>
+                              <td className="py-0.5 text-gray-700">{event.venue}</td>
+                            </tr>
+                          )}
+                          {event.participated > 0 && (
+                            <tr>
+                              <td className="py-0.5 pr-2 text-gray-400 font-medium whitespace-nowrap w-20">Registered</td>
+                              <td className="py-0.5 text-gray-700 font-medium">{event.participated}</td>
+                            </tr>
+                          )}
+                          {event.placed > 0 && (
+                            <tr>
+                              <td className="py-0.5 pr-2 text-gray-400 font-medium whitespace-nowrap w-20">Selected</td>
+                              <td className="py-0.5 text-gray-700 font-medium">{event.placed}</td>
+                            </tr>
+                          )}
+                          {event.description && (
+                            <tr>
+                              <td className="py-0.5 pr-2 text-gray-400 font-medium whitespace-nowrap align-top w-20">Details</td>
+                              <td className="py-0.5 text-gray-600 break-words">{event.description}</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Inline dropdown action menu (no modal) */}
+                    {openMenuId === event.id && event.status !== 'deleted' && (
+                      <>
+                        {/* Invisible backdrop to close menu on tap outside */}
+                        <div className="fixed inset-0 z-40" onClick={() => setOpenMenuId(null)} />
+                        <div className="relative z-50 mt-2 ml-3 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+                          <button onClick={() => { handleViewRegisteredStudents(event.id); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 text-gray-700">View Registered Students</button>
+                          {event.status === 'completed' ? (
+                            <button onClick={() => { setSelectedEventId(event.id); setShowSelectModal(true); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 text-gray-700">Add Selected Students</button>
+                          ) : (
+                            <div className="w-full text-left px-3 py-2 text-xs text-gray-400">Add Selected Students (after completion)</div>
+                          )}
+                          <button onClick={() => { handleViewSelectedStudents(event.id); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 text-gray-700">View Selected Students</button>
+                          {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'completed' && event.status !== 'cancelled' && event.status !== 'deleted' ? (
+                            <button onClick={() => { handleEditEvent(event); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 text-gray-700">Edit Event</button>
+                          ) : (
+                            <div className="w-full text-left px-3 py-2 text-xs text-gray-400">Edit (not available for past events)</div>
+                          )}
+                          <div className="border-t border-gray-100 my-0.5" />
+                          {!(event.endDate && normalizeDate(event.endDate) < normalizeDate(new Date())) && event.status !== 'cancelled' && event.status !== 'deleted' ? (
+                            <button onClick={() => { handleCancelDeleteEvent(event.id); setOpenMenuId(null); }} className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50">Cancel & Delete</button>
+                          ) : (
+                            <div className="w-full text-left px-3 py-2 text-xs text-gray-400">Cancel & Delete (not available)</div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 text-center text-gray-400 text-xs">No events for this date.</div>
+            )}
           </>
         )}
       </div>
@@ -1326,7 +1350,7 @@ const uniqueStudents = registeredStudents.filter(
       {showForm && (
         <div className="fixed inset-0 z-50" onClick={() => setShowForm(false)}>
           {/* Desktop anchored form on right */}
-          <div className="hidden sm:block fixed top-20 right-6 bottom-6 w-[44%] max-w-lg bg-white rounded-2xl shadow-2xl p-6 overflow-auto" onClick={(e)=>e.stopPropagation()}>
+          <div className="hidden md:block fixed top-20 right-6 bottom-6 w-[44%] max-w-lg bg-white rounded-2xl shadow-2xl p-6 overflow-auto" onClick={(e)=>e.stopPropagation()}>
             <button onClick={() => setShowForm(false)} className="absolute top-3 right-3 text-gray-500 hover:text-gray-700">
               <X className="h-5 w-5" />
             </button>
@@ -1341,23 +1365,10 @@ const uniqueStudents = registeredStudents.filter(
                 <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required className="w-full border rounded-lg px-3 py-2" placeholder="Event Title" disabled={viewOnly}/>
               </div>
 
-              {/* Event Type */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Event Type</label>
-                <select value={formData.eventType} onChange={(e) => setFormData({ ...formData, eventType: e.target.value })} required className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}>
-                  <option value="">Select Type</option>
-                  <option value="Campus_Drive">Campus Drive</option>
-                  <option value="Test">Test</option>
-                </select>
-              </div>
-
               {/* Target Group Dropdown */}
               <div>
                 <label className="block text-sm font-medium mb-1">Target Group</label>
                 <select value={targetGroup} onChange={(e) => setTargetGroup(e.target.value)} className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}>
-                  <option value="both">Both CRT & Non-CRT Students</option>
-                  <option value="crt">CRT Students Only</option>
-                  <option value="non-crt">Non-CRT Students Only</option>
                   <option value="batch-specific">Batch Specific</option>
                   <option value="specific-students">Specific Students</option>
                 </select>
@@ -1366,8 +1377,7 @@ const uniqueStudents = registeredStudents.filter(
               {/* Batch Selection with Checkboxes - Show only when batch-specific */}
               {targetGroup === 'batch-specific' && (
               <div>
-                <label className="block text-sm font-medium mb-2">Select Batches (Optional)</label>
-                <div className="text-xs text-blue-600 mb-1">Debug: {availableBatches.length} batches loaded</div>
+                <label className="block text-sm font-medium mb-2">Select Batches</label>
                 <div className="border rounded-lg p-3 max-h-48 overflow-y-auto bg-gray-50">
                   {!Array.isArray(availableBatches) || availableBatches.length === 0 ? (
                     <p className="text-sm text-gray-500">No batches available</p>
@@ -1389,7 +1399,7 @@ const uniqueStudents = registeredStudents.filter(
                   )}
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  {selectedBatches.length > 0 ? `${selectedBatches.length} batch(es) selected` : 'Leave empty to target all students by group'}
+                  {selectedBatches.length > 0 ? `${selectedBatches.length} batch(es) selected` : 'Select target batches'}
                 </p>
               </div>
               )}
@@ -1397,8 +1407,7 @@ const uniqueStudents = registeredStudents.filter(
               {/* Student Selection with Search and Checkboxes - Show only when specific-students */}
               {targetGroup === 'specific-students' && (
               <div>
-                <label className="block text-sm font-medium mb-2">Select Specific Students (Optional)</label>
-                <div className="text-xs text-blue-600 mb-1">Debug: {availableStudents.length} total students | {filteredStudents.length} filtered</div>
+                <label className="block text-sm font-medium mb-2">Select Students</label>
                 <input
                   type="text"
                   placeholder="Search by name, roll no, or email..."
@@ -1432,27 +1441,10 @@ const uniqueStudents = registeredStudents.filter(
                   )}
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  {selectedStudentIds.length > 0 ? `${selectedStudentIds.length} student(s) selected` : 'Leave empty for batch/group-based targeting'}
+                  {selectedStudentIds.length > 0 ? `${selectedStudentIds.length} student(s) selected` : 'Select target students'}
                 </p>
               </div>
               )}
-
-              {/* Status */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Status</label>
-                <input type="text" value={formData.status} disabled className="w-full border rounded-lg px-3 py-2 bg-gray-100 text-gray-700" />
-              </div>
-
-              {/* Participated & Selected counts */}
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">No. of Registered Students</label>
-                <input type="number" value={formData.participated} onChange={(e) => setFormData({ ...formData, participated: e.target.value })} className="w-full border rounded-lg px-3 py-2 bg-white" disabled={formData.status !== "completed"} min="0" placeholder="Enter number of participants" />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">No. of Selected Students</label>
-                <input type="number" value={formData.placed} onChange={(e) => setFormData({ ...formData, placed: e.target.value })} className="w-full border rounded-lg px-3 py-2 bg-white" disabled={formData.status !== "completed"} min="0" placeholder="Enter number of selected students" />
-              </div>
 
               {/* Description */}
               <div>
@@ -1502,24 +1494,20 @@ const uniqueStudents = registeredStudents.filter(
                 <input type="url" value={formData.companyDetails?.externalLink || ""} onChange={(e) => setFormData({ ...formData, companyDetails: { ...formData.companyDetails, externalLink: e.target.value } })} placeholder="https://your-company-form.com" className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-blue-300" disabled={viewOnly} />
               </div>
 
-              <div className="flex items-center gap-2">
-                <input type="checkbox" checked={formData.isOnline} onChange={(e) => setFormData({ ...formData, isOnline: e.target.checked })} disabled={viewOnly}/>
-                <label>Is Online Event</label>
-              </div>
-
-              <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all mt-4">{formData.status === "completed" ? "Update Participation Details" : formData.id ? "Update Event" : "Create Event"}</button>
+              <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all mt-4">{formData.id ? "Update Event" : "Create Event"}</button>
             </form>
           </div>
 
-          {/* Mobile centered overlay */}
-          <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setShowForm(false)}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[92vw] max-h-[85vh] overflow-auto p-4 mx-2 text-sm" onClick={(e)=>e.stopPropagation()}>
-              <button onClick={() => setShowForm(false)} className="absolute top-2 right-2 text-gray-500 hover:text-gray-700">
-                <X className="h-4 w-4" />
-              </button>
-
-              <h2 className="text-lg font-bold mb-3 text-gray-800 text-center">{formData.id ? "Edit Event" : "Add Placement Event"}</h2>
-              <p className="text-center text-sm text-gray-500 mb-3">Selected Date: {selectedDate.toDateString()}</p>
+          {/* Mobile/Tablet bottom sheet */}
+          <div className="block md:hidden fixed inset-0 z-50" onClick={() => setShowForm(false)}>
+            <div className="fixed inset-0 bg-black/40" />
+            <div className="fixed inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-2xl max-h-[90vh] overflow-auto p-4 text-sm animate-slideUp" onClick={(e)=>e.stopPropagation()}>
+              <div className="flex justify-center mb-2"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-gray-800">{formData.id ? "Edit Event" : "Add Placement Event"}</h2>
+                <button onClick={() => setShowForm(false)} className="p-1 text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">Selected Date: {selectedDate.toDateString()}</p>
 
               <form onSubmit={handleSubmit} className="space-y-3">
                 {/* Title */}
@@ -1528,23 +1516,10 @@ const uniqueStudents = registeredStudents.filter(
                   <input type="text" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} required className="w-full border rounded-lg px-3 py-2" placeholder="Event Title" disabled={viewOnly}/>
                 </div>
 
-                {/* Event Type */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Event Type</label>
-                  <select value={formData.eventType} onChange={(e) => setFormData({ ...formData, eventType: e.target.value })} required className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}>
-                    <option value="">Select Type</option>
-                    <option value="Campus_Drive">Campus Drive</option>
-                    <option value="Test">Test</option>
-                  </select>
-                </div>
-
                 {/* Target Group */}
                 <div>
                   <label className="block text-sm font-medium mb-1">Target Group</label>
                   <select value={targetGroup} onChange={(e) => setTargetGroup(e.target.value)} className="w-full border rounded-lg px-3 py-2" disabled={viewOnly}>
-                    <option value="both">Both CRT & Non-CRT Students</option>
-                    <option value="crt">CRT Students Only</option>
-                    <option value="non-crt">Non-CRT Students Only</option>
                     <option value="batch-specific">Batch Specific</option>
                     <option value="specific-students">Specific Students</option>
                   </select>
@@ -1553,7 +1528,7 @@ const uniqueStudents = registeredStudents.filter(
                 {/* Batch Selection - Show only when batch-specific */}
                 {targetGroup === 'batch-specific' && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Select Batches (Optional)</label>
+                  <label className="block text-sm font-medium mb-2">Select Batches</label>
                   <div className="border rounded-lg p-2 max-h-40 overflow-y-auto bg-gray-50">
                     {!Array.isArray(availableBatches) || availableBatches.length === 0 ? (
                       <p className="text-xs text-gray-500">No batches available</p>
@@ -1575,7 +1550,7 @@ const uniqueStudents = registeredStudents.filter(
                     )}
                   </div>
                   <p className="text-[10px] text-gray-500 mt-1">
-                    {selectedBatches.length > 0 ? `${selectedBatches.length} selected` : 'Optional'}
+                    {selectedBatches.length > 0 ? `${selectedBatches.length} selected` : 'Select target batches'}
                   </p>
                 </div>
                 )}
@@ -1583,7 +1558,7 @@ const uniqueStudents = registeredStudents.filter(
                 {/* Student Selection - Show only when specific-students */}
                 {targetGroup === 'specific-students' && (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Select Students (Optional)</label>
+                  <label className="block text-sm font-medium mb-2">Select Students</label>
                   <input
                     type="text"
                     placeholder="Search students..."
@@ -1616,28 +1591,10 @@ const uniqueStudents = registeredStudents.filter(
                     )}
                   </div>
                   <p className="text-[10px] text-gray-500 mt-1">
-                    {selectedStudentIds.length > 0 ? `${selectedStudentIds.length} selected` : 'Optional'}
+                    {selectedStudentIds.length > 0 ? `${selectedStudentIds.length} selected` : 'Select target students'}
                   </p>
                 </div>
                 )}
-
-                {/* Status */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Status</label>
-                  <input type="text" value={formData.status} disabled className="w-full border rounded-lg px-3 py-2 bg-gray-100 text-gray-700" />
-                </div>
-
-                {/* Participated */}
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700">No. of Registered Students</label>
-                  <input type="number" value={formData.participated} onChange={(e) => setFormData({ ...formData, participated: e.target.value })} className="w-full border rounded-lg px-3 py-2 bg-white" disabled={formData.status !== "completed"} min="0" placeholder="Enter number of participants" />
-                </div>
-
-                {/* Selected */}
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700">No. of Selected Students</label>
-                  <input type="number" value={formData.placed} onChange={(e) => setFormData({ ...formData, placed: e.target.value })} className="w-full border rounded-lg px-3 py-2 bg-white" disabled={formData.status !== "completed"} min="0" placeholder="Enter number of selected students" />
-                </div>
 
                 {/* Description */}
                 <div>
@@ -1684,12 +1641,7 @@ const uniqueStudents = registeredStudents.filter(
                   <input type="url" value={formData.companyDetails?.externalLink || ""} onChange={(e) => setFormData({ ...formData, companyDetails: { ...formData.companyDetails, externalLink: e.target.value } })} placeholder="https://your-company-form.com" className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring focus:ring-blue-300" disabled={viewOnly} />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={formData.isOnline} onChange={(e) => setFormData({ ...formData, isOnline: e.target.checked })} disabled={viewOnly}/>
-                  <label>Is Online Event</label>
-                </div>
-
-                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all mt-4">{formData.status === "completed" ? "Update Participation Details" : formData.id ? "Update Event" : "Create Event"}</button>
+                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-all mt-4">{formData.id ? "Update Event" : "Create Event"}</button>
               </form>
             </div>
           </div>
@@ -1719,47 +1671,57 @@ const uniqueStudents = registeredStudents.filter(
 {showModal && (
   <div className="fixed inset-0 z-50" onClick={() => setShowModal(false)}>
     {/* Desktop panel */}
-    <div className="hidden sm:block fixed top-24 right-6 bottom-6 w-[44%] max-w-2xl bg-white rounded-lg shadow-lg p-6 overflow-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="hidden md:block fixed top-24 right-6 bottom-6 w-[44%] max-w-2xl bg-white rounded-lg shadow-lg p-6 overflow-auto" onClick={(e) => e.stopPropagation()}>
       <button onClick={() => setShowModal(false)} className="absolute top-3 right-3 text-gray-600 hover:text-black">✕</button>
-      <h2 className="text-xl font-bold text-blue-700 mb-4">Registered Students ({uniqueStudents.length})</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-blue-700">Registered Students ({uniqueStudents.length})</h2>
+        {uniqueStudents.length > 0 && (
+          <button onClick={handleExportRegisteredStudents} className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition">
+            <Download className="w-4 h-4" />
+            <span>Export</span>
+          </button>
+        )}
+      </div>
       {uniqueStudents.length === 0 ? (
         <p className="text-gray-500 text-center">No students registered yet.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left border">
-            <thead className="bg-blue-100 text-gray-800">
-              <tr>
-                <th className="px-3 py-2 border">Full Name</th>
-                <th className="px-3 py-2 border">Roll No</th>
-                <th className="px-3 py-2 border">Email</th>
-                <th className="px-3 py-2 border">Phone</th>
-                <th className="px-3 py-2 border">College</th>
-                <th className="px-3 py-2 border">Branch</th>
-                <th className="px-3 py-2 border">Gender</th>
-                <th className="px-3 py-2 border">DOB</th>
-                <th className="px-3 py-2 border">Current Location</th>
-                <th className="px-3 py-2 border">Home Town</th>
-                <th className="px-3 py-2 border">Backlogs</th>
-                <th className="px-3 py-2 border">Tech Stack</th>
-                <th className="px-3 py-2 border">Resume</th>
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-blue-50">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Name</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Roll No</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Email</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Phone</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">College</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Branch</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Gender</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">DOB</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Location</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Home Town</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Backlogs</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Tech Stack</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Year of Passing</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Resume</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100">
               {uniqueStudents.map((r, i) => (
-                <tr key={i} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 border">{r.name}</td>
-                  <td className="px-3 py-2 border">{r.rollNo}</td>
-                  <td className="px-3 py-2 border">{r.email}</td>
-                  <td className="px-3 py-2 border">{r.phonenumber}</td>
-                  <td className="px-3 py-2 border">{r.college}</td>
-                  <td className="px-3 py-2 border">{r.branch}</td>
-                  <td className="px-3 py-2 border">{r.gender}</td>
-                  <td className="px-3 py-2 border">{r.dob ? new Date(r.dob).toLocaleDateString() : ""}</td>
-                  <td className="px-3 py-2 border">{r.currentLocation}</td>
-                  <td className="px-3 py-2 border">{r.hometown}</td>
-                  <td className="px-3 py-2 border">{r.backlogs}</td>
-                  <td className="px-3 py-2 border">{Array.isArray(r.techStack) ? r.techStack.join(", ") : r.techStack}</td>
-                  <td className="px-3 py-2 border">{r.resumeUrl ? (<a href={r.resumeUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View</a>) : ("N/A")}</td>
+                <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-900 font-medium whitespace-nowrap">{r.name}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm font-mono text-gray-700 whitespace-nowrap">{r.rollNo}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{r.email}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{r.phonenumber}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{r.college}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{r.branch}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{r.gender}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{r.dob ? new Date(r.dob).toLocaleDateString() : ""}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{r.currentLocation}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{r.hometown}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-center text-gray-700">{r.backlogs}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{Array.isArray(r.techStack) ? r.techStack.join(", ") : r.techStack}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{r.yearOfPassing}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-center">{r.resumeUrl ? (<a href={r.resumeUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View</a>) : ("N/A")}</td>
                 </tr>
               ))}
             </tbody>
@@ -1768,30 +1730,63 @@ const uniqueStudents = registeredStudents.filter(
       )}
     </div>
 
-    {/* Mobile: centered overlay */}
-    <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setShowModal(false)}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[92vw] max-h-[85vh] overflow-auto p-4 relative mx-2 text-sm" onClick={(e)=>e.stopPropagation()}>
-        <button onClick={() => setShowModal(false)} className="absolute top-2 right-2 text-gray-600 hover:text-black">✕</button>
-        <h2 className="text-lg font-bold text-blue-700 mb-3">Registered Students ({uniqueStudents.length})</h2>
+    {/* Mobile/Tablet bottom sheet */}
+    <div className="block md:hidden fixed inset-0 z-50" onClick={() => setShowModal(false)}>
+      <div className="fixed inset-0 bg-black/50" />
+      <div className="fixed inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-auto p-4 text-sm animate-slideUp" onClick={(e)=>e.stopPropagation()}>
+        <div className="flex justify-center mb-2"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold text-blue-700">Registered Students ({uniqueStudents.length})</h2>
+          <div className="flex items-center gap-2">
+            {uniqueStudents.length > 0 && (
+              <button onClick={handleExportRegisteredStudents} className="flex items-center gap-1 px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition">
+                <Download className="w-3.5 h-3.5" />
+                <span>Export</span>
+              </button>
+            )}
+            <button onClick={() => setShowModal(false)} className="p-1 text-gray-400 hover:text-gray-600">✕</button>
+          </div>
+        </div>
         {uniqueStudents.length === 0 ? (
           <p className="text-gray-500 text-center">No students registered yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            {/* table content same as above */}
-            <table className="w-full text-sm text-left border">
-              <thead className="bg-blue-100 text-gray-800">
-                <tr>
-                  <th className="px-3 py-2 border">Full Name</th>
-                  <th className="px-3 py-2 border">Roll No</th>
-                  <th className="px-3 py-2 border">Email</th>
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-blue-50">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Name</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Roll No</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Email</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Phone</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">College</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Branch</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Gender</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">DOB</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Location</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Home Town</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Backlogs</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Tech Stack</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Year of Passing</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Resume</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100">
                 {uniqueStudents.map((r, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 border">{r.name}</td>
-                    <td className="px-3 py-2 border">{r.rollNo}</td>
-                    <td className="px-3 py-2 border">{r.email}</td>
+                  <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                    <td className="px-3 py-2 text-xs text-gray-900 font-medium whitespace-nowrap">{r.name}</td>
+                    <td className="px-3 py-2 text-xs font-mono text-gray-700 whitespace-nowrap">{r.rollNo}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{r.email}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{r.phonenumber}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{r.college}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{r.branch}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{r.gender}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{r.dob ? new Date(r.dob).toLocaleDateString() : ""}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{r.currentLocation}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{r.hometown}</td>
+                    <td className="px-3 py-2 text-xs text-center text-gray-700">{r.backlogs}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{Array.isArray(r.techStack) ? r.techStack.join(", ") : r.techStack}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{r.yearOfPassing}</td>
+                    <td className="px-3 py-2 text-xs text-center">{r.resumeUrl ? (<a href={r.resumeUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View</a>) : ("N/A")}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1806,7 +1801,7 @@ const uniqueStudents = registeredStudents.filter(
   <div className="fixed inset-0 z-50" onClick={() => setShowDeletedModal(false)}>
 
     {/* Desktop: anchored panel on right */}
-    <div className="hidden sm:block fixed top-20 right-6 bottom-6 w-[44%] max-w-2xl bg-white rounded-lg shadow-lg p-6 overflow-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="hidden md:block fixed top-20 right-6 bottom-6 w-[44%] max-w-2xl bg-white rounded-lg shadow-lg p-6 overflow-auto" onClick={(e) => e.stopPropagation()}>
       <button onClick={() => setShowDeletedModal(false)} className="absolute top-3 right-3 text-gray-600 hover:text-black">✕</button>
 
       <h2 className="text-xl font-bold text-red-600 mb-4">🗑 Deleted Events ({deletedEvents.length})</h2>
@@ -1846,12 +1841,15 @@ const uniqueStudents = registeredStudents.filter(
       )}
     </div>
 
-    {/* Mobile: centered overlay */}
-    <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={() => setShowDeletedModal(false)}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[92vw] max-h-[85vh] overflow-auto p-4 relative mx-2 text-sm" onClick={(e) => e.stopPropagation()}>
-        <button onClick={() => setShowDeletedModal(false)} className="absolute top-2 right-2 text-gray-600 hover:text-black">✕</button>
-
-        <h2 className="text-lg font-bold text-red-600 mb-3">🗑 Deleted Events ({deletedEvents.length})</h2>
+    {/* Mobile/Tablet bottom sheet */}
+    <div className="block md:hidden fixed inset-0 z-50" onClick={() => setShowDeletedModal(false)}>
+      <div className="fixed inset-0 bg-black/50" />
+      <div className="fixed inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-auto p-4 text-sm animate-slideUp" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-center mb-2"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold text-red-600">Deleted Events ({deletedEvents.length})</h2>
+          <button onClick={() => setShowDeletedModal(false)} className="p-1 text-gray-400 hover:text-gray-600">✕</button>
+        </div>
 
         {deletedEvents.length === 0 ? (
           <p className="text-gray-500 text-center">No deleted events available.</p>
@@ -1894,7 +1892,7 @@ const uniqueStudents = registeredStudents.filter(
 {showSelectModal && (
   <div className="fixed inset-0 z-50" onClick={() => setShowSelectModal(false)}>
     {/* Desktop: anchored panel to the right */}
-    <div className="hidden sm:block fixed top-24 right-6 bottom-6 w-[36%] max-w-sm bg-white rounded-lg shadow-lg p-6 overflow-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="hidden md:block fixed top-24 right-6 bottom-6 w-[36%] max-w-sm bg-white rounded-lg shadow-lg p-6 overflow-auto" onClick={(e) => e.stopPropagation()}>
       <h2 className="text-xl font-semibold text-gray-800 mb-4">Mark Selected Students</h2>
       <input
         type="text"
@@ -1926,10 +1924,15 @@ const uniqueStudents = registeredStudents.filter(
       </div>
     </div>
 
-    {/* Mobile: centered overlay */}
-    <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black bg-opacity-50 p-4" onClick={() => setShowSelectModal(false)}>
-      <div className="bg-white p-4 rounded-lg w-full max-w-[92vw] max-h-[85vh] overflow-auto mx-2 text-sm" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">Mark Selected Students</h2>
+    {/* Mobile/Tablet bottom sheet */}
+    <div className="block md:hidden fixed inset-0 z-50" onClick={() => setShowSelectModal(false)}>
+      <div className="fixed inset-0 bg-black/50" />
+      <div className="fixed inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-auto p-4 text-sm animate-slideUp" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-center mb-2"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-semibold text-gray-800">Mark Selected Students</h2>
+          <button onClick={() => setShowSelectModal(false)} className="p-1 text-gray-400 hover:text-gray-600">✕</button>
+        </div>
         <input type="text" placeholder="Search student by email..." value={selectedStudentEmail} onChange={(e) => { setSelectedStudentEmail(e.target.value); if (e.target.value.length > 3) fetchCompletedEventStudents(selectedEventId); }} className="w-full border rounded-lg px-3 py-2 mb-3" />
         <select value={selectedStudentEmail} onChange={(e) => setSelectedStudentEmail(e.target.value)} className="w-full border rounded-lg px-3 py-2 mb-3">
           <option value="">-- Select Registered Student --</option>
@@ -1956,30 +1959,30 @@ const uniqueStudents = registeredStudents.filter(
 {showSelectedStudentsModal && (
   <div className="fixed inset-0 z-50" onClick={() => setShowSelectedStudentsModal(false)}>
     {/* Desktop anchored panel */}
-    <div className="hidden sm:block fixed top-28 right-6 bottom-6 w-[36%] max-w-md bg-white rounded-lg shadow-lg p-6 overflow-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="hidden md:block fixed top-28 right-6 bottom-6 w-[36%] max-w-md bg-white rounded-lg shadow-lg p-6 overflow-auto" onClick={(e) => e.stopPropagation()}>
       <button onClick={() => setShowSelectedStudentsModal(false)} className="absolute top-3 right-3 text-gray-600 hover:text-black">✕</button>
       <h2 className="text-xl font-bold text-blue-700 mb-4">🎯 Selected Students ({selectedStudents.length})</h2>
 
       {selectedStudents.length === 0 ? (
         <div className="text-center text-gray-500">No selected students found for this event. You can upload a selected list.</div>
       ) : (
-        <div className="overflow-x-auto max-h-[60vh] border rounded-lg">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-blue-100 text-gray-800">
-              <tr>
-                <th className="px-3 py-2 border">Full Name</th>
-                <th className="px-3 py-2 border">Roll No</th>
-                <th className="px-3 py-2 border">Email</th>
-                <th className="px-3 py-2 border">Branch</th>
+        <div className="overflow-auto max-h-[60vh] rounded-lg border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-blue-50">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Full Name</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Roll No</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Email</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Branch</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100">
               {selectedStudents.map((s, i) => (
-                <tr key={i} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 border">{s.name}</td>
-                  <td className="px-3 py-2 border">{s.rollNo}</td>
-                  <td className="px-3 py-2 border">{s.email}</td>
-                  <td className="px-3 py-2 border">{s.branch}</td>
+                <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-900 font-medium whitespace-nowrap">{s.name}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm font-mono text-gray-700 whitespace-nowrap">{s.rollNo}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{s.email}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{s.branch}</td>
                 </tr>
               ))}
             </tbody>
@@ -1993,31 +1996,35 @@ const uniqueStudents = registeredStudents.filter(
       </div>
     </div>
 
-    {/* Mobile centered overlay */}
-    <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black bg-opacity-50 p-4" onClick={() => setShowSelectedStudentsModal(false)}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[92vw] max-h-[85vh] overflow-auto p-4 mx-2 text-sm" onClick={(e) => e.stopPropagation()}>
-        <button onClick={() => setShowSelectedStudentsModal(false)} className="absolute top-2 right-2 text-gray-600 hover:text-black">✕</button>
-        <h2 className="text-lg font-bold text-blue-700 mb-3">🎯 Selected Students ({selectedStudents.length})</h2>
+    {/* Mobile/Tablet bottom sheet */}
+    <div className="block md:hidden fixed inset-0 z-50" onClick={() => setShowSelectedStudentsModal(false)}>
+      <div className="fixed inset-0 bg-black/50" />
+      <div className="fixed inset-x-0 bottom-0 bg-white rounded-t-2xl shadow-2xl max-h-[85vh] overflow-auto p-4 text-sm animate-slideUp" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-center mb-2"><div className="w-10 h-1 bg-gray-300 rounded-full" /></div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold text-blue-700">Selected Students ({selectedStudents.length})</h2>
+          <button onClick={() => setShowSelectedStudentsModal(false)} className="p-1 text-gray-400 hover:text-gray-600">✕</button>
+        </div>
         {selectedStudents.length === 0 ? (
           <div className="text-center text-gray-500">No selected students found for this event. You can upload a selected list.</div>
         ) : (
-          <div className="overflow-x-auto max-h-[60vh] border rounded-lg">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-blue-100 text-gray-800">
-                <tr>
-                  <th className="px-3 py-2 border">Full Name</th>
-                  <th className="px-3 py-2 border">Roll No</th>
-                  <th className="px-3 py-2 border">Email</th>
-                  <th className="px-3 py-2 border">Branch</th>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-blue-50">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Name</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Roll No</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Email</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Branch</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100">
                 {selectedStudents.map((s, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 border">{s.name}</td>
-                    <td className="px-3 py-2 border">{s.rollNo}</td>
-                    <td className="px-3 py-2 border">{s.email}</td>
-                    <td className="px-3 py-2 border">{s.branch}</td>
+                  <tr key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                    <td className="px-3 py-2 text-xs text-gray-900 font-medium whitespace-nowrap">{s.name}</td>
+                    <td className="px-3 py-2 text-xs font-mono text-gray-700 whitespace-nowrap">{s.rollNo}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{s.email}</td>
+                    <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{s.branch}</td>
                   </tr>
                 ))}
               </tbody>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, ArrowLeft } from 'lucide-react';
+import { Mail, ArrowLeft, Send } from 'lucide-react';
 import { requestAdminPasswordResetOTP } from '../../services/adminService';
 
 const AdminForgotPassword = () => {
@@ -15,7 +15,7 @@ const AdminForgotPassword = () => {
     setLoading(true);
     setError('');
     setMessage('');
-    
+
     try {
       await requestAdminPasswordResetOTP(email);
       sessionStorage.setItem('resetEmail', email);
@@ -29,60 +29,69 @@ const AdminForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-100 flex items-center justify-center p-4">
       <button
         onClick={() => navigate('/super-admin-login')}
-        className="absolute top-6 left-6 flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+        className="fixed top-4 left-4 z-10 flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm text-[13px] font-medium"
       >
-        <ArrowLeft className="h-5 w-5" />
+        <ArrowLeft className="h-4 w-4" />
         <span>Back to Login</span>
       </button>
 
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Forgot Admin Password</h1>
-        <p className="text-gray-600 mb-6">Enter your email address to receive a verification code.</p>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Admin Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                placeholder="Enter your admin email"
-              />
-            </div>
-          </div>
+      <div className="w-full max-w-[420px]">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <img src="/IFlogo.png" alt="Infoverse" className="h-12 mx-auto mb-4" />
+          <h1 className="text-[22px] font-bold text-slate-800 mb-1">Forgot Admin Password</h1>
+          <p className="text-[13px] text-slate-500">Enter your email address to receive a verification code</p>
+        </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-sm">
-              {error}
+        <div className="bg-white rounded-2xl shadow-lg shadow-blue-100/50 border border-blue-100/50 p-7">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-[13px] font-semibold text-slate-600 mb-1.5">Admin Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-[18px] w-[18px]" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-[14px] text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+                  placeholder="Enter your admin email"
+                />
+              </div>
             </div>
-          )}
-          
-          {message && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 text-sm">
-              {message}
-            </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-4 rounded-lg font-medium transition-all"
-          >
-            {loading ? 'Sending OTP...' : 'Send OTP'}
-          </button>
-        </form>
+            {error && (
+              <div className="bg-red-50 border border-red-100 rounded-xl p-3">
+                <p className="text-red-600 text-[13px]">{error}</p>
+              </div>
+            )}
+
+            {message && (
+              <div className="bg-green-50 border border-green-100 rounded-xl p-3">
+                <p className="text-green-700 text-[13px]">{message}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white py-2.5 px-4 rounded-xl text-[14px] font-semibold transition-all duration-200 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-md shadow-blue-200/50"
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-200 border-t-white"></div>
+              ) : (
+                <Send className="h-[18px] w-[18px]" />
+              )}
+              {loading ? 'Sending OTP...' : 'Send OTP'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
 };
 
 export default AdminForgotPassword;
-
-

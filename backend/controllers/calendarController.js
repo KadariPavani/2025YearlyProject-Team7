@@ -60,8 +60,8 @@ exports.createEvent = async (req, res) => {
   try {
     const {
       title, description, startDate, endDate,
-      startTime, endTime, venue, isOnline,
-      companyDetails = {}, eventType, createdBy, createdByModel,
+      startTime, endTime, venue,
+      companyDetails = {}, createdBy, createdByModel,
       externalLink, targetGroup, targetBatchIds = [], targetStudentIds = []
     } = req.body;
 
@@ -74,8 +74,7 @@ exports.createEvent = async (req, res) => {
       startTime,
       endTime,
       venue,
-      isOnline,
-      eventType,
+      eventType: "drive",
       createdBy,
       createdByModel,
       targetGroup,
@@ -100,14 +99,6 @@ exports.createEvent = async (req, res) => {
     // Priority 2: Specific batches selected
     else if (targetGroup === 'batch-specific' && targetBatchIds && targetBatchIds.length > 0) {
       studentFilter = { placementTrainingBatchId: { $in: targetBatchIds } };
-    }
-    // Priority 3: Target group (CRT/Non-CRT/Both)
-    else {
-      if (targetGroup === "crt") {
-        studentFilter = { $or: [{ batchType: "CRT" }, { crtInterested: true }] };
-      } else if (targetGroup === "non-crt") {
-        studentFilter = { $or: [{ batchType: "Non-CRT" }, { crtInterested: false }] };
-      }
     }
 
     const students = await Student.find(studentFilter, "_id name email");
@@ -176,27 +167,12 @@ if (req.userType === "student") {
   // 2️⃣ Auto-link assigned TPO
   await ensureStudentTpoLink(student);
 
-  // 3️⃣ Determine if CRT or Non-CRT student
-  let studentType = "non-crt";
-
-// 🧩 Determine student group correctly
-if (student.batchType) {
-  // Example: batchType: "CRT" / "Non-CRT"
-  studentType = student.batchType.toLowerCase();
-} else if (typeof student.crtInterested !== "undefined") {
-  studentType = student.crtInterested ? "crt" : "non-crt";
-}
-
-
-  // 4️⃣ Filter events:
+  // 3️⃣ Filter events:
   //    - Only show events created by student's assigned TPO
-  //    - Match student's type (crt/non-crt/both)
   //    - Match batch-specific or student-specific targeting
   filter = {
     createdBy: student.assignedTpo,
     $or: [
-      { targetGroup: studentType },
-      { targetGroup: "both" },
       { targetGroup: "batch-specific", targetBatchIds: student.placementTrainingBatchId },
       { targetGroup: "specific-students", targetStudentIds: student._id }
     ]
@@ -311,9 +287,6 @@ exports.updateEvent = async (req, res) => {
     if (!event)
       return res.status(404).json({ success: false, message: "Event not found" });
 
-    // 🧩 Capture old target group before updating
-    const oldTargetGroup = event.targetGroup;
-
     // Preserve companyDetails correctly
     if (req.body.companyDetails || req.body.externalLink) {
       event.companyDetails = {
@@ -357,99 +330,6 @@ if (!req.notifiedOnce) {
 
 
 
-    // 🧠 --------- TARGET GROUP CHANGE HANDLER ----------
-    if (req.body.targetGroup && req.body.targetGroup !== oldTargetGroup) {
-      const removedStudents = [];
-      const newGroup = req.body.targetGroup.toLowerCase();
-
-      console.log(`🔄 Target group changed from ${oldTargetGroup} → ${newGroup}`);
-
-      // Identify students to remove
-      for (const reg of event.registrations) {
-        const student = await Student.findById(reg.studentId);
-        if (!student) continue;
-
-        const studentGroup = student.batchType
-          ? student.batchType.toLowerCase()
-          : student.crtInterested
-          ? "crt"
-          : "non-crt";
-
-        const shouldRemove =
-          (newGroup === "crt" && studentGroup !== "crt") ||
-          (newGroup === "non-crt" && studentGroup !== "non-crt");
-
-        if (shouldRemove) {
-          removedStudents.push({
-            id: student._id,
-            name: student.name,
-            email: student.email,
-            group: studentGroup,
-          });
-        }
-      }
-
-      // 🔥 Unregister + Notify removed students
-      if (removedStudents.length > 0) {
-        event.registrations = event.registrations.filter(
-          (reg) =>
-            !removedStudents.some(
-              (s) => s.id.toString() === reg.studentId.toString()
-            )
-        );
-        event.eventSummary.totalAttendees = event.registrations.length;
-        await event.save();
-
-        // ✉️ Send email + 🔔 Save notifications
-        const notificationPayloads = [];
-
-        for (const s of removedStudents) {
-          const subject = `Event Update: ${event.title}`;
-          const htmlContent = `
-            <h3>Hello ${s.name},</h3>
-            <p>The event <strong>${event.title}</strong> has been updated by the TPO.</p>
-            <p>This event is now for <strong>${newGroup.toUpperCase()}</strong> students only.</p>
-            <p>Your registration has been removed automatically since you belong to ${s.group.toUpperCase()}.</p>
-            <p>Thank you for understanding.</p>
-            <br />
-            <p>— Placement Office</p>
-          `;
-
-          // 📧 Send email
-          await sendEmail(s.email, subject, htmlContent);
-
-          // Prepare notification payload
-          notificationPayloads.push({
-            title: "Event Registration Update",
-            message: `You were removed from "${event.title}" since it is now for ${req.body.targetGroup.toUpperCase()} students.`,
-            senderId: req.user?._id,
-            senderModel: req.userType === "tpo" ? "TPO" : "Admin",
-            recipients: [
-              {
-                recipientId: s.id,
-                recipientModel: "Student",
-                isRead: false,
-              },
-            ],
-            relatedEntity: {
-              entityId: event._id,
-              entityModel: "Event",
-            },
-          });
-
-          console.log(`📨 Removed & emailed ${s.email} (${s.group} student)`);
-        }
-
-        // 🧾 Insert all notifications at once
-        if (notificationPayloads.length > 0) {
-          await Notification.insertMany(notificationPayloads);
-          console.log(`🔔 ${notificationPayloads.length} notifications created.`);
-        }
-      } else {
-        console.log("✅ No students removed. No notifications needed.");
-      }
-    }
-    // ---------------------------------------------------
 
     res.json({ success: true, data: event });
   } catch (error) {
@@ -593,6 +473,7 @@ exports.registerStudent = async (req, res) => {
       backlogs: student.backlogs,
       techStack: student.techStack,
       resumeUrl: student.resumeUrl,
+      yearOfPassing: student.yearOfPassing,
       externalLink: req.body.externalLink || "",
     };
 
@@ -925,22 +806,100 @@ exports.getRegisteredStudentsForCompleted = async (req, res) => {
     if (!event)
       return res.status(404).json({ message: "Event not found" });
 
-    // 🧠 Map registered students info (safe access)
-    const registeredStudents = event.registrations?.map((r) => ({
-      name: r.personalInfo?.name || r.studentId?.name,
-      rollNo: r.personalInfo?.rollNo || r.studentId?.rollNo,
-      email: r.personalInfo?.email || r.studentId?.email,
-      branch: r.personalInfo?.branch || r.studentId?.branch,
-      phonenumber: r.personalInfo?.phonenumber || r.studentId?.phonenumber,
-      college: r.personalInfo?.college || r.studentId?.college,
-      status: r.status || "registered",
-      registeredAt: r.registeredAt,
-    })) || [];
+    // 🧠 Map registered students info — include ALL personalInfo fields
+    // For older registrations missing yearOfPassing, fetch from Student document
+    const registeredStudents = [];
+    for (const r of event.registrations || []) {
+      let yearOfPassing = r.personalInfo?.yearOfPassing || "";
+
+      // Fallback: fetch from Student model if not stored in personalInfo
+      if (!yearOfPassing && r.studentId) {
+        const studentDoc = await Student.findById(r.studentId, "yearOfPassing");
+        yearOfPassing = studentDoc?.yearOfPassing || "";
+      }
+
+      registeredStudents.push({
+        name: r.personalInfo?.name || "",
+        rollNo: r.personalInfo?.rollNo || "",
+        email: r.personalInfo?.email || "",
+        branch: r.personalInfo?.branch || "",
+        phonenumber: r.personalInfo?.phonenumber || "",
+        college: r.personalInfo?.college || "",
+        gender: r.personalInfo?.gender || "",
+        dob: r.personalInfo?.dob || "",
+        currentLocation: r.personalInfo?.currentLocation || "",
+        hometown: r.personalInfo?.hometown || "",
+        backlogs: r.personalInfo?.backlogs ?? "",
+        techStack: r.personalInfo?.techStack || [],
+        resumeUrl: r.personalInfo?.resumeUrl || "",
+        yearOfPassing,
+        status: r.status || "registered",
+        registeredAt: r.registeredAt,
+      });
+    }
 
     res.status(200).json({ success: true, data: registeredStudents });
   } catch (err) {
     console.error("❌ Error fetching students:", err);
     res.status(500).json({ success: false, message: "Error fetching students", error: err.message });
+  }
+};
+
+// ---------------------- EXPORT REGISTERED STUDENTS AS EXCEL ----------------------
+exports.exportRegisteredStudents = async (req, res) => {
+  try {
+    const event = await Calendar.findById(req.params.id);
+    if (!event)
+      return res.status(404).json({ success: false, message: "Event not found" });
+
+    const rows = [];
+    for (const r of event.registrations || []) {
+      let yearOfPassing = r.personalInfo?.yearOfPassing || "";
+      if (!yearOfPassing && r.studentId) {
+        const studentDoc = await Student.findById(r.studentId, "yearOfPassing");
+        yearOfPassing = studentDoc?.yearOfPassing || "";
+      }
+
+      rows.push({
+        'Name': r.personalInfo?.name || '',
+        'Roll No': r.personalInfo?.rollNo || '',
+        'Email': r.personalInfo?.email || '',
+        'Phone': r.personalInfo?.phonenumber || '',
+        'College': r.personalInfo?.college || '',
+        'Branch': r.personalInfo?.branch || '',
+        'Gender': r.personalInfo?.gender || '',
+        'DOB': r.personalInfo?.dob ? new Date(r.personalInfo.dob).toLocaleDateString() : '',
+        'Current Location': r.personalInfo?.currentLocation || '',
+        'Home Town': r.personalInfo?.hometown || '',
+        'Backlogs': r.personalInfo?.backlogs ?? '',
+        'Tech Stack': Array.isArray(r.personalInfo?.techStack) ? r.personalInfo.techStack.join(', ') : '',
+        'Year of Passing': yearOfPassing,
+        'Resume URL': r.personalInfo?.resumeUrl || '',
+        'Status': r.status || 'registered',
+        'Registered At': r.registeredAt ? new Date(r.registeredAt).toLocaleDateString() : '',
+      });
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    worksheet['!cols'] = [
+      { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 20 },
+      { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 18 }, { wch: 15 },
+      { wch: 10 }, { wch: 25 }, { wch: 15 }, { wch: 30 }, { wch: 12 }, { wch: 15 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Registered Students');
+
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const companyName = event.companyDetails?.companyName || event.title || 'Event';
+    const safeName = companyName.replace(/[^a-zA-Z0-9]/g, '_');
+    const fileName = `${safeName}_Registered_Students_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (err) {
+    console.error("❌ Error exporting registered students:", err);
+    res.status(500).json({ success: false, message: "Error exporting students", error: err.message });
   }
 };
 

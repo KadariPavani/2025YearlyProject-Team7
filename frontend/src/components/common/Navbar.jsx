@@ -12,7 +12,7 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-3">
         <div className="flex items-center space-x-2">
 
-          <img src="/IFlogo.png" alt="Infoverse Logo" className="h-10" />
+          <img src="/IFlogo.png" alt="Infoverse Logo" className="h-8" />
           <span className="text-gray-900 font-bold text-lg">INFOVERSE</span>
         </div>
 

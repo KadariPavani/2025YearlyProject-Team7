@@ -19,6 +19,8 @@ router.put('/:id', calendarController.updateEvent);
 router.delete('/:id', calendarController.deleteEvent);
 router.get('/student/:id', calendarController.getStudentById);
 
+// ✅ Export registered students as Excel (must be before the general route)
+router.get('/:id/registered-students/export', calendarController.exportRegisteredStudents);
 // ✅ Fetch registered students for completed event
 router.get('/:id/registered-students', calendarController.getRegisteredStudentsForCompleted);
 

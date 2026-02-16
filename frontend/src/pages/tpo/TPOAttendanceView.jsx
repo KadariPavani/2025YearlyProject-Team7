@@ -99,104 +99,83 @@ const TPOAttendanceView = () => {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Attendance Management</h2>
-          <p className="text-sm text-gray-500">Overview and detailed attendance reports</p>
+          <h2 className="text-sm sm:text-lg font-semibold text-gray-900">Attendance Report</h2>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={downloadExcel} disabled={downloading} className={`px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2 ${downloading ? 'bg-gray-300 text-gray-600' : 'bg-green-600 text-white'}`}>
+          <button onClick={downloadExcel} disabled={downloading} className={`px-3 py-1.5 rounded text-xs sm:text-sm font-medium flex items-center gap-2 ${downloading ? 'bg-gray-300 text-gray-600' : 'bg-green-600 text-white'}`}>
             <Download className="h-4 w-4" />
             <span className="hidden sm:inline">{downloading ? 'Downloading...' : 'Export Excel'}</span>
           </button>
-          <button onClick={fetchCompleteReport} className="px-3 py-1.5 rounded text-sm font-medium bg-blue-600 text-white flex items-center gap-2">
+          <button onClick={fetchCompleteReport} className="px-3 py-1.5 rounded text-xs sm:text-sm font-medium bg-blue-600 text-white flex items-center gap-2">
             <RefreshCw className="h-4 w-4" />
             <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
       </div>
 
-      {/* Mobile compact stats - 4 small boxes in single row */}
-      <div className="sm:hidden grid grid-cols-4 gap-2">
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 text-center text-[10px]">
-          <div className="text-gray-500">Total Students</div>
-          <div className="text-sm font-semibold">{summary.totalStudents}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 text-center text-[10px]">
-          <div className="text-gray-500">Total Sessions</div>
-          <div className="text-sm font-semibold">{summary.totalSessions}</div>
-        </div>
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 text-center text-[10px]">
-          <div className="text-gray-500">Avg</div>
-          <div className="text-sm font-semibold">{summary.averageAttendance}%</div>
-        </div>
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 text-center text-[10px]">
-          <div className="text-gray-500">Low Attendance</div>
-          <div className="text-sm font-semibold">{summary.lowAttendanceCount}</div>
-        </div>
-      </div>
-
-      {/* Desktop stat cards */}
-      <div className="hidden sm:grid sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex w-10 h-10 rounded-md bg-blue-50 flex items-center justify-center"><Users className="h-5 w-5 text-blue-600" /></div>
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex w-10 h-10 rounded-md bg-blue-50 items-center justify-center"><Users className="h-5 w-5 text-blue-600" /></div>
             <div>
               <p className="text-xs text-gray-500">Total Students</p>
-              <p className="text-xl font-bold text-gray-900">{summary.totalStudents}</p>
+              <p className="text-sm sm:text-xl font-bold text-gray-900">{summary.totalStudents}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex w-10 h-10 rounded-md bg-green-50 flex items-center justify-center"><Calendar className="h-5 w-5 text-green-600" /></div>
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex w-10 h-10 rounded-md bg-green-50 items-center justify-center"><Calendar className="h-5 w-5 text-green-600" /></div>
             <div>
               <p className="text-xs text-gray-500">Total Sessions</p>
-              <p className="text-xl font-bold text-gray-900">{summary.totalSessions}</p>
+              <p className="text-sm sm:text-xl font-bold text-gray-900">{summary.totalSessions}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className={`hidden sm:flex w-10 h-10 rounded-md ${summary.averageAttendance >= 75 ? 'bg-green-50' : 'bg-red-50'} flex items-center justify-center`}>
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className={`hidden sm:flex w-10 h-10 rounded-md ${summary.averageAttendance >= 75 ? 'bg-green-50' : 'bg-red-50'} items-center justify-center`}>
               <TrendingUp className={`h-5 w-5 ${summary.averageAttendance >= 75 ? 'text-green-600' : 'text-red-600'}`} />
             </div>
             <div>
               <p className="text-xs text-gray-500">Avg Attendance</p>
-              <p className={`text-xl font-bold ${summary.averageAttendance >= 75 ? 'text-green-700' : 'text-red-600'}`}>{summary.averageAttendance}%</p>
+              <p className={`text-sm sm:text-xl font-bold ${summary.averageAttendance >= 75 ? 'text-green-700' : 'text-red-600'}`}>{summary.averageAttendance}%</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex w-10 h-10 rounded-md bg-red-50 flex items-center justify-center"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex w-10 h-10 rounded-md bg-red-50 items-center justify-center"><AlertTriangle className="h-5 w-5 text-red-600" /></div>
             <div>
               <p className="text-xs text-gray-500">Low Attendance</p>
-              <p className="text-xl font-bold text-red-600">{summary.lowAttendanceCount}</p>
+              <p className="text-sm sm:text-xl font-bold text-red-600">{summary.lowAttendanceCount}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
+      <div className="bg-white rounded-lg shadow border border-gray-200 p-3 sm:p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <label className="text-xs text-gray-600">Start Date</label>
-            <input type="date" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 px-3 py-2 border rounded text-sm" />
+            <input type="date" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full mt-1 px-3 py-1.5 sm:py-2 border rounded text-xs sm:text-sm" />
           </div>
           <div>
             <label className="text-xs text-gray-600">End Date</label>
-            <input type="date" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 px-3 py-2 border rounded text-sm" />
+            <input type="date" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full mt-1 px-3 py-1.5 sm:py-2 border rounded text-xs sm:text-sm" />
           </div>
           <div>
             <label className="text-xs text-gray-600">Search Student</label>
             <div className="relative mt-1">
               <Search className="h-4 w-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input type="text" placeholder="Name, Roll No, Email..." value={filters.searchQuery} onChange={(e) => handleFilterChange('searchQuery', e.target.value)} className="w-full pl-10 pr-3 py-2 border rounded text-sm" />
+              <input type="text" placeholder="Name, Roll No, Email..." value={filters.searchQuery} onChange={(e) => handleFilterChange('searchQuery', e.target.value)} className="w-full pl-10 pr-3 py-1.5 sm:py-2 border rounded text-xs sm:text-sm" />
             </div>
           </div>
           <div className="flex gap-2 items-end">
-            <button onClick={applyFilters} className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm">Apply</button>
-            <button onClick={resetFilters} className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded text-sm">Reset</button>
+            <button onClick={applyFilters} className="flex-1 px-3 py-1.5 sm:py-2 bg-blue-600 text-white rounded text-xs sm:text-sm">Apply</button>
+            <button onClick={resetFilters} className="flex-1 px-3 py-1.5 sm:py-2 bg-gray-100 text-gray-700 rounded text-xs sm:text-sm">Reset</button>
           </div>
         </div>
       </div>
@@ -220,54 +199,30 @@ const TPOAttendanceView = () => {
           {batchStats.length === 0 ? (
             <div className="p-6 text-center text-gray-500">No attendance recorded</div>
           ) : (
-            <>
-              {/* Desktop table */}
-              <div className="hidden sm:block">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-blue-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Batch</th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Tech Stack</th>
-                        <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Students</th>
-                        <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Sessions</th>
-                        <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Avg</th>
-                        <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Alerts</th>
+            <div className="overflow-auto max-h-[50vh] sm:max-h-[60vh]">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-blue-50">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Batch</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Tech Stack</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Students</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Sessions</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {batchStats.map((batch, idx) => (
+                      <tr key={batch._id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors ${batch.averageAttendance < 75 ? 'bg-red-50' : ''}`}>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-900 whitespace-nowrap font-medium">{batch.batchNumber}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{batch.techStack}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-center">{batch.totalStudents}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-center">{batch.totalSessions}</td>
+                        <td className="px-3 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${batch.averageAttendance >= 75 ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>{batch.averageAttendance}%</span></td>
                       </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-100 text-sm">
-                      {batchStats.map(batch => (
-                        <tr key={batch._id} className={`hover:bg-blue-50 ${batch.averageAttendance < 75 ? 'bg-red-50' : ''}`}>
-                          <td className="px-3 py-2">{batch.batchNumber}</td>
-                          <td className="px-3 py-2 text-gray-700">{batch.techStack}</td>
-                          <td className="px-3 py-2 text-center">{batch.totalStudents}</td>
-                          <td className="px-3 py-2 text-center">{batch.totalSessions}</td>
-                          <td className="px-3 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${batch.averageAttendance >= 75 ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>{batch.averageAttendance}%</span></td>
-                          <td className="px-3 py-2 text-center text-red-600 font-semibold">{batch.lowAttendanceCount}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-
-              {/* Mobile stacked list - compact */}
-              <div className="sm:hidden divide-y divide-gray-200">
-                {batchStats.map(batch => (
-                  <div key={batch._id} className="p-2 flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-xs truncate">{batch.batchNumber}</div>
-                      <div className="text-[10px] text-gray-500">{batch.techStack}</div>
-                    </div>
-                    <div className="text-right text-[10px]">
-                      <div className="font-semibold">{batch.totalStudents} students</div>
-                      <div className="text-gray-500">{batch.totalSessions} sessions</div>
-                      <div className={`font-semibold ${batch.averageAttendance >= 75 ? 'text-green-700' : 'text-red-600'}`}>{batch.averageAttendance}%</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
           )}
             </>
           )}
@@ -279,60 +234,39 @@ const TPOAttendanceView = () => {
                 <div className="p-6 text-center text-gray-500">No attendance recorded</div>
               ) : (
                 <>
-                  <p className="text-sm text-gray-500 mb-3">Showing {getFilteredStudents().length} of {studentWiseReport.length} students</p>
+                  <p className="text-xs sm:text-sm text-gray-500 mb-3">Showing {getFilteredStudents().length} of {studentWiseReport.length} students</p>
 
-              {/* Desktop table */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-blue-50">
-                    <tr>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Name</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Roll</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Email</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">College</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Branch</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Sessions</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Present</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Absent</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Attendance</th>
+              <div className="overflow-auto max-h-[50vh] sm:max-h-[60vh]">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-blue-50">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Name</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Roll</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Email</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">College</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Branch</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Sessions</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Present</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Absent</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Attendance</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-100">
                     {getFilteredStudents().map((s, idx) => (
-                      <tr key={s.student._id} className={`${idx%2===0?'bg-white':'bg-gray-50'}`}>
-                        <td className="px-3 py-2">{s.student.name}</td>
-                        <td className="px-3 py-2 font-mono text-sm">{s.student.rollNo}</td>
-                        <td className="px-3 py-2 text-sm text-gray-700">{s.student.email}</td>
-                        <td className="px-3 py-2 text-sm">{s.student.college}</td>
-                        <td className="px-3 py-2 text-sm">{s.student.branch}</td>
-                        <td className="px-3 py-2 text-center">{s.totalSessions}</td>
-                        <td className="px-3 py-2 text-center text-green-700 font-semibold">{s.present + s.late}</td>
-                        <td className="px-3 py-2 text-center text-red-600 font-semibold">{s.absent}</td>
+                      <tr key={s.student._id} className={`${idx%2===0?'bg-white':'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-900 whitespace-nowrap font-medium">{s.student.name}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm font-mono whitespace-nowrap">{s.student.rollNo}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{s.student.email}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{s.student.college}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{s.student.branch}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-center">{s.totalSessions}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-center text-green-700 font-semibold">{s.present + s.late}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-center text-red-600 font-semibold">{s.absent}</td>
                         <td className="px-3 py-2 text-center"><span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${s.percentage >= 75 ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>{s.percentage}%</span></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
-
-              {/* Mobile compact list */}
-              <div className="sm:hidden divide-y divide-gray-200">
-                {getFilteredStudents().map((s, idx) => (
-                  <div key={s.student._id} className={`p-2 flex items-center justify-between ${idx%2===0?'bg-white':'bg-gray-50'}`}>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-[10px]">{s.student.name.charAt(0)}</div>
-                      <div className="min-w-0">
-                        <div className="font-medium text-gray-900 text-[10px] truncate">{s.student.name}</div>
-                        <div className="text-[10px] text-gray-500 truncate">{s.student.college} • {s.student.branch}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 ml-3 flex-shrink-0 relative">
-                      <div className="text-[10px] text-gray-700 font-mono text-right">{s.student.rollNo}</div>
-                      <div className={`ml-3 text-xs font-semibold ${s.percentage >= 75 ? 'text-green-700' : 'text-red-600'}`}>{s.percentage}%</div>
-                    </div>
-                  </div>
-                ))}
               </div>
             </>
           )}
@@ -341,35 +275,34 @@ const TPOAttendanceView = () => {
 
           {/* Session History */}
           {activeView === 'sessions' && (
-            <div className="space-y-3 max-h-[40vh] sm:max-h-[60vh] overflow-y-auto">
+            <div>
           {sessionWiseReport.length === 0 ? (
             <div className="p-6 text-center text-gray-500">No attendance recorded</div>
           ) : (
             <>
-              {/* Desktop: table similar to Student Details */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                  <thead className="bg-blue-50">
-                    <tr>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Date</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Day</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Time</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Subject</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Trainer</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Batch</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Attendance</th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700">Present</th>
+              <div className="overflow-auto max-h-[50vh] sm:max-h-[60vh]">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-blue-50">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Date</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Day</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Time</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Subject</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Trainer</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Batch</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Attendance</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Present</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-100">
                     {sessionWiseReport.map((session, idx) => (
-                      <tr key={session._id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50`}>
-                        <td className="px-3 py-2 text-sm">{new Date(session.date).toLocaleDateString()}</td>
-                        <td className="px-3 py-2 text-sm">{session.day}</td>
-                        <td className="px-3 py-2 text-sm">{session.timeSlot} • {session.startTime} - {session.endTime}</td>
-                        <td className="px-3 py-2 text-sm text-gray-700">{session.subject}</td>
-                        <td className="px-3 py-2 text-sm">{session.trainer ? session.trainer.name : 'N/A'}</td>
-                        <td className="px-3 py-2 text-sm">{session.batch?.batchNumber || 'N/A'}</td>
+                      <tr key={session._id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-900 whitespace-nowrap">{new Date(session.date).toLocaleDateString()}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{session.day}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{session.timeSlot} &bull; {session.startTime} - {session.endTime}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{session.subject}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{session.trainer ? session.trainer.name : 'N/A'}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{session.batch?.batchNumber || 'N/A'}</td>
                         <td className="px-3 py-2 text-center">
                           {session.attendancePercentage !== null && session.attendancePercentage !== undefined ? (
                             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${session.attendancePercentage >= 75 ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'}`}>{session.attendancePercentage}%</span>
@@ -377,35 +310,11 @@ const TPOAttendanceView = () => {
                             <span className="text-xs text-gray-500">Not recorded</span>
                           )}
                         </td>
-                        <td className="px-3 py-2 text-center text-sm font-semibold">{session.presentCount}/{session.totalStudents}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-center font-semibold whitespace-nowrap">{session.presentCount}/{session.totalStudents}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
-
-              {/* Mobile: stacked compact list with consistent sizing and Batch on its own line */}
-              <div className="sm:hidden divide-y divide-gray-200">
-                {sessionWiseReport.map((session, idx) => (
-                  <div key={session._id} className={`p-2 flex items-start justify-between ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                    <div className="min-w-0">
-                      <div className="text-xs font-medium truncate">{new Date(session.date).toLocaleDateString()} <span className="text-xs text-gray-500">({session.day})</span></div>
-                      <div className="text-xs text-gray-500 mt-0.5">{session.timeSlot} • {session.startTime} - {session.endTime}</div>
-                      <div className="text-xs text-gray-700 mt-1 truncate">{session.subject}</div>
-                      <div className="text-xs text-gray-700 truncate">{session.trainer ? session.trainer.name : 'N/A'}</div>
-                      <div className="text-xs text-gray-700 truncate">{session.batch?.batchNumber || 'N/A'}</div>
-                    </div>
-
-                    <div className="text-right ml-3 flex-shrink-0">
-                      {session.attendancePercentage !== null && session.attendancePercentage !== undefined ? (
-                        <div className={`font-medium text-xs ${session.attendancePercentage >= 75 ? 'text-green-700' : 'text-red-600'}`}>{session.attendancePercentage}%</div>
-                      ) : (
-                        <div className="text-xs text-gray-500 font-medium">Not recorded</div>
-                      )}
-                      <div className="text-xs text-gray-500 mt-1">{session.presentCount}/{session.totalStudents}</div>
-                    </div>
-                  </div>
-                ))}
               </div>
             </>
           )}
@@ -419,53 +328,34 @@ const TPOAttendanceView = () => {
                 <div className="p-6 text-center text-gray-500">No students below threshold</div>
               ) : (
                 <>
-                  <p className="text-sm text-gray-500 mb-3">{lowAttendanceStudents.length} students below 75% attendance</p>
+                  <p className="text-xs sm:text-sm text-gray-500 mb-3">{lowAttendanceStudents.length} students below 75% attendance</p>
 
-              {/* Desktop table */}
-              <div className="hidden sm:block">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-red-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-xs font-semibold text-red-700">Student</th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold text-red-700">Roll No</th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold text-red-700">Contact</th>
-                        <th className="px-3 py-2 text-center text-xs font-semibold text-red-700">Attendance</th>
-                        <th className="px-3 py-2 text-center text-xs font-semibold text-red-700">Absent</th>
+              <div className="overflow-auto max-h-[50vh] sm:max-h-[60vh]">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-red-50">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-red-700 whitespace-nowrap">Student</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-red-700 whitespace-nowrap">Roll No</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-red-700 whitespace-nowrap">Contact</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-red-700 whitespace-nowrap">Attendance</th>
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-red-700 whitespace-nowrap">Absent</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {lowAttendanceStudents.map((student, idx) => (
+                      <tr key={student.student._id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-red-50 transition-colors`}>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-xs sm:text-sm font-semibold text-gray-900">{student.student.name}</div>
+                          <div className="text-xs text-gray-500">{student.student.college} - {student.student.branch}</div>
+                        </td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{student.student.rollNo}</td>
+                        <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">{student.student.email}</td>
+                        <td className="px-3 py-2 text-center"><span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-800 font-semibold">{student.percentage}%</span></td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-center text-red-600 font-semibold whitespace-nowrap">{student.absent}/{student.totalSessions}</td>
                       </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-100">
-                      {lowAttendanceStudents.map(student => (
-                        <tr key={student.student._id} className={`hover:bg-red-50`}>
-                          <td className="px-3 py-2">
-                            <div className="font-semibold">{student.student.name}</div>
-                            <div className="text-xs text-gray-500">{student.student.college} - {student.student.branch}</div>
-                          </td>
-                          <td className="px-3 py-2">{student.student.rollNo}</td>
-                          <td className="px-3 py-2 text-xs text-gray-500">{student.student.email}</td>
-                          <td className="px-3 py-2 text-center"><span className="px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-semibold">{student.percentage}%</span></td>
-                          <td className="px-3 py-2 text-center text-red-600 font-semibold">{student.absent}/{student.totalSessions}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Mobile stacked list */}
-              <div className="sm:hidden divide-y divide-gray-200">
-                {lowAttendanceStudents.map(student => (
-                  <div key={student.student._id} className="p-2 flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-xs">{student.student.name}</div>
-                      <div className="text-[10px] text-gray-500">{student.student.college} - {student.student.branch}</div>
-                    </div>
-                    <div className="text-right text-[10px]">
-                      <div className="font-semibold text-red-700">{student.percentage}%</div>
-                      <div className="text-gray-500">Absent: {student.absent}/{student.totalSessions}</div>
-                    </div>
-                  </div>
-                ))}
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </>
           )}
