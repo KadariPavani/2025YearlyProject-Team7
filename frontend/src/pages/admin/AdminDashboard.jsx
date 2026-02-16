@@ -388,7 +388,7 @@ const AdminDashboard = () => {
         }}
       />
 
-      <main className="max-w-full mx-auto px-0 sm:px-8 lg:px-12 py-6 pt-24 pb-[220px] sm:pb-8">
+      <main className="max-w-full mx-auto px-4 sm:px-8 lg:px-12 py-6 pt-24 pb-[220px] sm:pb-8">
         {/* Page header */}
         <div className="mb-4 px-5 sm:px-0">
           <h1 className="text-lg sm:text-2xl font-semibold text-gray-900">{`Welcome, ${adminData?.name || "Admin"}..!`}</h1>

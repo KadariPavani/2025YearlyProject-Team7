@@ -1,18 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
   Download,
   ChevronDown,
   ChevronUp,
-  Filter,
   Search,
   AlertCircle,
   Users,
-  Calendar,
   Briefcase,
-  Phone,
-  Mail,
-  GraduationCap
+  Building2,
+  TrendingUp
 } from 'lucide-react';
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 
@@ -60,332 +57,294 @@ const PlacedStudentsTab = () => {
     }));
   };
 
-// In PlacedStudentsTab.jsx - Update the downloadExcel function
+  const downloadExcel = async (companyName = null) => {
+    try {
+      setDownloadingExcel(true);
+      if (companyName) setDownloadingCompany(companyName);
 
-const downloadExcel = async (companyName = null) => {
-  try {
-    setDownloadingExcel(true);
-    if (companyName) {
-      setDownloadingCompany(companyName);
+      const token = localStorage.getItem('userToken');
+      const url = companyName
+        ? `/api/tpo/placed-students/download-company/${encodeURIComponent(companyName)}`
+        : '/api/tpo/placed-students/download-excel';
+
+      const response = await axios.get(url, {
+        headers: { 'Authorization': `Bearer ${token}` },
+        responseType: 'blob'
+      });
+
+      const filename = companyName
+        ? `${companyName}_Placed_Students_${new Date().toISOString().split('T')[0]}.xlsx`
+        : `All_Placed_Students_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(response.data);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Error downloading Excel:', err);
+      setError('Failed to download Excel file');
+    } finally {
+      setDownloadingExcel(false);
+      setDownloadingCompany('');
     }
+  };
 
-    const token = localStorage.getItem('userToken');
-    
-    // FIXED: Use separate routes for company-specific and all downloads
-    const url = companyName 
-      ? `/api/tpo/placed-students/download-company/${encodeURIComponent(companyName)}`  // ✅ Fixed
-      : '/api/tpo/placed-students/download-excel';
-
-    const response = await axios.get(url, {
-      headers: { 'Authorization': `Bearer ${token}` },
-      responseType: 'blob'
+  // Collect all students for stats
+  const allStudents = useMemo(() => {
+    const list = [];
+    Object.entries(placedStudents).forEach(([, company]) => {
+      (company.students || []).forEach(student => list.push(student));
     });
+    return list;
+  }, [placedStudents]);
 
-    const filename = companyName 
-      ? `${companyName}_Placed_Students_${new Date().toISOString().split('T')[0]}.xlsx`
-      : `All_Companies_Placed_Students_${new Date().toISOString().split('T')[0]}.xlsx`;
+  const companies = Object.keys(placedStudents);
 
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(response.data);
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } catch (err) {
-    console.error('Error downloading Excel:', err);
-    setError('Failed to download Excel file');
-  } finally {
-    setDownloadingExcel(false);
-    setDownloadingCompany('');
-  }
-};
+  const allBatches = useMemo(() => {
+    const set = new Set();
+    allStudents.forEach(s => { if (s.batch) set.add(s.batch); });
+    return Array.from(set).sort();
+  }, [allStudents]);
 
+  const allBranches = useMemo(() => {
+    const set = new Set();
+    allStudents.forEach(s => { if (s.branch) set.add(s.branch); });
+    return Array.from(set).sort();
+  }, [allStudents]);
 
+  // Filter students within a company
   const getFilteredStudents = (students) => {
     return students.filter(student => {
-      const matchesSearch = searchTerm === '' ||
+      const matchesSearch = !searchTerm ||
         student.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.rollNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         student.email?.toLowerCase().includes(searchTerm.toLowerCase());
-
       const matchesBatch = filterBatch === 'all' || student.batch === filterBatch;
       const matchesBranch = filterBranch === 'all' || student.branch === filterBranch;
-
       return matchesSearch && matchesBatch && matchesBranch;
     });
   };
 
-  const getAllBatches = () => {
-    const batches = new Set(['all']);
-    Object.values(placedStudents).forEach(company => {
-      company.students.forEach(student => {
-        if (student.batch) batches.add(student.batch);
-      });
-    });
-    return Array.from(batches).sort();
-  };
-
-  const getAllBranches = () => {
-    const branches = new Set(['all']);
-    Object.values(placedStudents).forEach(company => {
-      company.students.forEach(student => {
-        if (student.branch) branches.add(student.branch);
-      });
-    });
-    return Array.from(branches).sort();
-  };
+  const avgPerCompany = companies.length > 0 ? Math.round(allStudents.length / companies.length) : 0;
 
   if (loading) return <LoadingSkeleton />;
 
-  const companies = Object.keys(placedStudents);
-
   return (
-    <div className="w-full bg-gradient-to-br from-slate-50 to-slate-100 p-6 rounded-lg">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Users size={28} className="text-blue-600" />
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-sm sm:text-lg font-semibold text-gray-900">Placed Students</h2>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5">Placed students across all companies</p>
+        </div>
+        <button
+          onClick={() => downloadExcel()}
+          disabled={downloadingExcel || companies.length === 0}
+          className={`px-3 py-1.5 rounded text-xs sm:text-sm font-medium flex items-center gap-2 ${downloadingExcel && !downloadingCompany ? 'bg-gray-300 text-gray-600' : 'bg-green-600 text-white hover:bg-green-700'}`}
+        >
+          <Download className="h-4 w-4" />
+          <span className="hidden sm:inline">{downloadingExcel && !downloadingCompany ? 'Downloading...' : 'Export All'}</span>
+        </button>
+      </div>
+
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex w-10 h-10 rounded-md bg-blue-50 items-center justify-center"><Building2 className="h-5 w-5 text-blue-600" /></div>
             <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Placed Students</h2>
-              <p className="text-xs text-gray-500 mt-1">Showing placed students across all TPOs</p>
+              <p className="text-xs text-gray-500">Companies</p>
+              <p className="text-sm sm:text-xl font-bold text-gray-900">{companies.length}</p>
             </div>
           </div>
-          <button
-            onClick={() => downloadExcel()}
-            disabled={downloadingExcel || companies.length === 0}
-            className="flex items-center gap-2 px-2 py-1 sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-md sm:rounded-lg transition duration-200 text-xs sm:text-sm"
-            aria-label="Download all placed students"
-          >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline ml-1">{downloadingExcel ? 'Downloading...' : 'Download All'}</span>
-          </button>
         </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white p-3 sm:p-4 rounded-md sm:rounded-lg shadow-md">
-            <p className="text-gray-600 text-sm font-medium">Total Companies</p>
-            <p className="text-2xl sm:text-3xl font-bold text-blue-600">{companies.length}</p>
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex w-10 h-10 rounded-md bg-green-50 items-center justify-center"><Users className="h-5 w-5 text-green-600" /></div>
+            <div>
+              <p className="text-xs text-gray-500">Total Placed</p>
+              <p className="text-sm sm:text-xl font-bold text-gray-900">{allStudents.length}</p>
+            </div>
           </div>
-          <div className="bg-white p-3 sm:p-4 rounded-md sm:rounded-lg shadow-md">
-            <p className="text-gray-600 text-sm font-medium">Total Placed Students</p>
-            <p className="text-2xl sm:text-3xl font-bold text-blue-600">
-              {Object.values(placedStudents).reduce((sum, c) => sum + c.students.length, 0)}
-            </p>
+        </div>
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex w-10 h-10 rounded-md bg-amber-50 items-center justify-center"><TrendingUp className="h-5 w-5 text-amber-600" /></div>
+            <div>
+              <p className="text-xs text-gray-500">Avg / Company</p>
+              <p className="text-sm sm:text-xl font-bold text-gray-900">{avgPerCompany}</p>
+            </div>
           </div>
-          <div className="bg-white p-3 sm:p-4 rounded-md sm:rounded-lg shadow-md">
-            <p className="text-gray-600 text-sm font-medium">Avg. Per Company</p>
-            <p className="text-2xl sm:text-3xl font-bold text-blue-600">
-              {companies.length > 0 
-                ? Math.round(Object.values(placedStudents).reduce((sum, c) => sum + c.students.length, 0) / companies.length)
-                : 0
-              }
-            </p>
+        </div>
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex w-10 h-10 rounded-md bg-purple-50 items-center justify-center"><Briefcase className="h-5 w-5 text-purple-600" /></div>
+            <div>
+              <p className="text-xs text-gray-500">Branches</p>
+              <p className="text-sm sm:text-xl font-bold text-gray-900">{allBranches.length}</p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="mb-6 bg-white p-4 rounded-lg shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Search size={16} className="inline mr-2" />
-              Search Students
-            </label>
+      <div className="bg-white rounded-lg shadow border border-gray-200 p-3 sm:p-4">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="relative col-span-3 sm:col-span-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Name, Roll No, or Email..."
+              placeholder="Search name, roll, email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <GraduationCap size={16} className="inline mr-2" />
-              Batch
-            </label>
-            <select
-              value={filterBatch}
-              onChange={(e) => setFilterBatch(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {getAllBatches().map(batch => (
-                <option key={batch} value={batch}>
-                  {batch === 'all' ? 'All Batches' : batch}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Briefcase size={16} className="inline mr-2" />
-              Branch
-            </label>
-            <select
-              value={filterBranch}
-              onChange={(e) => setFilterBranch(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {getAllBranches().map(branch => (
-                <option key={branch} value={branch}>
-                  {branch === 'all' ? 'All Branches' : branch}
-                </option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={filterBatch}
+            onChange={(e) => setFilterBatch(e.target.value)}
+            className="w-full px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm bg-white"
+          >
+            <option value="all">All Batches</option>
+            {allBatches.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+          <select
+            value={filterBranch}
+            onChange={(e) => setFilterBranch(e.target.value)}
+            className="w-full px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs sm:text-sm bg-white"
+          >
+            <option value="all">All Branches</option>
+            {allBranches.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
         </div>
       </div>
 
-      {/* Error Message */}
+      {/* Error */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-          <AlertCircle size={20} className="text-red-600" />
-          <span className="text-red-700">{error}</span>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
+          <AlertCircle className="w-5 h-5 text-red-600" />
+          <div>
+            <h3 className="font-semibold text-red-800">Error</h3>
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
         </div>
       )}
 
-      {/* Companies List */}
-      <div className="space-y-4">
-        {companies.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg">
-            <Users size={48} className="mx-auto mb-4 text-gray-400" />
-            <p className="text-gray-500 text-lg">No placed students found</p>
-          </div>
-        ) : (
-          companies.map(companyName => {
+      {/* Company-wise Accordion */}
+      {companies.length === 0 ? (
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-8 text-center text-gray-500">
+          <Users className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+          <p className="text-xs sm:text-sm font-medium">No placed students found</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden divide-y divide-gray-200">
+          {companies.map(companyName => {
             const company = placedStudents[companyName];
             const filteredStudents = getFilteredStudents(company.students);
             const isExpanded = expandedCompanies[companyName];
 
             return (
-              <div key={companyName} className="bg-white rounded-lg shadow-md overflow-hidden">
-                {/* Company Header */}
+              <div key={companyName}>
+                {/* Company Row */}
                 <div
                   onClick={() => toggleCompanyExpand(companyName)}
-                  className="p-4 sm:p-5 bg-gradient-to-r from-blue-50 to-blue-100 cursor-pointer hover:from-blue-100 hover:to-blue-200 transition duration-200"
+                  className="px-3 py-2.5 sm:px-4 sm:py-3 cursor-pointer hover:bg-gray-50 transition-colors flex items-center justify-between"
                 >
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-2 truncate">{companyName}</h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm text-gray-700">
-                        <div className="flex items-center gap-2">
-                          <Calendar size={16} className="text-blue-600" />
-                          <span className="truncate">{new Date(company.eventDate).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Briefcase size={16} className="text-blue-600" />
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{companyName}</h3>
+                        <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 text-[10px] sm:text-xs font-medium whitespace-nowrap">
+                          {company.totalSelected} placed
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 sm:gap-4 text-[10px] sm:text-xs text-gray-500 mt-0.5">
+                        <span className="flex items-center gap-1">
+                          <Briefcase className="w-3 h-3" />
                           <span className="truncate">{company.jobRole}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Users size={16} className="text-blue-600" />
-                          <span className="truncate">{company.totalSelected} Selected</span>
-                        </div>
+                        </span>
+                        <span>{new Date(company.eventDate).toLocaleDateString()}</span>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="flex items-center gap-2 ml-2 sm:ml-4 flex-shrink-0 flex-nowrap">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); toggleCompanyExpand(companyName); }}
-                        className="p-1 rounded-md text-gray-700 hover:text-gray-900 flex-shrink-0 inline-flex"
-                        aria-label={isExpanded ? `Collapse ${companyName}` : `Expand ${companyName}`}
-                      >
-                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          downloadExcel(companyName);
-                        }}
-                        disabled={downloadingExcel && downloadingCompany === companyName}
-                        className="px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-md sm:rounded-lg transition duration-200 flex items-center gap-2 text-xs sm:text-sm whitespace-nowrap flex-shrink-0 inline-flex"
-                        aria-label={`Download placed students for ${companyName}`}
-                      >
-                        <Download className="h-4 w-4" />
-                        <span className="hidden sm:inline ml-1">{downloadingExcel && downloadingCompany === companyName ? 'Downloading...' : 'Download'}</span>
-                      </button>
+                  <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadExcel(companyName);
+                      }}
+                      disabled={downloadingExcel && downloadingCompany === companyName}
+                      className="px-2 py-1 sm:px-3 sm:py-1.5 rounded text-xs sm:text-sm font-medium bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white flex items-center gap-1.5"
+                      aria-label={`Download placed students for ${companyName}`}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">{downloadingExcel && downloadingCompany === companyName ? 'Downloading...' : 'Export'}</span>
+                    </button>
+                    <div className="text-gray-400">
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                     </div>
                   </div>
                 </div>
 
-                {/* Company Students Table */}
-{isExpanded && (
-  <>
-    {/* Desktop / Tablet - table view (hidden on small screens) */}
-    <div className="hidden sm:block overflow-x-auto">
-      {filteredStudents.length === 0 ? (
-        <div className="p-6 text-center text-gray-500">No students match the selected filters</div>
-      ) : (
-        <table className="w-full min-w-[700px]">
-          <thead>
-            <tr className="bg-gray-100 border-t border-gray-200">
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Student Name</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Roll No</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Branch</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Batch</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Batch Number</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">College</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Phone</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Selection Date</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200 text-sm">
-            {filteredStudents.map((student, idx) => (
-              <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50 transition duration-150">
-                <td className="px-6 py-4 text-sm text-gray-900 font-medium">{student.name || "NA"}</td>
-                <td className="px-6 py-4 text-sm text-gray-700">{student.rollNumber || "NA"}</td>
-                <td className="px-6 py-4 text-sm text-gray-700">{student.branch || "NA"}</td>
-                <td className="px-6 py-4 text-sm text-gray-700">{student.batch || "NA"}</td>
-                <td className="px-6 py-4 text-sm text-blue-600 font-medium">{student.batchNumber || "NA"}</td>
-                <td className="px-6 py-4 text-sm text-gray-700">{student.colleges || "NA"}</td>
-                <td className="px-6 py-4 text-sm text-blue-600">{student.email ? (
-                  <a href={`mailto:${student.email}`} className="hover:underline">{student.email}</a>
-                ) : ("NA")}</td>
-                <td className="px-6 py-4 text-sm text-gray-700">{student.phone ? (
-                  <a href={`tel:${student.phone}`} className="hover:underline">{student.phone}</a>
-                ) : ("NA")}</td>
-                <td className="px-6 py-4 text-sm text-gray-700">{student.selectionDate ? new Date(student.selectionDate).toLocaleDateString() : "NA"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-
-    {/* Mobile - stacked compact rows */}
-    <div className="sm:hidden divide-y divide-gray-200">
-      {filteredStudents.length === 0 ? (
-        <div className="p-4 text-center text-gray-500">No students match the selected filters</div>
-      ) : (
-        filteredStudents.map((student, idx) => (
-          <div key={idx} className={`p-2 sm:p-3 flex items-center justify-between ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} rounded-sm sm:rounded-md border border-gray-100 shadow-sm`}> 
-            <div className="min-w-0">
-              <div className="font-medium text-xs sm:text-sm text-gray-900 truncate">{student.name || 'NA'}</div>
-              <div className="text-[11px] sm:text-sm text-gray-500 truncate">{student.branch || 'NA'} • {student.colleges || 'NA'}</div>
-              <div className="text-xs sm:text-sm text-gray-500 mt-1">Batch: {student.batch || 'NA'} • B#: <span className="text-blue-600 font-medium">{student.batchNumber || 'NA'}</span></div>
-              <div className="text-xs sm:text-sm text-gray-500 mt-1">Email: {student.email || 'NA'}</div>
-            </div>
-
-            <div className="flex flex-col items-end ml-3 sm:ml-4 flex-shrink-0">
-              <div className="text-xs text-gray-700 font-mono">{student.rollNumber || 'NA'}</div>
-              <div className="text-xs text-gray-700 mt-1">{student.selectionDate ? new Date(student.selectionDate).toLocaleDateString() : 'NA'}</div>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  </>
-)}
-
+                {/* Students Table (expanded) */}
+                {isExpanded && (
+                  <div className="border-t border-gray-100 bg-gray-50/50">
+                    {filteredStudents.length === 0 ? (
+                      <div className="p-4 text-center text-gray-500 text-xs sm:text-sm">No students match the selected filters</div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="sticky top-0 z-10">
+                            <tr className="bg-blue-50">
+                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Name</th>
+                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Roll No</th>
+                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Branch</th>
+                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Batch</th>
+                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Batch No</th>
+                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">College</th>
+                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Email</th>
+                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Phone</th>
+                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Date</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {filteredStudents.map((student, idx) => (
+                              <tr key={idx} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                                <td className="px-3 py-2 text-xs sm:text-sm font-medium text-gray-900 whitespace-nowrap">{student.name || 'NA'}</td>
+                                <td className="px-3 py-2 text-xs sm:text-sm font-mono text-gray-700 whitespace-nowrap">{student.rollNumber || 'NA'}</td>
+                                <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{student.branch || 'NA'}</td>
+                                <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{student.batch || 'NA'}</td>
+                                <td className="px-3 py-2 text-xs sm:text-sm text-blue-600 font-medium whitespace-nowrap">{student.batchNumber || 'NA'}</td>
+                                <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{student.colleges || 'NA'}</td>
+                                <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
+                                  {student.email ? (
+                                    <a href={`mailto:${student.email}`} className="text-blue-600 hover:underline">{student.email}</a>
+                                  ) : 'NA'}
+                                </td>
+                                <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
+                                  {student.phone ? (
+                                    <a href={`tel:${student.phone}`} className="hover:underline">{student.phone}</a>
+                                  ) : 'NA'}
+                                </td>
+                                <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
+                                  {student.selectionDate ? new Date(student.selectionDate).toLocaleDateString() : 'NA'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   );
 };

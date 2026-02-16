@@ -158,85 +158,84 @@ const StudentActivity = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-2xl shadow-lg p-6">
-        <div className="flex items-center justify-between mb-6">
+      {/* Header & Stats */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 p-3 sm:p-4">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Student Activity - All Batches</h2>
-            <p className="text-xs text-gray-600 mt-1">{filteredData.length} of {activityData.length} students</p>
+            <h2 className="text-sm sm:text-lg font-semibold text-gray-900">Student Activity - All Batches</h2>
+            <p className="text-xs sm:text-sm text-gray-600 mt-1">{filteredData.length} of {activityData.length} students</p>
           </div>
-          <button onClick={exportToExcel} className="flex items-center space-x-2 px-3 py-1.5 bg-green-600 text-white rounded text-xs hover:bg-green-700 transition">
+          <button onClick={exportToExcel} className="flex items-center space-x-2 px-3 py-1.5 bg-green-600 text-white rounded text-xs sm:text-sm hover:bg-green-700 transition">
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-stretch">
-          {/* Increased font sizes for desktop: values and captions */}
-          <div className="bg-blue-50 rounded-lg p-3 flex flex-col justify-between min-h-[80px]">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4">
+          <div className="bg-blue-50 rounded-lg p-2 sm:p-3 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <Users className="w-6 h-6 text-blue-600" />
-              <span className="text-xl md:text-2xl font-semibold text-blue-900">{filteredData.length}</span>
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+              <span className="text-sm sm:text-xl font-semibold text-blue-900">{filteredData.length}</span>
             </div>
-            <p className="text-sm md:text-sm text-blue-600 font-medium mt-1">Total Students</p>
+            <p className="text-xs sm:text-sm text-blue-600 font-medium mt-1">Total Students</p>
           </div>
 
-          <div className="bg-green-50 rounded-lg p-3 flex flex-col justify-between min-h-[80px]">
+          <div className="bg-green-50 rounded-lg p-2 sm:p-3 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <TrendingUp className="w-6 h-6 text-green-600" />
-              <span className="text-xl md:text-2xl font-semibold text-green-900">{avgScore}%</span>
+              <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+              <span className="text-sm sm:text-xl font-semibold text-green-900">{avgScore}%</span>
             </div>
-            <p className="text-sm md:text-sm text-green-600 font-medium mt-1">Average Score</p>
+            <p className="text-xs sm:text-sm text-green-600 font-medium mt-1">Average Score</p>
           </div>
 
-          <div className="bg-purple-50 rounded-lg p-3 flex flex-col justify-between min-h-[80px]">
+          <div className="bg-purple-50 rounded-lg p-2 sm:p-3 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <Award className="w-6 h-6 text-purple-600" />
-              <span className="text-xl md:text-2xl font-semibold text-purple-900">{uniqueBatches.length}</span>
+              <Award className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
+              <span className="text-sm sm:text-xl font-semibold text-purple-900">{uniqueBatches.length}</span>
             </div>
-            <p className="text-sm md:text-sm text-purple-600 font-medium mt-1">Active Batches</p>
+            <p className="text-xs sm:text-sm text-purple-600 font-medium mt-1">Active Batches</p>
           </div>
 
-          <div className="bg-sky-50 rounded-lg p-3 flex flex-col justify-between min-h-[80px]">
+          <div className="bg-sky-50 rounded-lg p-2 sm:p-3 flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <Award className="w-6 h-6 text-sky-600" />
-              <span className="text-xl md:text-2xl font-semibold text-sky-900">{avgCoding}%</span>
+              <Award className="w-5 h-5 sm:w-6 sm:h-6 text-sky-600" />
+              <span className="text-sm sm:text-xl font-semibold text-sky-900">{avgCoding}%</span>
             </div>
-            <p className="text-sm md:text-sm text-sky-600 font-medium mt-1">Coding Avg</p>
+            <p className="text-xs sm:text-sm text-sky-600 font-medium mt-1">Coding Avg</p>
           </div>
 
-          <div className="bg-orange-50 rounded-lg p-3 flex flex-col justify-between min-h-[80px]">
+          <div className="bg-orange-50 rounded-lg p-2 sm:p-3 flex flex-col justify-between col-span-2 sm:col-span-1">
             <div className="flex items-center justify-between">
-              <Award className="w-8 h-8 text-orange-600" />
+              <Award className="w-5 h-5 sm:w-8 sm:h-8 text-orange-600" />
               <div className="text-right">
-                <div className="text-sm md:text-base text-gray-700 font-medium truncate">{topPerformers[0]?.student?.name || 'N/A'}</div>
-                <div className="text-2xl md:text-3xl font-semibold text-orange-900">{topPerformers[0]?.scores.totals.meanPercentage || 0}%</div>
+                <div className="text-xs sm:text-base text-gray-700 font-medium truncate">{topPerformers[0]?.student?.name || 'N/A'}</div>
+                <div className="text-sm sm:text-2xl font-semibold text-orange-900">{topPerformers[0]?.scores.totals.meanPercentage || 0}%</div>
               </div>
             </div>
-            <p className="text-sm md:text-sm text-orange-600 font-medium mt-2">Top Score</p>
+            <p className="text-xs sm:text-sm text-orange-600 font-medium mt-1">Top Score</p>
           </div>
         </div>
       </div>
 
       {/* Search and Filter */}
-      <div className="bg-white rounded-2xl shadow-lg p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="bg-white rounded-lg shadow border border-gray-200 p-3 sm:p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search by name, roll number, or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <select
             value={batchFilter}
             onChange={(e) => setBatchFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Batches</option>
             {uniqueBatches.map((batch) => (
@@ -249,79 +248,47 @@ const StudentActivity = () => {
       </div>
 
       {/* Data Table */}
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
         {filteredData.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <Users className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-            <p className="text-lg font-medium">No students found</p>
-            <p className="text-sm">Try adjusting your search or filters</p>
+            <p className="text-xs sm:text-sm font-medium">No students found</p>
+            <p className="text-xs sm:text-sm">Try adjusting your search or filters</p>
           </div>
         ) : (
-          <>
           <div className="overflow-x-auto">
-            {/* Desktop table styled like batch students table */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 text-sm">
-                <thead className="bg-gradient-to-r from-blue-50 to-blue-100">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs md:text-sm font-semibold text-gray-700 uppercase tracking-wide">Name</th>
-                    <th className="px-3 py-2 text-left text-xs md:text-sm font-medium text-gray-600 uppercase">Roll</th>
-                    <th className="px-3 py-2 text-left text-xs md:text-sm font-medium text-gray-600 uppercase">Batch</th>
-                    <th className="px-3 py-2 text-left text-xs md:text-sm font-medium text-gray-600 uppercase">Branch</th>
-                    <th className="px-3 py-2 text-center text-xs md:text-sm font-medium text-gray-600 uppercase">Quiz %</th>
-                    <th className="px-3 py-2 text-center text-xs md:text-sm font-medium text-gray-600 uppercase">Assignment %</th>
-                    <th className="px-3 py-2 text-center text-xs md:text-sm font-medium text-gray-600 uppercase">Coding %</th>
-                    <th className="px-3 py-2 text-center text-xs md:text-sm font-medium text-gray-600 uppercase">Mean %</th>
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-blue-50">
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Name</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Roll</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Batch</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Branch</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Quiz %</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Assign %</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Coding %</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Mean %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredData.map((item, idx) => (
+                  <tr key={item.student._id} className={`${idx%2===0?'bg-white':'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="text-xs sm:text-sm font-medium text-gray-900">{item.student.name}</div>
+                      <div className="text-xs text-gray-500">{item.student.email}</div>
+                    </td>
+                    <td className="px-3 py-2 text-xs sm:text-sm font-mono text-gray-700 whitespace-nowrap">{item.student.rollNo}</td>
+                    <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{item.student.batchName || 'N/A'}</td>
+                    <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{item.student.branch}</td>
+                    <td className="px-3 py-2 text-xs sm:text-sm text-center text-gray-700">{item.scores.totals.quizPercentage}%</td>
+                    <td className="px-3 py-2 text-xs sm:text-sm text-center text-gray-700">{item.scores.totals.assignmentPercentage}%</td>
+                    <td className="px-3 py-2 text-xs sm:text-sm text-center text-gray-700">{item.scores.totals.codingPercentage}%</td>
+                    <td className="px-3 py-2 text-xs sm:text-sm text-center font-semibold text-gray-900">{item.scores.totals.meanPercentage}%</td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
-                  {filteredData.map((item, idx) => (
-                    <tr key={item.student._id} className={`${idx%2===0?'bg-white':'bg-gray-50'}`}>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-[10px]">{item.student.name.charAt(0)}</div>
-                          <div className="min-w-0">
-                            <div className="font-medium text-sm truncate">{item.student.name}</div>
-                            <div className="text-xs text-gray-500 truncate">{item.student.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-xs md:text-sm font-mono">{item.student.rollNo}</td>
-                      <td className="px-3 py-2 text-xs md:text-sm">{item.student.batchName || 'N/A'}</td>
-                      <td className="px-3 py-2 text-xs md:text-sm">{item.student.branch}</td>
-                      <td className="px-3 py-2 text-center text-xs md:text-sm">{item.scores.totals.quizPercentage}%</td>
-                      <td className="px-3 py-2 text-center text-xs md:text-sm">{item.scores.totals.assignmentPercentage}%</td>
-                      <td className="px-3 py-2 text-center text-xs md:text-sm">{item.scores.totals.codingPercentage}%</td>
-                      <td className="px-3 py-2 text-center text-xs md:text-sm">{item.scores.totals.meanPercentage}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile stacked list (two columns: details | scores) */}
-            <div className="sm:hidden divide-y divide-gray-200">
-              {filteredData.map((item, idx) => (
-                <div key={item.student._id} className={`p-3 flex items-center justify-between ${idx%2===0?'bg-white':'bg-gray-50'}`}>
-                  <div className="flex items-center gap-3 min-w-0 pr-2">
-                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">{item.student.name?.charAt(0)}</div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-sm truncate">{item.student.name}</div>
-                      <div className="text-xs text-gray-500 truncate">{item.student.email}</div>
-                      <div className="text-xs text-gray-500 truncate">{item.student.batchName || 'N/A'}</div>
-                    </div>
-                  </div>
-
-                  <div className="w-28 flex flex-col items-end text-right">
-                    <div className="text-sm font-semibold">{item.scores.totals.meanPercentage}%</div>
-                    <div className="text-xs text-gray-500">Coding {item.scores.totals.codingPercentage}%</div>
-                    <div className="text-xs text-gray-600 font-mono mt-1">{item.student.rollNo}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
-          </>
         )}
       </div>
     </div>

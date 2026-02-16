@@ -33,8 +33,7 @@ const CalendarSchema = new mongoose.Schema({
 
   eventType: {
     type: String,
-    enum: ['Campus_Drive', 'assessment', 'training', 'Test', 'workshop', 'meeting', 'holiday', 'exam', 'other'],
-    required: true
+    default: 'drive'
   },
 
   venue: {
@@ -42,10 +41,6 @@ const CalendarSchema = new mongoose.Schema({
     trim: true
   },
 
-  isOnline: {
-    type: Boolean,
-    default: false
-  },
 
   selectedListFiles: [{
     fileName: String,
@@ -60,8 +55,8 @@ const CalendarSchema = new mongoose.Schema({
 
   targetGroup: {
     type: String,
-    enum: ["crt", "non-crt", "both", "batch-specific", "specific-students"],
-    default: "both"
+    enum: ["batch-specific", "specific-students"],
+    default: "batch-specific"
   },
 
   // ✅ NEW: Batch-specific targeting
