@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Calendar, ChevronLeft, ChevronRight, RefreshCw, List } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, RefreshCw, List, X } from "lucide-react";
 import CompanyRegistrationForm from "./CompanyRegistrationForm"; // Adjust path as needed
 import { LoadingSkeleton, ListSkeleton } from '../../components/ui/LoadingSkeletons';
 import ToastNotification from '../../components/ui/ToastNotification';
@@ -293,122 +293,104 @@ const canRegisterForEvent = (eventStartDate) => {
 // ✅ Load events and registered events when component mounts
 
   return (
-    <div className="bg-gradient-to-b from-gray-50 to-white min-h-screen">
+    <div className="space-y-4">
       {toast && (
         <ToastNotification type={toast.type} message={toast.message} onClose={() => setToast(null)} />
       )}
+
       {/* Header */}
-<div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-3">
-  {/* Left side - Title */}
-  <div className="flex items-center gap-3">
-    <Calendar className="text-blue-600 h-7 w-7" />
-    <h1 className="text-2xl font-bold text-gray-800">Placement Calendar</h1>
-  </div>
-
-  {/* Right side - Registered Events + Refresh */}
-  <div className="flex items-center gap-4 relative">
-    {/* ✅ Registered Events Dropdown on Click (desktop) */}
-    <div className="relative hidden sm:block">
-      <button
-        onClick={() => setShowRegistered(!showRegistered)}
-        className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium hover:bg-blue-200 transition"
-      >
-        Registered Events ({registeredEvents.length})
-      </button>
-
-      {showRegistered && (
-        <div className="absolute right-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-          {registeredEvents.length > 0 ? (
-            <ul className="max-h-60 overflow-y-auto text-sm">
-              {registeredEvents.map((ev) => (
-                <li
-                  key={ev._id}
-                  className="px-3 py-2 border-b hover:bg-blue-50 cursor-pointer"
-                  onClick={() => {
-                    const eventDate = new Date(ev.startDate);
-                    setSelectedDate(eventDate);
-                    setSelectedDateLabel(eventDate.toDateString());
-                    setSelectedDateEvents([
-                      {
-                        id: ev._id,
-                        title: ev.title,
-                        startDate: ev.startDate,
-                        endDate: ev.endDate,
-                        status: ev.status,
-                        venue: ev.venue,
-                        description: ev.description,
-                      },
-                    ]);
-                    // Open details modal on mobile
-                    if (typeof window !== 'undefined' && window.innerWidth < 640) setShowMobileDetails(true);
-                    setShowRegistered(false); // Close dropdown
-                  }}
-                >
-                  <p className="font-medium text-gray-800 truncate">{ev.title}</p>
-                  <p className="text-xs text-gray-500">{new Date(ev.startDate).toLocaleDateString()}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-500 text-center p-3 text-sm">No registered events yet.</p>
-          )}
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-sm sm:text-lg font-semibold text-gray-900">Placement Calendar</h2>
+          <p className="text-xs text-gray-500 mt-0.5">{events.length} events</p>
         </div>
-      )}
-    </div>
+        <div className="relative flex items-center gap-2">
+          <div>
+            <button
+              onClick={() => setShowRegistered(!showRegistered)}
+              className="px-3 py-1.5 rounded text-xs sm:text-sm font-medium bg-green-600 text-white hover:bg-green-700 flex items-center gap-1.5"
+            >
+              <List className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Registered</span>
+              <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] sm:text-xs">{registeredEvents.length}</span>
+            </button>
 
-    {/* 🔁 Refresh Button (desktop) */}
-    <div className="hidden sm:block">
-      <button
-        onClick={() => {
-          fetchEvents();
-          fetchRegisteredEvents();
-        }}
-        className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all"
-      >
-        <RefreshCw className="h-4 w-4" /> Refresh
-      </button>
-    </div>
+            {/* Desktop dropdown */}
+            {showRegistered && (
+              <div className="hidden sm:block absolute right-0 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-30">
+                <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-700">Registered Events</span>
+                  <button onClick={() => setShowRegistered(false)} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
+                </div>
+                {registeredEvents.length > 0 ? (
+                  <ul className="max-h-60 overflow-y-auto">
+                    {registeredEvents.map((ev) => (
+                      <li
+                        key={ev._id}
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0"
+                        onClick={() => {
+                          const eventDate = normalizeDate(new Date(ev.startDate));
+                          setSelectedDate(eventDate);
+                          setSelectedDateLabel(eventDate.toDateString());
+                          setSelectedDateEvents(getEventsForDate(eventDate));
+                          setShowRegistered(false);
+                        }}
+                      >
+                        <p className="text-sm font-medium text-gray-800 truncate">{ev.title}</p>
+                        <p className="text-xs text-gray-500">{new Date(ev.startDate).toLocaleDateString()}</p>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 text-center p-3 text-xs">No registered events yet.</p>
+                )}
+              </div>
+            )}
 
-    {/* Mobile controls */}
-    <div className="flex gap-3 mt-4 block sm:hidden w-full">
-      <button onClick={() => setShowRegistered(true)} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg font-medium">
-        <List className="h-4 w-4" />
-        <span className="text-sm">Registered ({registeredEvents.length})</span>
-      </button>
-      <button onClick={() => { fetchEvents(); fetchRegisteredEvents(); }} className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg">
-        <RefreshCw className="h-4 w-4" />
-        <span className="text-sm">Refresh</span>
-      </button>
-    </div>
-
-    {/* Mobile Registered Events Modal (when showRegistered on mobile) */}
-    {showRegistered && (
-      <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black/50" onClick={() => setShowRegistered(false)}>
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-4 mx-4 max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="registered-events-title">
-          <div className="mb-2 flex items-center justify-between">
-            <div id="registered-events-title" className="text-sm font-semibold">Registered Events ({registeredEvents.length})</div>
-            <button onClick={() => setShowRegistered(false)} className="text-sm text-gray-500">Close</button>
+            {/* Mobile dropdown — directly under button */}
+            {showRegistered && (
+              <>
+                <div className="sm:hidden fixed inset-0 z-20" onClick={() => setShowRegistered(false)} />
+                <div className="sm:hidden absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-30 max-h-[50vh] overflow-hidden">
+                  <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-700">Registered ({registeredEvents.length})</span>
+                    <button onClick={() => setShowRegistered(false)} className="text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>
+                  </div>
+                  {registeredEvents.length > 0 ? (
+                    <ul className="max-h-[40vh] overflow-y-auto divide-y divide-gray-100">
+                      {registeredEvents.map((ev) => (
+                        <li
+                          key={ev._id}
+                          className="px-3 py-2.5 hover:bg-blue-50 active:bg-blue-100 cursor-pointer"
+                          onClick={() => {
+                            const eventDate = normalizeDate(new Date(ev.startDate));
+                            setSelectedDate(eventDate);
+                            setSelectedDateLabel(eventDate.toDateString());
+                            setSelectedDateEvents(getEventsForDate(eventDate));
+                            setShowRegistered(false);
+                          }}
+                        >
+                          <p className="text-xs font-medium text-gray-800 truncate">{ev.title}</p>
+                          <p className="text-[10px] text-gray-500 mt-0.5">{new Date(ev.startDate).toLocaleDateString()}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-gray-500 text-center py-4 text-xs">No registered events yet.</p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
-          {registeredEvents.length > 0 ? (
-            <ul className="divide-y divide-gray-100">
-              {registeredEvents.map(ev => (
-                <li key={ev._id} className="px-3 py-2 border-b hover:bg-blue-50 cursor-pointer" onClick={() => { const eventDate = normalizeDate(new Date(ev.startDate)); setSelectedDate(eventDate); setSelectedDateLabel(eventDate.toDateString()); setSelectedDateEvents(getEventsForDate(eventDate)); setOpenMenuId(null); setShowRegistered(false); }}>
-                  <p className="font-medium text-gray-800">{ev.title}</p>
-                  <p className="text-xs text-gray-500">{new Date(ev.startDate).toLocaleDateString()}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-500 text-center p-3 text-sm">No registered events yet.</p>
-          )}
+          <button
+            onClick={() => { fetchEvents(); fetchRegisteredEvents(); }}
+            className="px-3 py-1.5 rounded text-xs sm:text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1.5"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
         </div>
       </div>
-    )}
-  </div>
-</div>
-
-
-
 
 
       {/* TPO-style calendar container */}
@@ -555,40 +537,19 @@ const canRegisterForEvent = (eventStartDate) => {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <div className="flex flex-col items-end">
-                            {event.status === 'scheduled' ? (
-                              registeredEventIds.includes(event.id) ? (
-                                <button disabled className="px-3 py-1 bg-green-200 text-green-700 rounded cursor-not-allowed">✅ Registered</button>
-                              ) : canRegisterForEvent(event.startDate) ? (
-                                <button onClick={(e)=>{e.stopPropagation(); handleOpenRegistration(event);}} className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-all">Register</button>
-                              ) : (
-                                <span className="text-xs text-gray-500 italic">Registration closed</span>
-                              )
-                            ) : null}
-
-                            <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === event.id ? null : event.id);}} className="mt-2 p-2 rounded-md hover:bg-gray-100 text-gray-600">⋮</button>
-
-                            {openMenuId === event.id && (
-                              <div className="absolute right-4 top-8 z-50 bg-white border rounded shadow-md w-44">
-                                <ul>
-                                  {event.externalLink ? (
-                                    <li>
-                                      <button onClick={(e)=>{e.stopPropagation(); window.open(event.externalLink,'_blank'); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Open External Link</button>
-                                    </li>
-                                  ) : null}
-
-                                  <li>
-                                    <button onClick={(e)=>{e.stopPropagation(); navigator.clipboard?.writeText(event.externalLink || ''); showToast('success','Link copied to clipboard'); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Copy Link</button>
-                                  </li>
-
-                                  <li>
-                                    <div className="w-full text-left px-3 py-2 text-sm text-gray-400">More actions coming</div>
-                                  </li>
-                                </ul>
-                              </div>
-                            )}
-                          </div>
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          {event.status === 'scheduled' ? (
+                            registeredEventIds.includes(event.id) ? (
+                              <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">Registered</span>
+                            ) : canRegisterForEvent(event.startDate) ? (
+                              <button onClick={(e)=>{e.stopPropagation(); handleOpenRegistration(event);}} className="px-2.5 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">Register</button>
+                            ) : (
+                              <span className="text-xs text-gray-500 italic">Closed</span>
+                            )
+                          ) : null}
+                          {event.externalLink && (
+                            <button onClick={(e)=>{e.stopPropagation(); window.open(event.externalLink,'_blank');}} className="text-xs text-blue-600 hover:underline">External Link</button>
+                          )}
                         </div>
                       </li>
                     ))
@@ -604,204 +565,80 @@ const canRegisterForEvent = (eventStartDate) => {
       </div>
       )}
 
-      <div className="mt-8 bg-white rounded-lg shadow-lg p-3 w-full max-w-[560px] mx-auto border border-gray-100 block sm:hidden">
+      {/* Mobile: events for selected date — full details inline */}
+      <div className="sm:hidden bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
         {loading ? (
           <ListSkeleton />
         ) : (
           <>
-            <div className="mb-3 text-center">
-              <div className="text-2xl font-bold text-blue-800">{selectedDate.toLocaleString('default', { weekday: 'long' })}, <span className="text-blue-600">{ordinal(selectedDate.getDate())}</span></div>
+            <div className="bg-blue-50 border-b border-blue-200 px-4 py-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700">
+                {selectedDate.toLocaleString('default', { weekday: 'short' })}, {ordinal(selectedDate.getDate())} {selectedDate.toLocaleString('default', { month: 'short' })}
+              </h3>
+              <span className="text-xs text-gray-500">{selectedDateEvents.length} event{selectedDateEvents.length !== 1 ? 's' : ''}</span>
             </div>
 
-            <ul className="divide-y divide-gray-100">
+            <div className="p-4">
               {selectedDateEvents.length > 0 ? (
-                selectedDateEvents.map((event) => (
-                  <li key={event.id} onClick={() => {
-                    // when user clicks the event card on mobile, show the details modal for that event
-                    const eventDate = normalizeDate(new Date(event.startDate || selectedDate));
-                    setSelectedDate(eventDate);
-                    setSelectedDateLabel(eventDate.toDateString());
-                    setSelectedDateEvents(getEventsForDate(eventDate));
-                    setOpenMenuId(null);
-                    setShowMobileDetails(true);
-                  }} className="relative flex flex-col sm:flex-row items-start justify-between py-3 gap-3">
-                    <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === event.id ? null : event.id);}} className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 text-gray-600 sm:static sm:mt-0 sm:p-2 sm:rounded-md sm:w-auto">⋮</button>
-                    <div className="flex items-start gap-3 w-full">
-                      <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-gray-800 sm:truncate">{event.title}</div>
-                        <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>
-
-                        {event.company && (<div className="text-xs text-gray-500 mt-1"><strong>Company:</strong> {event.company}</div>)}
-                        {event.description && (<div className="text-xs text-gray-500 mt-1 sm:truncate"><strong>Description:</strong> {event.description}</div>)}
-
-                        <div className="flex flex-wrap gap-2 mt-2 text-xs text-gray-500">
-                          <span className="w-full sm:w-auto"><strong>Registered:</strong> {event.participated ?? 0}</span>
-                          <span className="w-full sm:w-auto"><strong>Selected:</strong> {event.placed ?? 0}</span>
-                          <span className="w-full sm:w-auto"><strong>Venue:</strong> {event.venue || 'N/A'}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:items-end items-stretch gap-2 w-full sm:w-auto">
-                      {event.status === 'scheduled' ? (
-                        registeredEventIds.includes(event.id) ? (
-                          <button disabled className="w-full sm:w-auto px-3 py-1 bg-green-200 text-green-700 rounded cursor-not-allowed">✅ Registered</button>
-                        ) : canRegisterForEvent(event.startDate) ? (
-                          <button onClick={(e)=>{e.stopPropagation(); handleOpenRegistration(event);}} className="w-full sm:w-auto px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-all">Register</button>
-                        ) : (
-                          <span className="text-xs text-gray-500 italic">Registration closed</span>
-                        )
-                      ) : null}
-
-                      
-
-                      {/* Mobile: centered modal with student actions */}
-                      {openMenuId === event.id && (
-                        <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black/50" onClick={() => setOpenMenuId(null)}>
-                          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-4 mx-4 max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby={`menu-title-${event.id}`}>
-                            <div className="flex items-center justify-between mb-3">
-                              <div>
-                                <div id={`menu-title-${event.id}`} className="text-sm font-semibold truncate" title={event.title}>{event.title}</div>
-                                <div className="text-xs text-gray-500">{event.startDate ? new Date(event.startDate).toLocaleDateString() : ''}{event.startTime ? ` • ${event.startTime}` : ''}</div>
-                              </div>
-                              <button onClick={() => setOpenMenuId(null)} aria-label="Close" className="p-1 text-gray-600">✕</button>
+                <ul className="divide-y divide-gray-100">
+                  {selectedDateEvents.map((event) => {
+                    const eid = event.id || event._id;
+                    return (
+                      <li key={eid} className="py-4 first:pt-0 last:pb-0">
+                        <div className="flex items-start gap-3">
+                          <div className={`w-1.5 h-12 rounded shrink-0 ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-gray-900">{event.title}</p>
+                            <p className="text-xs text-gray-500 mt-1">{event.startTime}{event.endTime ? ` - ${event.endTime}` : ''}</p>
+                            {event.company && <p className="text-xs text-gray-600 mt-1.5"><strong>Company:</strong> {event.company}</p>}
+                            {event.description && <p className="text-xs text-gray-500 mt-1">{event.description}</p>}
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
+                              <span>Registered: {event.participated ?? 0}</span>
+                              <span>Selected: {event.placed ?? 0}</span>
+                              <span>Venue: {event.venue || 'N/A'}</span>
                             </div>
 
-                            <ul className="space-y-2">
-                              {event.externalLink ? (
-                                <li>
-                                  <button onClick={() => { window.open(event.externalLink, '_blank'); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100">Open External Link</button>
-                                </li>
-                              ) : null}
-
-                              <li>
-                                <button onClick={() => { navigator.clipboard?.writeText(event.externalLink || ''); showToast('success','Link copied to clipboard'); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-gray-50 hover:bg-gray-100">Copy Link</button>
-                              </li>
-
-                              {event.status === 'scheduled' ? (
-                                registeredEventIds.includes(event.id) ? (
-                                  <li>
-                                    <div className="w-full text-left px-4 py-3 text-sm text-gray-600 rounded-lg">✅ Registered</div>
-                                  </li>
+                            <div className="flex flex-wrap gap-2.5 mt-3">
+                              {event.status === 'scheduled' && (
+                                registeredEventIds.includes(eid) ? (
+                                  <span className="text-xs text-green-700 bg-green-100 px-3 py-1 rounded font-medium">Registered</span>
                                 ) : canRegisterForEvent(event.startDate) ? (
-                                  <li>
-                                    <button onClick={() => { handleOpenRegistration(event); setOpenMenuId(null); }} className="w-full text-left px-4 py-3 rounded-lg bg-blue-600 text-white">Register</button>
-                                  </li>
+                                  <button onClick={() => handleOpenRegistration(event)} className="text-xs text-white bg-blue-600 px-3 py-1 rounded font-medium hover:bg-blue-700">Register</button>
                                 ) : (
-                                  <li>
-                                    <div className="w-full text-left px-4 py-3 text-sm text-gray-500 rounded-lg">Registration closed</div>
-                                  </li>
+                                  <span className="text-xs text-gray-500 italic">Registration closed</span>
                                 )
-                              ) : null}
-
-                              <li>
-                                <div className="w-full text-left px-4 py-3 text-sm text-gray-400 rounded-lg">More actions coming</div>
-                              </li>
-                            </ul>
-
+                              )}
+                              {event.externalLink && (
+                                <button onClick={() => window.open(event.externalLink, '_blank')} className="text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded font-medium hover:bg-blue-100">External Link</button>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      )}
-
-                    </div>
-                  </li>
-                ))
+                      </li>
+                    );
+                  })}
+                </ul>
               ) : (
-                <div className="text-sm text-gray-500 p-3">No events for this date.</div>
+                <p className="text-sm text-gray-500 text-center py-6">No events for this date.</p>
               )}
-            </ul>
+            </div>
           </>
         )}
-      </div>{showMobileDetails && (
-  <div className="block sm:hidden fixed inset-0 z-50 grid place-items-center bg-black/50" onClick={() => setShowMobileDetails(false)}>
-    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-4 mx-4 max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="mobile-details-title">
-      <div className="mb-2 flex items-center justify-between">
-        <div id="mobile-details-title" className="text-sm font-semibold">Events on {selectedDateLabel || selectedDate.toDateString()}</div>
-        <button onClick={() => setShowMobileDetails(false)} aria-label="Close" className="p-1 text-gray-600">✕</button>
       </div>
 
-      {selectedDateEvents.length > 0 ? (
-        <ul className="divide-y divide-gray-100">
-          {selectedDateEvents.map(event => (
-            <li key={event.id || event._id} className="relative flex flex-col sm:flex-row items-start justify-between py-3 gap-3">
-              <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === (event.id || event._id) ? null : (event.id || event._id));}} className="absolute top-2 right-2 p-1 rounded hover:bg-gray-100 text-gray-600 sm:static sm:p-2 sm:rounded-md">⋮</button>
-              <div className="flex items-start gap-3 w-full">
-                <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-gray-800 sm:truncate">{event.title}</div>
-                  <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>
-
-                  <div className="text-xs text-gray-500 mt-1 sm:truncate">
-                    {event.company && (<span className="block"><strong>Company:</strong> {event.company}</span>)}
-                    {event.description && (<span className="block sm:truncate"><strong>Description:</strong> {event.description}</span>)}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mt-2 text-xs text-gray-500">
-                    <span className="w-full sm:w-auto"><strong>Registered:</strong> {event.participated ?? 0}</span>
-                    <span className="w-full sm:w-auto"><strong>Selected:</strong> {event.placed ?? 0}</span>
-                    <span className="w-full sm:w-auto"><strong>Venue:</strong> {event.venue || 'N/A'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:items-end items-stretch gap-2 w-full sm:w-auto">
-                {event.status === 'scheduled' ? (
-                  registeredEventIds.includes(event.id) || registeredEventIds.includes(event._id) ? (
-                    <button disabled className="w-full sm:w-auto px-3 py-1 bg-green-200 text-green-700 rounded cursor-not-allowed">✅ Registered</button>
-                  ) : canRegisterForEvent(event.startDate) ? (
-                    <button onClick={(e)=>{e.stopPropagation(); handleOpenRegistration(event); setShowMobileDetails(false);}} className="w-full sm:w-auto px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-all">Register</button>
-                  ) : (
-                    <span className="text-xs text-gray-500 italic">Registration closed</span>
-                  )
-                ) : null}
-
-                <button title="More" onClick={(e)=>{e.stopPropagation(); setOpenMenuId(openMenuId === (event.id || event._id) ? null : (event.id || event._id));}} className="w-full sm:w-auto mt-2 p-2 rounded-md hover:bg-gray-100 text-gray-600 text-center">⋮</button>
-
-                {openMenuId === (event.id || event._id) && (
-                  <div className="absolute right-4 top-8 z-50 bg-white border rounded shadow-md w-44">
-                    <ul>
-                      {event.externalLink ? (
-                        <li>
-                          <button onClick={(e)=>{e.stopPropagation(); window.open(event.externalLink,'_blank'); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Open External Link</button>
-                        </li>
-                      ) : null}
-
-                      <li>
-                        <button onClick={(e)=>{e.stopPropagation(); navigator.clipboard?.writeText(event.externalLink || ''); showToast('success','Link copied to clipboard'); setOpenMenuId(null);}} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">Copy Link</button>
-                      </li>
-
-                      <li>
-                        <div className="w-full text-left px-3 py-2 text-sm text-gray-400">More actions coming</div>
-                      </li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <div className="text-sm text-gray-500 p-3">No events for this date.</div>
+      {/* Registration Form */}
+      {showRegistrationModal && (
+        <CompanyRegistrationForm
+          eventId={selectedEventId}
+          onClose={() => setShowRegistrationModal(false)}
+          tpoExternalLink={tpoExternalLink}
+          onRegistered={(eventId) => {
+            setRegisteredEventIds((prev) => [...prev, eventId]);
+            fetchRegisteredEvents();
+            setShowRegistrationModal(false);
+          }}
+        />
       )}
-
-    </div>
-  </div>
-)}
-{showRegistrationModal && (
-  <CompanyRegistrationForm
-  eventId={selectedEventId}
-  onClose={() => setShowRegistrationModal(false)}
-  tpoExternalLink={tpoExternalLink}
-  onRegistered={(eventId) => {
-    setRegisteredEventIds((prev) => [...prev, eventId]); // ✅ instantly disable button
-    fetchRegisteredEvents(); // optional refresh
-    setShowRegistrationModal(false);
-  }}
-/>
-
-)}
-
 
     </div>
   );
