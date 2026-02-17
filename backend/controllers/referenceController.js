@@ -31,22 +31,6 @@ const getTrainerPlacementBatches = async (trainerId) => {
   }
 };
 
-const getTrainerRegularBatches = async (trainerId) => {
-  try {
-    const batches = await Batch.find({ trainerId }).select('_id batchNumber isCrt students');
-    return batches.map((batch) => ({
-      _id: batch._id,
-      name: batch.batchNumber || `Batch ${batch._id}`,
-      batchNumber: batch.batchNumber,
-      isCrt: batch.isCrt,
-      studentCount: batch.students?.length || 0,
-      type: 'regular',
-    }));
-  } catch (error) {
-    console.error('Error fetching regular batches:', error);
-    return [];
-  }
-};
 
 const parseIdsArray = (val) => {
   if (!val) return [];
@@ -84,20 +68,11 @@ const parseArray = (val) => {
   return [];
 };
 
-// Get batches for trainer (both regular and placement)
+// Get placement batches for trainer (flat array)
 const getTrainerBatches = async (req, res) => {
   try {
-    const trainerId = req.user.id;
-    const [regularBatches, placementBatches] = await Promise.all([
-      getTrainerRegularBatches(trainerId),
-      getTrainerPlacementBatches(trainerId),
-    ]);
-    const allBatches = {
-      regular: regularBatches,
-      placement: placementBatches,
-      all: [...regularBatches, ...placementBatches],
-    };
-    res.json(allBatches);
+    const placementBatches = await getTrainerPlacementBatches(req.user.id);
+    res.json(placementBatches);
   } catch (error) {
     console.error('Error fetching batches:', error);
     res.status(500).json({ message: 'Failed to fetch batches' });

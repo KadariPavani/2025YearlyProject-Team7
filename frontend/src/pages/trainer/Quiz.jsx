@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
 import { PlusCircle, Users, BarChart, Trash2, CheckSquare, BookOpen, Calendar, ChevronLeft, RefreshCw } from 'lucide-react';
 
 const Quiz = () => {
   const [quizzes, setQuizzes] = useState([]);
-  const [batches, setBatches] = useState({
-    regular: [],
-    placement: [],
-    all: []
-  });
+  const [batches, setBatches] = useState([]);
   const [subject, setSubject] = useState(''); // Modified: Single subject string
   const [formData, setFormData] = useState({
     title: '',
@@ -20,9 +17,7 @@ const Quiz = () => {
     duration: '',
     totalMarks: '',
     passingMarks: '',
-    assignedBatches: [],
     assignedPlacementBatches: [],
-    batchType: 'placement', // Default to placement batches
     shuffleQuestions: false,
     showResultsImmediately: true,
     allowRetake: false,
@@ -76,8 +71,7 @@ const Quiz = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setBatches(response.data || { regular: [], placement: [], all: [] });
-      console.log('DEBUG /api/quizzes/batches response:', response.data || {});
+      setBatches(response.data || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch batches');
       console.error('Error fetching batches:', err);
@@ -127,85 +121,13 @@ const Quiz = () => {
     }
   };
 
-  const handleBatchTypeChange = (e) => {
-    const newBatchType = e.target.value;
-    setFormData({
-      ...formData,
-      batchType: newBatchType,
-      assignedBatches: [],
-      assignedPlacementBatches: []
-    });
-  };
-
-  const handleBatchChange = (e) => {
-    const selectedBatches = Array.from(e.target.selectedOptions, option => option.value);
-    
-    if (formData.batchType === 'noncrt') {
-      setFormData({ ...formData, assignedBatches: selectedBatches });
-    } else if (formData.batchType === 'placement') {
-      setFormData({ ...formData, assignedPlacementBatches: selectedBatches });
-    } else if (formData.batchType === 'both') {
-      setFormData({ ...formData, assignedBatches: selectedBatches, assignedPlacementBatches: selectedBatches });
-    }
-  };
-
-  const handleToggleBatch = (batchId, itemType) => {
-    // itemType is the source batch.type ('placement' | 'regular') if provided by the caller
-    // Determine where this id should live based on the item type and current batchType
-    const toggle = (arr, id) => (arr.includes(id) ? arr.filter(i => i !== id) : [...arr, id]);
-
-    // If this item is from a placement batch, always toggle assignedPlacementBatches
-    if (itemType === 'placement') {
-      setFormData({ ...formData, assignedPlacementBatches: toggle(formData.assignedPlacementBatches, batchId) });
-      return;
-    }
-
-    // If this item is from a regular batch, always toggle assignedBatches
-    if (itemType === 'regular') {
-      setFormData({ ...formData, assignedBatches: toggle(formData.assignedBatches, batchId) });
-      return;
-    }
-
-    // Fallback: if caller didn't provide itemType, use batchType to decide
-    if (formData.batchType === 'noncrt' || formData.batchType === 'regular') {
-      setFormData({ ...formData, assignedBatches: toggle(formData.assignedBatches, batchId) });
-    } else if (formData.batchType === 'placement') {
-      setFormData({ ...formData, assignedPlacementBatches: toggle(formData.assignedPlacementBatches, batchId) });
-    } else { // both
-      setFormData({ ...formData, assignedBatches: toggle(formData.assignedBatches, batchId), assignedPlacementBatches: toggle(formData.assignedPlacementBatches, batchId) });
-    }
-  };
-
-  const getBatchOptions = () => {
-    const norm = s => (s || '').toString().trim().toUpperCase();
-    const isNT = b => (b && (b.isCrt === false)) || /^NT\b|^NT[_\- ]/.test(norm(b.batchNumber || b.name));
-    const isPT = b => /^PT\b|^PT[_\- ]/.test(norm(b.batchNumber || b.name));
-
-    const regularList = batches.regular || [];
-    const placementAll = batches.placement || [];
-
-    const noncrtFromRegular = regularList.filter(b => isNT(b));
-    const noncrtFromPlacement = placementAll.filter(b => isNT(b));
-
-    // Deduplicate by _id (preserve object with _id key)
-    const uniqueById = (arr) => Array.from(new Map(arr.map(i => [i._id?.toString() || i.name || Math.random(), i])).values());
-
-    const noncrtList = uniqueById([...noncrtFromRegular, ...noncrtFromPlacement]);
-    const placementList = uniqueById(placementAll.filter(b => isPT(b)));
-
-    // DEBUG: log computed lists and sources
-    console.log('DEBUG getBatchOptions (quiz):', { batchType: formData.batchType, noncrtFromRegular: noncrtFromRegular.length, noncrtFromPlacement: noncrtFromPlacement.length, noncrtCount: noncrtList.length, placementCount: placementList.length });
-
-    switch (formData.batchType) {
-      case 'noncrt':
-        return noncrtList;
-      case 'placement':
-        return placementList;
-      case 'both':
-        return [...placementList, ...noncrtList];
-      default:
-        return placementList;
-    }
+  const handleToggleBatch = (batchId) => {
+    setFormData(prev => ({
+      ...prev,
+      assignedPlacementBatches: prev.assignedPlacementBatches.includes(batchId)
+        ? prev.assignedPlacementBatches.filter(id => id !== batchId)
+        : [...prev.assignedPlacementBatches, batchId]
+    }));
   };
 
   const addQuestion = () => {
@@ -293,9 +215,7 @@ const Quiz = () => {
         duration: '',
         totalMarks: '',
         passingMarks: '',
-        assignedBatches: [],
         assignedPlacementBatches: [],
-        batchType: 'placement',
         shuffleQuestions: false,
         showResultsImmediately: true,
         allowRetake: false,
@@ -366,21 +286,14 @@ const Quiz = () => {
 
 
   const renderQuizForm = () => (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-2xl font-bold mb-6 flex items-center">
-        <PlusCircle className="w-6 h-6 mr-2 text-blue-600" />
-        Create New Quiz
-      </h2>
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Section: Basic Information */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Basic Information</h3>
         </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Quiz Title *
@@ -424,9 +337,16 @@ const Quiz = () => {
             placeholder="Enter quiz description"
           />
         </div>
+        </div>
+      </div>
 
-        {/* Scheduling */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Section: Schedule & Duration */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Schedule & Duration</h3>
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Scheduled Date *
@@ -485,48 +405,41 @@ const Quiz = () => {
             />
           </div>
         </div>
-
-        {/* Batch Assignment */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Batch Type *
-            </label>
-            <select
-              name="batchType"
-              value={formData.batchType}
-              onChange={handleBatchTypeChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="placement">Placement Training Batches</option>
-              <option value="noncrt">Non-CRT Batches</option>
-              <option value="both">Both Types</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Select Batches *
-            </label>
-            <div className="max-h-48 overflow-y-auto p-3 border border-gray-200 rounded-md bg-white">
-              {getBatchOptions().map((batch) => {
-                const id = batch._id || batch.batchNumber || batch.name;
-                const checked = formData.assignedBatches.includes(id) || formData.assignedPlacementBatches.includes(id);
-                return (
-                  <label key={id} className="flex items-center gap-3 text-sm mb-1">
-                    <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id, batch.type)} className="w-4 h-4" />
-                    <span>{batch.type === 'placement' ? `${batch.batchNumber} - ${batch.techStack}` : (batch.name || batch.batchNumber)}{batch.studentCount ? ` (${batch.studentCount} students)` : ''}</span>
-                  </label>
-                );
-              })}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">Click checkboxes to select multiple batches</p>
-          </div>
         </div>
+      </div>
 
-        {/* Quiz Settings */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Section: Batch Assignment */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Batch Assignment</h3>
+        </div>
+        <div className="p-4">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+            Select Batches *
+          </label>
+          <div className="max-h-48 overflow-y-auto p-3 border border-gray-200 rounded-md bg-white">
+            {batches.map((batch) => {
+              const id = batch._id;
+              const checked = formData.assignedPlacementBatches.includes(id);
+              return (
+                <label key={id} className="flex items-center gap-3 text-sm mb-1">
+                  <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id)} className="w-4 h-4" />
+                  <span>{batch.batchNumber} - {batch.techStack}{batch.studentCount ? ` (${batch.studentCount} students)` : ''}</span>
+                </label>
+              );
+            })}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Click checkboxes to select multiple batches</p>
+        </div>
+      </div>
+
+      {/* Section: Quiz Settings */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Settings</h3>
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex items-center">
             <input
               type="checkbox"
@@ -566,25 +479,28 @@ const Quiz = () => {
             </label>
           </div>
         </div>
+        </div>
+      </div>
 
-        {/* Questions Section */}
-        <div className="border-t pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Questions</h3>
-            <button
-              type="button"
-              onClick={addQuestion}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-            >
-              <PlusCircle className="w-4 h-4 mr-2" />
-              Add Question
-            </button>
-          </div>
+      {/* Section: Questions */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5 flex items-center justify-between">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Questions</h3>
+          <button
+            type="button"
+            onClick={addQuestion}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 transition"
+          >
+            <PlusCircle className="w-3.5 h-3.5" />
+            Add Question
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
 
           {formData.questions.map((question, questionIndex) => (
             <div key={questionIndex} className="mb-6 p-4 border border-gray-200 rounded-lg">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-md font-medium">Question {questionIndex + 1}</h4>
+                <h4 className="text-xs sm:text-sm font-medium">Question {questionIndex + 1}</h4>
                 {formData.questions.length > 1 && (
                   <button
                     type="button"
@@ -694,7 +610,7 @@ const Quiz = () => {
                   </div>
 
                   {question.options.map((option, optionIndex) => (
-                    <div key={optionIndex} className="flex items-center gap-2 mb-2">
+                    <div key={optionIndex} className="flex items-center gap-2 mb-2 min-w-0">
                       <input
                         type="radio"
                         name={`correct-${questionIndex}`}
@@ -706,25 +622,27 @@ const Quiz = () => {
                           });
                           setFormData({ ...formData, questions: newQuestions });
                         }}
-                        className="mr-2"
+                        className="flex-shrink-0"
                       />
-                      <input
-                        type="text"
-                        name="text"
-                        value={option.text}
-                        onChange={(e) => handleInputChange(e, questionIndex, optionIndex)}
-                        placeholder={`Option ${optionIndex + 1}`}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      {question.options.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeOption(questionIndex, optionIndex)}
-                          className="text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      <div className="flex-1 min-w-0 flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+                        <input
+                          type="text"
+                          name="text"
+                          value={option.text}
+                          onChange={(e) => handleInputChange(e, questionIndex, optionIndex)}
+                          placeholder={`Option ${optionIndex + 1}`}
+                          className="flex-1 min-w-0 px-3 py-2 text-sm border-none focus:outline-none focus:ring-0"
+                        />
+                        {question.options.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeOption(questionIndex, optionIndex)}
+                            className="flex-shrink-0 px-2.5 py-2 text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -787,190 +705,126 @@ const Quiz = () => {
             </div>
           ))}
         </div>
+      </div>
 
-        {/* Submit Button */}
-        <div className="flex flex-col sm:flex-row justify-end gap-4">
-          <button
-            type="button"
-            onClick={() => setActiveTab('list')}
-            className="w-full sm:w-auto px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading || !subject}
-            className="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Creating...' : 'Create Quiz'}
-          </button>
-        </div>
-      </form>
-    </div>
+      {/* Submit Buttons */}
+      <div className="flex flex-col sm:flex-row justify-end gap-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('list')}
+          className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs sm:text-sm transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={loading || !subject}
+          className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-xs sm:text-sm transition"
+        >
+          {loading ? 'Creating...' : 'Create Quiz'}
+        </button>
+      </div>
+    </form>
   );
 
   const renderQuizList = () => (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-50 rounded-md">
-            <CheckSquare className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">My Quizzes</h2>
-            {/* <p className="text-xs text-gray-600 mt-1">{totalQuizzes} quizzes • {totalQuestions} questions</p> */}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setActiveTab('create')}
-            className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">Create Quiz</span>
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
-        </div>
-      )}
-
+    <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
       {loading ? (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading quizzes...</p>
-        </div>
+        <LoadingSkeleton />
       ) : quizzes.length === 0 ? (
         <div className="text-center py-8">
           <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 text-lg">No quizzes found</p>
+          <p className="text-gray-500 text-sm sm:text-base">No quizzes found</p>
           <p className="text-gray-400">Create your first quiz to get started</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {quizzes.map((quiz) => (
-            <div key={quiz._id} className="border border-gray-100 rounded-lg overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-3 border-b border-blue-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900">{quiz.title}</h3>
-                    <div className="text-xs text-gray-500">{quiz.subject} • {new Date(quiz.scheduledDate).toLocaleDateString()}{quiz.startTime ? ` at ${quiz.startTime}` : ''}</div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => deleteQuiz(quiz._id)}
-                      className="h-9 w-9 flex items-center justify-center rounded-full bg-white border text-red-600 hover:bg-red-50"
-                      title="Delete Quiz"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 text-sm text-gray-600">
-                <p className="mb-1"><strong>Duration:</strong> {quiz.duration} minutes</p>
-                <p className="mb-1"><strong>Total Marks:</strong> {quiz.totalMarks}</p>
-                <p className="mb-1"><strong>Questions:</strong> {quiz.questions?.length || 0}</p>
-
-                {/* Batch Information */}
-                <div className="mt-3">
-                  <strong>Assigned to:</strong>
-                  <div className="mt-1 inline-flex flex-wrap gap-1">
-                    {quiz.assignedBatches?.length > 0 && (
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Non-CRT: {quiz.assignedBatches.map(b => b.name).join(', ')}</span>
-                    )}
-                    {quiz.assignedPlacementBatches?.length > 0 && (
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Placement: {quiz.assignedPlacementBatches.map(b => `${b.batchNumber} - ${b.techStack}`).join(', ')}</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                  <button
-                    onClick={() => fetchBatchProgress(quiz._id)}
-                    className="w-full sm:flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm flex items-center justify-center"
-                  >
-                    <BarChart className="w-4 h-4 mr-2" />
-                    View Progress
-                  </button>
-
-                  <button
-                    onClick={() => deleteQuiz(quiz._id)}
-                    className="w-full sm:w-auto px-3 py-2 border border-red-200 text-red-600 rounded text-sm flex items-center justify-center"
-                    title="Delete Quiz"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-0 pt-0 border-t border-gray-100 text-xs text-gray-500 px-3 pb-3">
-                Created: {new Date(quiz.createdAt).toLocaleDateString()}
-              </div>
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-blue-50">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Title</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Subject</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Date</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Duration</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Qs</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Marks</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Batches</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {quizzes.map((quiz, idx) => (
+                <tr key={quiz._id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="text-xs sm:text-sm font-medium text-gray-900">{quiz.title}</div>
+                  </td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{quiz.subject}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">
+                    {new Date(quiz.scheduledDate).toLocaleDateString()}{quiz.startTime ? ` ${quiz.startTime}` : ''}
+                  </td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-center text-gray-700">{quiz.duration}m</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-center text-gray-700">{quiz.questions?.length || 0}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-center text-gray-700">{quiz.totalMarks}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="flex flex-wrap gap-1">
+                      {quiz.assignedPlacementBatches?.map(b => (
+                        <span key={b._id || b.batchNumber} className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">{b.batchNumber}</span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-center whitespace-nowrap">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        onClick={() => fetchBatchProgress(quiz._id)}
+                        className="px-2 py-1 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center gap-1"
+                      >
+                        <BarChart className="h-3 w-3" /><span className="hidden sm:inline">Progress</span>
+                      </button>
+                      <button
+                        onClick={() => deleteQuiz(quiz._id)}
+                        className="px-2 py-1 rounded text-xs font-medium bg-red-600 text-white hover:bg-red-700 inline-flex items-center gap-1"
+                      >
+                        <Trash2 className="h-3 w-3" /><span className="hidden sm:inline">Delete</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
   );
 
   const renderBatchProgress = () => (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-50 rounded-md">
-            <BarChart className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Quiz Progress</h2>
-            <p className="text-xs text-gray-600 mt-1">Overview</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button onClick={() => setActiveTab('list')} aria-label="Back" className="flex items-center justify-center h-10 w-10 sm:h-auto sm:w-auto sm:px-3 sm:py-1.5 bg-gray-200 text-gray-700 rounded-full sm:rounded-md hover:bg-gray-300">
-            <ChevronLeft className="w-4 h-4" />
-            <span className="hidden sm:inline ml-2">Back</span>
-          </button>
-          <button onClick={() => selectedQuizId && fetchBatchProgress(selectedQuizId)} aria-label="Refresh" className="flex items-center justify-center h-10 w-10 sm:h-auto sm:w-auto sm:px-3 sm:py-1.5 bg-blue-600 text-white rounded-full sm:rounded-md hover:bg-blue-700">
-            <RefreshCw className="w-4 h-4" />
-            <span className="hidden sm:inline ml-2">Refresh</span>
-          </button>
-        </div>
-      </div>
+    <div className="bg-white rounded-lg shadow border border-gray-200 p-4 sm:p-6">
 
       {batchProgress && (
         <div>
           {/* Stats Summary */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <div className="bg-blue-50 p-3 rounded-lg text-center">
-              <Users className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-              <p className="text-xl sm:text-2xl font-bold text-blue-600">{batchProgress.stats.totalSubmissions}</p>
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mx-auto mb-2" />
+              <p className="text-lg sm:text-xl font-bold text-blue-600">{batchProgress.stats.totalSubmissions}</p>
               <p className="text-xs sm:text-sm text-gray-600">Total Submissions</p>
             </div>
 
             <div className="bg-green-50 p-3 rounded-lg text-center">
-              <CheckSquare className="w-6 h-6 text-green-600 mx-auto mb-2" />
-              <p className="text-xl sm:text-2xl font-bold text-green-600">{batchProgress.stats.passedCount}</p>
+              <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mx-auto mb-2" />
+              <p className="text-lg sm:text-xl font-bold text-green-600">{batchProgress.stats.passedCount}</p>
               <p className="text-xs sm:text-sm text-gray-600">Passed</p>
             </div>
 
             <div className="bg-yellow-50 p-3 rounded-lg text-center">
-              <Calendar className="w-6 h-6 text-yellow-600 mx-auto mb-2" />
-              <p className="text-xl sm:text-2xl font-bold text-yellow-600">{batchProgress.stats.averagePercentage.toFixed(1)}%</p>
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600 mx-auto mb-2" />
+              <p className="text-lg sm:text-xl font-bold text-yellow-600">{batchProgress.stats.averagePercentage.toFixed(1)}%</p>
               <p className="text-xs sm:text-sm text-gray-600">Average Score</p>
             </div>
 
             <div className="bg-purple-50 p-3 rounded-lg text-center">
-              <BarChart className="w-6 h-6 text-purple-600 mx-auto mb-2" />
-              <p className="text-xl sm:text-2xl font-bold text-purple-600">{batchProgress.stats.averageScore.toFixed(1)}</p>
+              <BarChart className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 mx-auto mb-2" />
+              <p className="text-lg sm:text-xl font-bold text-purple-600">{batchProgress.stats.averageScore.toFixed(1)}</p>
               <p className="text-xs sm:text-sm text-gray-600">Average Marks</p>
             </div>
           </div>
@@ -988,7 +842,7 @@ const Quiz = () => {
 
           {/* Performance Distribution */}
           <div className="mb-8">
-            <h3 className="text-lg font-semibold mb-3">Performance Distribution</h3>
+            <h3 className="text-sm sm:text-lg font-semibold mb-3">Performance Distribution</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="bg-green-100 p-3 rounded-lg text-center">
                 <p className="text-xl font-bold text-green-600">{batchProgress.stats.performanceDistribution.green}</p>
@@ -1007,7 +861,7 @@ const Quiz = () => {
 
           {/* Student Submissions */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Student Submissions</h3>
+            <h3 className="text-sm sm:text-lg font-semibold mb-4">Student Submissions</h3>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -1120,7 +974,46 @@ const Quiz = () => {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Shared Header */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 p-3 sm:p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-lg font-semibold text-gray-900">
+                {activeTab === 'create' ? 'Create Quiz' : activeTab === 'progress' ? 'Quiz Progress' : 'Quizzes'}
+              </h2>
+              <p className="text-xs text-gray-500">{quizzes.length} quizzes created</p>
+            </div>
+          </div>
+          {activeTab === 'list' ? (
+            <button
+              onClick={() => setActiveTab('create')}
+              className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs sm:text-sm hover:bg-blue-700 transition"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Create Quiz</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setActiveTab('list')}
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs sm:text-sm hover:bg-gray-200 transition"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Back to List</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs sm:text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* Content */}
       {activeTab === 'list' && renderQuizList()}

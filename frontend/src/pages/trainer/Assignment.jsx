@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FileText, Upload, Trash2, Users, Eye, Download, X, ChevronLeft, RefreshCw } from 'lucide-react';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import ToastNotification from '../../components/ui/ToastNotification';
 
 const Assignment = () => {
   const [assignments, setAssignments] = useState([]);
-  const [batches, setBatches] = useState({ regular: [], placement: [], all: [] });
+  const [batches, setBatches] = useState([]);
   const [subject, setSubject] = useState('');
   const [formData, setFormData] = useState({
     title: '',
@@ -12,9 +14,7 @@ const Assignment = () => {
     subject: '',
     dueDate: '',
     totalMarks: '',
-    assignedBatches: [],
     assignedPlacementBatches: [],
-    batchType: 'placement',
     instructions: '',
     allowLateSubmission: false,
     lateSubmissionPenalty: 0,
@@ -30,6 +30,7 @@ const Assignment = () => {
   const [submissions, setSubmissions] = useState([]);
   const [gradingSubmission, setGradingSubmission] = useState(null);
   const [gradeForm, setGradeForm] = useState({ score: '', feedback: '' });
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     fetchAssignments();
@@ -70,8 +71,7 @@ const Assignment = () => {
       const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/assignments/batches`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setBatches(response.data || { regular: [], placement: [], all: [] });
-      console.log('DEBUG /api/assignments/batches response:', response.data || {});
+      setBatches(response.data || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch batches');
       console.error('Error fetching batches:', err);
@@ -126,7 +126,8 @@ const Assignment = () => {
       setGradingSubmission(null);
       setGradeForm({ score: '', feedback: '' });
       await fetchSubmissions(selectedAssignment);
-      alert('Submission graded successfully!');
+      setSuccess('Submission graded successfully!');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to grade submission');
     }
@@ -160,39 +161,13 @@ const Assignment = () => {
     setFormData(prev => ({ ...prev, files }));
   };
 
-  const handleBatchTypeChange = (e) => {
-    const newBatchType = e.target.value;
+  const handleToggleBatch = (batchId) => {
     setFormData(prev => ({
       ...prev,
-      batchType: newBatchType,
-      assignedBatches: [],
-      assignedPlacementBatches: []
+      assignedPlacementBatches: prev.assignedPlacementBatches.includes(batchId)
+        ? prev.assignedPlacementBatches.filter(id => id !== batchId)
+        : [...prev.assignedPlacementBatches, batchId]
     }));
-  };
-
-  const handleBatchChange = (e) => {
-    const selectedBatches = Array.from(e.target.selectedOptions, option => option.value);
-    if (formData.batchType === 'noncrt') {
-      setFormData(prev => ({ ...prev, assignedBatches: selectedBatches }));
-    } else if (formData.batchType === 'placement') {
-      setFormData(prev => ({ ...prev, assignedPlacementBatches: selectedBatches }));
-    } else if (formData.batchType === 'both') {
-      setFormData(prev => ({
-        ...prev,
-        assignedBatches: selectedBatches,
-        assignedPlacementBatches: selectedBatches
-      }));
-    }
-  };
-
-  const handleToggleBatch = (batchId) => {
-    if (formData.batchType === 'noncrt') {
-      setFormData(prev => ({ ...prev, assignedBatches: prev.assignedBatches.includes(batchId) ? prev.assignedBatches.filter(id => id !== batchId) : [...prev.assignedBatches, batchId] }));
-    } else if (formData.batchType === 'placement') {
-      setFormData(prev => ({ ...prev, assignedPlacementBatches: prev.assignedPlacementBatches.includes(batchId) ? prev.assignedPlacementBatches.filter(id => id !== batchId) : [...prev.assignedPlacementBatches, batchId] }));
-    } else {
-      setFormData(prev => ({ ...prev, assignedBatches: prev.assignedBatches.includes(batchId) ? prev.assignedBatches.filter(id => id !== batchId) : [...prev.assignedBatches, batchId], assignedPlacementBatches: prev.assignedPlacementBatches.includes(batchId) ? prev.assignedPlacementBatches.filter(id => id !== batchId) : [...prev.assignedPlacementBatches, batchId] }));
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -213,13 +188,13 @@ const Assignment = () => {
         formDataToSend.append('subject', formData.subject);
         formDataToSend.append('dueDate', formData.dueDate);
         formDataToSend.append('totalMarks', formData.totalMarks);
-        formDataToSend.append('batchType', formData.batchType);
+        formDataToSend.append('batchType', 'placement');
         formDataToSend.append('instructions', formData.instructions);
         formDataToSend.append('allowLateSubmission', formData.allowLateSubmission);
         formDataToSend.append('lateSubmissionPenalty', formData.lateSubmissionPenalty);
         formDataToSend.append('maxAttempts', formData.maxAttempts);
         formDataToSend.append('rubric', JSON.stringify(formData.rubric));
-        formDataToSend.append('assignedBatches', JSON.stringify(formData.assignedBatches));
+        formDataToSend.append('assignedBatches', JSON.stringify([]));
         formDataToSend.append('assignedPlacementBatches', JSON.stringify(formData.assignedPlacementBatches));
 
         formData.files.forEach(file => {
@@ -239,8 +214,8 @@ const Assignment = () => {
           subject: formData.subject,
           dueDate: formData.dueDate,
           totalMarks: formData.totalMarks,
-          batchType: formData.batchType,
-          assignedBatches: formData.assignedBatches,
+          batchType: 'placement',
+          assignedBatches: [],
           assignedPlacementBatches: formData.assignedPlacementBatches,
           instructions: formData.instructions,
           allowLateSubmission: formData.allowLateSubmission,
@@ -263,9 +238,7 @@ const Assignment = () => {
         subject: subject,
         dueDate: '',
         totalMarks: '',
-        assignedBatches: [],
         assignedPlacementBatches: [],
-        batchType: 'placement',
         instructions: '',
         allowLateSubmission: false,
         lateSubmissionPenalty: 0,
@@ -304,36 +277,6 @@ const Assignment = () => {
     }
   };
 
-  const getBatchOptions = () => {
-    const norm = s => (s || '').toString().trim().toUpperCase();
-    const isNT = b => (b && (b.isCrt === false)) || /^NT\b|^NT[_\- ]/.test(norm(b.batchNumber || b.name));
-    const isPT = b => /^PT\b|^PT[_\- ]/.test(norm(b.batchNumber || b.name));
-
-    const regularList = batches.regular || [];
-    const placementAll = batches.placement || [];
-
-    const noncrtFromRegular = regularList.filter(b => isNT(b));
-    const noncrtFromPlacement = placementAll.filter(b => isNT(b));
-
-    const uniqueById = (arr) => Array.from(new Map(arr.map(i => [i._id?.toString() || i.name || Math.random(), i])).values());
-
-    const noncrtList = uniqueById([...noncrtFromRegular, ...noncrtFromPlacement]);
-    const placementList = uniqueById(placementAll.filter(b => isPT(b)));
-
-    // DEBUG: log computed lists
-    console.log('DEBUG getBatchOptions (assignment):', { batchType: formData.batchType, noncrtFromRegular: noncrtFromRegular.length, noncrtFromPlacement: noncrtFromPlacement.length, noncrtCount: noncrtList.length, placementCount: placementList.length });
-
-    switch (formData.batchType) {
-      case 'noncrt':
-        return noncrtList;
-      case 'placement':
-        return placementList;
-      case 'both':
-        return [...placementList, ...noncrtList];
-      default:
-        return [];
-    }
-  };
 
   // Enhanced file icon function
   const getFileIcon = (fileName, mimeType = '') => {
@@ -376,27 +319,8 @@ const Assignment = () => {
     const assignment = assignments.find(a => a._id === selectedAssignment);
     
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-50 rounded-md">
-              <Users className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Submissions: {assignment?.title}</h3>
-              <p className="text-xs text-gray-600 mt-1">{submissions.length} submissions • Due {assignment && new Date(assignment.dueDate).toLocaleString()}</p>
-            </div>
-          </div>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            {error}
-            <button onClick={() => setError('')} className="float-right font-bold">×</button>
-          </div>
-        )}
-
-        <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+      <div className="bg-white rounded-lg shadow border border-gray-200 p-4 sm:p-6">
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
           <p className="text-sm"><strong>Total Submissions:</strong> {submissions.length}</p>
           <p className="text-sm"><strong>Due Date:</strong> {assignment && new Date(assignment.dueDate).toLocaleString()}</p>
           <p className="text-sm"><strong>Total Marks:</strong> {assignment?.totalMarks}</p>
@@ -405,7 +329,7 @@ const Assignment = () => {
         {submissions.length === 0 ? (
           <div className="text-center py-8">
             <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-lg">No submissions yet</p>
+            <p className="text-gray-500 text-sm sm:text-base">No submissions yet</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -413,7 +337,7 @@ const Assignment = () => {
               <div key={submission._id} className="border border-gray-200 rounded-lg p-3">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-3">
                   <div>
-                    <h3 className="font-semibold text-base sm:text-lg">{submission.studentId?.name || 'Unknown Student'}</h3>
+                    <h3 className="font-semibold text-sm sm:text-base">{submission.studentId?.name || 'Unknown Student'}</h3>
                     <p className="text-sm text-gray-600">Roll No: {submission.studentId?.rollNo || 'N/A'}</p>
                     <p className="text-sm text-gray-600">
                       Submitted: {new Date(submission.submittedAt).toLocaleString()}
@@ -423,7 +347,7 @@ const Assignment = () => {
                   <div>
                     {submission.score !== undefined && submission.score !== null ? (
                       <div className="text-sm sm:text-right">
-                        <p className="text-2xl font-bold text-green-600">{submission.score}/{assignment?.totalMarks}</p>
+                        <p className="text-lg sm:text-xl font-bold text-green-600">{submission.score}/{assignment?.totalMarks}</p>
                         <p className="text-xs text-gray-500">Graded</p>
                       </div>
                     ) : (
@@ -487,7 +411,7 @@ const Assignment = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50">
             <div className="bg-white rounded-t-3xl sm:rounded-lg p-4 sm:p-6 w-full sm:max-w-md max-h-[90vh] overflow-auto">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg sm:text-xl font-bold">Grade Submission</h3>
+                <h3 className="text-sm sm:text-lg font-semibold">Grade Submission</h3>
                 <button
                   onClick={() => setGradingSubmission(null)}
                   className="p-2 rounded-md text-gray-500 hover:text-gray-700"
@@ -553,20 +477,16 @@ const Assignment = () => {
   };
 
   const renderAssignmentForm = () => (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-2xl font-bold mb-6 flex items-center">
-        <FileText className="w-6 h-6 mr-2 text-blue-600" />
-        Create New Assignment
-      </h2>
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Section: Basic Information */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Basic Information</h3>
         </div>
-      )}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Title *</label>
             <input
               type="text"
               name="title"
@@ -608,9 +528,18 @@ const Assignment = () => {
             placeholder="Provide detailed instructions for students..."
           />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Due Date *</label>
+        </div>
+      </div>
+
+      {/* Section: Schedule & Marks */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Schedule & Marks</h3>
+        </div>
+        <div className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Due Date *</label>
             <input
               type="date"
               name="dueDate"
@@ -633,47 +562,46 @@ const Assignment = () => {
             />
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Batch Type *</label>
-            <select
-              name="batchType"
-              value={formData.batchType}
-              onChange={handleBatchTypeChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="placement">Placement Training Batches</option>
-              <option value="noncrt">Non-CRT Batches</option>
-              <option value="both">Both Types</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Select Batches *</label>
-            <div className="max-h-48 overflow-y-auto p-3 border border-gray-200 rounded-md bg-white">
-              {loading ? (
-                <div className="text-sm text-gray-500">Loading batches...</div>
-              ) : getBatchOptions().length > 0 ? (
-                getBatchOptions().map(batch => {
-                  const id = batch._id || batch.batchNumber || batch.name;
-                  const checked = formData.batchType === 'noncrt' ? formData.assignedBatches.includes(id) : formData.batchType === 'placement' ? formData.assignedPlacementBatches.includes(id) : (formData.assignedBatches.includes(id) || formData.assignedPlacementBatches.includes(id));
-                  return (
-                    <label key={id} className="flex items-center gap-3 text-sm mb-1">
-                      <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id)} className="w-4 h-4" />
-                      <span>{batch.name} ({batch.studentCount || 0} students)</span>
-                    </label>
-                  );
-                })
-              ) : (
-                <div className="text-sm text-gray-500">No batches available</div>
-              )}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">Click checkboxes to select multiple batches</p> 
-          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Attachments (Optional) - Files for students
+      </div>
+
+      {/* Section: Batch Assignment */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Batch Assignment</h3>
+        </div>
+        <div className="p-4">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Select Batches *</label>
+          <div className="max-h-48 overflow-y-auto p-3 border border-gray-200 rounded-md bg-white">
+            {loading ? (
+              <div className="animate-pulse space-y-2"><div className="h-4 bg-gray-200 rounded w-3/4"></div><div className="h-4 bg-gray-200 rounded w-1/2"></div></div>
+            ) : batches.length > 0 ? (
+              batches.map(batch => {
+                const id = batch._id;
+                const checked = formData.assignedPlacementBatches.includes(id);
+                return (
+                  <label key={id} className="flex items-center gap-3 text-sm mb-1">
+                    <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id)} className="w-4 h-4" />
+                    <span>{batch.batchNumber} - {batch.techStack} ({batch.studentCount || 0} students)</span>
+                  </label>
+                );
+              })
+            ) : (
+              <div className="text-sm text-gray-500">No batches available</div>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Click checkboxes to select multiple batches</p>
+        </div>
+      </div>
+
+      {/* Section: Attachments */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Attachments (Optional)</h3>
+        </div>
+        <div className="p-4">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+            Files for students
           </label>
           <input
             type="file"
@@ -691,131 +619,145 @@ const Assignment = () => {
             </div>
           )}
         </div>
-        <div className="flex justify-end gap-4">
-          <button
-            type="button"
-            onClick={() => setActiveTab('list')}
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={uploading}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-          >
-            {uploading ? 'Creating...' : 'Create Assignment'}
-          </button>
-        </div>
-      </form>
-    </div>
+      </div>
+
+      {/* Submit Buttons */}
+      <div className="flex flex-col sm:flex-row justify-end gap-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('list')}
+          className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs sm:text-sm transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={uploading}
+          className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-xs sm:text-sm transition"
+        >
+          {uploading ? 'Creating...' : 'Create Assignment'}
+        </button>
+      </div>
+    </form>
   );
 
   const renderAssignmentList = () => (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-50 rounded-md">
-            <FileText className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">My Assignments</h2>
-            <p className="text-xs text-gray-600 mt-1">{totalAssignments} assignments • {totalSubmissions} submissions</p>
-          </div>
-        </div>
-
-
-
-
-      </div>
-
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          {error}
-        </div>
-      )}
-
+    <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
       {loading ? (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading assignments...</p>
-        </div>
+        <LoadingSkeleton />
       ) : assignments.length === 0 ? (
         <div className="text-center py-8">
           <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 text-lg">No assignments found</p>
+          <p className="text-gray-500 text-sm sm:text-base">No assignments found</p>
           <p className="text-gray-400">Create your first assignment to get started</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {assignments.map((assignment) => (
-            <div key={assignment._id} className="border border-gray-100 rounded-lg overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-3 border-b border-blue-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-900">{assignment.title}</h3>
-                    <div className="text-xs text-gray-500">{assignment.subject} • Due {new Date(assignment.dueDate).toLocaleDateString()}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold text-blue-800">{assignment.submissions?.length || 0}</div>
-                    <div className="text-xs text-blue-600">Submissions</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 text-sm text-gray-600">
-                <div className="mb-2">Marks: <span className="font-medium">{assignment.totalMarks}</span></div>
-                <div className="mb-2">Assigned to:</div>
-                <div className="inline-flex flex-wrap gap-1">
-                  {assignment.assignedBatches?.length > 0 && (
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Non-CRT: {assignment.assignedBatches.map(b => b.name).join(', ')}</span>
-                  )}
-                  {assignment.assignedPlacementBatches?.length > 0 && (
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">Placement: {assignment.assignedPlacementBatches.map(b => `${b.batchNumber} - ${b.techStack}`).join(', ')}</span>
-                  )}
-                </div>
-
-                <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                  <button
-                    onClick={() => fetchSubmissions(assignment._id)}
-                    className="w-full sm:flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm flex items-center justify-center"
-                  >
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Submissions ({assignment.submissions?.length || 0})
-                  </button>
-
-                  <button
-                    onClick={() => deleteAssignment(assignment._id)}
-                    className="w-full sm:w-auto px-3 py-2 border border-red-200 text-red-600 rounded text-sm flex items-center justify-center"
-                    title="Delete Assignment"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-blue-50">
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Title</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Subject</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Due Date</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Marks</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Submissions</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Batches</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {assignments.map((assignment, idx) => (
+                <tr key={assignment._id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="text-xs sm:text-sm font-medium text-gray-900">{assignment.title}</div>
+                  </td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{assignment.subject}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{new Date(assignment.dueDate).toLocaleDateString()}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-center text-gray-700">{assignment.totalMarks}</td>
+                  <td className="px-3 py-2 text-xs sm:text-sm text-center font-semibold text-blue-700">{assignment.submissions?.length || 0}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="flex flex-wrap gap-1">
+                      {assignment.assignedPlacementBatches?.map(b => (
+                        <span key={b._id || b.batchNumber} className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">{b.batchNumber}</span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-center whitespace-nowrap">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        onClick={() => fetchSubmissions(assignment._id)}
+                        className="px-2 py-1 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center gap-1"
+                      >
+                        <Eye className="h-3 w-3" /><span className="hidden sm:inline">View</span>
+                      </button>
+                      <button
+                        onClick={() => deleteAssignment(assignment._id)}
+                        className="px-2 py-1 rounded text-xs font-medium bg-red-600 text-white hover:bg-red-700 inline-flex items-center gap-1"
+                      >
+                        <Trash2 className="h-3 w-3" /><span className="hidden sm:inline">Delete</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4 mb-6">
-        {['list', 'create'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-md font-medium ${
-              activeTab === tab ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
+    <div className="space-y-4">
+      {/* Toast */}
+      {(error || success) && (
+        <ToastNotification
+          type={error ? 'error' : 'success'}
+          message={error || success}
+          onClose={() => { setError(''); setSuccess(''); }}
+        />
+      )}
+
+      {/* Shared Header */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 p-3 sm:p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-sm sm:text-lg font-semibold text-gray-900">
+                {activeTab === 'create' ? 'Create Assignment' : activeTab === 'submissions' ? 'Submissions' : 'Assignments'}
+              </h2>
+              <p className="text-xs text-gray-500">{totalAssignments} assignments &bull; {totalSubmissions} submissions</p>
+            </div>
+          </div>
+          {activeTab === 'list' ? (
+            <button
+              onClick={() => setActiveTab('create')}
+              className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs sm:text-sm hover:bg-blue-700 transition"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">Create Assignment</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setActiveTab('list')}
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs sm:text-sm hover:bg-gray-200 transition"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Back to List</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs sm:text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {activeTab === 'list' && renderAssignmentList()}
       {activeTab === 'create' && renderAssignmentForm()}
       {activeTab === 'submissions' && renderSubmissionsView()}

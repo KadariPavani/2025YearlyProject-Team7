@@ -1,26 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import {
   FileText, Trash2, Edit, PlusCircle, BookOpen, Eye, Star, Users, 
   Link, Video, File, GraduationCap, Download, Calendar, Tag, Award,
-  Search, X, ChevronDown, ChevronUp
+  Search, X, ChevronDown, ChevronUp, ChevronLeft
 } from 'lucide-react';
 
-const Reference = ({ availableBatches }) => {
+const Reference = () => {
   const [references, setReferences] = useState([]);
-  const [batches, setBatches] = useState({
-    regular: [],
-    placement: [],
-    all: []
-  });
+  const [batches, setBatches] = useState([]);
   const [formData, setFormData] = useState({
     topicName: '',
     subject: '',
     referenceVideoLink: '',
     referenceNotesLink: '',
-    assignedBatches: [],
     assignedPlacementBatches: [],
-    batchType: 'placement',
     isPublic: true,
     accessLevel: 'public',
     learningObjectives: [],
@@ -42,12 +37,8 @@ const Reference = ({ availableBatches }) => {
 
   useEffect(() => {
     fetchReferences();
-    if (availableBatches) {
-      setBatches(availableBatches);
-    } else {
-      fetchBatches();
-    }
-  }, [availableBatches]);
+    fetchBatches();
+  }, []);
 
   useEffect(() => {
     filterReferences();
@@ -62,8 +53,7 @@ const Reference = ({ availableBatches }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setBatches(response.data || { regular: [], placement: [], all: [] });
-      console.log('DEBUG /api/references/batches response:', response.data || {});
+      setBatches(response.data || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch batches');
       console.error('Error fetching batches:', err);
@@ -129,49 +119,13 @@ const Reference = ({ availableBatches }) => {
     });
   };
 
-  const handleBatchTypeChange = (e) => {
-    const newBatchType = e.target.value;
-    setFormData({
-      ...formData,
-      batchType: newBatchType,
-      assignedBatches: [],
-      assignedPlacementBatches: []
-    });
-  };
-
-  const handleBatchChange = (e) => {
-    const selectedBatches = Array.from(e.target.selectedOptions, option => option.value);
-    
-    if (formData.batchType === 'noncrt') {
-      setFormData({ ...formData, assignedBatches: selectedBatches });
-    } else if (formData.batchType === 'placement') {
-      setFormData({ ...formData, assignedPlacementBatches: selectedBatches });
-    } else if (formData.batchType === 'both') {
-      setFormData({ ...formData, assignedBatches: selectedBatches, assignedPlacementBatches: selectedBatches });
-    }
-  };
-
-  const handleToggleBatch = (batchId, itemType) => {
-    // Accepts optional itemType to disambiguate placement vs regular batches
-    const toggle = (arr, id) => (arr.includes(id) ? arr.filter(i => i !== id) : [...arr, id]);
-
-    if (itemType === 'placement') {
-      setFormData(prev => ({ ...prev, assignedPlacementBatches: toggle(prev.assignedPlacementBatches, batchId) }));
-      return;
-    }
-    if (itemType === 'regular') {
-      setFormData(prev => ({ ...prev, assignedBatches: toggle(prev.assignedBatches, batchId) }));
-      return;
-    }
-
-    // Fallback to current batchType
-    if (formData.batchType === 'noncrt') {
-      setFormData(prev => ({ ...prev, assignedBatches: toggle(prev.assignedBatches, batchId) }));
-    } else if (formData.batchType === 'placement') {
-      setFormData(prev => ({ ...prev, assignedPlacementBatches: toggle(prev.assignedPlacementBatches, batchId) }));
-    } else {
-      setFormData(prev => ({ ...prev, assignedBatches: toggle(prev.assignedBatches, batchId), assignedPlacementBatches: toggle(prev.assignedPlacementBatches, batchId) }));
-    }
+  const handleToggleBatch = (batchId) => {
+    setFormData(prev => ({
+      ...prev,
+      assignedPlacementBatches: prev.assignedPlacementBatches.includes(batchId)
+        ? prev.assignedPlacementBatches.filter(id => id !== batchId)
+        : [...prev.assignedPlacementBatches, batchId]
+    }));
   };
 
   const handleNewFileChange = (e) => {
@@ -189,38 +143,6 @@ const Reference = ({ availableBatches }) => {
     }));
   };
 
-  const getBatchOptions = () => {
-    const norm = s => (s || '').toString().trim().toUpperCase();
-    const isNT = b => (b && (b.isCrt === false)) || /^NT\b|^NT[_\- ]/.test(norm(b.batchNumber || b.name));
-    const isPT = b => /^PT\b|^PT[_\- ]/.test(norm(b.batchNumber || b.name));
-
-    const regularList = batches.regular || [];
-    const placementAll = batches.placement || [];
-
-    const noncrtFromRegular = regularList.filter(b => isNT(b));
-    const noncrtFromPlacement = placementAll.filter(b => isNT(b));
-
-    const uniqueById = (arr) => Array.from(new Map(arr.map(i => [i._id?.toString() || i.name || Math.random(), i])).values());
-
-    const noncrtList = uniqueById([...noncrtFromRegular, ...noncrtFromPlacement]);
-    const placementList = uniqueById(placementAll.filter(b => isPT(b)));
-
-    // DEBUG: log computed lists
-    console.log('DEBUG getBatchOptions (reference):', { batchType: formData.batchType, noncrtFromRegular: noncrtFromRegular.length, noncrtFromPlacement: noncrtFromPlacement.length, noncrtCount: noncrtList.length, placementCount: placementList.length });
-
-    switch (formData.batchType) {
-      case 'noncrt': return noncrtList;
-      case 'placement': return placementList;
-      case 'both': return [...placementList, ...noncrtList];
-      default: return placementList;
-    }
-  };
-
-  const getSelectedCount = () => {
-    if (formData.batchType === 'noncrt') return formData.assignedBatches.length;
-    if (formData.batchType === 'placement') return formData.assignedPlacementBatches.length;
-    return Array.from(new Set([...(formData.assignedBatches || []), ...(formData.assignedPlacementBatches || [])])).length;
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -234,13 +156,13 @@ const Reference = ({ availableBatches }) => {
       form.append('subject', formData.subject);
       form.append('referenceVideoLink', formData.referenceVideoLink);
       form.append('referenceNotesLink', formData.referenceNotesLink);
-      form.append('batchType', formData.batchType);
+      form.append('batchType', 'placement');
       form.append('isPublic', formData.isPublic);
       form.append('accessLevel', formData.accessLevel);
       form.append('learningObjectives', JSON.stringify(formData.learningObjectives));
       form.append('prerequisites', JSON.stringify(formData.prerequisites));
       form.append('tags', JSON.stringify(formData.tags));
-      form.append('assignedBatches', JSON.stringify(formData.assignedBatches));
+      form.append('assignedBatches', JSON.stringify([]));
       form.append('assignedPlacementBatches', JSON.stringify(formData.assignedPlacementBatches));
       
       // Handle existing files for edit mode
@@ -278,9 +200,7 @@ const Reference = ({ availableBatches }) => {
       subject: '',
       referenceVideoLink: '',
       referenceNotesLink: '',
-      assignedBatches: [],
       assignedPlacementBatches: [],
-      batchType: 'placement',
       isPublic: true,
       accessLevel: 'public',
       learningObjectives: [],
@@ -299,9 +219,7 @@ const Reference = ({ availableBatches }) => {
       subject: ref.subject || '',
       referenceVideoLink: ref.referenceVideoLink || '',
       referenceNotesLink: ref.referenceNotesLink || '',
-      assignedBatches: ref.assignedBatches?.map(b => b._id || b) || [],
       assignedPlacementBatches: ref.assignedPlacementBatches?.map(b => b._id || b) || [],
-      batchType: ref.batchType || 'placement',
       isPublic: ref.isPublic ?? true,
       accessLevel: ref.accessLevel || 'public',
       learningObjectives: ref.learningObjectives || [],
@@ -389,61 +307,57 @@ const Reference = ({ availableBatches }) => {
   };
 
   if (loading && activeTab === 'list') {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading references...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-4">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-blue-50 rounded-md">
-              <GraduationCap className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600" />
+    <div className="space-y-4">
+      {/* Shared Header */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 p-3 sm:p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
             </div>
-            <h1 className="text-lg sm:text-2xl font-semibold text-gray-900">My Learning References</h1>
+            <div>
+              <h2 className="text-sm sm:text-lg font-semibold text-gray-900">
+                {activeTab === 'create' ? (editingId ? 'Edit Reference' : 'Create Reference') : 'References'}
+              </h2>
+              <p className="text-xs text-gray-500">{references.length} references created</p>
+            </div>
           </div>
-          <p className="text-sm sm:text-base text-gray-600">Create, manage, and track resources shared with your students</p>
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-gray-200">
-          {['list', 'create'].map((tab) => (
+          {activeTab === 'list' ? (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-6 py-3 font-medium text-sm capitalize transition-colors border-b-2 ${
-                activeTab === tab
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              onClick={() => setActiveTab('create')}
+              className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs sm:text-sm hover:bg-blue-700 transition"
             >
-              {tab === 'list' ? 'All References' : editingId ? 'Edit Reference' : 'Create New'}
-              {/* {tab === 'list' ? 'All References' : tab === 'create' ? (editingId ? 'Edit Reference' : 'Create New') : 'Analytics'} */}
+              <PlusCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Create Reference</span>
             </button>
-          ))}
+          ) : (
+            <button
+              onClick={resetForm}
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs sm:text-sm hover:bg-gray-200 transition"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Back to List</span>
+            </button>
+          )}
         </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs sm:text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
         {/* List View */}
         {activeTab === 'list' && (
           <>
             {/* Filters */}
-            <div className="bg-white rounded-lg shadow-md p-6 mb-6 border border-gray-100">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white rounded-lg shadow border border-gray-200 p-3 sm:p-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div className="md:col-span-2">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
@@ -480,16 +394,16 @@ const Reference = ({ availableBatches }) => {
                   </select>
                 </div>
               </div>
-              <div className="mt-4 text-sm text-gray-600">
+              <div className="mt-3 text-xs text-gray-500">
                 Showing {filteredReferences.length} of {references.length} references
               </div>
             </div>
 
             {/* Grid - Updated to expandable cards like student dashboard */}
             {filteredReferences.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-md p-12 text-center border border-gray-100">
+              <div className="bg-white rounded-lg shadow border border-gray-200 p-8 text-center">
                 <BookOpen className="w-10 h-10 sm:w-14 sm:h-14 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg sm:text-xl font-semibold text-gray-700 mb-2">No References Found</h3>
+                <h3 className="text-sm sm:text-lg font-semibold text-gray-700 mb-2">No References Found</h3>
                 <p className="text-gray-500">
                   {references.length === 0
                     ? "You haven't created any references yet."
@@ -506,188 +420,124 @@ const Reference = ({ availableBatches }) => {
                 )}
               </div>
             ) : (
-              <div className="space-y-6">
-                {filteredReferences.map(resource => {
-                  const isExpanded = expandedCards[resource._id];
-                  
-                  return (
-                    <div
-                      key={resource._id}
-                      className="bg-white rounded-lg shadow-md border border-gray-100 overflow-hidden"
-                    >
-                      {/* Card Header */}
-                      <div className="p-4 border-b border-gray-100">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-4">
-                            <div className="p-2 bg-blue-50 rounded-md text-blue-600">
-                              {getResourceIcon(resource)}
-                            </div>
-                            <div>
-                              <h3 className="text-base sm:text-lg font-semibold text-gray-900">{resource.topicName}</h3>
-                              <p className="text-xs sm:text-sm text-gray-600 mt-1">{resource.subject}</p>
-                              <p className="text-xs sm:text-sm text-gray-500 mt-1">{new Date(resource.createdAt).toLocaleDateString()}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => startEdit(resource)}
-                              className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                              title="Edit"
-                            >
-                              <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </button>
-                            <button
-                              onClick={() => deleteReference(resource._id)}
-                              className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </button>
-                            <button
-                              onClick={() => toggleExpand(resource._id)}
-                              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                              {isExpanded ? <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4" /> : <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />}
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-6 mt-4 text-sm">
-                          <span className={`px-3 py-1 text-xs sm:text-sm font-medium rounded-full ${
-                            resource.accessLevel === 'public' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                          }`}>
-                            {resource.accessLevel === 'public' ? 'Public' : 'Batch'}
-                          </span>
-                          <span className="text-gray-500">
-                            {(resource.files?.length || 0) + 
-                             (resource.referenceVideoLink ? 1 : 0) + 
-                             (resource.referenceNotesLink ? 1 : 0)} resource(s)
-                          </span>
-                        </div>
-
-                        {resource.tags && resource.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-2 mt-3">
-                            {resource.tags.slice(0, 5).map((tag, i) => (
-                              <span key={i} className="px-2 py-1 bg-white text-gray-600 text-xs rounded-full">#{tag}</span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Expandable Content */}
-                      {isExpanded && (
-                        <div className="p-6 space-y-6 border-t border-gray-100">
-                          {/* Learning Objectives */}
-                          {resource.learningObjectives && resource.learningObjectives.length > 0 && (
-                            <div>
-                              <h4 className="font-semibold text-sm sm:text-base text-gray-900 mb-2 flex items-center gap-2">
-                                <Award className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
-                                Learning Objectives
-                              </h4>
-                              <ul className="list-disc list-inside space-y-1 text-gray-700 text-sm">
-                                {resource.learningObjectives.map((obj, i) => <li key={i}>{obj}</li>)}
-                              </ul>
-                            </div>
-                          )}
-
-                          {/* Prerequisites */}
-                          {resource.prerequisites && resource.prerequisites.length > 0 && (
-                            <div>
-                              <h4 className="font-semibold text-gray-900 mb-2">Prerequisites</h4>
-                              <ul className="list-disc list-inside space-y-1 text-gray-700 text-sm">
-                                {resource.prerequisites.map((pr, i) => <li key={i}>{pr}</li>)}
-                              </ul>
-                            </div>
-                          )}
-
-                          {/* Files */}
-                          {resource.files && resource.files.length > 0 && (
-                            <div>
-                              <h4 className="font-semibold text-gray-900 mb-3">Uploaded Files</h4>
-                              <div className="space-y-2">
-                                {resource.files.map((file, i) => (
-                                  <a
-                                    key={i}
-                                    href={file.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group"
+              <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="sticky top-0 z-10">
+                      <tr className="bg-blue-50">
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Topic</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Subject</th>
+                        <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Access</th>
+                        <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Resources</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Created</th>
+                        <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredReferences.map((resource, idx) => {
+                        const isExpanded = expandedCards[resource._id];
+                        const resourceCount = (resource.files?.length || 0) + (resource.referenceVideoLink ? 1 : 0) + (resource.referenceNotesLink ? 1 : 0);
+                        return (
+                          <React.Fragment key={resource._id}>
+                            <tr className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                <div className="text-xs sm:text-sm font-medium text-gray-900">{resource.topicName}</div>
+                                {resource.tags?.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-0.5">
+                                    {resource.tags.slice(0, 3).map((tag, i) => (
+                                      <span key={i} className="text-[10px] text-gray-500">#{tag}</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{resource.subject}</td>
+                              <td className="px-3 py-2 text-center whitespace-nowrap">
+                                <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                                  resource.accessLevel === 'public' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+                                }`}>
+                                  {resource.accessLevel === 'public' ? 'Public' : 'Batch'}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-xs sm:text-sm text-center text-gray-700">{resourceCount}</td>
+                              <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{new Date(resource.createdAt).toLocaleDateString()}</td>
+                              <td className="px-3 py-2 text-center whitespace-nowrap">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => toggleExpand(resource._id)}
+                                    className={`px-2 py-1 rounded text-xs font-medium inline-flex items-center gap-1 ${isExpanded ? 'bg-gray-200 text-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                                   >
-                                    <div className="flex items-center gap-3">
-                                      <FileText className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
+                                    {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                    <span className="hidden sm:inline">{isExpanded ? 'Less' : 'More'}</span>
+                                  </button>
+                                  <button
+                                    onClick={() => startEdit(resource)}
+                                    className="px-2 py-1 rounded text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center gap-1"
+                                  >
+                                    <Edit className="h-3 w-3" /><span className="hidden sm:inline">Edit</span>
+                                  </button>
+                                  <button
+                                    onClick={() => deleteReference(resource._id)}
+                                    className="px-2 py-1 rounded text-xs font-medium bg-red-600 text-white hover:bg-red-700 inline-flex items-center gap-1"
+                                  >
+                                    <Trash2 className="h-3 w-3" /><span className="hidden sm:inline">Delete</span>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                            {isExpanded && (
+                              <tr>
+                                <td colSpan={6} className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                                  <div className="space-y-3">
+                                    {resource.learningObjectives?.length > 0 && (
                                       <div>
-                                        <p className="font-medium text-gray-900">{file.filename}</p>
-                                        <p className="text-xs text-gray-500">
-                                          {file.size ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : 'File'}
-                                        </p>
+                                        <h4 className="text-xs font-semibold text-gray-700 mb-1">Learning Objectives</h4>
+                                        <ul className="list-disc list-inside text-xs text-gray-600 space-y-0.5">
+                                          {resource.learningObjectives.map((obj, i) => <li key={i}>{obj}</li>)}
+                                        </ul>
                                       </div>
+                                    )}
+                                    {resource.prerequisites?.length > 0 && (
+                                      <div>
+                                        <h4 className="text-xs font-semibold text-gray-700 mb-1">Prerequisites</h4>
+                                        <ul className="list-disc list-inside text-xs text-gray-600 space-y-0.5">
+                                          {resource.prerequisites.map((pr, i) => <li key={i}>{pr}</li>)}
+                                        </ul>
+                                      </div>
+                                    )}
+                                    <div className="flex flex-wrap gap-2">
+                                      {resource.files?.map((file, i) => (
+                                        <a key={i} href={file.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-2 py-1 bg-white border border-gray-200 rounded text-xs text-blue-600 hover:bg-blue-50">
+                                          <FileText className="w-3 h-3" />{file.filename}
+                                        </a>
+                                      ))}
+                                      {resource.referenceVideoLink && (
+                                        <a href={resource.referenceVideoLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-2 py-1 bg-white border border-blue-200 rounded text-xs text-blue-600 hover:bg-blue-50">
+                                          <Video className="w-3 h-3" />Video
+                                        </a>
+                                      )}
+                                      {resource.referenceNotesLink && (
+                                        <a href={resource.referenceNotesLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-2 py-1 bg-white border border-green-200 rounded text-xs text-green-600 hover:bg-green-50">
+                                          <Link className="w-3 h-3" />Notes
+                                        </a>
+                                      )}
                                     </div>
-                                    <Download className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-400 group-hover:text-gray-600" />
-                                  </a>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Video Link */}
-                          {resource.referenceVideoLink && (
-                            <div>
-                              <h4 className="font-semibold text-gray-900 mb-3">Video Resource</h4>
-                              <a
-                                href={resource.referenceVideoLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg hover:bg-blue-100 text-blue-700"
-                              >
-                                <Video className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
-                                <span className="text-xs sm:text-sm">Watch Video</span>
-                              </a>
-                            </div>
-                          )}
-
-                          {/* Notes Link */}
-                          {resource.referenceNotesLink && (
-                            <div>
-                              <h4 className="font-semibold text-gray-900 mb-3">Reference Notes</h4>
-                              <a
-                                href={resource.referenceNotesLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-3 p-3 bg-green-50 rounded-lg hover:bg-green-100 text-green-700"
-                              >
-                                <Link className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />
-                                <span className="text-xs sm:text-sm">View Notes</span>
-                              </a>
-                            </div>
-                          )}
-
-                          {/* Batch Information */}
-                          {resource.accessLevel === 'batch-specific' && (
-                            <div>
-                              <h4 className="font-semibold text-gray-900 mb-3">Assigned Batches</h4>
-                              <div className="space-y-2">
-                                {resource.assignedBatches?.length > 0 && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs sm:text-sm font-medium text-blue-800 bg-blue-100 px-3 py-1 rounded-full">
-                                      Non-CRT: {resource.assignedBatches.map(b => b.name).join(', ')}
-                                    </span>
+                                    {resource.accessLevel === 'batch-specific' && resource.assignedPlacementBatches?.length > 0 && (
+                                      <div className="flex flex-wrap gap-1">
+                                        {resource.assignedPlacementBatches.map(b => (
+                                          <span key={b._id || b.batchNumber} className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">{b.batchNumber}</span>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
-                                )}
-                                {resource.assignedPlacementBatches?.length > 0 && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs sm:text-sm font-medium text-green-800 bg-green-100 px-3 py-1 rounded-full">
-                                      Placement: {resource.assignedPlacementBatches.map(b => `${b.batchNumber} - ${b.techStack}`).join(', ')}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </>
@@ -695,111 +545,102 @@ const Reference = ({ availableBatches }) => {
 
         {/* Create/Edit Form */}
         {activeTab === 'create' && (
-          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-3">
-              <PlusCircle className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-600" />
-              {editingId ? 'Edit Reference' : 'Create New Reference'}
-            </h2>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Topic Name *</label>
-                  <input
-                    type="text"
-                    name="topicName"
-                    value={formData.topicName}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g., React Hooks Deep Dive"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
-                  <input
-                    type="text"
-                    name="subject"
-                    value={formData.subject}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g., React.js"
-                  />
-                </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Section: Basic Information */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Basic Information</h3>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Batch Type</label>
-                  <select
-                    name="batchType"
-                    value={formData.batchType}
-                    onChange={handleBatchTypeChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="placement">Placement Training</option>
-                    <option value="noncrt">Non-CRT Batches</option>
-                    <option value="both">Both</option>
-                  </select>
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Topic Name *</label>
+                    <input
+                      type="text"
+                      name="topicName"
+                      value={formData.topicName}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g., React Hooks Deep Dive"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Subject *</label>
+                    <input
+                      type="text"
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g., React.js"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Access Level *</label>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Access Level *</label>
                   <select
                     name="accessLevel"
                     value={formData.accessLevel}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="public">Public (All Students)</option>
                     <option value="batch-specific">Batch Specific</option>
                   </select>
                 </div>
-              </div>
-
-              {formData.accessLevel === 'batch-specific' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Batches</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto p-3 border border-gray-200 rounded-md bg-white">
-                    {getBatchOptions().map(batch => {
-                      const id = batch._id || batch.batchNumber || batch.name;
-                      const checked = formData.batchType === 'noncrt' ? formData.assignedBatches.includes(id) : formData.batchType === 'placement' ? formData.assignedPlacementBatches.includes(id) : (formData.assignedBatches.includes(id) || formData.assignedPlacementBatches.includes(id));
-                      return (
-                        <label key={id} className="flex items-center gap-3 text-xs sm:text-sm">
-                          <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id, batch.type)} className="w-3 h-3 sm:w-4 sm:h-4" />
-                          <span>{batch.name || `${batch.batchNumber} - ${batch.techStack}`} ({batch.studentCount || 0} students)</span>
-                        </label>
-                      );
-                    })}
+                {formData.accessLevel === 'batch-specific' && (
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Select Batches</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 rounded-md bg-white">
+                      {batches.map(batch => {
+                        const id = batch._id;
+                        const checked = formData.assignedPlacementBatches.includes(id);
+                        return (
+                          <label key={id} className="flex items-center gap-3 text-xs sm:text-sm">
+                            <input type="checkbox" checked={checked} onChange={() => handleToggleBatch(id)} className="w-4 h-4" />
+                            <span>{batch.batchNumber} - {batch.techStack} ({batch.studentCount || 0} students)</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Click checkboxes to select multiple &bull; {formData.assignedPlacementBatches.length} selected</p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">Click checkboxes to select multiple • {getSelectedCount()} selected</p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Video Link</label>
-                  <input
-                    type="url"
-                    name="referenceVideoLink"
-                    value={formData.referenceVideoLink}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://youtube.com/..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes Link</label>
-                  <input
-                    type="url"
-                    name="referenceNotesLink"
-                    value={formData.referenceNotesLink}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://drive.google.com/..."
-                  />
-                </div>
+                )}
               </div>
+            </div>
+
+            {/* Section: Resources */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Resources</h3>
+              </div>
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Video Link</label>
+                    <input
+                      type="url"
+                      name="referenceVideoLink"
+                      value={formData.referenceVideoLink}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="https://youtube.com/..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Notes Link</label>
+                    <input
+                      type="url"
+                      name="referenceNotesLink"
+                      value={formData.referenceNotesLink}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="https://drive.google.com/..."
+                    />
+                  </div>
+                </div>
 
               {/* Existing Files (on edit) */}
               {editingId && formData.existingFiles.length > 0 && (
@@ -880,9 +721,17 @@ const Reference = ({ availableBatches }) => {
                   </div>
                 )}
               </div>
+              </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Learning Objectives (comma-separated)</label>
+            {/* Section: Additional Details */}
+            <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2.5">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Additional Details</h3>
+              </div>
+              <div className="p-4 space-y-4">
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Learning Objectives (comma-separated)</label>
                 <textarea
                   value={formData.learningObjectives.join(', ')}
                   onChange={(e) => handleArrayInputChange('learningObjectives', e.target.value)}
@@ -914,24 +763,27 @@ const Reference = ({ availableBatches }) => {
                 />
               </div>
 
-              <div className="flex justify-end gap-4 pt-6">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 sm:px-6 sm:py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 sm:px-6 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
-                >
-                  {loading ? 'Saving...' : editingId ? 'Update Reference' : 'Create Reference'}
-                </button>
               </div>
-            </form>
-          </div>
+            </div>
+
+            {/* Submit Buttons */}
+            <div className="flex flex-col sm:flex-row justify-end gap-3">
+              <button
+                type="button"
+                onClick={resetForm}
+                className="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-xs sm:text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-xs sm:text-sm transition"
+              >
+                {loading ? 'Saving...' : editingId ? 'Update Reference' : 'Create Reference'}
+              </button>
+            </div>
+          </form>
         )}
 
         {/* Analytics View */}
@@ -1027,7 +879,6 @@ const Reference = ({ availableBatches }) => {
             </div>
           </div>
         )} */}
-      </div>
     </div>
   );
 };

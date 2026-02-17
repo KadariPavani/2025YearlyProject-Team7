@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
+import ToastNotification from '../../components/ui/ToastNotification';
 
 const TrainerChangePassword = () => {
   const navigate = useNavigate();
@@ -162,16 +163,12 @@ const TrainerChangePassword = () => {
               </div>
             </div>
 
-            {error && (
-              <div className="bg-red-50 border border-red-100 rounded-xl p-3">
-                <p className="text-red-600 text-[13px]">{error}</p>
-              </div>
-            )}
-
-            {message && (
-              <div className="bg-green-50 border border-green-100 rounded-xl p-3">
-                <p className="text-green-700 text-[13px]">{message}</p>
-              </div>
+            {(error || message) && (
+              <ToastNotification
+                type={error ? 'error' : 'success'}
+                message={error || message}
+                onClose={() => { setError(''); setMessage(''); }}
+              />
             )}
 
             <button

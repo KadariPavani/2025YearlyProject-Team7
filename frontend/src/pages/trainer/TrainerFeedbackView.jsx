@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Star, MessageSquare, User, Calendar, ThumbsUp } from 'lucide-react';
+import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
+import ToastNotification from '../../components/ui/ToastNotification';
 import axios from 'axios';
 
 const TrainerFeedbackView = () => {
@@ -34,17 +36,13 @@ const TrainerFeedbackView = () => {
   }, []);
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 text-red-600 rounded-lg">
-        {error}
+      <div className="p-4">
+        <ToastNotification type="error" message={error} onClose={() => setError('')} />
       </div>
     );
   }

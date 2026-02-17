@@ -98,9 +98,6 @@ const createContest = async (req, res) => {
 
         await contest.save();
 
-        // populate targetBatchIds minimally so frontend can display assigned batches (if needed)
-        await contest.populate('targetBatchIds');
-
         // Notify students (if targetBatchIds provided use them; otherwise send to all students)
         try {
             if (notificationController.notifyContestCreated) {

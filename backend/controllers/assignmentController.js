@@ -70,25 +70,6 @@ const getTrainerPlacementBatches = async (trainerId) => {
   }
 };
 
-// ============================================
-// Helper: Get trainer's regular batches
-// ============================================
-const getTrainerRegularBatches = async (trainerId) => {
-  try {
-    const batches = await Batch.find({ trainerId }).select('_id batchNumber isCrt students');
-    return batches.map(batch => ({
-      _id: batch._id,
-      name: batch.batchNumber || `Batch ${batch._id}`,
-      batchNumber: batch.batchNumber,
-      isCrt: batch.isCrt,
-      studentCount: batch.students?.length || 0,
-      type: 'regular'
-    }));
-  } catch (error) {
-    console.error('Error fetching regular batches:', error);
-    return [];
-  }
-};
 
 // ============================================
 // Helper: Get trainer's subject
@@ -104,16 +85,12 @@ const getTrainerSubject = async (trainerId) => {
 };
 
 // ============================================
-// GET /batches - Get trainer batches
+// GET /batches - Get trainer placement batches (flat array)
 // ============================================
 const getBatches = async (req, res) => {
   try {
-    const trainerId = req.user.id;
-    const regular = await getTrainerRegularBatches(trainerId);
-    const placement = await getTrainerPlacementBatches(trainerId);
-    const all = [...regular, ...placement];
-
-    res.json({ regular, placement, all });
+    const placementBatches = await getTrainerPlacementBatches(req.user.id);
+    res.json(placementBatches);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch batches', error: error.message });
   }

@@ -188,12 +188,12 @@ const handleDateClick = (day) => {
   if (loading) return <LoadingSkeleton />;
 
   return (
-    <div className="p-8 bg-gradient-to-b from-gray-50 to-white min-h-screen">
+    <div className="p-2 bg-gradient-to-b from-gray-50 to-white min-h-screen">
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-3">
-          <Calendar className="text-blue-600 h-7 w-7" />
-          <h1 className="text-xl font-bold text-gray-800">Placement Calendar</h1>
+          <Calendar className="text-blue-600 w-4 h-4 sm:w-5 sm:h-5" />
+          <h1 className="text-sm sm:text-lg font-semibold text-gray-800">Placement Calendar</h1>
         </div>
         <div className="flex gap-2">
           <button onClick={fetchEvents} className="flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all text-sm">
@@ -207,9 +207,9 @@ const handleDateClick = (day) => {
         <LoadingSkeleton />
       ) : (
         <div className="w-full max-w-[1200px] mx-auto">
-          <div className="flex flex-col sm:flex-row gap-6 items-start">
+          <div className="flex flex-col md:flex-row gap-6 items-start">
             {/* Left: calendar (40%) */}
-            <div className="w-full sm:w-2/5">
+            <div className="w-full md:w-2/5">
               {/* Month + Year Controls (centered above calendar column) */}
               <div className="flex justify-center items-center mb-3">
                 <button onClick={handlePrevMonth} className="p-2 bg-white border rounded-full hover:bg-blue-100"><ChevronLeft /></button>
@@ -249,7 +249,7 @@ const handleDateClick = (day) => {
 
                         <div className="flex-1 mt-0 sm:mt-1 overflow-hidden px-1 flex flex-col justify-between h-full">
                           {/* Mobile dots */}
-                          <div className="sm:hidden flex items-center justify-start gap-1 mt-0.5">
+                          <div className="md:hidden flex items-center justify-start gap-1">
                             <div className="flex items-start justify-start gap-0.5">
                               {dateEvents.slice(0, 3).map((ev, i) => (
                                 <span key={i} className={`inline-block flex-shrink-0 w-1 h-1 rounded-full shadow-sm ${ev.status === 'completed' ? 'bg-green-500' : ev.status === 'ongoing' ? 'bg-orange-500' : (ev.status === 'cancelled' || ev.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
@@ -258,7 +258,7 @@ const handleDateClick = (day) => {
                           </div>
 
                           {/* Desktop preview */}
-                          <div className="hidden sm:flex sm:flex-col sm:gap-1">
+                          <div className="hidden md:flex md:flex-col md:gap-1">
                             {dateEvents.slice(0, 1).map((ev) => (
                               <div
                                 key={ev.id}
@@ -266,7 +266,7 @@ const handleDateClick = (day) => {
                                 <div className="flex items-center gap-1 min-w-0">
                                   <span className="inline-block truncate min-w-0" title={ev.title}>{ev.title}</span>
                                   {dateEvents.length > 1 && (
-                                    <span className="hidden sm:inline text-[9px] text-gray-500 flex-shrink-0">+{Math.max(0, dateEvents.length - 1)}</span>
+                                    <span className="hidden md:inline text-[9px] text-gray-500 flex-shrink-0">+{Math.max(0, dateEvents.length - 1)}</span>
                                   )}
                                 </div>
                               </div>
@@ -274,7 +274,7 @@ const handleDateClick = (day) => {
 
                             {dateEvents.length > 1 && (
                               <div className="mt-1">
-                                <span className="hidden sm:inline text-[8px] text-gray-500">+{Math.max(0, dateEvents.length - 1)} more</span>
+                                <span className="hidden md:inline text-[8px] text-gray-500">+{Math.max(0, dateEvents.length - 1)} more</span>
                               </div>
                             )}
                           </div>
@@ -286,19 +286,19 @@ const handleDateClick = (day) => {
               </div>
             </div>
 
-            <aside className="hidden sm:block w-full sm:w-3/5 sticky top-20 self-start">
+            <aside className="hidden md:block w-full md:w-3/5 sticky top-20 self-start">
               <div className="p-4 w-full border-l border-blue-50 pl-6">
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <div className="text-xs text-blue-500 font-medium">{selectedDateLabel ? 'Events on' : ''}</div>
-                    <div className="text-2xl font-bold text-blue-800">{selectedDate.toLocaleString("default", { weekday: "long" })}, <span className="text-blue-600">{ordinal(selectedDate.getDate())}</span></div>
+                    <div className="text-lg sm:text-xl font-bold text-blue-800">{selectedDate.toLocaleString("default", { weekday: "long" })}, <span className="text-blue-600">{ordinal(selectedDate.getDate())}</span></div>
                   </div>
                 </div>
 
                 <div className="h-px bg-blue-50 mb-2" />
 
                 {loading ? (
-                  <div className="text-sm text-gray-500">Loading...</div>
+                  <div className="animate-pulse space-y-2 py-2"><div className="h-4 bg-gray-200 rounded w-3/4"></div><div className="h-4 bg-gray-200 rounded w-1/2"></div></div>
                 ) : selectedDateEvents.length === 0 ? (
                   <p className="text-gray-500 text-center">No events for this date.</p>
                 ) : (
@@ -339,36 +339,78 @@ const handleDateClick = (day) => {
           </div>
 
           {/* Selected Date Event Details (mobile only) */}
-          <div className="mt-8 bg-white rounded-lg shadow-lg p-3 w-full max-w-[560px] mx-auto border border-blue-100 block sm:hidden">
+          <div className="mt-4 bg-white rounded-lg shadow border border-gray-200 w-full mx-auto block md:hidden">
             {loading ? (
-              <div className="text-sm text-gray-500">Loading...</div>
+              <div className="animate-pulse space-y-2 p-3"><div className="h-4 bg-gray-200 rounded w-3/4"></div><div className="h-4 bg-gray-200 rounded w-1/2"></div></div>
             ) : (
               <>
-                <div className="mb-3 text-center">
-                  <div className="text-2xl font-bold text-blue-800">{selectedDate.toLocaleString('default', { weekday: 'long' })}, <span className="text-blue-600">{ordinal(selectedDate.getDate())}</span></div>
+                <div className="px-3 py-2 border-b border-gray-100 bg-blue-50 rounded-t-lg">
+                  <div className="text-xs text-blue-500 font-medium">Events on</div>
+                  <div className="text-sm font-bold text-blue-800">{selectedDate.toLocaleString('default', { weekday: 'long' })}, {ordinal(selectedDate.getDate())} {selectedDate.toLocaleString('default', { month: 'long' })}</div>
                 </div>
 
-                <ul className="divide-y divide-gray-100">
-                  {selectedDateEvents.length > 0 ? (
-                    selectedDateEvents.map((event) => (
-                      <li key={event.id} className="flex items-center justify-between py-3">
-                        <div className="flex items-start gap-3">
-                          <div className={`w-1 h-8 rounded ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : event.status === 'cancelled' ? 'bg-red-500' : 'bg-blue-600'}`} />
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-gray-800 truncate">{event.title}</div>
-                            <div className="text-xs text-gray-500">{event.startTime}{event.endTime ? ` • ${event.endTime}` : ''}</div>
+                {selectedDateEvents.length > 0 ? (
+                  <div className="divide-y divide-gray-100">
+                    {selectedDateEvents.map((event) => (
+                      <div key={event.id} className="p-3">
+                        <div className="flex items-start gap-2 min-w-0">
+                          <div className={`w-1 mt-0.5 self-stretch rounded-full flex-shrink-0 ${event.status === 'completed' ? 'bg-green-500' : event.status === 'ongoing' ? 'bg-orange-500' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-500' : 'bg-blue-600'}`} />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-gray-900 truncate">{event.title}</span>
+                              <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold ${event.status === 'completed' ? 'bg-green-100 text-green-700' : event.status === 'ongoing' ? 'bg-orange-100 text-orange-700' : (event.status === 'cancelled' || event.status === 'deleted') ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{event.status.charAt(0).toUpperCase() + event.status.slice(1)}</span>
+                            </div>
+
+                            <div className="mt-2 ml-1">
+                              <table className="w-full text-xs">
+                                <tbody>
+                                  {event.company && (
+                                    <tr>
+                                      <td className="py-0.5 pr-2 text-gray-400 font-medium whitespace-nowrap align-top w-20">Company</td>
+                                      <td className="py-0.5 text-gray-700">{event.company}</td>
+                                    </tr>
+                                  )}
+                                  {(event.startTime || event.endTime) && (
+                                    <tr>
+                                      <td className="py-0.5 pr-2 text-gray-400 font-medium whitespace-nowrap w-20">Time</td>
+                                      <td className="py-0.5 text-gray-700">{event.startTime}{event.endTime ? ` - ${event.endTime}` : ''}</td>
+                                    </tr>
+                                  )}
+                                  {event.venue && (
+                                    <tr>
+                                      <td className="py-0.5 pr-2 text-gray-400 font-medium whitespace-nowrap w-20">Venue</td>
+                                      <td className="py-0.5 text-gray-700">{event.venue}</td>
+                                    </tr>
+                                  )}
+                                  {event.participated > 0 && (
+                                    <tr>
+                                      <td className="py-0.5 pr-2 text-gray-400 font-medium whitespace-nowrap w-20">Registered</td>
+                                      <td className="py-0.5 text-gray-700 font-medium">{event.participated}</td>
+                                    </tr>
+                                  )}
+                                  {event.placed > 0 && (
+                                    <tr>
+                                      <td className="py-0.5 pr-2 text-gray-400 font-medium whitespace-nowrap w-20">Selected</td>
+                                      <td className="py-0.5 text-gray-700 font-medium">{event.placed}</td>
+                                    </tr>
+                                  )}
+                                  {event.description && (
+                                    <tr>
+                                      <td className="py-0.5 pr-2 text-gray-400 font-medium whitespace-nowrap align-top w-20">Details</td>
+                                      <td className="py-0.5 text-gray-600 break-words">{event.description}</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          <button title="More" className="p-2 rounded-md hover:bg-gray-100 text-gray-600">⋮</button>
-                        </div>
-                      </li>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500 p-3">No events for this date.</div>
-                  )}
-                </ul>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-gray-400 text-xs">No events for this date.</div>
+                )}
               </>
             )}
           </div>
