@@ -26,15 +26,17 @@ import ProfileCompletionModal from '../../components/ui/ProfileCompletionModal';
 
 
 const StudentSyllabus = () => (
-  <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-    <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-      <BookOpen className="h-6 w-6 text-blue-600" />
-      Course Syllabus
-    </h3>
-    <div className="text-center py-12 bg-gray-50 rounded-xl">
-      <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-      <p className="text-gray-500 font-medium">No syllabus available</p>
-      <p className="text-gray-400 text-sm">Course syllabus will appear here once uploaded by trainers</p>
+  <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+    <div className="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2">
+      <div className="p-2 bg-blue-100 rounded-lg"><BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" /></div>
+      <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Course Syllabus</h3>
+    </div>
+    <div className="p-3 sm:p-4">
+      <div className="text-center py-8">
+        <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+        <p className="text-xs sm:text-sm font-medium text-gray-500">No syllabus available</p>
+        <p className="text-gray-400 text-xs">Course syllabus will appear here once uploaded by trainers</p>
+      </div>
     </div>
   </div>
 );
@@ -44,290 +46,180 @@ const StudentContests = ({ contests, loading=false }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('live');
 
-  if (loading) return <LoadingSkeleton />; 
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'cards'
+  if (loading) return <LoadingSkeleton />;
 
-  // Calculate stats
   const now = new Date();
-  const liveContests = contests?.filter(c => 
+  const liveContests = contests?.filter(c =>
     new Date(c.startTime) <= now && new Date(c.endTime) >= now && !c.myFinalized
   ) || [];
-  
-  const upcomingContests = contests?.filter(c => 
+  const upcomingContests = contests?.filter(c =>
     new Date(c.startTime) > now
   ) || [];
-  
-  const completedContests = contests?.filter(c => 
+  const completedContests = contests?.filter(c =>
     c.myFinalized || new Date(c.endTime) < now
   ) || [];
+  const totalContests = contests?.length || 0;
 
-  const totalQuestions = contests?.reduce((sum, c) => sum + (c.questions?.length || 0), 0) || 0;
-
-  // Get contests for current tab
   const getFilteredContests = () => {
     switch(activeTab) {
-      case 'live':
-        return liveContests;
-      case 'upcoming':
-        return upcomingContests;
-      case 'completed':
-        return completedContests;
-      default:
-        return contests || [];
+      case 'live': return liveContests;
+      case 'upcoming': return upcomingContests;
+      case 'completed': return completedContests;
+      default: return contests || [];
     }
   };
-
   const filteredContests = getFilteredContests();
 
   return (
-    <div className="space-y-8">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-6">
-        {/* Active Contests */}
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-6 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-white bg-opacity-20 rounded-lg p-2">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-            </div>
-          </div>
-          <div className="text-4xl font-bold mb-1">{liveContests.length}</div>
-          <div className="text-blue-100 text-sm">Active Contests</div>
-        </div>
-
-        {/* Total Questions */}
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-white bg-opacity-20 rounded-lg p-2">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-          </div>
-          <div className="text-4xl font-bold mb-1">{totalQuestions}</div>
-          <div className="text-green-100 text-sm">Total Questions</div>
-        </div>
-
-        {/* Live Now */}
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-white bg-opacity-20 rounded-lg p-2">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-            </div>
-          </div>
-          <div className="text-4xl font-bold mb-1">{liveContests.length}</div>
-          <div className="text-purple-100 text-sm">Live Now</div>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-sm sm:text-lg font-semibold text-gray-900">Coding Contests</h2>
+          <p className="text-xs text-gray-500 mt-0.5">{totalContests} contests</p>
         </div>
       </div>
 
-      {/* Tabs and View Toggle */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab('live')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors ${
-                activeTab === 'live'
-                  ? 'bg-green-100 text-green-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              Live
-              <span className="bg-white px-2 py-0.5 rounded-full text-xs">{liveContests.length}</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('upcoming')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors ${
-                activeTab === 'upcoming'
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Upcoming
-              <span className="bg-white px-2 py-0.5 rounded-full text-xs">{upcomingContests.length}</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('completed')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 transition-colors ${
-                activeTab === 'completed'
-                  ? 'bg-gray-200 text-gray-700'
-                  : 'text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Completed
-              <span className="bg-white px-2 py-0.5 rounded-full text-xs">{completedContests.length}</span>
-            </button>
+      {/* Stat Cards */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex w-10 h-10 rounded-md bg-green-50 items-center justify-center"><Target className="h-5 w-5 text-green-600" /></div>
+            <div>
+              <p className="text-xs text-gray-500">Live</p>
+              <p className="text-sm sm:text-xl font-bold text-green-700">{liveContests.length}</p>
+            </div>
           </div>
+        </div>
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex w-10 h-10 rounded-md bg-blue-50 items-center justify-center"><Calendar className="h-5 w-5 text-blue-600" /></div>
+            <div>
+              <p className="text-xs text-gray-500">Upcoming</p>
+              <p className="text-sm sm:text-xl font-bold text-blue-600">{upcomingContests.length}</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-2 sm:p-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden sm:flex w-10 h-10 rounded-md bg-gray-100 items-center justify-center"><CheckCircle className="h-5 w-5 text-gray-600" /></div>
+            <div>
+              <p className="text-xs text-gray-500">Completed</p>
+              <p className="text-sm sm:text-xl font-bold text-gray-900">{completedContests.length}</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">View:</span>
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`p-2 rounded ${viewMode === 'cards' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded ${viewMode === 'list' ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+      {/* Contest Table */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        {/* Blue header with filter tabs */}
+        <div className="bg-blue-50 border-b border-blue-200 px-3 sm:px-4 py-2.5 flex items-center gap-2 flex-wrap">
+          <div className="p-2 bg-blue-100 rounded-lg"><Target className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" /></div>
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700 mr-auto">Contests</h3>
+          <div className="flex gap-1">
+            {[
+              { key: 'live', label: 'Live', count: liveContests.length, active: 'bg-green-600 text-white', dot: 'bg-green-300' },
+              { key: 'upcoming', label: 'Upcoming', count: upcomingContests.length, active: 'bg-blue-600 text-white', dot: null },
+              { key: 'completed', label: 'Done', count: completedContests.length, active: 'bg-gray-600 text-white', dot: null },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-2 sm:px-2.5 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 ${
+                  activeTab === tab.key ? tab.active : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                {tab.dot && activeTab === tab.key && <span className={`w-1.5 h-1.5 rounded-full ${tab.dot}`}></span>}
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.label}</span>
+                <span className={`text-[10px] ${activeTab === tab.key ? 'opacity-80' : 'text-gray-400'}`}>({tab.count})</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Table Header */}
-        {viewMode === 'list' && (
-          <div className="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 text-xs font-medium text-gray-600 uppercase">
-            <div className="col-span-3">Contest Details</div>
-            <div className="col-span-2">Status</div>
-            <div className="col-span-2">Schedule</div>
-            <div className="col-span-2">Questions</div>
-            <div className="col-span-1">Languages</div>
-            <div className="col-span-1">Duration</div>
-            <div className="col-span-1">Action</div>
+        {/* Table */}
+        {filteredContests.length === 0 ? (
+          <div className="text-center py-8 p-3 sm:p-4">
+            <Target className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-xs sm:text-sm font-medium text-gray-500">No contests in this category</p>
+          </div>
+        ) : (
+          <div className="p-3 sm:p-4">
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-blue-50">
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Contest</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Status</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Schedule</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Qs</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Duration</th>
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredContests.map((c, idx) => {
+                    const startTime = new Date(c.startTime);
+                    const endTime = new Date(c.endTime);
+                    const duration = Math.floor((endTime - startTime) / (1000 * 60));
+                    const isActive = startTime <= now && endTime >= now && !c.myFinalized;
+
+                    return (
+                      <tr key={c._id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-xs sm:text-sm font-medium text-gray-900">{c.name}</div>
+                          {c.description && <div className="text-[10px] sm:text-xs text-gray-500 truncate max-w-[120px] sm:max-w-[200px]">{c.description}</div>}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                            isActive ? 'bg-green-100 text-green-800' :
+                            c.myFinalized || endTime < now ? 'bg-gray-100 text-gray-700' :
+                            'bg-blue-100 text-blue-700'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              isActive ? 'bg-green-500' : c.myFinalized || endTime < now ? 'bg-gray-400' : 'bg-blue-500'
+                            }`}></span>
+                            {isActive ? 'Active' : c.myFinalized || endTime < now ? 'Done' : 'Soon'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <div className="text-xs text-gray-700">{startTime.toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}, {startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+                          <div className="text-[10px] sm:text-xs text-gray-400">to {endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+                        </td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 text-center whitespace-nowrap">{c.questions?.length || 0}</td>
+                        <td className="px-3 py-2 text-center whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                            <Clock className="h-3 w-3" />
+                            {duration}m
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-center whitespace-nowrap">
+                          {c.myFinalized || endTime < now ? (
+                            <button
+                              onClick={() => navigate(`/student/contests/${c._id}/leaderboard`)}
+                              className="px-2 sm:px-3 py-1 bg-yellow-500 text-white rounded text-xs font-medium hover:bg-yellow-600"
+                            >
+                              Results
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => navigate(`/student/contests/${c._id}`)}
+                              className="px-2 sm:px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700"
+                            >
+                              Enter
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
-
-  
-        <div className="divide-y divide-gray-200">
-          {filteredContests.length > 0 ? (
-            filteredContests.map(c => {
-              const startTime = new Date(c.startTime);
-              const endTime = new Date(c.endTime);
-              const duration = Math.floor((endTime - startTime) / (1000 * 60));
-              const isActive = startTime <= now && endTime >= now && !c.myFinalized;
-              
-              return (
-                <div key={c._id} className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-gray-50 transition-colors items-center">
-                  {/* Contest Details */}
-                  <div className="col-span-3">
-                    <div className="flex items-start gap-3">
-                      <div className="bg-green-100 rounded-lg p-2 mt-1">
-                        <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-gray-900">{c.name}</h4>
-                        <p className="text-xs text-gray-500 mt-1">{c.description}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Status */}
-                  <div className="col-span-2">
-                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
-                      isActive ? 'bg-green-100 text-green-700' :
-                      c.myFinalized || endTime < now ? 'bg-gray-100 text-gray-700' :
-                      'bg-blue-100 text-blue-700'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        isActive ? 'bg-green-500' :
-                        c.myFinalized || endTime < now ? 'bg-gray-500' :
-                        'bg-blue-500'
-                      }`}></span>
-                      {isActive ? 'Active' : c.myFinalized || endTime < now ? 'Completed' : 'Upcoming'}
-                    </span>
-                  </div>
-
-                  {/* Schedule */}
-                  <div className="col-span-2 text-sm">
-                    <div className="flex items-center gap-1.5 text-gray-700">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      {startTime.toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}, {startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-gray-500 text-xs mt-1">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Ends: {endTime.toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}, {endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                    </div>
-                  </div>
-
-                  {/* Questions */}
-                  <div className="col-span-2 text-sm">
-                    <div className="flex items-center gap-1.5 text-purple-600">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      {c.questions?.length || 0} Problems
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Max Attempts: {c.maxAttempts || 1}
-                    </div>
-                  </div>
-
-                  {/* Languages */}
-                  <div className="col-span-1 text-xs text-gray-600">
-                    {c.allowedLanguages?.length > 0 ? c.allowedLanguages.join(', ') : 'No languages specified'}
-                  </div>
-
-                  {/* Duration */}
-                  <div className="col-span-1 text-sm">
-                    <div className="flex items-center gap-1.5 text-gray-700">
-                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {duration} min
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {Math.floor(duration / 60)}h {duration % 60}m
-                    </div>
-                  </div>
-
-                  {/* Action */}
-                  <div className="col-span-1">
-                    {c.myFinalized || endTime < now ? (
-                      <button 
-                        onClick={() => navigate(`/student/contests/${c._id}/leaderboard`)}
-                        className="w-full px-3 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 text-sm font-medium flex items-center justify-center gap-1"
-                      >
-                        Results
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={() => navigate(`/student/contests/${c._id}`)}
-                        className="w-full px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex items-center justify-center gap-1"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                        Enter
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="px-6 py-12 text-center text-gray-500">
-              <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p>No contests available in this category.</p>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -367,8 +259,7 @@ const [categoryUnread, setCategoryUnread] = useState({
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: Home },
-    { id: 'trainers', label: 'My Trainers', icon: Users },
-    { id: 'schedule', label: 'Class Schedule', icon: Calendar },
+    { id: 'trainers', label: 'Trainers & Schedule', icon: Users },
     { id: 'attendance', label: 'Attendance', icon: Clock },
     { id: 'syllabus', label: 'Syllabus', icon: BookOpen },
     { id: 'assignments', label: 'Assignments', icon: PlusCircle },
@@ -458,7 +349,7 @@ const [categoryUnread, setCategoryUnread] = useState({
   const handleTabClick = (tabId) => {
     if (tabId === 'feedback') { setActiveTab('feedback'); return; }
     setActiveTab(tabId);
-    if (tabId === 'schedule') fetchTodaySchedule();
+    if (tabId === 'trainers') fetchTodaySchedule();
     if (tabId === 'approvals') fetchPendingApprovals();
   };
   const [pendingApprovals, setPendingApprovals] = useState(null);
@@ -515,7 +406,7 @@ useEffect(() => {
 
   // When Schedule tab is activated on desktop, fetch today's schedule so skeletons show immediately
   useEffect(() => {
-    if (activeTab === 'schedule') {
+    if (activeTab === 'trainers') {
       fetchTodaySchedule();
     }
   }, [activeTab]);
@@ -918,11 +809,11 @@ const markAllAsRead = async () => {
     const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
 
     if (currentTime >= startTime && currentTime <= endTime) {
-      return { status: 'ongoing', color: 'bg-green-100 text-green-800 border-green-200', text: '🔴 Live Now' };
+      return { status: 'ongoing', color: 'bg-green-100 text-green-800 border-green-200', text: 'Live' };
     } else if (currentTime < startTime) {
-      return { status: 'upcoming', color: 'bg-blue-100 text-blue-800 border-blue-200', text: '⏰ Upcoming' };
+      return { status: 'upcoming', color: 'bg-blue-100 text-blue-800 border-blue-200', text: 'Upcoming' };
     } else {
-      return { status: 'completed', color: 'bg-gray-100 text-gray-800 border-gray-200', text: '✅ Completed' };
+      return { status: 'completed', color: 'bg-gray-100 text-gray-800 border-gray-200', text: ' Completed' };
     }
   };
 
@@ -997,7 +888,7 @@ const markAllAsRead = async () => {
   const computedStudentId = studentData?.user?.id || studentData?.user?._id || studentData?.id || studentData?._id;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <ProfileCompletionModal
         studentData={studentData}
         show={!loading && !!studentData}
@@ -1041,98 +932,26 @@ const markAllAsRead = async () => {
         />
       )}
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 pb-24 sm:pb-8">
+      <main className="max-w-full mx-auto px-4 sm:px-8 lg:px-12 py-6 pt-24 pb-[220px] sm:pb-8">
 
+        {/* Welcome */}
+        <div className="mb-4 sm:px-0">
+          <h1 className="text-lg sm:text-2xl font-semibold text-gray-900">Welcome, {studentData?.user?.name || 'Student'}..!</h1>
+        </div>
 
-        {/* Header Section */}
-        <div className="bg-white border-gray-200 shadow-sm">
-          <div className="px-6 pt-12 pb-5">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div>
-                <h1 className="text-lg md:text-3xl font-bold text-blue-700">
-                  Welcome, {studentData?.user?.name || 'Student'}!
-                </h1>
-              </div>
-            </div>
-          </div>
-
-          {/* Info Cards Row - Merged with stats from second code */}
-          <div className="px-6 pb-5">
-            <div className="grid grid-cols-4 md:grid-cols-4 gap-2 md:gap-4">
-              <div className="bg-blue-50 rounded-md sm:rounded-lg p-0 sm:p-4 border border-blue-200 aspect-square sm:aspect-auto">
-                <div className="flex flex-col items-center justify-center sm:flex-row sm:items-start sm:gap-3 w-full h-full p-2 sm:p-0">
-                  <div className="flex sm:hidden bg-blue-600 p-1 rounded items-center justify-center">
-                    <Calendar className="h-3 w-3 text-white" />
-                  </div>
-                  <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
-                    <Calendar className="h-5 w-5 text-white" />
-                  </div>
-                  <div className="sm:flex-1 text-center sm:text-left mt-1 sm:mt-0">
-                    <p className="hidden sm:block text-[9px] md:text-[11px] font-semibold text-blue-700 uppercase tracking-wide mb-1">Last Login</p>
-                    <p className="text-xs sm:text-sm md:text-base font-bold text-blue-900">{studentData?.lastLogin ? new Date(studentData.lastLogin).toLocaleDateString() : 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 rounded-md sm:rounded-lg p-0 sm:p-4 border border-blue-200 aspect-square sm:aspect-auto">
-                <div className="flex flex-col items-center justify-center sm:flex-row sm:items-start sm:gap-3 w-full h-full p-2 sm:p-0">
-                  <div className="flex sm:hidden bg-blue-600 p-1 rounded items-center justify-center">
-                    <PlusCircle className="h-3 w-3 text-white" />
-                  </div>
-                  <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
-                    <PlusCircle className="h-5 w-5 text-white" />
-                  </div>
-                  <div className="sm:flex-1 text-center sm:text-left mt-1 sm:mt-0">
-                    <p className="hidden sm:block text-[9px] md:text-[11px] font-semibold text-blue-700 uppercase tracking-wide mb-1">Assignments</p>
-                    <p className="text-xs sm:text-sm md:text-base font-bold text-blue-900">{dashboardStats.assignments.completed}/{dashboardStats.assignments.total}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 rounded-md sm:rounded-lg p-0 sm:p-4 border border-blue-200 aspect-square sm:aspect-auto">
-                <div className="flex flex-col items-center justify-center sm:flex-row sm:items-start sm:gap-3 w-full h-full p-2 sm:p-0">
-                  <div className="flex sm:hidden bg-blue-600 p-1 rounded items-center justify-center">
-                    <CheckSquare className="h-3 w-3 text-white" />
-                  </div>
-                  <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
-                    <CheckSquare className="h-5 w-5 text-white" />
-                  </div>
-                  <div className="sm:flex-1 text-center sm:text-left mt-1 sm:mt-0">
-                    <p className="hidden sm:block text-[9px] md:text-[11px] font-semibold text-blue-700 uppercase tracking-wide mb-1">Quizzes</p>
-                    <p className="text-xs sm:text-sm md:text-base font-bold text-blue-900">{dashboardStats.quizzes.completed}/{dashboardStats.quizzes.total}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 rounded-md sm:rounded-lg p-0 sm:p-4 border border-blue-200 aspect-square sm:aspect-auto">
-                <div className="flex flex-col items-center justify-center sm:flex-row sm:items-start sm:gap-3 w-full h-full p-2 sm:p-0">
-                  <div className="flex sm:hidden bg-blue-600 p-1 rounded items-center justify-center">
-                    <Award className="h-3 w-3 text-white" />
-                  </div>
-                  <div className="hidden sm:flex bg-blue-600 p-2 rounded-lg items-center justify-center">
-                    <Award className="h-5 w-5 text-white" />
-                  </div>
-                  <div className="sm:flex-1 text-center sm:text-left mt-1 sm:mt-0">
-                    <p className="hidden sm:block text-[9px] md:text-[11px] font-semibold text-blue-700 uppercase tracking-wide mb-1">Average Score</p>
-                    <p className="text-xs sm:text-sm md:text-base font-bold text-blue-900">{dashboardStats.quizzes.average.toFixed(1)}%</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
           {/* Approval Status Banner */}
           {pendingApprovals && pendingApprovals.totalPending > 0 && (
-            <div className="px-8 pb-4">
+            <div className="mb-4">
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm">
                 <div className="flex items-start">
                   <AlertCircle className="h-5 w-5 text-yellow-400 mt-0.5" />
                   <div className="ml-3 flex-1">
-                    <p className="text-sm font-medium text-yellow-800">
+                    <p className="text-xs sm:text-sm font-medium text-yellow-800">
                       You have {pendingApprovals.totalPending} pending approval request{pendingApprovals.totalPending !== 1 ? 's' : ''} awaiting TPO review
                     </p>
                     <button
                       onClick={() => setActiveTab('approvals')}
-                      className="mt-2 text-sm text-yellow-700 hover:text-yellow-900 font-semibold underline"
+                      className="mt-2 text-xs sm:text-sm text-yellow-700 hover:text-yellow-900 font-semibold underline"
                     >
                       View Details →
                     </button>
@@ -1142,7 +961,6 @@ const markAllAsRead = async () => {
             </div>
           )}
           {/* Tab Navigation */}
-          <div>
             <div className="bg-white rounded-lg shadow-md mb-6">
               <div className="border-b border-gray-200">
                 <nav ref={navRef} className="hidden sm:flex items-center space-x-2 overflow-hidden">
@@ -1208,24 +1026,63 @@ const markAllAsRead = async () => {
             <div className="sm:hidden">
               <BottomNav tabs={tabs} active={activeTab} onChange={handleTabClick} />
             </div>
-          </div>
-        </div>
 
         {/* Content Area */}
-        <div className="p-2">
-          {/* Overview Tab - Merged with content from both codes */}
+        <div className="bg-white rounded-lg shadow border border-gray-200 p-4">
+          {/* Overview Tab */}
           {activeTab === 'overview' && (
-            <div className="space-y-6">
-              {/* Overdue Alert from second code */}
-              {dashboardStats.assignments.overdue > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <div className="flex items-center">
-                    <AlertCircle className="w-6 h-6 text-red-600 mr-3" />
+            <div className="space-y-5 sm:space-y-4">
+              {/* Stat Cards (moved from header) */}
+              <h2 className="text-sm sm:text-lg font-semibold text-gray-900 mb-2">Overview</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
+                <div className="bg-blue-50 rounded-lg shadow border border-blue-200 p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-md bg-blue-100 items-center justify-center"><Calendar className="h-5 w-5 text-blue-600" /></div>
                     <div>
-                      <p className="font-medium text-red-800">
+                      <p className="text-xs text-blue-700 leading-relaxed">Last Login</p>
+                      <p className="text-sm sm:text-xl font-bold text-blue-900 mt-0.5">{studentData?.lastLogin ? new Date(studentData.lastLogin).toLocaleDateString() : 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-blue-50 rounded-lg shadow border border-blue-200 p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-md bg-blue-100 items-center justify-center"><PlusCircle className="h-5 w-5 text-blue-600" /></div>
+                    <div>
+                      <p className="text-xs text-blue-700 leading-relaxed">Assignments</p>
+                      <p className="text-sm sm:text-xl font-bold text-blue-900 mt-0.5">{dashboardStats.assignments.completed}/{dashboardStats.assignments.total}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-blue-50 rounded-lg shadow border border-blue-200 p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-md bg-blue-100 items-center justify-center"><CheckSquare className="h-5 w-5 text-blue-600" /></div>
+                    <div>
+                      <p className="text-xs text-blue-700 leading-relaxed">Quizzes</p>
+                      <p className="text-sm sm:text-xl font-bold text-blue-900 mt-0.5">{dashboardStats.quizzes.completed}/{dashboardStats.quizzes.total}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-blue-50 rounded-lg shadow border border-blue-200 p-2.5 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="hidden sm:flex w-10 h-10 rounded-md bg-blue-100 items-center justify-center"><Award className="h-5 w-5 text-blue-600" /></div>
+                    <div>
+                      <p className="text-xs text-blue-700 leading-relaxed">Average Score</p>
+                      <p className="text-sm sm:text-xl font-bold text-blue-900 mt-0.5">{dashboardStats.quizzes.average.toFixed(1)}%</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Overdue Alert */}
+              {dashboardStats.assignments.overdue > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 sm:p-4">
+                  <div className="flex items-center">
+                    <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 mr-2 sm:mr-3" />
+                    <div>
+                      <p className="font-medium text-red-800 text-xs sm:text-sm">
                         You have {dashboardStats.assignments.overdue} overdue assignment{dashboardStats.assignments.overdue !== 1 ? 's' : ''}
                       </p>
-                      <p className="text-sm text-red-600">
+                      <p className="text-xs text-red-600">
                         Please contact your trainer if you need assistance.
                       </p>
                     </div>
@@ -1233,167 +1090,170 @@ const markAllAsRead = async () => {
                 </div>
               )}
 
-              {/* Batch & TPO Information from first code */}
-              <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                  <GraduationCap className="h-6 w-6 text-blue-600" />
-                  Batch & TPO Information
-                </h3>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Non-CRT Batch Info */}
-                  {batchInfo && (
-                    <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-                      <h4 className="font-semibold text-blue-900 mb-4 flex items-center gap-2">
-                        <School className="h-5 w-5" />
-                        Your Batch
-                      </h4>
-                      <div className="space-y-3 text-sm">
-                        <div>
-                          <span className="font-medium text-blue-800">Batch Number:</span>
-                          <span className="ml-2 text-blue-700">{batchInfo.batch.batchNumber}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium text-blue-800">Colleges:</span>
-                          <span className="ml-2 text-blue-700">{batchInfo.batch.colleges.join(', ')}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium text-blue-800">Duration:</span>
-                          <span className="ml-2 text-blue-700">
-                            {new Date(batchInfo.batch.startDate).toLocaleDateString()} - {new Date(batchInfo.batch.endDate).toLocaleDateString()}
-                          </span>
+              {/* Batch & TPO Information */}
+              <div className="rounded-lg overflow-hidden border border-gray-200 shadow">
+                <div className="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2">
+                  <div className="p-2 bg-blue-100 rounded-lg"><GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" /></div>
+                  <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Batch & TPO Information</h3>
+                </div>
+                <div className="p-3 sm:p-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+                    {batchInfo && (
+                      <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border border-gray-200">
+                        <h4 className="font-semibold text-blue-900 mb-2.5 flex items-center gap-1.5 text-xs sm:text-sm">
+                          <School className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          Your Batch
+                        </h4>
+                        <div className="space-y-2 sm:space-y-2.5 text-xs sm:text-sm">
+                          <div>
+                            <span className="font-medium text-gray-700">Batch Number:</span>
+                            <span className="ml-1.5 sm:ml-2 text-gray-600">{batchInfo.batch.batchNumber}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Colleges:</span>
+                            <span className="ml-1.5 sm:ml-2 text-gray-600">{batchInfo.batch.colleges.join(', ')}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Duration:</span>
+                            <span className="ml-1.5 sm:ml-2 text-gray-600">
+                              {new Date(batchInfo.batch.startDate).toLocaleDateString()} - {new Date(batchInfo.batch.endDate).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* TPO Info */}
-                  {batchInfo?.tpo && (
-                    <div className="bg-green-50 rounded-xl p-6 border border-green-200">
-                      <h4 className="font-semibold text-green-900 mb-4 flex items-center gap-2">
-                        <UserCheck className="h-5 w-5" />
-                        Your TPO
+                    {batchInfo?.tpo && (
+                      <div className="bg-gray-50 rounded-lg p-3 sm:p-4 border border-gray-200">
+                        <h4 className="font-semibold text-green-900 mb-2.5 flex items-center gap-1.5 text-xs sm:text-sm">
+                          <UserCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          Your TPO
+                        </h4>
+                        <div className="space-y-2 sm:space-y-2.5 text-xs sm:text-sm">
+                          <div>
+                            <span className="font-medium text-gray-700">Name:</span>
+                            <span className="ml-1.5 sm:ml-2 text-gray-600">{batchInfo.tpo.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-600" />
+                            <span className="text-gray-600">{batchInfo.tpo.phone}</span>
+                          </div>
+                          <p className="text-xs text-green-600 mt-2 bg-green-50 p-2 sm:p-2.5 rounded">
+                            Contact your TPO for any queries related to placements and training
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {placementBatchInfo && (
+                    <div className="mt-3 sm:mt-4 bg-gray-50 rounded-lg p-3 sm:p-4 border border-gray-200">
+                      <h4 className="font-semibold text-purple-900 mb-2.5 flex items-center gap-1.5 text-xs sm:text-sm">
+                        <Briefcase className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        Placement Training Batch
                       </h4>
-                      <div className="space-y-3 text-sm">
-                        <div>
-                          <span className="font-medium text-green-800">Name:</span>
-                          <span className="ml-2 text-green-700">{batchInfo.tpo.name}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+                        <div className="flex sm:block gap-2">
+                          <span className="text-xs font-medium text-gray-500 sm:block">Batch:</span>
+                          <span className="text-xs sm:text-sm text-gray-900 break-all">{placementBatchInfo.placementBatch.batchNumber}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4 text-green-600" />
-                          <span className="text-green-700">{batchInfo.tpo.phone}</span>
+                        <div className="flex sm:block gap-2">
+                          <span className="text-xs font-medium text-gray-500 sm:block">Tech Stack:</span>
+                          <span className="text-xs sm:text-sm text-gray-900">{placementBatchInfo.placementBatch.techStack}</span>
                         </div>
-                        <p className="text-xs text-green-600 mt-3 bg-green-100 p-2 rounded">
-                          Contact your TPO for any queries related to placements and training
-                        </p>
+                        <div className="flex sm:block gap-2">
+                          <span className="text-xs font-medium text-gray-500 sm:block">Year:</span>
+                          <span className="text-xs sm:text-sm text-gray-900">{placementBatchInfo.placementBatch.year}</span>
+                        </div>
+                        <div className="flex sm:block gap-2">
+                          <span className="text-xs font-medium text-gray-500 sm:block">Trainers:</span>
+                          <span className="text-xs sm:text-sm text-gray-900">{placementBatchInfo.totalTrainers} Assigned</span>
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
-
-                {/* Placement Training Batch Info */}
-                {placementBatchInfo && (
-                  <div className="mt-6 bg-purple-50 rounded-xl p-6 border border-purple-200">
-                    <h4 className="font-semibold text-purple-900 mb-4 flex items-center gap-2">
-                      <Briefcase className="h-5 w-5" />
-                      Placement Training Batch
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div>
-                        <span className="font-medium text-purple-800">Batch:</span>
-                        <span className="ml-2 text-purple-700">{placementBatchInfo.placementBatch.batchNumber}</span>
-                      </div>
-                      <div>
-                        <span className="font-medium text-purple-800">Tech Stack:</span>
-                        <span className="ml-2 text-purple-700">{placementBatchInfo.placementBatch.techStack}</span>
-                      </div>
-                      <div>
-                        <span className="font-medium text-purple-800">Year:</span>
-                        <span className="ml-2 text-purple-700">{placementBatchInfo.placementBatch.year}</span>
-                      </div>
-                      <div>
-                        <span className="font-medium text-purple-800">Trainers:</span>
-                        <span className="ml-2 text-purple-700">{placementBatchInfo.totalTrainers} Assigned</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* Today's Classes from first code */}
+              {/* Today's Classes as table */}
               {todaySchedule.length > 0 && (
-                <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                    <Clock className="h-6 w-6 text-blue-600" />
-                    Today's Classes ({todaySchedule.length})
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {todaySchedule.map((session, index) => {
-                      const timeStatus = getCurrentTimeStatus(session.startTime, session.endTime);
-                      return (
-                        <div key={index} className="bg-gray-50 rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-shadow">
-                          <div className="flex items-start justify-between mb-4">
-                            <div>
-                              <h5 className="font-semibold text-gray-900">{session.trainer.name}</h5>
-                              <p className="text-sm text-gray-600">{session.subject}</p>
-                            </div>
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${timeStatus.color}`}>
-                              {timeStatus.text}
-                            </span>
-                          </div>
-                          <div className="space-y-2 mb-4">
-                            <div className="flex items-center gap-2 text-sm">
-                              <Clock className="h-4 w-4 text-gray-500" />
-                              <span className="text-gray-700">{session.startTime} - {session.endTime}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <Mail className="h-4 w-4 text-gray-500" />
-                              <span className="text-gray-700">{session.trainer.email}</span>
-                            </div>
-                          </div>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getTimeSlotColor(session.timeSlot)}`}>
-                            {getTimeSlotIcon(session.timeSlot)} {session.timeSlot}
-                          </span>
-                        </div>
-                      );
-                    })}
+                <div className="rounded-lg overflow-hidden border border-gray-200 shadow">
+                  <div className="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2">
+                    <div className="p-2 bg-blue-100 rounded-lg"><Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" /></div>
+                    <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Today's Classes ({todaySchedule.length})</h3>
+                  </div>
+                  <div className="p-3 sm:p-4 overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead>
+                        <tr className="bg-blue-50">
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Trainer</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Subject</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Time</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Slot</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {todaySchedule.map((session, index) => {
+                          const timeStatus = getCurrentTimeStatus(session.startTime, session.endTime);
+                          return (
+                            <tr key={index} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                              <td className="px-3 py-2 text-xs sm:text-sm text-gray-900 font-medium">{session.trainer.name}</td>
+                              <td className="px-3 py-2 text-xs sm:text-sm text-gray-600">{session.subject}</td>
+                              <td className="px-3 py-2 text-xs sm:text-sm text-gray-600">{session.startTime} - {session.endTime}</td>
+                              <td className="px-3 py-2">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTimeSlotColor(session.timeSlot)}`}>
+                                  {session.timeSlot}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${timeStatus.color}`}>
+                                  {timeStatus.text}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
 
-              {/* Recent Activity from second code */}
-              <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                  <Activity className="h-6 w-6 text-blue-600" />
-                  Recent Activity
-                </h3>
+              {/* Recent Activity */}
+              <div className="rounded-lg overflow-hidden border border-gray-200 shadow">
+                <div className="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2">
+                  <div className="p-2 bg-blue-100 rounded-lg"><Activity className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" /></div>
+                  <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Recent Activity</h3>
+                </div>
+                <div className="p-3 sm:p-4">
                 {recentActivity.length === 0 ? (
-                  <div className="text-center py-12 bg-gray-50 rounded-xl">
-                    <Activity className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">No recent activity</p>
-                    <p className="text-gray-400 text-sm">Your learning progress will appear here</p>
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <Activity className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-xs sm:text-sm font-medium text-gray-500">No recent activity</p>
+                    <p className="text-gray-400 text-xs">Your learning progress will appear here</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {recentActivity.map((activity, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
+                      <div key={index} className="flex items-center justify-between p-2.5 sm:p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-2.5 sm:space-x-3">
                           {activity.type === 'quiz' ? (
-                            <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full">
-                              <CheckSquare className="w-4 h-4 text-blue-600" />
+                            <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 rounded-full">
+                              <CheckSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
                             </div>
                           ) : (
-                            <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-full">
-                              <FileText className="w-4 h-4 text-green-600" />
+                            <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-green-100 rounded-full">
+                              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
                             </div>
                           )}
                           <div>
-                            <p className="font-medium text-gray-900">{activity.title}</p>
-                            <p className="text-sm text-gray-500">{activity.subject}</p>
+                            <p className="font-medium text-gray-900 text-xs sm:text-sm leading-relaxed">{activity.title}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{activity.subject}</p>
                           </div>
                         </div>
                         {activity.score !== undefined && (
-                          <div className={`text-sm font-medium ${
+                          <div className={`text-xs sm:text-sm font-medium ${
                             activity.score >= 80 ? 'text-green-600' :
                             activity.score >= 60 ? 'text-yellow-600' : 'text-red-600'
                           }`}>
@@ -1404,47 +1264,49 @@ const markAllAsRead = async () => {
                     ))}
                   </div>
                 )}
+                </div>
               </div>
 
-              {/* Upcoming Deadlines from second code */}
-              <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                  <Calendar className="h-6 w-6 text-blue-600" />
-                  Upcoming Deadlines
-                </h3>
+              {/* Upcoming Deadlines */}
+              <div className="rounded-lg overflow-hidden border border-gray-200 shadow">
+                <div className="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2">
+                  <div className="p-2 bg-blue-100 rounded-lg"><Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" /></div>
+                  <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Upcoming Deadlines</h3>
+                </div>
+                <div className="p-3 sm:p-4">
                 {upcomingDeadlines.length === 0 ? (
-                  <div className="text-center py-12 bg-gray-50 rounded-xl">
-                    <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">No upcoming deadlines</p>
-                    <p className="text-gray-400 text-sm">Assignments and quizzes will appear here</p>
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-xs sm:text-sm font-medium text-gray-500">No upcoming deadlines</p>
+                    <p className="text-gray-400 text-xs">Assignments and quizzes will appear here</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {upcomingDeadlines.map((deadline, index) => {
                       const isUrgent = new Date(deadline.dueDate) - new Date() < 24 * 60 * 60 * 1000;
                       return (
-                        <div key={index} className={`p-3 rounded-lg ${isUrgent ? 'bg-red-50 border border-red-200' : 'bg-gray-50'}`}>
+                        <div key={index} className={`p-2.5 sm:p-3 rounded-lg ${isUrgent ? 'bg-red-50 border border-red-200' : 'bg-gray-50'}`}>
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2.5 sm:space-x-3">
                               {deadline.type === 'quiz' ? (
-                                <div className={`flex items-center justify-center w-8 h-8 rounded-full ${isUrgent ? 'bg-red-100' : 'bg-blue-100'}`}>
-                                  <CheckSquare className={`w-4 h-4 ${isUrgent ? 'text-red-600' : 'text-blue-600'}`} />
+                                <div className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full ${isUrgent ? 'bg-red-100' : 'bg-blue-100'}`}>
+                                  <CheckSquare className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isUrgent ? 'text-red-600' : 'text-blue-600'}`} />
                                 </div>
                               ) : (
-                                <div className={`flex items-center justify-center w-8 h-8 rounded-full ${isUrgent ? 'bg-red-100' : 'bg-green-100'}`}>
-                                  <FileText className={`w-4 h-4 ${isUrgent ? 'text-red-600' : 'text-green-600'}`} />
+                                <div className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full ${isUrgent ? 'bg-red-100' : 'bg-green-100'}`}>
+                                  <FileText className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isUrgent ? 'text-red-600' : 'text-green-600'}`} />
                                 </div>
                               )}
                               <div>
-                                <p className="font-medium text-gray-900">{deadline.title}</p>
-                                <p className="text-sm text-gray-500">{deadline.subject}</p>
+                                <p className="font-medium text-gray-900 text-xs sm:text-sm leading-relaxed">{deadline.title}</p>
+                                <p className="text-xs text-gray-500 mt-0.5">{deadline.subject}</p>
                               </div>
                             </div>
                             <div className="text-right">
-                              <p className={`text-sm font-medium ${isUrgent ? 'text-red-600' : 'text-gray-700'}`}>
+                              <p className={`text-xs sm:text-sm font-medium ${isUrgent ? 'text-red-600' : 'text-gray-700'}`}>
                                 {new Date(deadline.dueDate).toLocaleDateString()}
                               </p>
-                              <p className={`text-xs ${isUrgent ? 'text-red-500' : 'text-gray-500'}`}>
+                              <p className={`text-xs ${isUrgent ? 'text-red-500' : 'text-gray-500'} mt-0.5`}>
                                 {new Date(deadline.dueDate).toLocaleTimeString()}
                               </p>
                             </div>
@@ -1454,139 +1316,198 @@ const markAllAsRead = async () => {
                     })}
                   </div>
                 )}
+                </div>
               </div>
             </div>
           )}
 
-          {/* Trainers Tab from first code */}
+          {/* Trainers & Schedule Tab (merged) */}
           {activeTab === 'trainers' && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {placementBatchInfo ? (
-                <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                    <Users className="h-6 w-6 text-blue-600" />
-                    Your Training Team ({placementBatchInfo.totalTrainers} Trainers)
-                  </h3>
+                <>
+                  {/* Trainers */}
+                  <div className="rounded-lg overflow-hidden border border-gray-200 shadow">
+                    <div className="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2">
+                      <div className="p-2 bg-blue-100 rounded-lg"><Users className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" /></div>
+                      <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Your Training Team ({placementBatchInfo.totalTrainers} Trainers)</h3>
+                    </div>
 
-                  {Object.entries(placementBatchInfo.trainerSchedule).map(([timeSlot, trainers]) => (
-                    trainers.length > 0 && (
-                      <div key={timeSlot} className="mb-8">
-                        <h4 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${
-                          timeSlot === 'morning' ? 'text-yellow-700' :
-                          timeSlot === 'afternoon' ? 'text-blue-700' : 'text-purple-700'
-                        }`}>
-                          <span className="text-2xl">{getTimeSlotIcon(timeSlot)}</span>
-                          {timeSlot.charAt(0).toUpperCase() + timeSlot.slice(1)} Session
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {trainers.map((assignment, index) => (
-                            <div key={index} className="bg-gray-50 rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-shadow">
-                              <div className="flex items-center gap-3 mb-4">
-                                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                    {/* Mobile: compact cards */}
+                    <div className="sm:hidden p-2 space-y-1.5">
+                      {Object.entries(placementBatchInfo.trainerSchedule).flatMap(([timeSlot, trainers]) =>
+                        trainers.map((assignment) => (
+                          <div key={`m-${timeSlot}-${assignment.trainer.name}`} className="bg-gray-50 rounded-lg p-2 border border-gray-200">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold shrink-0" style={{ fontSize: '9px' }}>
                                   {assignment.trainer.name.charAt(0)}
                                 </div>
-                                <div>
-                                  <h5 className="font-semibold text-gray-900">{assignment.trainer.name}</h5>
-                                  <p className="text-sm text-gray-600">{assignment.trainer.category} Trainer</p>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-medium text-gray-900 truncate">{assignment.trainer.name}</div>
+                                  <div className="text-[10px] text-gray-500 truncate">{assignment.subject}</div>
                                 </div>
                               </div>
-
-                              <div className="space-y-3 mb-4">
-                                <div>
-                                  <span className="text-sm font-medium text-gray-700">Subject:</span>
-                                  <span className="ml-2 text-sm text-gray-600">{assignment.subject}</span>
-                                </div>
-                                <div>
-                                  <span className="text-sm font-medium text-gray-700">Experience:</span>
-                                  <span className="ml-2 text-sm text-gray-600">{assignment.trainer.experience} years</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Mail className="h-4 w-4 text-gray-500" />
-                                  <span className="text-sm text-gray-600">{assignment.trainer.email}</span>
-                                </div>
-                                {assignment.trainer.phone && (
-                                  <div className="flex items-center gap-2">
-                                    <Phone className="h-4 w-4 text-gray-500" />
-                                    <span className="text-sm text-gray-600">{assignment.trainer.phone}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex items-center justify-between">
-                                <span className={`px-3 py-1 rounded-full text-xs font-medium ${getTimeSlotColor(timeSlot)}`}>
-                                  {assignment.schedule?.length || 0} Classes/Week
-                                </span>
-                                <button
-                                  onClick={() => setSelectedTrainer(assignment)}
-                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                >
-                                  View Schedule →
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className={`px-1.5 py-0.5 rounded-full font-medium ${getTimeSlotColor(timeSlot)}`} style={{ fontSize: '9px' }}>{timeSlot}</span>
+                                <button onClick={() => setSelectedTrainer(assignment)} className="text-blue-600 text-[10px] font-medium">
+                                  Details
                                 </button>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-white rounded-2xl shadow border border-gray-200 p-8 text-center">
-                  <UserCheck className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 font-medium">No trainers assigned yet</p>
-                  <p className="text-gray-400 text-sm">Complete your profile to get assigned to a training batch</p>
-                </div>
-              )}
-            </div>
-          )}
+                          </div>
+                        ))
+                      )}
+                    </div>
 
-          {/* Schedule Tab from first code */}
-          {activeTab === 'schedule' && (
-            <div className="space-y-6">
-              {placementBatchInfo ? (
-                <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                    <Calendar className="h-6 w-6 text-blue-600" />
-                    Weekly Class Schedule
-                  </h3>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-7 gap-4">
-                    {Object.entries(placementBatchInfo.weeklySchedule).map(([day, sessions]) => (
-                      <div key={day} className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-900 mb-3 text-center border-b border-gray-200 pb-2">
-                          {day}
-                        </h4>
-                        <div className="space-y-2">
-                          {sessions.length > 0 ? sessions.map((session, index) => (
-                            <div key={index} className="bg-white rounded-md p-3 border border-gray-200 hover:shadow-md transition-shadow">
-                              <div className="text-xs font-medium text-gray-700 mb-1">
-                                {session.startTime} - {session.endTime}
-                              </div>
-                              <div className="text-sm font-semibold text-gray-900 mb-1">
-                                {session.trainer.name}
-                              </div>
-                              <div className="text-xs text-gray-600 mb-2">
-                                {session.subject}
-                              </div>
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${getTimeSlotColor(session.timeSlot)}`}>
-                                {getTimeSlotIcon(session.timeSlot)} {session.timeSlot}
-                              </span>
-                            </div>
-                          )) : (
-                            <div className="text-center py-4 text-gray-400 text-sm">
-                              No classes
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                    {/* Desktop: table */}
+                    <div className="hidden sm:block p-3 sm:p-4 overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead>
+                          <tr className="bg-blue-50">
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Trainer</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Subject</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Slot</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Email</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Classes/Week</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {(() => {
+                            let rowIdx = 0;
+                            return Object.entries(placementBatchInfo.trainerSchedule).flatMap(([timeSlot, trainers]) =>
+                              trainers.map((assignment) => {
+                                const i = rowIdx++;
+                                return (
+                                  <tr key={`${timeSlot}-${assignment.trainer.name}`} className={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                                    <td className="px-3 py-2">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-[10px]">
+                                          {assignment.trainer.name.charAt(0)}
+                                        </div>
+                                        <div>
+                                          <div className="text-xs font-medium text-gray-900">{assignment.trainer.name}</div>
+                                          <div className="text-[10px] text-gray-500">{assignment.trainer.category} &middot; {assignment.trainer.experience}y exp</div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                    <td className="px-3 py-2 text-xs text-gray-600">{assignment.subject}</td>
+                                    <td className="px-3 py-2">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTimeSlotColor(timeSlot)}`}>{timeSlot}</span>
+                                    </td>
+                                    <td className="px-3 py-2 text-xs text-gray-600">{assignment.trainer.email}</td>
+                                    <td className="px-3 py-2 text-xs text-gray-900 font-medium">{assignment.schedule?.length || 0}</td>
+                                    <td className="px-3 py-2">
+                                      <button onClick={() => setSelectedTrainer(assignment)} className="text-blue-600 hover:text-blue-800 text-xs font-medium">
+                                        View Details
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            );
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
+
+                  {/* Weekly Schedule */}
+                  <div className="rounded-lg overflow-hidden border border-gray-200 shadow">
+                    <div className="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2">
+                      <div className="p-2 bg-blue-100 rounded-lg"><Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" /></div>
+                      <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Weekly Class Schedule</h3>
+                    </div>
+                    {/* Mobile: compact table */}
+                    <div className="sm:hidden overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead>
+                          <tr className="bg-blue-50">
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Day</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Time</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Trainer</th>
+                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Subject</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {(() => {
+                            const rows = [];
+                            let rowIdx = 0;
+                            Object.entries(placementBatchInfo.weeklySchedule).forEach(([day, sessions]) => {
+                              if (sessions.length === 0) return;
+                              sessions.forEach((session, sIdx) => {
+                                const i = rowIdx++;
+                                rows.push(
+                                  <tr key={`${day}-${sIdx}`} className={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                                    {sIdx === 0 ? (
+                                      <td rowSpan={sessions.length} className="px-3 py-2 text-xs font-semibold text-gray-900 whitespace-nowrap align-top border-r border-gray-100">
+                                        {day.slice(0, 3)}
+                                      </td>
+                                    ) : null}
+                                    <td className="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">{session.startTime} - {session.endTime}</td>
+                                    <td className="px-3 py-2 text-xs font-medium text-gray-900">{session.trainer.name}</td>
+                                    <td className="px-3 py-2">
+                                      <div className="text-xs text-gray-600">{session.subject}</div>
+                                      <span className={`mt-0.5 inline-block px-1.5 py-0.5 rounded text-xs font-medium ${getTimeSlotColor(session.timeSlot)}`}>
+                                        {session.timeSlot}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              });
+                            });
+                            return rows.length > 0 ? rows : (
+                              <tr>
+                                <td colSpan={4} className="px-3 py-6 text-center text-gray-400 text-xs">No classes scheduled</td>
+                              </tr>
+                            );
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Desktop: 7-column grid */}
+                    <div className="hidden sm:block p-3 sm:p-4">
+                      <div className="grid grid-cols-1 lg:grid-cols-7 gap-3">
+                        {Object.entries(placementBatchInfo.weeklySchedule).map(([day, sessions]) => (
+                          <div key={day} className="bg-gray-50 rounded-lg p-3">
+                            <h4 className="text-sm font-semibold text-gray-900 mb-2 text-center border-b border-gray-200 pb-2">
+                              {day}
+                            </h4>
+                            <div className="space-y-1.5">
+                              {sessions.length > 0 ? sessions.map((session, index) => (
+                                <div key={index} className="bg-white rounded-md p-2.5 border border-gray-200 hover:shadow-md transition-shadow">
+                                  <div className="text-xs font-medium text-gray-700 mb-0.5">
+                                    {session.startTime} - {session.endTime}
+                                  </div>
+                                  <div className="text-sm font-semibold text-gray-900 mb-0.5">
+                                    {session.trainer.name}
+                                  </div>
+                                  <div className="text-xs text-gray-600 mb-1">
+                                    {session.subject}
+                                  </div>
+                                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${getTimeSlotColor(session.timeSlot)}`}>
+                                    {session.timeSlot}
+                                  </span>
+                                </div>
+                              )) : (
+                                <div className="text-center py-3 text-gray-400 text-xs">
+                                  No classes
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </>
               ) : (
-                <div className="bg-white rounded-2xl shadow border border-gray-200 p-8 text-center">
-                  <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500 font-medium">No schedule available</p>
-                  <p className="text-gray-400 text-sm">Complete your profile to see your class schedule</p>
+                <div className="rounded-lg overflow-hidden border border-gray-200 shadow p-6 text-center">
+                  <UserCheck className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-xs sm:text-sm font-medium text-gray-500">No trainers assigned yet</p>
+                  <p className="text-gray-400 text-xs">Complete your profile to get assigned to a training batch</p>
                 </div>
               )}
             </div>
@@ -1598,100 +1519,71 @@ const markAllAsRead = async () => {
           {activeTab === 'quizzes' && <StudentQuiz />}
           {activeTab === 'resources' && <StudentResources />}
 {activeTab === 'syllabus' && (
-  <div className="space-y-12">
-
-    {/* ---------- No Syllabus ---------- */}
+  <div className="space-y-4">
     {syllabi.length === 0 ? (
-      <section className="bg-white rounded-2xl shadow border border-gray-200 p-10">
-        <header className="flex items-center gap-3 mb-6">
-          <BookOpen className="h-7 w-7 text-blue-600" />
-          <h2 className="text-2xl font-bold text-gray-900">Course Syllabus</h2>
-        </header>
-
-        <div className="text-center py-20 bg-gray-50 rounded-xl">
-          <BookOpen className="h-24 w-24 text-gray-400 mx-auto mb-5" />
-          <p className="text-lg font-medium text-gray-600">No syllabus available yet</p>
-          <p className="text-sm text-gray-400 mt-1">
-            Your trainers will upload the syllabus soon.
-          </p>
+      <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2">
+          <div className="p-2 bg-blue-100 rounded-lg"><BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" /></div>
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Course Syllabus</h3>
         </div>
-      </section>
+        <div className="p-3 sm:p-4">
+          <div className="text-center py-8">
+            <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-xs sm:text-sm font-medium text-gray-500">No syllabus available yet</p>
+            <p className="text-xs text-gray-400 mt-1">Your trainers will upload the syllabus soon.</p>
+          </div>
+        </div>
+      </div>
     ) : (
-      /* ---------- Syllabus Cards ---------- */
       syllabi.map((syllabus) => (
-        <section
-          key={syllabus._id}
-          className="bg-white rounded-2xl shadow-lg border border-gray-200 p-10 print:shadow-none print:border print:p-8 print:break-inside-avoid"
-        >
-          {/* ---- Print button for THIS syllabus only        */}
-          <div className="flex justify-end mb-4 print:hidden">
+        <div key={syllabus._id} className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden print:shadow-none print:border print:break-inside-avoid">
+          {/* Header with title + print */}
+          <div className="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2">
+            <div className="p-2 bg-blue-100 rounded-lg"><BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" /></div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xs sm:text-sm font-semibold text-gray-700 truncate">{syllabus.title}</h3>
+              {syllabus.description && (
+                <p className="text-[10px] sm:text-xs text-gray-500 truncate">{syllabus.description}</p>
+              )}
+            </div>
             <button
               onClick={() => {
                 const area = document.getElementById(`print-${syllabus._id}`);
                 const original = document.body.innerHTML;
-
                 document.body.innerHTML = area?.innerHTML ?? '';
                 window.print();
-
                 document.body.innerHTML = original;
-                window.location.reload(); // re-mount React
+                window.location.reload();
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors print:hidden"
             >
-              <FileText className="h-4 w-4" />
-              Print This Syllabus
+              <FileText className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Print</span>
             </button>
           </div>
 
-          {/* ---- Printable wrapper (unique id) ---- */}
-          <div id={`print-${syllabus._id}`} className="space-y-6">
-
-            {/* ---- Header ---- */}
-            <header className="border-b border-gray-300 pb-5">
-              <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <BookOpen className="h-8 w-8 text-indigo-600" />
-                {syllabus.title}
-              </h2>
-              {syllabus.description && (
-                <p className="mt-3 text-base text-gray-600 leading-relaxed">
-                  {syllabus.description}
-                </p>
-              )}
-            </header>
-
-            {/* ---- Topics Table ---- */}
-            <div className="overflow-x-auto">
+          {/* Topics table */}
+          <div id={`print-${syllabus._id}`} className="p-3 sm:p-4">
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gradient-to-r from-indigo-50 to-indigo-100">
-                  <tr>
-                    {['#', 'Topic', 'Description', 'Duration'].map((th) => (
-                      <th
-                        key={th}
-                        scope="col"
-                        className="px-6 py-4 text-left text-xs font-semibold text-indigo-800 uppercase tracking-wider"
-                      >
-                        {th}
-                      </th>
-                    ))}
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-blue-50">
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap w-10">#</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Topic</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Description</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Duration</th>
                   </tr>
                 </thead>
-
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-100">
                   {Array.isArray(syllabus.topics) && syllabus.topics.length > 0 ? (
                     syllabus.topics.map((topic, idx) => (
-                      <tr key={idx} className="hover:bg-indigo-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {idx + 1}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                          {topic.topicName}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600 max-w-md">
-                          {topic.description || '—'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
-                            <Clock className="h-3.5 w-3.5" />
+                      <tr key={idx} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}>
+                        <td className="px-3 py-2 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">{idx + 1}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">{topic.topicName}</td>
+                        <td className="px-3 py-2 text-xs sm:text-sm text-gray-600">{topic.description || '—'}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                            <Clock className="h-3 w-3" />
                             {topic.duration}
                           </span>
                         </td>
@@ -1699,17 +1591,14 @@ const markAllAsRead = async () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={4} className="px-6 py-12 text-center text-gray-500 italic">
-                        No topics listed for this syllabus.
-                      </td>
+                      <td colSpan={4} className="px-3 py-6 text-center text-gray-500 text-xs italic">No topics listed for this syllabus.</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
-
           </div>
-        </section>
+        </div>
       ))
     )}
   </div>
@@ -1724,36 +1613,36 @@ const markAllAsRead = async () => {
 
           {/* Approvals Tab */}
           {activeTab === 'approvals' && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-2xl shadow border border-gray-200 p-8">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <AlertCircle className="h-6 w-6 text-red-600" />
-                  Approval Requests
-                </h3>
-
+            <div className="space-y-4">
+              <div className="rounded-lg overflow-hidden border border-gray-200 shadow">
+                <div className="bg-blue-50 border-b border-blue-200 px-4 py-2.5 flex items-center gap-2">
+                  <div className="p-2 bg-blue-50 rounded-lg"><AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" /></div>
+                  <h3 className="text-xs sm:text-sm font-semibold text-gray-700">Approval Requests</h3>
+                </div>
+                <div className="p-3 sm:p-4">
                 {!pendingApprovals ? (
-                  <div className="text-center py-12 bg-gray-50 rounded-xl">
-                    <p className="text-gray-500">Loading approvals...</p>
+                  <div className="text-center py-8 bg-gray-50 rounded-lg">
+                    <p className="text-xs sm:text-sm text-gray-500">Loading approvals...</p>
                   </div>
                 ) : (
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {/* Pending */}
                     <div>
-                      <h4 className="text-md font-semibold mb-3">Pending Requests ({pendingApprovals.pending.length})</h4>
+                      <h4 className="text-xs sm:text-sm font-semibold mb-2">Pending Requests ({pendingApprovals.pending.length})</h4>
                       {pendingApprovals.pending.length === 0 ? (
-                        <div className="text-sm text-gray-500">No pending approval requests.</div>
+                        <div className="text-xs text-gray-500">No pending approval requests.</div>
                       ) : (
-                        <div className="grid grid-cols-1 gap-3">
+                        <div className="grid grid-cols-1 gap-2">
                           {pendingApprovals.pending.map((appr) => (
-                            <div key={appr._id || appr.approvalId} className="p-4 rounded-lg border border-orange-200 bg-orange-50">
+                            <div key={appr._id || appr.approvalId} className="p-2 sm:p-3 rounded-lg border border-orange-200 bg-orange-50">
                               <div className="flex items-start justify-between">
                                 <div>
-                                  <div className="font-semibold text-gray-900">{appr.requestType === 'crt_status_change' ? 'CRT Status Change' : appr.requestType.replace(/_/g, ' ')}</div>
-                                  <div className="text-sm text-gray-600">Requested at: {new Date(appr.requestedAt).toLocaleString()}</div>
+                                  <div className="font-semibold text-gray-900 text-xs sm:text-sm">{appr.requestType === 'crt_status_change' ? 'CRT Status Change' : appr.requestType.replace(/_/g, ' ')}</div>
+                                  <div className="text-xs text-gray-600">Requested at: {new Date(appr.requestedAt).toLocaleString()}</div>
                                 </div>
-                                <div className="text-sm text-orange-700 font-semibold">Pending</div>
+                                <div className="text-xs text-orange-700 font-semibold">Pending</div>
                               </div>
-                              <div className="mt-2 text-sm text-gray-700">
+                              <div className="mt-1.5 text-xs text-gray-700">
                                 {appr.requestedChanges?.crtInterested !== undefined && (
                                   <div>Requested CRT Status: {appr.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}</div>
                                 )}
@@ -1772,21 +1661,21 @@ const markAllAsRead = async () => {
 
                     {/* Approved */}
                     <div>
-                      <h4 className="text-md font-semibold mb-3">Approved Requests ({pendingApprovals.approved.length})</h4>
+                      <h4 className="text-xs sm:text-sm font-semibold mb-2">Approved Requests ({pendingApprovals.approved.length})</h4>
                       {pendingApprovals.approved.length === 0 ? (
-                        <div className="text-sm text-gray-500">No approved requests.</div>
+                        <div className="text-xs text-gray-500">No approved requests.</div>
                       ) : (
-                        <div className="grid grid-cols-1 gap-3">
+                        <div className="grid grid-cols-1 gap-2">
                           {pendingApprovals.approved.map((appr) => (
-                            <div key={appr._id || appr.approvalId} className="p-4 rounded-lg border border-green-200 bg-green-50">
+                            <div key={appr._id || appr.approvalId} className="p-2 sm:p-3 rounded-lg border border-green-200 bg-green-50">
                               <div className="flex items-start justify-between">
                                 <div>
-                                  <div className="font-semibold text-gray-900">{appr.requestType === 'crt_status_change' ? 'CRT Status Change' : appr.requestType.replace(/_/g, ' ')}</div>
-                                  <div className="text-sm text-gray-600">Requested at: {new Date(appr.requestedAt).toLocaleString()}</div>
+                                  <div className="font-semibold text-gray-900 text-xs sm:text-sm">{appr.requestType === 'crt_status_change' ? 'CRT Status Change' : appr.requestType.replace(/_/g, ' ')}</div>
+                                  <div className="text-xs text-gray-600">Requested at: {new Date(appr.requestedAt).toLocaleString()}</div>
                                 </div>
-                                <div className="text-sm text-green-700 font-semibold">Approved</div>
+                                <div className="text-xs text-green-700 font-semibold">Approved</div>
                               </div>
-                              <div className="mt-2 text-sm text-gray-700">
+                              <div className="mt-1.5 text-xs text-gray-700">
                                 {appr.requestedChanges?.crtInterested !== undefined && (
                                   <div>Requested CRT Status: {appr.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}</div>
                                 )}
@@ -1802,21 +1691,21 @@ const markAllAsRead = async () => {
 
                     {/* Rejected */}
                     <div>
-                      <h4 className="text-md font-semibold mb-3">Rejected Requests ({pendingApprovals.rejected.length})</h4>
+                      <h4 className="text-xs sm:text-sm font-semibold mb-2">Rejected Requests ({pendingApprovals.rejected.length})</h4>
                       {pendingApprovals.rejected.length === 0 ? (
-                        <div className="text-sm text-gray-500">No rejected requests.</div>
+                        <div className="text-xs text-gray-500">No rejected requests.</div>
                       ) : (
-                        <div className="grid grid-cols-1 gap-3">
+                        <div className="grid grid-cols-1 gap-2">
                           {pendingApprovals.rejected.map((appr) => (
-                            <div key={appr._id || appr.approvalId} className="p-4 rounded-lg border border-red-200 bg-red-50">
+                            <div key={appr._id || appr.approvalId} className="p-2 sm:p-3 rounded-lg border border-red-200 bg-red-50">
                               <div className="flex items-start justify-between">
                                 <div>
-                                  <div className="font-semibold text-gray-900">{appr.requestType === 'crt_status_change' ? 'CRT Status Change' : appr.requestType.replace(/_/g, ' ')}</div>
-                                  <div className="text-sm text-gray-600">Requested at: {new Date(appr.requestedAt).toLocaleString()}</div>
+                                  <div className="font-semibold text-gray-900 text-xs sm:text-sm">{appr.requestType === 'crt_status_change' ? 'CRT Status Change' : appr.requestType.replace(/_/g, ' ')}</div>
+                                  <div className="text-xs text-gray-600">Requested at: {new Date(appr.requestedAt).toLocaleString()}</div>
                                 </div>
-                                <div className="text-sm text-red-700 font-semibold">Rejected</div>
+                                <div className="text-xs text-red-700 font-semibold">Rejected</div>
                               </div>
-                              <div className="mt-2 text-sm text-gray-700">
+                              <div className="mt-1.5 text-xs text-gray-700">
                                 <div><strong>Reason:</strong> {appr.rejectionReason || 'No reason provided'}</div>
                                 {appr.requestedChanges?.crtInterested !== undefined && (
                                   <div>Requested CRT Status: {appr.requestedChanges.crtInterested ? 'CRT' : 'Non-CRT'}</div>
@@ -1830,55 +1719,71 @@ const markAllAsRead = async () => {
 
                   </div>
                 )}
+                </div>
               </div>
             </div>
           )}
         </div>
-      </div>
+      </main>
 
-      {/* Trainer Detail Modal from first code */}
+      {/* Trainer Detail Modal — bottom sheet on mobile, centered on desktop */}
       {selectedTrainer && (
-        <div className="fixed inset-0 bg-black/10 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl">
-            <div className="bg-blue-700 px-6 py-5 rounded-t-2xl flex justify-between items-center">
-              <div>
-                <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <UserCheck className="h-7 w-7" />
-                  {selectedTrainer.trainer.name}
-                </h3>
-                <p className="text-blue-200 text-sm mt-1">{selectedTrainer.subject} - {selectedTrainer.trainer.category} Trainer</p>
-              </div>
-              <button
-                onClick={() => setSelectedTrainer(null)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors text-white"
-              >
-                <X className="h-6 w-6" />
-              </button>
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-[3px] z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setSelectedTrainer(null)}
+        >
+          <div
+            className="relative w-full sm:max-w-lg md:max-w-2xl bg-white rounded-t-xl sm:rounded-lg shadow-xl flex flex-col max-h-[92vh] sm:max-h-[85vh]"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Mobile drag handle */}
+            <div className="sm:hidden flex justify-center pt-2 pb-1">
+              <div className="w-9 h-1 bg-gray-300 rounded-full" />
             </div>
 
-            <div className="p-6">
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                  <p className="text-xs font-medium text-blue-600 mb-1">Experience</p>
-                  <p className="text-lg font-bold text-blue-900">{selectedTrainer.trainer.experience} Years</p>
+            {/* Header */}
+            <div className="flex-shrink-0 bg-blue-50 border-b border-blue-200 px-4 sm:px-5 py-3.5 sm:py-4 sm:rounded-t-lg">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">
+                  {selectedTrainer.trainer.name.charAt(0)}
                 </div>
-                <div className="bg-green-50 p-4 rounded-xl border border-green-200">
-                  <p className="text-xs font-medium text-green-600 mb-1">Classes/Week</p>
-                  <p className="text-lg font-bold text-green-900">{selectedTrainer.schedule?.length || 0}</p>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-xs sm:text-base font-bold text-gray-900 truncate">{selectedTrainer.trainer.name}</h3>
+                  <p className="text-blue-600 text-[10px] sm:text-xs truncate">{selectedTrainer.subject} &bull; {selectedTrainer.trainer.category} Trainer</p>
+                </div>
+                <button
+                  onClick={() => setSelectedTrainer(null)}
+                  className="flex-shrink-0 p-1.5 sm:p-2 hover:bg-blue-100 active:bg-blue-200 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+                >
+                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Body — scrollable */}
+            <div className="overflow-y-auto p-3 sm:p-5">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4">
+                <div className="bg-blue-50 p-2 sm:p-3 rounded-lg border border-blue-200">
+                  <p className="text-[10px] sm:text-xs font-medium text-blue-600 mb-0.5">Experience</p>
+                  <p className="text-xs sm:text-sm font-bold text-blue-900">{selectedTrainer.trainer.experience} Years</p>
+                </div>
+                <div className="bg-green-50 p-2 sm:p-3 rounded-lg border border-green-200">
+                  <p className="text-[10px] sm:text-xs font-medium text-green-600 mb-0.5">Classes/Week</p>
+                  <p className="text-xs sm:text-sm font-bold text-green-900">{selectedTrainer.schedule?.length || 0}</p>
                 </div>
               </div>
 
-              <div className="mb-6">
-                <h4 className="font-semibold text-gray-900 mb-3">Contact Information</h4>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-gray-500" />
-                    <span className="text-gray-700">{selectedTrainer.trainer.email}</span>
+              <div className="mb-3 sm:mb-4">
+                <h4 className="font-semibold text-gray-900 mb-1.5 text-xs sm:text-sm">Contact Information</h4>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Mail className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500" />
+                    <span className="text-xs sm:text-sm text-gray-700 truncate">{selectedTrainer.trainer.email}</span>
                   </div>
                   {selectedTrainer.trainer.phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-gray-500" />
-                      <span className="text-gray-700">{selectedTrainer.trainer.phone}</span>
+                    <div className="flex items-center gap-1.5">
+                      <Phone className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500" />
+                      <span className="text-xs sm:text-sm text-gray-700">{selectedTrainer.trainer.phone}</span>
                     </div>
                   )}
                 </div>
@@ -1886,16 +1791,16 @@ const markAllAsRead = async () => {
 
               {selectedTrainer.schedule && selectedTrainer.schedule.length > 0 && (
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Weekly Schedule</h4>
-                  <div className="grid grid-cols-1 gap-2">
+                  <h4 className="font-semibold text-gray-900 mb-1.5 text-xs sm:text-sm">Weekly Schedule</h4>
+                  <div className="grid grid-cols-1 gap-1 sm:gap-1.5">
                     {selectedTrainer.schedule.map((slot, index) => (
-                      <div key={index} className="bg-gray-50 rounded p-3 border border-gray-200">
+                      <div key={index} className="bg-gray-50 rounded-lg p-2 sm:p-2.5 border border-gray-200">
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-medium text-gray-900">{slot.day}</div>
-                            <div className="text-sm text-gray-600">{slot.startTime} - {slot.endTime}</div>
+                            <div className="font-medium text-gray-900 text-xs sm:text-sm">{slot.day}</div>
+                            <div className="text-[10px] sm:text-xs text-gray-600">{slot.startTime} - {slot.endTime}</div>
                           </div>
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${getTimeSlotColor(selectedTrainer.timeSlot)}`}>
+                          <span className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-medium ${getTimeSlotColor(selectedTrainer.timeSlot)}`}>
                             {selectedTrainer.subject}
                           </span>
                         </div>

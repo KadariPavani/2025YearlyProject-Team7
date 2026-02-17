@@ -414,7 +414,7 @@ const getDashboard = async (req, res) => {
           .populate({
             path: 'assignedPlacementBatch',
             populate: [
-              { path: 'students', select: 'name rollNo email college branch techStack yearOfPassing' },
+              { path: 'students' },
               { path: 'tpoId', select: 'name email' }
             ]
           });
