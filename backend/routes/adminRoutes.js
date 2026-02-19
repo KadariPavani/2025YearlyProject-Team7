@@ -34,7 +34,14 @@ const {
   deleteBatchAndRelated,
   reassignPendingApprovals,
   getBatchById,
-  getBatchesGrouped
+  getBatchesGrouped,
+  downloadPlacementTemplate,
+  uploadPastPlacements,
+  previewImport,
+  confirmImport,
+  getImportHistory,
+  migrateAllOffers,
+  deleteAllPastStudents
 } = require('../controllers/adminController');
 const auth = require('../middleware/auth');
 const { excelUploadMiddleware } = require('../middleware/fileUpload'); // Import the middleware
@@ -94,5 +101,16 @@ router.get('/batches/:batchId', auth, getBatchById);
 
 // GET /api/admin/batches/grouped
 router.get('/batches/grouped', auth, getBatchesGrouped);
+
+// Placement import routes
+router.get('/placement-import/template', auth, downloadPlacementTemplate);
+router.post('/placement-import/upload', auth, excelUploadMiddleware, uploadPastPlacements);
+router.get('/placement-import/:importId/preview', auth, previewImport);
+router.post('/placement-import/:importId/confirm', auth, confirmImport);
+router.get('/placement-import/history', auth, getImportHistory);
+router.delete('/placement-import/past-students', auth, deleteAllPastStudents);
+
+// Migration route - populate allOffers for existing students
+router.post('/migrate-all-offers', auth, migrateAllOffers);
 
 module.exports = router;

@@ -896,6 +896,106 @@ const StudentProfile = () => {
     ))}
   </div>
 
+  {/* ---------------- JOB & PLACEMENT STATUS ---------------- */}
+  <div className="bg-white rounded-lg shadow-md p-6 mb-6 border">
+    <div className="flex items-center gap-3 mb-5">
+      <div className="bg-green-100 p-3 rounded-lg">
+        <Briefcase className="text-green-600" size={24} />
+      </div>
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900">Job &amp; Placement Status</h2>
+        <p className="text-sm text-gray-600">Your current placement information</p>
+      </div>
+    </div>
+
+    {/* Status Badge */}
+    <div className="flex items-center gap-3 mb-5">
+      <span className="text-sm text-gray-500 font-medium">Status:</span>
+      {profile?.status === 'placed' ? (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800 border border-green-200">
+          <CheckCircle className="h-4 w-4" /> Placed
+        </span>
+      ) : profile?.status === 'completed' ? (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+          <GraduationCap className="h-4 w-4" /> Completed
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-700 border border-yellow-200">
+          <Briefcase className="h-4 w-4" /> Pursuing
+        </span>
+      )}
+    </div>
+
+    {/* Primary Placement Details */}
+    {profile?.status === 'placed' && profile?.placementDetails?.company && (
+      <div className="bg-green-50 border border-green-100 rounded-lg p-4 mb-4">
+        <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-3">Primary Offer</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+          <div>
+            <p className="text-gray-500 text-xs mb-0.5">Company</p>
+            <p className="font-semibold text-gray-900 flex items-center gap-1">
+              <Building2 className="h-4 w-4 text-green-600" />
+              {profile.placementDetails.company}
+            </p>
+          </div>
+          {profile.placementDetails.package && (
+            <div>
+              <p className="text-gray-500 text-xs mb-0.5">Package</p>
+              <p className="font-semibold text-green-700">{profile.placementDetails.package} LPA</p>
+            </div>
+          )}
+          {profile.placementDetails.location && (
+            <div>
+              <p className="text-gray-500 text-xs mb-0.5">Location</p>
+              <p className="font-semibold text-gray-900 flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5 text-gray-400" />
+                {profile.placementDetails.location}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* All Offers */}
+    {profile?.allOffers && profile.allOffers.length > 0 && (
+      <div>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">All Offers ({profile.allOffers.length})</p>
+        <div className="overflow-x-auto rounded-lg border border-gray-100">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
+              <tr>
+                <th className="px-4 py-2 text-left font-medium">#</th>
+                <th className="px-4 py-2 text-left font-medium">Company</th>
+                <th className="px-4 py-2 text-left font-medium">Package</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {profile.allOffers.map((offer, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-4 py-2 text-gray-500">{i + 1}</td>
+                  <td className="px-4 py-2 font-medium text-gray-900">{offer.company || '—'}</td>
+                  <td className="px-4 py-2 font-semibold text-green-700">{offer.package ? `${offer.package} LPA` : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )}
+
+    {/* Not placed yet message */}
+    {profile?.status !== 'placed' && (!profile?.allOffers || profile.allOffers.length === 0) && (
+      <div className="flex items-center gap-3 bg-yellow-50 border border-yellow-100 rounded-lg p-4 text-sm text-yellow-800">
+        <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
+        <div>
+          <p className="font-medium">No placement recorded yet</p>
+          <p className="text-xs text-yellow-700 mt-0.5">Your placement details will appear here once updated by your TPO.</p>
+        </div>
+      </div>
+    )}
+  </div>
+
   {/* ---------------- CRT TRAINING PREFERENCES ---------------- */}
   <div className="bg-white rounded-lg shadow-md p-6 mb-6 border">
     <div className="flex items-center gap-3 mb-4">

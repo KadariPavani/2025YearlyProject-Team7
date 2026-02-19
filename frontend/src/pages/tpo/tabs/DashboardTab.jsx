@@ -1,9 +1,15 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Upload, FileSpreadsheet } from 'lucide-react';
 import { LoadingSkeleton } from '../../../components/ui/LoadingSkeletons';
 
 const DashboardTab = ({ loadingBatches, errorBatches, assignedBatches }) => {
+  const navigate = useNavigate();
+
   return (
-    <div>
+    <div className="space-y-6">
+      {/* Quick Actions */}
+
       <h2 className="text-sm sm:text-lg font-semibold text-gray-900 mb-4">Recently Assigned Batches</h2>
       {loadingBatches ? (
         <LoadingSkeleton />

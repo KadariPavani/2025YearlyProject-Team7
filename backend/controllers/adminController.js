@@ -12,8 +12,22 @@ const generatePassword = require('../utils/generatePassword');
 const sendEmail = require('../utils/sendEmail');
 const generateToken = require('../utils/generateToken');
 const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const { ok, created, badRequest, unauthorized, notFound, serverError, forbidden } = require('../utils/http');
 const { createOtp, verifyOtp, consumeOtp } = require('../utils/otp');
+const ImportHistory = require('../models/ImportHistory');
+const {
+  normalizeRollNo,
+  normalizeCollege,
+  normalizeBranch,
+  normalizePhone,
+  parseCTC,
+  normalizeYear,
+  generateFileHash,
+  sanitizeCellValue,
+  validateRequiredFields,
+  generateUniqueEmail
+} = require('../utils/placementDataHelpers');
 
 
 // @desc     Super Admin Login
@@ -1346,12 +1360,26 @@ const createCrtBatch = async (req, res) => {
       });
     }
 
-    let studentDocs;
+    // Check which roll numbers already exist (e.g. from past placement import)
+    const allRollNos = studentsData.map(s => s.rollNo);
+    const existingStudents = await Student.find({ rollNo: { $in: allRollNos } }).select('_id rollNo');
+    const existingRollNoSet = new Set(existingStudents.map(s => s.rollNo));
+    const existingRollNoIdMap = new Map(existingStudents.map(s => [s.rollNo, s._id]));
+
+    const toInsert = studentsData.filter(s => !existingRollNoSet.has(s.rollNo));
+    const toUpdate = studentsData.filter(s => existingRollNoSet.has(s.rollNo));
+
+    const allStudentIds = [];
+
+    // Insert brand-new students
     try {
-      studentDocs = await Student.insertMany(studentsData, { ordered: true });
-      console.log(`Batch Creation: Inserted ${studentDocs.length} students`);
+      if (toInsert.length > 0) {
+        const insertedDocs = await Student.insertMany(toInsert, { ordered: false });
+        insertedDocs.forEach(doc => allStudentIds.push(doc._id));
+        console.log(`Batch Creation: Inserted ${insertedDocs.length} new students`);
+      }
     } catch (err) {
-      console.error('Batch Creation: Error inserting students', err);
+      console.error('Batch Creation: Error inserting new students', err);
       await Batch.findByIdAndDelete(batch._id);
       return res.status(500).json({
         success: false,
@@ -1360,7 +1388,45 @@ const createCrtBatch = async (req, res) => {
       });
     }
 
-    batch.students = studentDocs.map(student => student._id);
+    // Re-activate and re-link existing students (e.g. from past placement import)
+    if (toUpdate.length > 0) {
+      const bulkOps = toUpdate.map(s => ({
+        updateOne: {
+          filter: { rollNo: s.rollNo },
+          update: {
+            $set: {
+              name: s.name,
+              email: s.email,
+              username: s.username,
+              phonenumber: s.phonenumber,
+              branch: s.branch,
+              college: s.college,
+              yearOfPassing: s.yearOfPassing,
+              password: s.password,
+              passwordChanged: false,
+              batchId: batch._id,
+              isActive: true
+            }
+          }
+        }
+      }));
+
+      try {
+        await Student.bulkWrite(bulkOps, { ordered: false });
+        toUpdate.forEach(s => allStudentIds.push(existingRollNoIdMap.get(s.rollNo)));
+        console.log(`Batch Creation: Re-linked ${toUpdate.length} existing students`);
+      } catch (err) {
+        console.error('Batch Creation: Error updating existing students', err);
+        await Batch.findByIdAndDelete(batch._id);
+        return res.status(500).json({
+          success: false,
+          message: 'Error updating existing students',
+          error: err.message
+        });
+      }
+    }
+
+    batch.students = allStudentIds;
     await batch.save();
 
     console.log('Batch Creation: Batch updated with students');
@@ -1370,7 +1436,9 @@ const createCrtBatch = async (req, res) => {
       message: 'CRT batch created successfully',
       data: {
         batch,
-        studentsCount: studentDocs.length,
+        studentsCount: allStudentIds.length,
+        newStudents: toInsert.length,
+        linkedExistingStudents: toUpdate.length,
         allowedTechStacks: allowedTechStacks
       }
     });
@@ -1474,6 +1542,785 @@ const getBatchesGrouped = async (req, res) => {
   }
 };
 
+// @desc     Download placement import template
+// @route    GET /api/admin/placement-import/template
+// @access   Admin/TPO
+const downloadPlacementTemplate = async (req, res) => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+
+    // Sheet 1: Template
+    const sheet = workbook.addWorksheet('Placement Data');
+
+    // Define columns with validation
+    sheet.columns = [
+      { header: 'Roll No', key: 'rollNo', width: 15 },
+      { header: 'Name', key: 'name', width: 25 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'Phone', key: 'phone', width: 15 },
+      { header: 'College', key: 'college', width: 15 },
+      { header: 'Branch', key: 'branch', width: 15 },
+      { header: 'Year', key: 'year', width: 10 },
+      { header: 'Company', key: 'company', width: 25 },
+      { header: 'CTC (LPA)', key: 'ctc', width: 12 },
+      { header: 'Role', key: 'role', width: 20 }
+    ];
+
+    // Style header row
+    sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0066CC' } };
+    sheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    // Add example row
+    sheet.addRow({
+      rollNo: '21001A0501',
+      name: 'John Doe',
+      email: 'john.doe@example.com',
+      phone: '9876543210',
+      college: 'KIET',
+      branch: 'CSD',
+      year: '2025',
+      company: 'Google',
+      ctc: '12.5',
+      role: 'Software Engineer'
+    });
+
+    // Add data validation for specific columns
+    // College validation (KIET, KIEK, KIEW)
+    for (let i = 2; i <= 1000; i++) {
+      sheet.getCell(`E${i}`).dataValidation = {
+        type: 'list',
+        allowBlank: false,
+        formulae: ['"KIET,KIEK,KIEW"']
+      };
+    }
+
+    // Branch validation
+    for (let i = 2; i <= 1000; i++) {
+      sheet.getCell(`F${i}`).dataValidation = {
+        type: 'list',
+        allowBlank: false,
+        formulae: ['"AID,CSM,CAI,CSD,CSC,CSE,ECE,MECH,CIVIL,EEE"']
+      };
+    }
+
+    // Sheet 2: Instructions
+    const instructionsSheet = workbook.addWorksheet('Instructions');
+    instructionsSheet.getColumn(1).width = 80;
+
+    instructionsSheet.addRow(['Past Placement Data Import Instructions']).font = { bold: true, size: 14 };
+    instructionsSheet.addRow([]);
+    instructionsSheet.addRow(['Required Fields (marked with *):']).font = { bold: true };
+    instructionsSheet.addRow(['- Roll No: Student roll number (e.g., 21001A0501)']);
+    instructionsSheet.addRow(['- Name: Full name of the student']);
+    instructionsSheet.addRow(['- College: Must be KIET, KIEK, or KIEW']);
+    instructionsSheet.addRow(['- Branch: Must be AID, CSM, CAI, CSD, CSC, CSE, ECE, MECH, CIVIL, or EEE']);
+    instructionsSheet.addRow(['- Year: Passout year (e.g., 2025)']);
+    instructionsSheet.addRow(['- Company: Company name']);
+    instructionsSheet.addRow(['- CTC (LPA): Package in Lakhs Per Annum (e.g., 12.5, can be 0 for internships/PPO)']);
+    instructionsSheet.addRow([]);
+    instructionsSheet.addRow(['Optional Fields:']).font = { bold: true };
+    instructionsSheet.addRow(['- Email: If not provided, a placeholder will be generated']);
+    instructionsSheet.addRow(['- Phone: If not provided, defaults to 0000000000']);
+    instructionsSheet.addRow(['- Role: Job role (defaults to "Software Engineer" if empty)']);
+    instructionsSheet.addRow([]);
+    instructionsSheet.addRow(['Important Notes:']).font = { bold: true };
+    instructionsSheet.addRow(['1. Do not modify column headers']);
+    instructionsSheet.addRow(['2. Delete the example row before uploading']);
+    instructionsSheet.addRow(['3. For existing students, data will be updated; for new students, profiles will be created']);
+    instructionsSheet.addRow(['4. Students can have multiple rows with different companies (system will store highest package)']);
+    instructionsSheet.addRow(['5. CTC can be 0 for internships or PPO without immediate compensation']);
+    instructionsSheet.addRow(['6. Maximum 5000 rows per upload']);
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Placement_Import_Template.xlsx"');
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Error generating template:', error);
+    res.status(500).json({ success: false, message: 'Error generating template' });
+  }
+};
+
+// @desc     Upload and validate placement data (Stage 1)
+// @route    POST /api/admin/placement-import/upload
+// @access   Admin/TPO
+const uploadPastPlacements = async (req, res) => {
+  try {
+    if (!req.files || !req.files.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    const file = req.files.file;
+
+    // Validate file type
+    if (!file.mimetype.includes('spreadsheet') && !file.mimetype.includes('excel')) {
+      return res.status(400).json({ success: false, message: 'Invalid file type. Please upload an Excel file.' });
+    }
+
+    // Read Excel file
+    const workbook = XLSX.readFile(file.tempFilePath);
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(worksheet);
+
+    if (data.length === 0) {
+      return res.status(400).json({ success: false, message: 'Excel file is empty' });
+    }
+
+    if (data.length > 5000) {
+      return res.status(400).json({ success: false, message: 'Maximum 5000 rows allowed per upload' });
+    }
+
+    // Generate file hash for duplicate detection
+    const fs = require('fs');
+    const fileContent = fs.readFileSync(file.tempFilePath);
+    const fileHash = generateFileHash(fileContent);
+
+    // Check for duplicate uploads
+    const duplicateImport = await ImportHistory.findOne({ fileHash, status: 'completed' });
+    if (duplicateImport) {
+      return res.status(400).json({
+        success: false,
+        message: 'This file has already been imported',
+        importDate: duplicateImport.createdAt
+      });
+    }
+
+    // Normalize column headers by removing asterisks and trimming
+    const normalizedData = data.map(row => {
+      const normalizedRow = {};
+      Object.keys(row).forEach(key => {
+        const cleanKey = key.replace(/\*/g, '').trim();
+        normalizedRow[cleanKey] = row[key];
+      });
+      return normalizedRow;
+    });
+
+    // Validate and process rows
+    const errors = [];
+    const validRows = [];
+    const rollNoCompanyMap = new Map(); // Track roll number + company combinations
+
+    normalizedData.forEach((row, index) => {
+      const rowNum = index + 2; // Excel row number (1-indexed + header)
+
+      // Validate required fields
+      const validation = validateRequiredFields(row);
+      if (!validation.valid) {
+        validation.errors.forEach(error => {
+          errors.push({
+            row: rowNum,
+            rollNo: row['Roll No'] || 'N/A',
+            field: 'multiple',
+            error,
+            severity: 'critical'
+          });
+        });
+        return;
+      }
+
+      // Normalize data
+      const rollNo = normalizeRollNo(row['Roll No']);
+      const college = normalizeCollege(row['College']);
+      const branch = normalizeBranch(row['Branch']);
+      const year = normalizeYear(row['Year']);
+      const ctc = parseCTC(row['CTC (LPA)']);
+      const phone = normalizePhone(row['Phone']);
+      const company = String(row['Company']).trim();
+
+      // Check for exact duplicates (same roll number AND same company)
+      const rollNoCompanyKey = `${rollNo}-${company.toUpperCase()}`;
+      if (rollNoCompanyMap.has(rollNoCompanyKey)) {
+        errors.push({
+          row: rowNum,
+          rollNo,
+          field: 'Roll No + Company',
+          error: `Duplicate entry: ${rollNo} with ${company} already exists at row ${rollNoCompanyMap.get(rollNoCompanyKey)}`,
+          severity: 'warning'
+        });
+        return;
+      }
+      rollNoCompanyMap.set(rollNoCompanyKey, rowNum);
+
+      // Validate normalized values
+      if (!college) {
+        errors.push({
+          row: rowNum,
+          rollNo,
+          field: 'College',
+          error: 'Invalid college. Must be KIET, KIEK, or KIEW',
+          severity: 'critical'
+        });
+        return;
+      }
+
+      if (!branch) {
+        errors.push({
+          row: rowNum,
+          rollNo,
+          field: 'Branch',
+          error: 'Invalid branch. Must be AID, CSM, CAI, CSD, CSC, CSE, ECE, MECH, CIVIL, or EEE',
+          severity: 'critical'
+        });
+        return;
+      }
+
+      if (!year) {
+        errors.push({
+          row: rowNum,
+          rollNo,
+          field: 'Year',
+          error: 'Invalid year. Must be between 2020 and 2030',
+          severity: 'critical'
+        });
+        return;
+      }
+
+      if (ctc === null || ctc === undefined || ctc < 0) {
+        errors.push({
+          row: rowNum,
+          rollNo,
+          field: 'CTC (LPA)',
+          error: 'Invalid CTC. Must be a number (0 or greater)',
+          severity: 'critical'
+        });
+        return;
+      }
+
+      // Build valid row object
+      validRows.push({
+        rollNo,
+        name: String(row['Name']).trim(),
+        email: row['Email'] ? String(row['Email']).trim() : null,
+        phone,
+        college,
+        branch,
+        year,
+        company: String(row['Company']).trim(),
+        ctc,
+        role: row['Role'] ? String(row['Role']).trim() : 'Software Engineer',
+        originalRow: rowNum
+      });
+    });
+
+    // Create ImportHistory record
+    const importHistory = await ImportHistory.create({
+      uploadedBy: req.userId,
+      uploadedByModel: req.userType === 'admin' ? 'Admin' : 'TPO',
+      fileName: file.name,
+      fileHash,
+      totalRows: data.length,
+      successful: 0,
+      failed: errors.length,
+      errors,
+      validRows,
+      status: 'pending'
+    });
+
+    res.json({
+      success: true,
+      message: 'File validated successfully',
+      data: {
+        importId: importHistory._id,
+        summary: {
+          total: data.length,
+          valid: validRows.length,
+          invalid: errors.length
+        },
+        preview: validRows.slice(0, 20), // Show first 20 rows
+        errors: errors.slice(0, 50) // Show first 50 errors
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading placement data:', error);
+    res.status(500).json({ success: false, message: 'Server error during file upload' });
+  }
+};
+
+// @desc     Preview import changes
+// @route    GET /api/admin/placement-import/:importId/preview
+// @access   Admin/TPO
+const previewImport = async (req, res) => {
+  try {
+    const { importId } = req.params;
+
+    const importHistory = await ImportHistory.findById(importId);
+    if (!importHistory) {
+      return res.status(404).json({ success: false, message: 'Import not found' });
+    }
+
+    // Check authorization
+    if (importHistory.uploadedBy.toString() !== req.userId.toString() && req.userType !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    if (importHistory.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: `Import already ${importHistory.status}`,
+        data: { status: importHistory.status }
+      });
+    }
+
+    // Group rows by roll number and select highest package for each
+    const studentDataMap = new Map();
+    const multipleOffersMap = new Map(); // Track students with multiple offers
+
+    importHistory.validRows.forEach(row => {
+      const existing = studentDataMap.get(row.rollNo);
+
+      if (!existing) {
+        studentDataMap.set(row.rollNo, row);
+      } else {
+        // Track that this student has multiple offers
+        if (!multipleOffersMap.has(row.rollNo)) {
+          multipleOffersMap.set(row.rollNo, [existing]);
+        }
+        multipleOffersMap.get(row.rollNo).push(row);
+
+        // Keep the highest package
+        if (row.ctc > existing.ctc) {
+          studentDataMap.set(row.rollNo, row);
+        }
+      }
+    });
+
+    // Get unique roll numbers
+    const rollNumbers = Array.from(studentDataMap.keys());
+
+    // Check which students already exist
+    const existingStudents = await Student.find({
+      rollNo: { $in: rollNumbers }
+    }).select('rollNo name email college branch yearOfPassing placementDetails');
+
+    const existingMap = new Map(existingStudents.map(s => [s.rollNo, s]));
+
+    // Categorize rows
+    const toCreate = [];
+    const toUpdate = [];
+
+    for (const [rollNo, row] of studentDataMap.entries()) {
+      const existing = existingMap.get(rollNo);
+      const multipleOffers = multipleOffersMap.get(rollNo);
+      const offersText = multipleOffers ? ` (${multipleOffers.length} offers, showing highest)` : '';
+
+      if (existing) {
+        toUpdate.push({
+          rollNo: row.rollNo,
+          name: row.name,
+          currentData: {
+            name: existing.name,
+            company: existing.placementDetails?.company || 'Not placed',
+            package: existing.placementDetails?.package || 'N/A',
+            yearOfPassing: existing.yearOfPassing
+          },
+          newData: {
+            company: row.company + offersText,
+            package: row.ctc,
+            yearOfPassing: row.year
+          }
+        });
+      } else {
+        toCreate.push({
+          rollNo: row.rollNo,
+          name: row.name,
+          college: row.college,
+          branch: row.branch,
+          year: row.year,
+          company: row.company + offersText,
+          package: row.ctc,
+          role: row.role
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Preview generated',
+      data: {
+        importId: importHistory._id,
+        summary: {
+          total: importHistory.validRows.length,
+          toCreate: toCreate.length,
+          toUpdate: toUpdate.length,
+          errors: importHistory.errors.length
+        },
+        toCreate: toCreate.slice(0, 20),
+        toUpdate: toUpdate.slice(0, 20),
+        errors: importHistory.errors.slice(0, 50)
+      }
+    });
+  } catch (error) {
+    console.error('Error previewing import:', error);
+    res.status(500).json({ success: false, message: 'Server error during preview' });
+  }
+};
+
+// @desc     Confirm and execute import (Stage 2)
+// @route    POST /api/admin/placement-import/:importId/confirm
+// @access   Admin/TPO
+const confirmImport = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { importId } = req.params;
+
+    const importHistory = await ImportHistory.findById(importId).session(session);
+    if (!importHistory) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({ success: false, message: 'Import not found' });
+    }
+
+    // Check authorization
+    if (importHistory.uploadedBy.toString() !== req.userId.toString() && req.userType !== 'admin') {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    if (importHistory.status !== 'pending') {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: `Import already ${importHistory.status}`
+      });
+    }
+
+    // Group rows by roll number to track ALL offers
+    const studentOffersMap = new Map();
+
+    for (const row of importHistory.validRows) {
+      if (!studentOffersMap.has(row.rollNo)) {
+        studentOffersMap.set(row.rollNo, []);
+      }
+      studentOffersMap.get(row.rollNo).push(row);
+    }
+
+    // Get unique roll numbers
+    const rollNumbers = Array.from(studentOffersMap.keys());
+
+    // Batch load existing students
+    const existingStudents = await Student.find({
+      rollNo: { $in: rollNumbers }
+    }).session(session);
+
+    const existingMap = new Map(existingStudents.map(s => [s.rollNo, s]));
+
+    // Separate creates vs updates
+    const toCreate = [];
+    const toUpdate = [];
+
+    for (const [rollNo, offers] of studentOffersMap.entries()) {
+      const existing = existingMap.get(rollNo);
+
+      // Find highest package offer
+      const highestOffer = offers.reduce((max, offer) =>
+        offer.ctc > max.ctc ? offer : max
+      );
+
+      // Store final placement (highest package)
+      const placementData = {
+        company: highestOffer.company,
+        package: highestOffer.ctc,
+        placedDate: new Date(),
+        role: highestOffer.role
+      };
+
+      // Store ALL offers
+      const allOffersData = offers.map(offer => ({
+        company: offer.company,
+        role: offer.role,
+        package: offer.ctc,
+        offeredDate: new Date()
+      }));
+
+      if (existing) {
+        // Update existing student
+        const shouldUpdate = !existing.placementDetails?.package ||
+                            highestOffer.ctc > existing.placementDetails.package;
+
+        if (shouldUpdate) {
+          toUpdate.push({
+            updateOne: {
+              filter: { _id: existing._id },
+              update: {
+                $set: {
+                  placementDetails: placementData,
+                  allOffers: allOffersData,
+                  status: 'placed',
+                  yearOfPassing: highestOffer.year
+                }
+              }
+            }
+          });
+        }
+      } else {
+        // Create new student
+        const username = rollNo.toLowerCase();
+        const email = generateUniqueEmail(rollNo, highestOffer.email);
+        const password = generatePassword();
+
+        toCreate.push({
+          username,
+          password,
+          passwordChanged: false,
+          name: highestOffer.name,
+          rollNo: rollNo,
+          email,
+          phonenumber: highestOffer.phone,
+          college: highestOffer.college,
+          branch: highestOffer.branch,
+          yearOfPassing: highestOffer.year,
+          placementDetails: placementData,
+          allOffers: allOffersData,
+          status: 'placed',
+          isActive: false // Mark imported students as inactive
+        });
+      }
+    }
+
+    // Execute bulk operations
+    let createdCount = 0;
+    let updatedCount = 0;
+
+    if (toCreate.length > 0) {
+      const createResult = await Student.insertMany(toCreate, { session, ordered: false });
+      createdCount = createResult.length;
+    }
+
+    if (toUpdate.length > 0) {
+      const updateResult = await Student.bulkWrite(toUpdate, { session, ordered: false });
+      updatedCount = updateResult.modifiedCount;
+    }
+
+    // Update ImportHistory
+    await ImportHistory.findByIdAndUpdate(
+      importId,
+      {
+        status: 'completed',
+        successful: createdCount + updatedCount
+      },
+      { session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
+      success: true,
+      message: 'Import completed successfully',
+      data: {
+        created: createdCount,
+        updated: updatedCount,
+        total: createdCount + updatedCount
+      }
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error('Error confirming import:', error);
+
+    // Update import status to failed
+    await ImportHistory.findByIdAndUpdate(req.params.importId, { status: 'failed' });
+
+    res.status(500).json({ success: false, message: 'Server error during import execution' });
+  }
+};
+
+// @desc     Get import history
+// @route    GET /api/admin/placement-import/history
+// @access   Admin/TPO
+const getImportHistory = async (req, res) => {
+  try {
+    const query = req.userType === 'admin'
+      ? {}
+      : { uploadedBy: req.userId };
+
+    const history = await ImportHistory.find(query)
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .select('-validRows') // Exclude validRows to reduce payload
+      .populate('uploadedBy', 'name email');
+
+    res.json({
+      success: true,
+      data: history
+    });
+  } catch (error) {
+    console.error('Error fetching import history:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Migration: Rebuild allOffers from import history data
+const migrateAllOffers = async (req, res) => {
+  try {
+    console.log('[migrateAllOffers] Starting full migration from import history...');
+
+    // Step 1: Get all completed imports with their validRows
+    const ImportHistory = require('../models/ImportHistory');
+    const completedImports = await ImportHistory.find({
+      status: 'completed',
+      'validRows.0': { $exists: true }
+    }).select('validRows');
+
+    console.log(`[migrateAllOffers] Found ${completedImports.length} completed imports`);
+
+    // Step 2: Build a map of rollNo -> all offers from ALL imports
+    const rollNoOffersMap = new Map();
+
+    for (const importRecord of completedImports) {
+      for (const row of importRecord.validRows) {
+        const rollNo = String(row.rollNo).trim().toUpperCase();
+        if (!rollNoOffersMap.has(rollNo)) {
+          rollNoOffersMap.set(rollNo, []);
+        }
+        // Add offer if not already present (avoid exact duplicates)
+        const existingOffers = rollNoOffersMap.get(rollNo);
+        const isDuplicate = existingOffers.some(o =>
+          o.company === row.company && o.package === row.ctc
+        );
+        if (!isDuplicate) {
+          rollNoOffersMap.set(rollNo, [...existingOffers, {
+            company: row.company,
+            role: row.role || 'Software Engineer',
+            package: row.ctc,
+            offeredDate: new Date()
+          }]);
+        }
+      }
+    }
+
+    console.log(`[migrateAllOffers] Built offers map for ${rollNoOffersMap.size} unique students`);
+
+    // Count students with multiple offers
+    let multiOfferCount = 0;
+    for (const [, offers] of rollNoOffersMap) {
+      if (offers.length > 1) multiOfferCount++;
+    }
+    console.log(`[migrateAllOffers] Students with multiple offers: ${multiOfferCount}`);
+
+    // Step 3: Find ALL placed students and update their allOffers
+    const allPlacedStudents = await Student.find({
+      status: 'placed',
+      'placementDetails.company': { $exists: true, $ne: null }
+    }).select('rollNo placementDetails allOffers');
+
+    console.log(`[migrateAllOffers] Found ${allPlacedStudents.length} placed students in DB`);
+
+    // Step 4: Build bulk update operations
+    const bulkOps = [];
+
+    for (const student of allPlacedStudents) {
+      const rollNo = String(student.rollNo).trim().toUpperCase();
+      const importOffers = rollNoOffersMap.get(rollNo);
+
+      let allOffersData;
+
+      if (importOffers && importOffers.length > 0) {
+        // Use offers from import history (includes ALL companies)
+        allOffersData = importOffers;
+      } else {
+        // Fallback: use current placementDetails (student not from import)
+        allOffersData = [{
+          company: student.placementDetails.company,
+          role: student.placementDetails.role || 'Not specified',
+          package: student.placementDetails.package,
+          offeredDate: student.placementDetails.placedDate || new Date()
+        }];
+      }
+
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: student._id },
+          update: { $set: { allOffers: allOffersData } }
+        }
+      });
+    }
+
+    // Step 5: Execute bulk update
+    let result = { modifiedCount: 0 };
+    if (bulkOps.length > 0) {
+      result = await Student.bulkWrite(bulkOps, { ordered: false });
+    }
+
+    console.log(`[migrateAllOffers] Migration completed:`, {
+      totalStudents: allPlacedStudents.length,
+      modified: result.modifiedCount,
+      multiOfferStudents: multiOfferCount
+    });
+
+    res.json({
+      success: true,
+      message: 'Migration completed successfully',
+      data: {
+        totalStudents: allPlacedStudents.length,
+        migrated: result.modifiedCount,
+        studentsWithMultipleOffers: multiOfferCount
+      }
+    });
+
+  } catch (error) {
+    console.error('[migrateAllOffers] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Migration failed',
+      error: error.message
+    });
+  }
+};
+
+// @desc   Delete all imported past students, clear placement data on active students,
+//         and wipe ImportHistory so the same Excel file can be re-imported.
+// @route  DELETE /api/admin/placement-import/past-students
+// @access Admin only
+const deleteAllPastStudents = async (req, res) => {
+  try {
+    // 1. Delete students that were created purely by the past-placement import
+    //    (they have a placeholder email, no active batch, and are inactive)
+    const deleteResult = await Student.deleteMany({
+      email: { $regex: /imported\.placeholder/i },
+      isActive: false,
+      batchId: { $exists: false }
+    });
+
+    // 2. Clear placement data for existing active students whose records were
+    //    updated by the import (they have a batchId but got placement details
+    //    set from the Excel). Reset them to 'pursuing' so re-import works cleanly.
+    const clearResult = await Student.updateMany(
+      {
+        batchId: { $exists: true },
+        $or: [
+          { 'placementDetails.company': { $exists: true, $ne: null } },
+          { allOffers: { $exists: true, $not: { $size: 0 } } }
+        ]
+      },
+      {
+        $set: { status: 'pursuing' },
+        $unset: { placementDetails: '', allOffers: '' }
+      }
+    );
+
+    // 3. Delete all ImportHistory records so the same file can be re-uploaded
+    await ImportHistory.deleteMany({});
+
+    return res.json({
+      success: true,
+      message: `Reset complete: ${deleteResult.deletedCount} past student(s) deleted, ${clearResult.modifiedCount} active student placement record(s) cleared, import history wiped.`,
+      deletedCount: deleteResult.deletedCount,
+      clearedCount: clearResult.modifiedCount
+    });
+  } catch (error) {
+    console.error('Delete all past students error:', error);
+    return res.status(500).json({ success: false, message: 'Server error while resetting placement data' });
+  }
+};
+
 module.exports = {
   initializeSuperAdmin,
   superAdminLogin,
@@ -1509,5 +2356,12 @@ module.exports = {
   reassignPendingApprovals,
   createCrtBatch,
   getBatchById,
-  getBatchesGrouped
+  getBatchesGrouped,
+  downloadPlacementTemplate,
+  uploadPastPlacements,
+  previewImport,
+  confirmImport,
+  getImportHistory,
+  migrateAllOffers,
+  deleteAllPastStudents
 };

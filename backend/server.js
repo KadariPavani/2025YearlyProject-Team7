@@ -124,6 +124,7 @@ const feedbackRoutes = require('./routes/feedbackRoutes');
 const contactRoutes = require("./routes/contactRoutes");
 const contestsRoutes = require('./routes/contests');
 const publicRoutes = require('./routes/publicRoutes');
+const pastStudentRoutes = require('./routes/pastStudentRoutes');
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -146,6 +147,9 @@ app.use("/api", contactRoutes);
 
 // Public routes (no auth required)
 app.use('/api/public', publicRoutes);
+
+// Past student self-service portal
+app.use('/api/past-student', pastStudentRoutes);
 
 
 

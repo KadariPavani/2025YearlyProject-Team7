@@ -8,12 +8,15 @@ import InfoverseLoader from '../src/components/ui/InfoverseLoader.jsx';
 
 // Import components
 import Landing from './pages/Landing';
+import PastStudentLogin from './pages/student/PastStudentLogin';
+import PastStudentPortal from './pages/student/PastStudentPortal';
 import SuperAdminLogin from './components/auth/SuperAdminLogin';
 import OTPVerification from './components/auth/OTPVerification';
 import AdminForgotPassword from './components/auth/AdminForgotPassword';
 import AdminResetPassword from './components/auth/AdminResetPassword';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminProfile from './pages/admin/AdminProfile';
+import PlacementDataImport from './pages/admin/PlacementDataImport';
 import AddTrainerPage from './pages/admin/AddTrainerPage';
 import AddTPOPage from './pages/admin/AddTPOPage';
 // import ViewTPOsPage from './pages/admin/ViewTPOsPage';
@@ -685,6 +688,8 @@ function App() {
               <Route path="/trainer-register" element={<TrainerRegister />} />
               <Route path="/student-login" element={<GeneralLogin />} />
               <Route path="/coordinator-login" element={<GeneralLogin />} />
+              <Route path="/past-student-login" element={<PastStudentLogin />} />
+              <Route path="/past-student-portal" element={<PastStudentPortal />} />
 
               {/* General User Forgot Password Routes */}
               <Route path="/tpo-forgot-password" element={<GeneralForgotPassword />} />
@@ -721,6 +726,14 @@ function App() {
                 element={
                   <ProtectedAdminRoute>
                     <AdminProfile />
+                  </ProtectedAdminRoute>
+                }
+              />
+              <Route
+                path="/placement-import"
+                element={
+                  <ProtectedAdminRoute>
+                    <PlacementDataImport />
                   </ProtectedAdminRoute>
                 }
               />
@@ -808,6 +821,14 @@ function App() {
                 element={
                   <ProtectedUserRoute>
                     <TPODashboard />
+                  </ProtectedUserRoute>
+                }
+              />
+              <Route
+                path="/tpo/placement-import"
+                element={
+                  <ProtectedUserRoute>
+                    <PlacementDataImport />
                   </ProtectedUserRoute>
                 }
               />

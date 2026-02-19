@@ -270,13 +270,25 @@ const GeneralLogin = () => {
             </button>
           </form>
 
-          <div className="mt-5 text-center">
+          <div className="mt-5 text-center space-y-2">
             <button
               onClick={() => navigate(`/${userType}-forgot-password`)}
               className="text-blue-600 hover:text-blue-700 text-[13px] font-medium"
             >
               {TEXT.buttons.forgotPassword}
             </button>
+
+            {userType === 'student' && (
+              <div className="pt-2 border-t border-slate-100">
+                <p className="text-[12px] text-slate-400 mb-1">Already graduated?</p>
+                <button
+                  onClick={() => navigate('/past-student-login')}
+                  className="text-purple-600 hover:text-purple-700 text-[13px] font-semibold"
+                >
+                  Past Student Login →
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
