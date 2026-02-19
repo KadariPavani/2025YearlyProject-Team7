@@ -21,6 +21,7 @@ import Placements from "../components/common/Placements";
 import PlacedStudents from "../components/common/PlacedStudents";
 import FAQSection from "../components/common/FAQSection";
 import Footer from "../components/common/Footer";
+import PublicReferences from "../components/common/PublicReferences";
 
 import "../styles/globals.css";
 
@@ -281,6 +282,18 @@ const Landing = () => {
           viewport={{ once: false, amount: 0.3 }}
         >
           <PlacedStudents />
+        </motion.section>
+
+        {/* Public References from Trainers */}
+        <motion.section
+          id="references"
+          variants={fadeInUp}
+          initial="hidden"
+          whileInView="visible"
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          viewport={{ once: false, amount: 0.2 }}
+        >
+          <PublicReferences />
         </motion.section>
 
         {/* FAQ section */}

@@ -1349,7 +1349,7 @@ const markAllAsRead = async () => {
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span className={`px-1.5 py-0.5 rounded-full font-medium ${getTimeSlotColor(timeSlot)}`} style={{ fontSize: '9px' }}>{timeSlot}</span>
+                                {/* <span className={`px-1.5 py-0.5 rounded-full font-medium ${getTimeSlotColor(timeSlot)}`} style={{ fontSize: '9px' }}>{timeSlot}</span> */}
                                 <button onClick={() => setSelectedTrainer(assignment)} className="text-blue-600 text-[10px] font-medium">
                                   Details
                                 </button>
@@ -1367,7 +1367,7 @@ const markAllAsRead = async () => {
                           <tr className="bg-blue-50">
                             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Trainer</th>
                             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Subject</th>
-                            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Slot</th>
+                            {/* <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Slot</th> */}
                             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Email</th>
                             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Classes/Week</th>
                             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700">Action</th>
@@ -1393,9 +1393,9 @@ const markAllAsRead = async () => {
                                       </div>
                                     </td>
                                     <td className="px-3 py-2 text-xs text-gray-600">{assignment.subject}</td>
-                                    <td className="px-3 py-2">
+                                    {/* <td className="px-3 py-2">
                                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTimeSlotColor(timeSlot)}`}>{timeSlot}</span>
-                                    </td>
+                                    </td> */}
                                     <td className="px-3 py-2 text-xs text-gray-600">{assignment.trainer.email}</td>
                                     <td className="px-3 py-2 text-xs text-gray-900 font-medium">{assignment.schedule?.length || 0}</td>
                                     <td className="px-3 py-2">
@@ -1449,9 +1449,9 @@ const markAllAsRead = async () => {
                                     <td className="px-3 py-2 text-xs font-medium text-gray-900">{session.trainer.name}</td>
                                     <td className="px-3 py-2">
                                       <div className="text-xs text-gray-600">{session.subject}</div>
-                                      <span className={`mt-0.5 inline-block px-1.5 py-0.5 rounded text-xs font-medium ${getTimeSlotColor(session.timeSlot)}`}>
+                                      {/* <span className={`mt-0.5 inline-block px-1.5 py-0.5 rounded text-xs font-medium ${getTimeSlotColor(session.timeSlot)}`}>
                                         {session.timeSlot}
-                                      </span>
+                                      </span> */}
                                     </td>
                                   </tr>
                                 );
@@ -1487,9 +1487,9 @@ const markAllAsRead = async () => {
                                   <div className="text-xs text-gray-600 mb-1">
                                     {session.subject}
                                   </div>
-                                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${getTimeSlotColor(session.timeSlot)}`}>
+                                  {/* <span className={`px-2 py-0.5 rounded text-xs font-medium ${getTimeSlotColor(session.timeSlot)}`}>
                                     {session.timeSlot}
-                                  </span>
+                                  </span> */}
                                 </div>
                               )) : (
                                 <div className="text-center py-3 text-gray-400 text-xs">

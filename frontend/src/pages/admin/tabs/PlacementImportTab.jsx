@@ -305,22 +305,31 @@ const PlacementImportTab = ({ showToast }) => {
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      {['Roll No', 'Name', 'College', 'Branch', 'Company', 'CTC'].map((h) => (
+                      {['Roll No', 'Name', 'College', 'Branch', 'Company', 'Type', 'Duration', 'Compensation'].map((h) => (
                         <th key={h} className="px-3 py-2 text-left text-xs font-medium text-gray-500">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {importData.preview.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-3 py-2">{row.rollNo}</td>
-                        <td className="px-3 py-2">{row.name}</td>
-                        <td className="px-3 py-2">{row.college}</td>
-                        <td className="px-3 py-2">{row.branch}</td>
-                        <td className="px-3 py-2">{row.company}</td>
-                        <td className="px-3 py-2">{row.ctc} LPA</td>
-                      </tr>
-                    ))}
+                    {importData.preview.map((row, idx) => {
+                      const t = row.type || 'PLACEMENT';
+                      const comp = t === 'PLACEMENT' ? `${row.ctc} LPA` : `${row.stipend || 0} K/month`;
+                      const badgeStyle = { PLACEMENT: 'bg-green-100 text-green-700', INTERNSHIP: 'bg-blue-100 text-blue-700', TRAINING: 'bg-orange-100 text-orange-700' };
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-3 py-2">{row.rollNo}</td>
+                          <td className="px-3 py-2">{row.name}</td>
+                          <td className="px-3 py-2">{row.college}</td>
+                          <td className="px-3 py-2">{row.branch}</td>
+                          <td className="px-3 py-2">{row.company}</td>
+                          <td className="px-3 py-2">
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badgeStyle[t] || badgeStyle.PLACEMENT}`}>{t}</span>
+                          </td>
+                          <td className="px-3 py-2">{row.duration || 'FULL TIME'}</td>
+                          <td className="px-3 py-2">{comp}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -388,20 +397,28 @@ const PlacementImportTab = ({ showToast }) => {
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-blue-50">
                     <tr>
-                      {['Roll No', 'Name', 'Company', 'Package'].map((h) => (
+                      {['Roll No', 'Name', 'Company', 'Type', 'Compensation'].map((h) => (
                         <th key={h} className="px-3 py-2 text-left text-xs font-medium text-gray-500">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {preview.toCreate.map((row, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-3 py-2">{row.rollNo}</td>
-                        <td className="px-3 py-2">{row.name}</td>
-                        <td className="px-3 py-2">{row.company}</td>
-                        <td className="px-3 py-2">{row.package} LPA</td>
-                      </tr>
-                    ))}
+                    {preview.toCreate.map((row, idx) => {
+                      const t = row.type || 'PLACEMENT';
+                      const comp = t === 'PLACEMENT' ? `${row.package} LPA` : `${row.stipend || 0} K/month`;
+                      const badgeStyle = { PLACEMENT: 'bg-green-100 text-green-700', INTERNSHIP: 'bg-blue-100 text-blue-700', TRAINING: 'bg-orange-100 text-orange-700' };
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-3 py-2">{row.rollNo}</td>
+                          <td className="px-3 py-2">{row.name}</td>
+                          <td className="px-3 py-2">{row.company}</td>
+                          <td className="px-3 py-2">
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badgeStyle[t] || badgeStyle.PLACEMENT}`}>{t}</span>
+                          </td>
+                          <td className="px-3 py-2">{comp}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

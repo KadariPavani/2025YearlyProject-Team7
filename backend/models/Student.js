@@ -312,6 +312,17 @@ const StudentSchema = new mongoose.Schema({
     role: String,
     location: String,
     package: Number,
+    type: {
+      type: String,
+      enum: ['PLACEMENT', 'INTERNSHIP', 'TRAINING'],
+      default: 'PLACEMENT'
+    },
+    duration: {
+      type: String,
+      enum: ['FULL TIME', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+      default: 'FULL TIME'
+    },
+    stipend: Number,
     placedDate: Date
   },
 
@@ -320,7 +331,23 @@ const StudentSchema = new mongoose.Schema({
     company: String,
     role: String,
     package: Number,
-    offeredDate: Date
+    type: {
+      type: String,
+      enum: ['PLACEMENT', 'INTERNSHIP', 'TRAINING'],
+      default: 'PLACEMENT'
+    },
+    duration: {
+      type: String,
+      enum: ['FULL TIME', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+      default: 'FULL TIME'
+    },
+    stipend: Number,
+    offeredDate: Date,
+    source: {
+      type: String,
+      enum: ['import', 'event'],
+      default: 'event'
+    }
   }],
 
   // Additional Information

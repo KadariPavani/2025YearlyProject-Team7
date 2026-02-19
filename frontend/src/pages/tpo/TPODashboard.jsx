@@ -246,7 +246,7 @@ const notificationRef = useRef(null);
       return { success: false, message: res.data?.message || 'Failed' };
     } catch (err) {
       console.error('Create student failed:', err);
-      return { success: false, message: err.message };
+      return { success: false, message: err.response?.data?.message || err.message };
     }
   };
 

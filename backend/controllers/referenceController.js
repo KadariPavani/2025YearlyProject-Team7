@@ -749,7 +749,7 @@ const getReferenceAnalytics = async (req, res) => {
   }
 };
 
-// Legacy public references
+// Public references for landing page
 const getPublicReferences = async (req, res) => {
   try {
     const references = await Reference.find({
@@ -759,9 +759,10 @@ const getPublicReferences = async (req, res) => {
     })
       .populate('trainerId', 'name')
       .select(
-        'topicName subject resources referenceVideoLink referenceNotesLink createdAt viewCount'
+        'topicName subject files referenceVideoLink referenceNotesLink tags learningObjectives createdAt viewCount'
       )
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(20);
 
     res.json(references);
   } catch (error) {

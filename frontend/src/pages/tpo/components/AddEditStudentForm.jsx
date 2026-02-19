@@ -61,8 +61,8 @@ function AddEditStudentForm({ batches = [], initial = {}, onSubmit, onClose }) {
 
   const handleSubmit = async (e) => {
     e && e.preventDefault();
-    if (!form.name || !form.email || !form.rollNo || !form.batchId || !form.college) {
-      alert('Please fill name, email, roll number, select college and batch');
+    if (!form.name || !form.email || !form.rollNo || !form.branch || !form.college || !form.phonenumber || !form.batchId) {
+      alert('Please fill all required fields: name, email, roll number, branch, college, phone number, and batch');
       return;
     }
 

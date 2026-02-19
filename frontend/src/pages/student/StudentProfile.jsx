@@ -929,7 +929,14 @@ const StudentProfile = () => {
     {/* Primary Placement Details */}
     {profile?.status === 'placed' && profile?.placementDetails?.company && (
       <div className="bg-green-50 border border-green-100 rounded-lg p-4 mb-4">
-        <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-3">Primary Offer</p>
+        <div className="flex items-center gap-2 mb-3">
+          <p className="text-xs font-semibold text-green-700 uppercase tracking-wide">Primary Offer</p>
+          {(() => {
+            const t = profile.placementDetails.type || 'PLACEMENT';
+            const s = { PLACEMENT: 'bg-green-100 text-green-700', INTERNSHIP: 'bg-blue-100 text-blue-700', TRAINING: 'bg-orange-100 text-orange-700' };
+            return <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${s[t] || s.PLACEMENT}`}>{t}</span>;
+          })()}
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
           <div>
             <p className="text-gray-500 text-xs mb-0.5">Company</p>
@@ -938,10 +945,17 @@ const StudentProfile = () => {
               {profile.placementDetails.company}
             </p>
           </div>
-          {profile.placementDetails.package && (
+          {(profile.placementDetails.type || 'PLACEMENT') === 'PLACEMENT' ? (
+            profile.placementDetails.package ? (
+              <div>
+                <p className="text-gray-500 text-xs mb-0.5">Package</p>
+                <p className="font-semibold text-green-700">{profile.placementDetails.package} LPA</p>
+              </div>
+            ) : null
+          ) : (
             <div>
-              <p className="text-gray-500 text-xs mb-0.5">Package</p>
-              <p className="font-semibold text-green-700">{profile.placementDetails.package} LPA</p>
+              <p className="text-gray-500 text-xs mb-0.5">Stipend</p>
+              <p className="font-semibold text-green-700">{profile.placementDetails.stipend || 0} K/month{profile.placementDetails.duration && profile.placementDetails.duration !== 'FULL TIME' ? ` · ${profile.placementDetails.duration} months` : ''}</p>
             </div>
           )}
           {profile.placementDetails.location && (
@@ -967,17 +981,29 @@ const StudentProfile = () => {
               <tr>
                 <th className="px-4 py-2 text-left font-medium">#</th>
                 <th className="px-4 py-2 text-left font-medium">Company</th>
-                <th className="px-4 py-2 text-left font-medium">Package</th>
+                <th className="px-4 py-2 text-left font-medium">Type</th>
+                <th className="px-4 py-2 text-left font-medium">Compensation</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {profile.allOffers.map((offer, i) => (
-                <tr key={i} className="hover:bg-gray-50">
-                  <td className="px-4 py-2 text-gray-500">{i + 1}</td>
-                  <td className="px-4 py-2 font-medium text-gray-900">{offer.company || '—'}</td>
-                  <td className="px-4 py-2 font-semibold text-green-700">{offer.package ? `${offer.package} LPA` : '—'}</td>
-                </tr>
-              ))}
+              {profile.allOffers.map((offer, i) => {
+                const t = offer.type || 'PLACEMENT';
+                const badgeStyle = { PLACEMENT: 'bg-green-100 text-green-700', INTERNSHIP: 'bg-blue-100 text-blue-700', TRAINING: 'bg-orange-100 text-orange-700' };
+                return (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 text-gray-500">{i + 1}</td>
+                    <td className="px-4 py-2 font-medium text-gray-900">{offer.company || '—'}</td>
+                    <td className="px-4 py-2">
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badgeStyle[t] || badgeStyle.PLACEMENT}`}>{t}</span>
+                    </td>
+                    <td className="px-4 py-2 font-semibold text-green-700">
+                      {t === 'PLACEMENT'
+                        ? (offer.package ? `${offer.package} LPA` : '—')
+                        : `${offer.stipend || 0} K/month`}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
