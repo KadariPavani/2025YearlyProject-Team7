@@ -60,7 +60,7 @@ const StudentSchema = new mongoose.Schema({
   branch: {
     type: String,
     required: [true, 'Branch is required'],
-    enum: ['AID', 'CSM', 'CAI', 'CSD', 'CSC'],
+    enum: ['AID', 'CSM', 'CAI', 'CSD', 'CSC', 'CSE', 'ECE', 'MECH', 'CIVIL', 'EEE'],
     trim: true
   },
   yearOfPassing: {
@@ -315,6 +315,14 @@ const StudentSchema = new mongoose.Schema({
     placedDate: Date
   },
 
+  // All placement offers received (for students with multiple company selections)
+  allOffers: [{
+    company: String,
+    role: String,
+    package: Number,
+    offeredDate: Date
+  }],
+
   // Additional Information
   panCard: String,
   abcId: String,
@@ -426,6 +434,11 @@ const StudentSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Indexes for optimized placement queries
+StudentSchema.index({ status: 1 });
+StudentSchema.index({ yearOfPassing: 1 });
+StudentSchema.index({ 'placementDetails.company': 1 });
 
 // Password hashing middleware
 StudentSchema.pre('save', async function(next) {

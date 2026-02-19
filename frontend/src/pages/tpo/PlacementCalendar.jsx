@@ -65,6 +65,29 @@ const openCompanyRegistrationForm = (event) => {
   setTpoExternalLink(event.externalLink || "");
   setShowStudentForm(true);
 };
+const [deletingEmail, setDeletingEmail] = useState(null);
+
+const handleRemoveSelectedStudent = async (email) => {
+  if (!selectedEventId || !email) return;
+  if (!window.confirm(`Remove this student from the selected list?`)) return;
+  setDeletingEmail(email);
+  try {
+    const token = localStorage.getItem("userToken");
+    await axios.put(
+      `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${selectedEventId}/remove-selected-student`,
+      { studentEmail: email },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    setSelectedStudents((prev) => prev.filter((s) => s.email?.toLowerCase() !== email.toLowerCase()));
+    await fetchEvents({ notify: true, message: 'Student removed from selected list' });
+  } catch (err) {
+    console.error("Error removing selected student:", err);
+    alert(err.response?.data?.message || "Failed to remove student");
+  } finally {
+    setDeletingEmail(null);
+  }
+};
+
 const handleViewSelectedStudents = async (eventId) => {
   setSelectedEventId(eventId); // ensure modal has context for uploads/marking
   try {
@@ -104,6 +127,8 @@ const [formData, setFormData] = useState({
   isOnline: false,
   companyName: "",
   companyFormLink: "",
+  role: "",
+  ctc: "",
   eventType: "drive",
   status: "scheduled",
   participated: "",
@@ -704,6 +729,8 @@ const handleDateClick = (day) => {
     isOnline: false,
     companyName: "",
     companyFormLink: "",
+    role: "",
+    ctc: "",
     eventType: "drive",
     status: "scheduled",
     participated: "",
@@ -752,6 +779,8 @@ const handleEditEvent = async (event) => {
       isOnline: e.isOnline || false,
       companyName: e.companyDetails?.companyName || "",
       companyFormLink: e.companyDetails?.companyFormLink || "",
+      role: e.companyDetails?.roles?.[0] || "",
+      ctc: e.companyDetails?.packageDetails?.max || e.companyDetails?.packageDetails?.min || "",
       eventType: e.eventType || "drive",
       status: e.status || "scheduled",
       participated: e.eventSummary?.totalAttendees || "",
@@ -846,6 +875,8 @@ const handleNewEvent = () => {
     isOnline: false,
     companyName: "",
     companyFormLink: "https://companyform.com",
+    role: "",
+    ctc: "",
     eventType: "drive",
     status: "scheduled",
     participated: "",
@@ -905,6 +936,8 @@ targetStudentIds: selectedStudentIds,
   companyDetails: {
     companyName: formData.companyName,
     companyFormLink: formData.companyFormLink,
+    roles: formData.role ? [formData.role.trim()] : [],
+    packageDetails: formData.ctc ? { min: parseFloat(formData.ctc), max: parseFloat(formData.ctc), currency: 'INR' } : undefined,
     externalLink: formData.companyDetails?.externalLink || "", // ✅ moved inside companyDetails
   },
   createdBy: tpoId,
@@ -1463,6 +1496,16 @@ const handleExportRegisteredStudents = async () => {
                 <input type="url" value={formData.companyFormLink} onChange={(e) => setFormData({ ...formData, companyFormLink: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="https://company.com" disabled={viewOnly} />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium mb-1">Role</label>
+                <input type="text" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="e.g. Software Engineer" disabled={viewOnly}/>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">CTC (LPA)</label>
+                <input type="number" step="0.01" min="0" value={formData.ctc} onChange={(e) => setFormData({ ...formData, ctc: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="e.g. 6.5" disabled={viewOnly}/>
+              </div>
+
               {/* Start / End Date & Time */}
               <div>
                 <label className="block text-sm font-medium mb-1">Start Date</label>
@@ -1611,6 +1654,16 @@ const handleExportRegisteredStudents = async () => {
                 <div>
                   <label className="block text-sm font-medium mb-1">Company Link</label>
                   <input type="url" value={formData.companyFormLink} onChange={(e) => setFormData({ ...formData, companyFormLink: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="https://company.com" disabled={viewOnly} />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Role</label>
+                  <input type="text" value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="e.g. Software Engineer" disabled={viewOnly}/>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">CTC (LPA)</label>
+                  <input type="number" step="0.01" min="0" value={formData.ctc} onChange={(e) => setFormData({ ...formData, ctc: e.target.value })} className="w-full border rounded-lg px-3 py-2" placeholder="e.g. 6.5" disabled={viewOnly}/>
                 </div>
 
                 {/* Dates & times */}
@@ -1974,6 +2027,7 @@ const handleExportRegisteredStudents = async () => {
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Roll No</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Email</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Branch</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -1983,6 +2037,15 @@ const handleExportRegisteredStudents = async () => {
                   <td className="px-3 py-2 text-xs sm:text-sm font-mono text-gray-700 whitespace-nowrap">{s.rollNo}</td>
                   <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{s.email}</td>
                   <td className="px-3 py-2 text-xs sm:text-sm text-gray-700 whitespace-nowrap">{s.branch}</td>
+                  <td className="px-3 py-2 text-center whitespace-nowrap">
+                    <button
+                      onClick={() => handleRemoveSelectedStudent(s.email)}
+                      disabled={deletingEmail === s.email}
+                      className="px-2 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 disabled:opacity-50 transition-colors"
+                    >
+                      {deletingEmail === s.email ? '...' : 'Remove'}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -2016,6 +2079,7 @@ const handleExportRegisteredStudents = async () => {
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Roll No</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Email</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 whitespace-nowrap">Branch</th>
+                  <th className="px-3 py-2 text-center text-xs font-semibold text-gray-700 whitespace-nowrap">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -2025,6 +2089,15 @@ const handleExportRegisteredStudents = async () => {
                     <td className="px-3 py-2 text-xs font-mono text-gray-700 whitespace-nowrap">{s.rollNo}</td>
                     <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{s.email}</td>
                     <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{s.branch}</td>
+                    <td className="px-3 py-2 text-center whitespace-nowrap">
+                      <button
+                        onClick={() => handleRemoveSelectedStudent(s.email)}
+                        disabled={deletingEmail === s.email}
+                        className="px-2 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 disabled:opacity-50 transition-colors"
+                      >
+                        {deletingEmail === s.email ? '...' : 'Remove'}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

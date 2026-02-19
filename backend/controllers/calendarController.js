@@ -989,11 +989,46 @@ const studentInfo = {
     event.selectedStudents.push(studentInfo);
     event.eventSummary.selectedStudents = event.selectedStudents.length;
 
+    // ✅ Sync placement data to Student model (for public page & student profile)
+    if (studentDoc) {
+      const companyName = event.companyDetails?.companyName || event.title;
+      const role = event.companyDetails?.roles?.[0] || 'Software Engineer';
+      const pkg = event.companyDetails?.packageDetails?.max || event.companyDetails?.packageDetails?.min || 0;
+
+      const offerEntry = { company: companyName, role, package: pkg, offeredDate: new Date() };
+
+      // Add to allOffers
+      const allOffers = studentDoc.allOffers || [];
+      allOffers.push(offerEntry);
+
+      // placementDetails always reflects the highest offer
+      const highest = allOffers.reduce((max, o) => (o.package > max.package ? o : max), allOffers[0]);
+
+      await Student.findByIdAndUpdate(studentDoc._id, {
+        $set: {
+          status: 'placed',
+          placementDetails: {
+            companyId: event.companyDetails?.companyId || null,
+            company: highest.company,
+            role: highest.role,
+            package: highest.package,
+            placedDate: studentDoc.placementDetails?.placedDate || new Date()
+          },
+          allOffers
+        }
+      });
+    }
+
     // ✅ Send email + notification
-    const subject = `🎉 Congratulations! You have been selected for ${event.title}`;
+    const emailCompany = event.companyDetails?.companyName || event.title;
+    const emailRole = event.companyDetails?.roles?.[0] || '';
+    const emailCtc = event.companyDetails?.packageDetails?.max || event.companyDetails?.packageDetails?.min || '';
+    const subject = `🎉 Congratulations! You have been selected for ${emailCompany}`;
     const html = `
       <h3>Dear ${studentInfo.name || "Student"},</h3>
-      <p>You have been <b>selected</b> for <b>${event.title}</b>!</p>
+      <p>You have been <b>selected</b> for <b>${emailCompany}</b>!</p>
+      ${emailRole ? `<p><b>Role:</b> ${emailRole}</p>` : ''}
+      ${emailCtc ? `<p><b>CTC:</b> ${emailCtc} LPA</p>` : ''}
       <p>Best wishes from the Placement Team!</p>
     `;
 
@@ -1180,6 +1215,85 @@ exports.getSelectedStudentsForEvent = async (req, res) => {
   }
 };
 
+// ✅ Remove a selected student from an event and revert their placement data
+exports.removeSelectedStudent = asyncHandler(async (req, res) => {
+  try {
+    const { id: eventId } = req.params;
+    const { studentEmail } = req.body;
+
+    if (!studentEmail) {
+      return res.status(400).json({ success: false, message: "Student email is required." });
+    }
+
+    const event = await Calendar.findById(eventId);
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found." });
+    }
+
+    const lowerEmail = studentEmail.toLowerCase();
+    const selectedEntry = event.selectedStudents.find(
+      (s) => s.email?.toLowerCase() === lowerEmail
+    );
+
+    if (!selectedEntry) {
+      return res.status(404).json({ success: false, message: "Student not found in selected list." });
+    }
+
+    // Remove from event's selectedStudents
+    event.selectedStudents = event.selectedStudents.filter(
+      (s) => s.email?.toLowerCase() !== lowerEmail
+    );
+    event.eventSummary.selectedStudents = event.selectedStudents.length;
+    await event.save();
+
+    // Revert the Student model's placement data for this company
+    if (selectedEntry.studentId) {
+      const studentDoc = await Student.findById(selectedEntry.studentId);
+      if (studentDoc) {
+        const companyName = event.companyDetails?.companyName || event.title;
+
+        // Remove the matching offer from allOffers
+        let allOffers = studentDoc.allOffers || [];
+        const offerIdx = allOffers.findIndex(
+          (o) => o.company === companyName
+        );
+        if (offerIdx !== -1) allOffers.splice(offerIdx, 1);
+
+        if (allOffers.length > 0) {
+          // Recalculate placementDetails from remaining offers (highest package)
+          const highest = allOffers.reduce((max, o) => (o.package > max.package ? o : max), allOffers[0]);
+          await Student.findByIdAndUpdate(studentDoc._id, {
+            $set: {
+              allOffers,
+              placementDetails: {
+                company: highest.company,
+                role: highest.role,
+                package: highest.package,
+                placedDate: studentDoc.placementDetails?.placedDate || new Date()
+              }
+            }
+          });
+        } else {
+          // No offers left — reset to pursuing
+          await Student.findByIdAndUpdate(studentDoc._id, {
+            $set: { status: 'pursuing', allOffers: [] },
+            $unset: { placementDetails: '' }
+          });
+        }
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Removed ${selectedEntry.name || selectedEntry.email} from selected list.`,
+      totalSelected: event.selectedStudents.length
+    });
+  } catch (error) {
+    console.error("Error in removeSelectedStudent:", error);
+    return res.status(500).json({ success: false, message: "Internal server error.", error: error.message });
+  }
+});
+
 // ✅ Upload Selected Students File and Update Count
 exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
   try {
@@ -1224,10 +1338,15 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
       sentEmails.add(lowerEmail);
 
       const student = registeredStudent.personalInfo;
-      const subject = `🎉 Congratulations! You have been selected for ${event.title}`;
+      const bulkCompany = event.companyDetails?.companyName || event.title;
+      const bulkRole = event.companyDetails?.roles?.[0] || '';
+      const bulkCtc = event.companyDetails?.packageDetails?.max || event.companyDetails?.packageDetails?.min || '';
+      const subject = `🎉 Congratulations! You have been selected for ${bulkCompany}`;
       const html = `
         <h3>Dear ${student.name || "Student"},</h3>
-        <p>You have been <b>selected</b> in <b>${event.title}</b>!</p>
+        <p>You have been <b>selected</b> in <b>${bulkCompany}</b>!</p>
+        ${bulkRole ? `<p><b>Role:</b> ${bulkRole}</p>` : ''}
+        ${bulkCtc ? `<p><b>CTC:</b> ${bulkCtc} LPA</p>` : ''}
         <p>Best wishes from the Placement Team!</p>
       `;
 
@@ -1267,6 +1386,36 @@ console.log(
         branch: student.branch,
         selectedAt: new Date(),
       });
+
+      // ✅ Sync placement data to Student model (for public page & student profile)
+      if (registeredStudent.studentId) {
+        const companyName = event.companyDetails?.companyName || event.title;
+        const role = event.companyDetails?.roles?.[0] || 'Software Engineer';
+        const pkg = event.companyDetails?.packageDetails?.max || event.companyDetails?.packageDetails?.min || 0;
+
+        const offerEntry = { company: companyName, role, package: pkg, offeredDate: new Date() };
+
+        const studentDoc = await Student.findById(registeredStudent.studentId);
+        if (studentDoc) {
+          const allOffers = studentDoc.allOffers || [];
+          allOffers.push(offerEntry);
+          const highest = allOffers.reduce((max, o) => (o.package > max.package ? o : max), allOffers[0]);
+
+          await Student.findByIdAndUpdate(studentDoc._id, {
+            $set: {
+              status: 'placed',
+              placementDetails: {
+                companyId: event.companyDetails?.companyId || null,
+                company: highest.company,
+                role: highest.role,
+                package: highest.package,
+                placedDate: studentDoc.placementDetails?.placedDate || new Date()
+              },
+              allOffers
+            }
+          });
+        }
+      }
     }
 
     if (notifications.length > 0) await Notification.insertMany(notifications);

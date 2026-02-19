@@ -28,6 +28,8 @@ router.get('/:id/registered-students', calendarController.getRegisteredStudentsF
 router.put('/:id/select-student', calendarController.selectStudentForEvent);
 // ✅ Fetch selected students for an event
 router.get('/:id/selected-students', calendarController.getSelectedStudentsForEvent);
+// ✅ Remove a selected student from an event
+router.put('/:id/remove-selected-student', calendarController.removeSelectedStudent);
 router.get('/:id', calendarController.getEventById);
 
 module.exports = router;

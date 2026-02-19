@@ -11,6 +11,7 @@ import {
   BookOpen,
   Plus,
   ChevronDown,
+  FileSpreadsheet,
 } from "lucide-react";
 
 import Header from "../../components/common/Header";
@@ -25,6 +26,7 @@ import AdminsTab from "./tabs/AdminsTab";
 import ContactsTab from "./tabs/ContactsTab";
 import CRTBatchSection from "./CRTBatchSection";
 import PlacementTrainingBatches from "./PlacementTrainingBatches";
+import PlacementImportTab from "./tabs/PlacementImportTab";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -369,6 +371,7 @@ const AdminDashboard = () => {
     { id: "contacts", label: "Contacts", icon: MessageSquare },
     { id: "crt-batches", label: "CRT Batches", icon: BookOpen },
     { id: "placement-batches", label: "Placement Batches", icon: Briefcase },
+    { id: "placement-import", label: "Import Placement", icon: FileSpreadsheet },
   ];
 
   // ────────────────────────────── Render ──────────────────────────────
@@ -548,6 +551,10 @@ const AdminDashboard = () => {
 
           {activeTab === "placement-batches" && (
             <PlacementTrainingBatches onClose={() => setActiveTab("overview")} />
+          )}
+
+          {activeTab === "placement-import" && (
+            <PlacementImportTab showToast={showToast} />
           )}
 
           {/* Mobile bottom nav */}

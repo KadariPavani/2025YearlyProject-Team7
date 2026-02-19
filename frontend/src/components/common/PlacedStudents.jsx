@@ -5,9 +5,13 @@ const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' 
 console.log('[PlacedStudents] Using API_BASE:', API_BASE);
 
 export default function PlacedStudents() {
-  const [currentIndex, setCurrentIndex] = useState(2);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // touch coordinates for swipe support
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
 
   // Fetch recent placed students for landing page (public endpoint)
   const fetchRef = useRef(null);
@@ -144,11 +148,22 @@ export default function PlacedStudents() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [students]);
 
+  // touch handlers (swipe support)
+  const handleTouchStart = (e) => { touchStartX.current = e.touches[0].clientX; };
+  const handleTouchMove = (e) => { touchEndX.current = e.touches[0].clientX; };
+  const handleTouchEnd = () => {
+    const dx = touchEndX.current - touchStartX.current;
+    if (Math.abs(dx) > 60) {
+      if (dx < 0) nextSlide();
+      else prevSlide();
+    }
+    touchStartX.current = touchEndX.current = 0;
+  };
+
   return (
 <section
   id="students"
-  className="w-full flex flex-col items-center justify-center py-12 md:py-16 lg:py-20 px-0"
-  style={{ background: '#5791ED', minHeight: '500px' }}
+  className="w-full flex flex-col items-center justify-center py-12 md:py-16 lg:py-20 px-0 bg-[#5791ED] min-h-[380px] md:min-h-[500px]"
 >
 
       <div className="text-center mb-6 w-full px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -175,8 +190,8 @@ export default function PlacedStudents() {
 
 {/* 🟩 Shift cards slightly upward */}
 
-{/* Desktop carousel - hidden on small screens */}
-<div className="hidden sm:block relative w-full max-w-7xl h-80 -mt-12 px-4">
+{/* Desktop carousel - visible on md+; hidden on smaller screens */}
+<div className="hidden md:block relative w-full max-w-7xl h-80 -mt-12 px-4" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
   {students.map((s, index) => {
     const style = getCardStyle(index);
     return (
@@ -193,6 +208,8 @@ export default function PlacedStudents() {
         >
           <div className="flex justify-center mb-4">
             <img
+              loading="lazy"
+              decoding="async"
               src={s.profileImageUrl || 'https://ui-avatars.com/api/?background=1e40af&color=fff&name=' + encodeURIComponent(s.name)}
               alt={s.name}
               className="w-32 h-32 rounded-full border-4 border-blue-600 object-cover"
@@ -208,9 +225,13 @@ export default function PlacedStudents() {
           </h3>
 
           <div className="text-sm mb-3" style={{ color: index === currentIndex ? '#374151' : '#1e3a8a' }}>
-            <div className="font-medium">{s.companyName}</div>
-            <div className="text-xs">Roll No: {s.rollNumber}</div>
-            <div className="text-xs">Batch: {s.batchName || 'NA'}</div>
+            {s.companyName && <div className="font-medium">{s.companyName}</div>}
+            <div className="text-xs font-semibold text-blue-600">
+              Roll No: {s.rollNumber || s.rollNo || '—'}
+            </div>
+            {s.batchName && s.batchName !== 'NA' && (
+              <div className="text-xs">Batch: {s.batchName}</div>
+            )}
           </div>
         </div>
       </div>
@@ -226,8 +247,8 @@ export default function PlacedStudents() {
   </button>
 </div>
 
-{/* Mobile stacked list with matching card styles */}
-    <div className="sm:hidden -mt-6 space-y-3 w-full max-w-4xl mx-auto px-4">
+{/* Mobile stacked list with matching card styles (shown below md) */}
+    <div className="md:hidden -mt-6 space-y-3 w-full max-w-4xl mx-auto px-4" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
   {loading ? (
     <div className="text-center py-6 text-white">Loading…</div>
   ) : students.length === 0 ? (
@@ -243,10 +264,21 @@ export default function PlacedStudents() {
           animation: `slideInUp 0.5s ease-out ${index * 0.05}s both`
         }}
       >
-        <img src={t.profileImageUrl || 'https://ui-avatars.com/api/?background=1e40af&color=fff&name=' + encodeURIComponent(t.name)} alt={t.name} className="w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 border-blue-600 object-cover" />
+        <img loading="lazy" decoding="async" src={t.profileImageUrl || 'https://ui-avatars.com/api/?background=1e40af&color=fff&name=' + encodeURIComponent(t.name)} alt={t.name} className="w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 border-blue-600 object-cover" />
         <div className="min-w-0">
           <div className="font-semibold text-xs sm:text-sm text-gray-900 truncate">{t.name}</div>
-          <div className="text-[11px] sm:text-sm text-gray-600 truncate">{t.companyName} • Roll No: {t.rollNumber}</div>          <div className="text-xs sm:text-sm text-gray-500 mt-1">Batch: {t.batchName || 'NA'}</div>          <div className="text-xs sm:text-sm text-gray-500 mt-1">Hometown: {t.hometown || 'NA'}</div>
+          <div className="text-xs sm:text-sm text-blue-600 font-medium truncate">
+            Roll No: {t.rollNumber || t.rollNo || '—'}
+          </div>
+          {t.companyName && (
+            <div className="text-xs sm:text-sm text-gray-600 truncate">{t.companyName}</div>
+          )}
+          {t.batchName && t.batchName !== 'NA' && (
+            <div className="text-xs text-gray-500 mt-0.5">Batch: {t.batchName}</div>
+          )}
+          {t.hometown && t.hometown !== 'NA' && (
+            <div className="text-xs text-gray-500 mt-0.5">Hometown: {t.hometown}</div>
+          )}
         </div>
       </div>
     ))
