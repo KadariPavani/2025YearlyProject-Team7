@@ -143,9 +143,9 @@ const MyBatchesTab = ({ placementBatches, weeklySchedule, getTimeSlotColor, getT
                             <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">{classSession.batchNumber}</div>
                             <div className="text-[10px] sm:text-xs text-gray-500 truncate">{classSession.myAssignment?.subject}</div>
                             <div className="text-[10px] sm:text-xs text-gray-400 mt-0.5">{classSession.scheduleSlot.startTime}-{classSession.scheduleSlot.endTime}</div>
-                            <span className={`mt-1 inline-block px-1 py-0.5 rounded text-[9px] sm:text-[10px] font-medium border ${getTimeSlotColor(classSession.myAssignment?.timeSlot)}`}>
+                            {/* <span className={`mt-1 inline-block px-1 py-0.5 rounded text-[9px] sm:text-[10px] font-medium border ${getTimeSlotColor(classSession.myAssignment?.timeSlot)}`}>
                               {getTimeSlotLabel(classSession.myAssignment?.timeSlot)}
-                            </span>
+                            </span> */}
                           </div>
                         )) : (
                           <div className="text-center py-3 text-gray-300 text-xs">—</div>

@@ -47,6 +47,29 @@ const Tab = ({ active, onClick, icon: Icon, label }) => (
   </button>
 );
 
+// ── type badge ────────────────────────────────────────────────────────────────
+const TypeBadge = ({ type }) => {
+  const styles = {
+    PLACEMENT: 'bg-green-100 text-green-700',
+    INTERNSHIP: 'bg-blue-100 text-blue-700',
+    TRAINING: 'bg-orange-100 text-orange-700',
+  };
+  return (
+    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${styles[type] || styles.PLACEMENT}`}>
+      {type || 'PLACEMENT'}
+    </span>
+  );
+};
+
+// ── compensation display helper ───────────────────────────────────────────────
+const CompensationDisplay = ({ offer, className = '' }) => {
+  const type = offer.type || 'PLACEMENT';
+  if (type === 'PLACEMENT') {
+    return <span className={className}><IndianRupee className="h-3.5 w-3.5 inline" />{offer.package} LPA</span>;
+  }
+  return <span className={className}><IndianRupee className="h-3.5 w-3.5 inline" />{offer.stipend || 0} K/month</span>;
+};
+
 // ── placement offer card ──────────────────────────────────────────────────────
 const OfferCard = ({ offer, onEdit, isHighest }) => (
   <div className={`flex items-center justify-between p-4 rounded-xl border transition-all
@@ -56,14 +79,15 @@ const OfferCard = ({ offer, onEdit, isHighest }) => (
         <Building2 className={`h-5 w-5 ${isHighest ? 'text-purple-600' : 'text-gray-500'}`} />
       </div>
       <div>
-        <p className="text-sm font-semibold text-gray-900">{offer.company}</p>
-        <p className="text-xs text-gray-500">{offer.role || '—'}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold text-gray-900">{offer.company}</p>
+          <TypeBadge type={offer.type} />
+        </div>
+        <p className="text-xs text-gray-500">{offer.role || '—'}{offer.duration && offer.duration !== 'FULL TIME' ? ` · ${offer.duration} months` : ''}</p>
       </div>
     </div>
     <div className="flex items-center gap-3">
-      <span className={`text-sm font-bold flex items-center gap-0.5 ${isHighest ? 'text-purple-600' : 'text-green-600'}`}>
-        <IndianRupee className="h-3.5 w-3.5" />{offer.package} LPA
-      </span>
+      <CompensationDisplay offer={offer} className={`text-sm font-bold flex items-center gap-0.5 ${isHighest ? 'text-purple-600' : 'text-green-600'}`} />
       {isHighest && (
         <span className="text-[10px] font-semibold bg-purple-600 text-white px-2 py-0.5 rounded-full">Best</span>
       )}
@@ -80,15 +104,60 @@ const OfferCard = ({ offer, onEdit, isHighest }) => (
 
 // ── inline placement form ─────────────────────────────────────────────────────
 const PlacementForm = ({ initial = {}, onSave, onCancel, title }) => {
-  const [form, setForm] = useState({ company: '', role: '', package: '', ...initial });
-  const set = (k) => (v) => setForm(p => ({ ...p, [k]: v }));
+  const [form, setForm] = useState({
+    company: '', role: '', package: '', type: 'PLACEMENT', duration: 'FULL TIME', stipend: '',
+    ...initial
+  });
+  const set = (k) => (v) => setForm(p => {
+    const next = { ...p, [k]: v };
+    // Auto-set duration when type changes
+    if (k === 'type') {
+      if (v === 'PLACEMENT') next.duration = 'FULL TIME';
+      else if (p.duration === 'FULL TIME') next.duration = '6';
+    }
+    return next;
+  });
+  const isPlacement = form.type === 'PLACEMENT';
   return (
     <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3 mt-2">
       <p className="text-sm font-semibold text-purple-700">{title}</p>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Field label="Company" value={form.company} onChange={set('company')} placeholder="e.g. Google" required />
         <Field label="Role" value={form.role} onChange={set('role')} placeholder="e.g. Software Engineer" />
-        <Field label="Package (LPA)" type="number" value={form.package} onChange={set('package')} placeholder="e.g. 12.5" required />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+          <select
+            value={form.type || 'PLACEMENT'}
+            onChange={e => set('type')(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 transition-all"
+          >
+            <option value="PLACEMENT">Placement</option>
+            <option value="INTERNSHIP">Internship</option>
+            <option value="TRAINING">Training</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+          <select
+            value={form.duration || 'FULL TIME'}
+            onChange={e => set('duration')(e.target.value)}
+            disabled={isPlacement}
+            className={`w-full px-3 py-2 border rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-400 transition-all
+              ${isPlacement ? 'bg-gray-50 border-gray-100 cursor-not-allowed text-gray-400' : 'bg-white border-gray-200'}`}
+          >
+            <option value="FULL TIME">Full Time</option>
+            {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
+              <option key={m} value={String(m)}>{m} month{m > 1 ? 's' : ''}</option>
+            ))}
+          </select>
+        </div>
+        {isPlacement ? (
+          <Field label="Package (LPA)" type="number" value={form.package} onChange={set('package')} placeholder="e.g. 12.5" required />
+        ) : (
+          <Field label="Stipend (K/month)" type="number" value={form.stipend} onChange={set('stipend')} placeholder="e.g. 25" required />
+        )}
       </div>
       <div className="flex gap-2">
         <button
@@ -476,17 +545,30 @@ const PastStudentPortal = () => {
                       <Building2 className="h-6 w-6 text-purple-600" />
                     </div>
                     <div>
-                      <p className="text-lg font-bold text-gray-900">{placement.placementDetails.company}</p>
-                      <p className="text-sm text-gray-500">{placement.placementDetails.role || '—'}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-lg font-bold text-gray-900">{placement.placementDetails.company}</p>
+                        <TypeBadge type={placement.placementDetails.type} />
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {placement.placementDetails.role || '—'}
+                        {placement.placementDetails.duration && placement.placementDetails.duration !== 'FULL TIME' ? ` · ${placement.placementDetails.duration} months` : ''}
+                      </p>
                       <p className="text-base font-semibold text-purple-600 mt-1 flex items-center gap-0.5">
-                        <IndianRupee className="h-4 w-4" />{placement.placementDetails.package} LPA
+                        <CompensationDisplay offer={placement.placementDetails} className="flex items-center gap-0.5" />
                       </p>
                     </div>
                   </div>
                   {editPrimary && (
                     <PlacementForm
                       title="Edit Primary Placement"
-                      initial={{ company: placement.placementDetails.company, role: placement.placementDetails.role, package: placement.placementDetails.package }}
+                      initial={{
+                        company: placement.placementDetails.company,
+                        role: placement.placementDetails.role,
+                        package: placement.placementDetails.package,
+                        type: placement.placementDetails.type || 'PLACEMENT',
+                        duration: placement.placementDetails.duration || 'FULL TIME',
+                        stipend: placement.placementDetails.stipend || ''
+                      }}
                       onSave={form => savePlacement(form, false, null)}
                       onCancel={() => setEditPrimary(false)}
                     />

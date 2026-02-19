@@ -68,6 +68,9 @@ const upload = multer({
   },
 });
 
+// Legacy public references (must be before /:id to avoid being caught by param route)
+router.get('/all', getPublicReferences);
+
 // Get batches for trainer (both regular and placement)
 router.get('/batches', generalAuth, getTrainerBatches);
 
@@ -100,8 +103,5 @@ router.post('/:id/rate', generalAuth, rateReference);
 
 // Get reference analytics for trainer
 router.get('/:id/analytics', generalAuth, getReferenceAnalytics);
-
-// Legacy public references
-router.get('/all', getPublicReferences);
 
 module.exports = router;

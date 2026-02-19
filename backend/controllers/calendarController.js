@@ -120,17 +120,15 @@ exports.createEvent = async (req, res) => {
       console.log(`🔔 ${studentNotifications.length} student notifications created.`);
     }
 
-    // 4️⃣ Notify all trainers once (fixed)
+    // 4️⃣ Notify all trainers once
 const trainerIds = (await Trainer.find({}, "_id")).map(t => t._id);
 if (trainerIds.length > 0) {
-  // 🔔 Notify trainers about the new placement event
   await notifyTrainerEventUpdate(trainerIds, title, "Created", createdBy);
-
-  // 🔔 Notify all students about the new placement event
-  await notifyStudentEventUpdate(title, "Created", createdBy);
-
-  console.log(`📢 Trainer & Student notifications sent for new event "${title}"`);
+  console.log(`📢 Trainer notifications sent for new event "${title}"`);
 }
+// Note: Student notifications already sent in step 3 above (targeted).
+// Do NOT call notifyStudentEventUpdate() here — it sends to ALL students,
+// causing duplicates for students who already received targeted notifications.
 
 
     res.status(201).json({ success: true, data: newEvent });
@@ -150,11 +148,8 @@ exports.getEvents = asyncHandler(async (req, res) => {
   try {
     let filter = {};
 
-    // 🧑‍🎓 STUDENT → Only events from assigned TPO
+    // 🧑‍🎓 STUDENT → Show ALL events, mark eligibility per event
 if (req.userType === "student") {
-  const studentEmail = req.user.email?.toLowerCase();
-
-  // 1️⃣ Find student
   let student = await Student.findById(req.user.userId);
   if (!student && req.user.email) {
     student = await Student.findOne({ email: req.user.email });
@@ -164,18 +159,18 @@ if (req.userType === "student") {
     return res.status(404).json({ success: false, message: "Student not found" });
   }
 
-  // 2️⃣ Auto-link assigned TPO
+  // Auto-link assigned TPO
   await ensureStudentTpoLink(student);
 
-  // 3️⃣ Filter events:
-  //    - Only show events created by student's assigned TPO
-  //    - Match batch-specific or student-specific targeting
-  filter = {
-    createdBy: student.assignedTpo,
-    $or: [
-      { targetGroup: "batch-specific", targetBatchIds: student.placementTrainingBatchId },
-      { targetGroup: "specific-students", targetStudentIds: student._id }
-    ]
+  // Show all events from the student's assigned TPO (no batch filter)
+  if (student.assignedTpo) {
+    filter = { createdBy: student.assignedTpo };
+  }
+
+  // Store student info for eligibility check after fetching events
+  req._studentInfo = {
+    studentId: student._id,
+    batchId: student.placementTrainingBatchId
   };
 }
 
@@ -191,12 +186,35 @@ if (req.userType === "student") {
       filter = {};
     }
 
-    const events = await Calendar.find(filter)
+    let events = await Calendar.find(filter)
       .populate("createdBy", "name email role")
       .populate("companyDetails.companyId")
       .populate("registrations.studentId", "name rollNo email branch");
 
     console.log(`📅 Found ${events.length} events for filter`, filter);
+
+    // For students, add isEligible flag based on target group
+    if (req._studentInfo) {
+      const { studentId, batchId } = req._studentInfo;
+      events = events.map(event => {
+        const e = event.toObject();
+        // Check if student is eligible to register
+        if (!e.targetGroup || e.targetGroup === 'all') {
+          e.isEligible = true;
+        } else if (e.targetGroup === 'batch-specific') {
+          e.isEligible = (e.targetBatchIds || []).some(
+            id => id.toString() === (batchId ? batchId.toString() : '')
+          );
+        } else if (e.targetGroup === 'specific-students') {
+          e.isEligible = (e.targetStudentIds || []).some(
+            id => id.toString() === studentId.toString()
+          );
+        } else {
+          e.isEligible = true;
+        }
+        return e;
+      });
+    }
 
     res.json({ success: true, data: events });
   } catch (error) {
@@ -995,7 +1013,7 @@ const studentInfo = {
       const role = event.companyDetails?.roles?.[0] || 'Software Engineer';
       const pkg = event.companyDetails?.packageDetails?.max || event.companyDetails?.packageDetails?.min || 0;
 
-      const offerEntry = { company: companyName, role, package: pkg, offeredDate: new Date() };
+      const offerEntry = { company: companyName, role, package: pkg, offeredDate: new Date(), source: 'event' };
 
       // Add to allOffers
       const allOffers = studentDoc.allOffers || [];
@@ -1393,7 +1411,7 @@ console.log(
         const role = event.companyDetails?.roles?.[0] || 'Software Engineer';
         const pkg = event.companyDetails?.packageDetails?.max || event.companyDetails?.packageDetails?.min || 0;
 
-        const offerEntry = { company: companyName, role, package: pkg, offeredDate: new Date() };
+        const offerEntry = { company: companyName, role, package: pkg, offeredDate: new Date(), source: 'event' };
 
         const studentDoc = await Student.findById(registeredStudent.studentId);
         if (studentDoc) {

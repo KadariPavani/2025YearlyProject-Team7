@@ -256,13 +256,61 @@ const sanitizeCellValue = (value) => {
 };
 
 /**
+ * Parse placement type from various formats
+ * @param {string} type - Type value
+ * @returns {string|null} - Normalized type or null if invalid
+ */
+const parseType = (type) => {
+  if (!type) return null;
+  const normalized = String(type).trim().toUpperCase();
+  const mapping = {
+    'PLACEMENT': 'PLACEMENT',
+    'PLACED': 'PLACEMENT',
+    'FTE': 'PLACEMENT',
+    'FULL TIME': 'PLACEMENT',
+    'INTERNSHIP': 'INTERNSHIP',
+    'INTERN': 'INTERNSHIP',
+    'TRAINING': 'TRAINING',
+    'TRAIN': 'TRAINING',
+  };
+  return mapping[normalized] || null;
+};
+
+/**
+ * Parse duration from various formats
+ * @param {string|number} duration - Duration value
+ * @returns {string|null} - Normalized duration or null if invalid
+ */
+const parseDuration = (duration) => {
+  if (duration === null || duration === undefined) return null;
+  const normalized = String(duration).trim().toUpperCase();
+  if (normalized === 'FULL TIME' || normalized === 'FT' || normalized === 'FULLTIME') return 'FULL TIME';
+  const num = parseInt(normalized);
+  if (!isNaN(num) && num >= 1 && num <= 12) return String(num);
+  return null;
+};
+
+/**
+ * Parse compensation value (works for both LPA and K/month)
+ * @param {string|number} value - Compensation value
+ * @returns {number|null} - Parsed numeric value
+ */
+const parseCompensation = (value) => {
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  const numericStr = String(value).replace(/[^0-9.]/g, '');
+  const parsed = parseFloat(numericStr);
+  if (isNaN(parsed)) return null;
+  return parsed;
+};
+
+/**
  * Validate required fields for placement data
  * @param {Object} row - Row data
  * @returns {Object} - { valid: boolean, errors: string[] }
  */
 const validateRequiredFields = (row) => {
   const errors = [];
-  const requiredFields = ['Roll No', 'Name', 'College', 'Branch', 'Year', 'Company', 'CTC (LPA)'];
+  const requiredFields = ['Roll No', 'Name', 'College', 'Branch', 'Year', 'Company', 'Type', 'Compensation'];
 
   // Normalize row keys by removing asterisks
   const normalizedRow = {};
@@ -310,5 +358,8 @@ module.exports = {
   generateFileHash,
   sanitizeCellValue,
   validateRequiredFields,
-  generateUniqueEmail
+  generateUniqueEmail,
+  parseType,
+  parseDuration,
+  parseCompensation
 };

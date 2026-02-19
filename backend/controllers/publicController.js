@@ -78,9 +78,12 @@ const getPlacedStudents = async (req, res) => {
           companyName: '$placementDetails.company',
           role: '$placementDetails.role',
           package: '$placementDetails.package',
+          type: { $ifNull: ['$placementDetails.type', 'PLACEMENT'] },
+          duration: { $ifNull: ['$placementDetails.duration', 'FULL TIME'] },
+          stipend: { $ifNull: ['$placementDetails.stipend', 0] },
           placedDate: '$placementDetails.placedDate',
           batchName: '$batch.batchNumber',
-          allOffers: 1 // All companies that selected the student
+          allOffers: 1
         }
       },
       { $sort: { placedDate: -1 } },
@@ -171,9 +174,10 @@ const getPlacementStatistics = async (req, res) => {
       }
     ]);
 
-    // Package-wise distribution
+    // Package-wise distribution (PLACEMENT type only)
+    const placementQuery = { ...query, $or: [{ 'placementDetails.type': 'PLACEMENT' }, { 'placementDetails.type': { $exists: false } }] };
     const packageWise = await Student.aggregate([
-      { $match: query },
+      { $match: placementQuery },
       {
         $bucket: {
           groupBy: '$placementDetails.package',
@@ -209,12 +213,32 @@ const getPlacementStatistics = async (req, res) => {
       };
     });
 
+    // Type-wise distribution
+    const typeWise = await Student.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: { $ifNull: ['$placementDetails.type', 'PLACEMENT'] },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          type: '$_id',
+          count: 1,
+          _id: 0
+        }
+      },
+      { $sort: { count: -1 } }
+    ]);
+
     res.json({
       success: true,
       message: 'Statistics fetched',
       data: {
         companyWise,
-        packageWise: packageRanges
+        packageWise: packageRanges,
+        typeWise
       }
     });
   } catch (error) {
@@ -255,7 +279,9 @@ const downloadPlacementsExcel = async (req, res) => {
       { header: 'Branch', key: 'branch', width: 15 },
       { header: 'Year', key: 'year', width: 10 },
       { header: 'Company', key: 'company', width: 25 },
-      { header: 'CTC (LPA)', key: 'ctc', width: 12 },
+      { header: 'Type', key: 'type', width: 14 },
+      { header: 'Duration', key: 'duration', width: 14 },
+      { header: 'Compensation', key: 'compensation', width: 16 },
       { header: 'Role', key: 'role', width: 20 },
       { header: 'FMML', key: 'fmml', width: 10 },
       { header: 'KHUB', key: 'khub', width: 10 }
@@ -269,6 +295,11 @@ const downloadPlacementsExcel = async (req, res) => {
     // Add data rows
     placedStudents.forEach(student => {
       const isKHub = student.otherClubs?.includes('k-hub');
+      const pd = student.placementDetails || {};
+      const type = pd.type || 'PLACEMENT';
+      const compensation = type === 'PLACEMENT'
+        ? `${pd.package || 0} LPA`
+        : `${pd.stipend || 0} K/month`;
 
       sheet.addRow({
         rollNo: student.rollNo,
@@ -278,9 +309,11 @@ const downloadPlacementsExcel = async (req, res) => {
         college: student.college,
         branch: student.branch,
         year: student.yearOfPassing,
-        company: student.placementDetails?.company || 'N/A',
-        ctc: student.placementDetails?.package || 'N/A',
-        role: student.placementDetails?.role || 'N/A',
+        company: pd.company || 'N/A',
+        type,
+        duration: pd.duration || 'FULL TIME',
+        compensation,
+        role: pd.role || 'N/A',
         fmml: isKHub ? 'Yes' : 'No',
         khub: isKHub ? 'Yes' : 'No'
       });

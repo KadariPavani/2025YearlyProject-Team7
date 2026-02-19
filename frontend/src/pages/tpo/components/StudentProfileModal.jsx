@@ -478,7 +478,20 @@ const StudentProfileModal = ({ student, onClose }) => {
               <div className="grid grid-cols-2 gap-2">
                 <InfoRow label="Company" value={student.placementDetails.company} />
                 <InfoRow label="Role" value={student.placementDetails.role} />
-                {student.placementDetails.package && <InfoRow label="Package" value={`${student.placementDetails.package} LPA`} />}
+                <InfoRow label="Type" value={
+                  (() => {
+                    const t = student.placementDetails.type || 'PLACEMENT';
+                    const s = { PLACEMENT: 'bg-green-100 text-green-700', INTERNSHIP: 'bg-blue-100 text-blue-700', TRAINING: 'bg-orange-100 text-orange-700' };
+                    return <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${s[t] || s.PLACEMENT}`}>{t}</span>;
+                  })()
+                } />
+                {student.placementDetails.duration && student.placementDetails.duration !== 'FULL TIME' && (
+                  <InfoRow label="Duration" value={`${student.placementDetails.duration} months`} />
+                )}
+                {(student.placementDetails.type || 'PLACEMENT') === 'PLACEMENT'
+                  ? student.placementDetails.package && <InfoRow label="Package" value={`${student.placementDetails.package} LPA`} />
+                  : <InfoRow label="Stipend" value={`${student.placementDetails.stipend || 0} K/month`} />
+                }
                 {student.placementDetails.location && <InfoRow label="Location" value={student.placementDetails.location} icon={Location} />}
               </div>
             </div>

@@ -1,4 +1,3 @@
-const bcrypt = require('bcryptjs');
 const Batch = require('../models/Batch');
 const PlacementTrainingBatch = require('../models/PlacementTrainingBatch');
 const Trainer = require('../models/Trainer');
@@ -232,8 +231,6 @@ const createStudentInBatch = async (req, res) => {
     const existing = await Student.findOne({ $or: [{ email }, { rollNo }] });
     if (existing) return res.status(400).json({ success: false, message: 'Student with same email or roll number already exists' });
 
-    const hashedPassword = await bcrypt.hash(rollNo, 10);
-
     const student = new Student({
       name,
       email,
@@ -242,7 +239,7 @@ const createStudentInBatch = async (req, res) => {
       branch,
       college,
       phonenumber,
-      password: hashedPassword,
+      password: rollNo, // plain text — pre-save hook will hash it once
       batchId: batch._id,
       yearOfPassing: batch.batchNumber
     });
@@ -321,8 +318,8 @@ const updateStudent = async (req, res) => {
       const exists = await Student.findOne({ rollNo: updates.rollNo, _id: { $ne: studentId } });
       if (exists) return res.status(400).json({ success: false, message: 'Roll number already exists' });
       student.username = updates.rollNo;
-      // Reset password to new rollNo
-      student.password = await bcrypt.hash(updates.rollNo, 10);
+      // Reset password to new rollNo — pre-save hook will hash it
+      student.password = updates.rollNo;
     }
     if (updates.email && updates.email !== student.email) {
       const exists = await Student.findOne({ email: updates.email, _id: { $ne: studentId } });

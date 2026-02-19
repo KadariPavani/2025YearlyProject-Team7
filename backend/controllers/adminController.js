@@ -16,6 +16,7 @@ const ExcelJS = require('exceljs');
 const { ok, created, badRequest, unauthorized, notFound, serverError, forbidden } = require('../utils/http');
 const { createOtp, verifyOtp, consumeOtp } = require('../utils/otp');
 const ImportHistory = require('../models/ImportHistory');
+const Calendar = require('../models/Calendar');
 const {
   normalizeRollNo,
   normalizeCollege,
@@ -26,7 +27,10 @@ const {
   generateFileHash,
   sanitizeCellValue,
   validateRequiredFields,
-  generateUniqueEmail
+  generateUniqueEmail,
+  parseType,
+  parseDuration,
+  parseCompensation
 } = require('../utils/placementDataHelpers');
 
 
@@ -1342,23 +1346,25 @@ const createCrtBatch = async (req, res) => {
     console.log('Batch Creation: Batch created:', batch._id);
     console.log('Allowed Tech Stacks:', allowedTechStacks);
 
-    // Hash passwords and prepare student data
-    const studentsData = [];
-    for (let row of data) {
-      const hashedPassword = await bcrypt.hash(row['roll number'].trim(), 10);
-      studentsData.push({
-        name: row.name.trim(),
-        email: row.email.trim(),
-        username: row['roll number'].trim(),
-        rollNo: row['roll number'].trim(),
-        branch: row.branch.trim(),
-        college: row.college.trim(),
-        phonenumber: row.phonenumber.toString().trim(),
-        password: hashedPassword,
-        batchId: batch._id,
-        yearOfPassing: batchNumber,
-      });
-    }
+    // Prepare student data and hash passwords in parallel batches
+    const studentsData = data.map(row => ({
+      name: row.name.trim(),
+      email: row.email.trim(),
+      username: row['roll number'].trim(),
+      rollNo: row['roll number'].trim(),
+      branch: row.branch.trim(),
+      college: row.college.trim(),
+      phonenumber: row.phonenumber.toString().trim(),
+      _rawPassword: row['roll number'].trim(),
+      batchId: batch._id,
+      yearOfPassing: batchNumber,
+    }));
+
+    const hashes = await Promise.all(studentsData.map(s => bcrypt.hash(s._rawPassword, 10)));
+    studentsData.forEach((s, i) => {
+      s.password = hashes[i];
+      delete s._rawPassword;
+    });
 
     // Check which roll numbers already exist (e.g. from past placement import)
     const allRollNos = studentsData.map(s => s.rollNo);
@@ -1562,7 +1568,9 @@ const downloadPlacementTemplate = async (req, res) => {
       { header: 'Branch', key: 'branch', width: 15 },
       { header: 'Year', key: 'year', width: 10 },
       { header: 'Company', key: 'company', width: 25 },
-      { header: 'CTC (LPA)', key: 'ctc', width: 12 },
+      { header: 'Type', key: 'type', width: 15 },
+      { header: 'Duration', key: 'duration', width: 15 },
+      { header: 'Compensation', key: 'compensation', width: 15 },
       { header: 'Role', key: 'role', width: 20 }
     ];
 
@@ -1571,7 +1579,7 @@ const downloadPlacementTemplate = async (req, res) => {
     sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0066CC' } };
     sheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
-    // Add example row
+    // Add example rows for each type
     sheet.addRow({
       rollNo: '21001A0501',
       name: 'John Doe',
@@ -1581,8 +1589,24 @@ const downloadPlacementTemplate = async (req, res) => {
       branch: 'CSD',
       year: '2025',
       company: 'Google',
-      ctc: '12.5',
+      type: 'PLACEMENT',
+      duration: 'FULL TIME',
+      compensation: '12.5',
       role: 'Software Engineer'
+    });
+    sheet.addRow({
+      rollNo: '21001A0502',
+      name: 'Jane Smith',
+      email: 'jane.smith@example.com',
+      phone: '9876543211',
+      college: 'KIET',
+      branch: 'CSE',
+      year: '2025',
+      company: 'Microsoft',
+      type: 'INTERNSHIP',
+      duration: '6',
+      compensation: '25',
+      role: 'Software Intern'
     });
 
     // Add data validation for specific columns
@@ -1604,6 +1628,24 @@ const downloadPlacementTemplate = async (req, res) => {
       };
     }
 
+    // Type validation
+    for (let i = 2; i <= 1000; i++) {
+      sheet.getCell(`I${i}`).dataValidation = {
+        type: 'list',
+        allowBlank: false,
+        formulae: ['"PLACEMENT,INTERNSHIP,TRAINING"']
+      };
+    }
+
+    // Duration validation
+    for (let i = 2; i <= 1000; i++) {
+      sheet.getCell(`J${i}`).dataValidation = {
+        type: 'list',
+        allowBlank: false,
+        formulae: ['"FULL TIME,1,2,3,4,5,6,7,8,9,10,11,12"']
+      };
+    }
+
     // Sheet 2: Instructions
     const instructionsSheet = workbook.addWorksheet('Instructions');
     instructionsSheet.getColumn(1).width = 80;
@@ -1617,20 +1659,21 @@ const downloadPlacementTemplate = async (req, res) => {
     instructionsSheet.addRow(['- Branch: Must be AID, CSM, CAI, CSD, CSC, CSE, ECE, MECH, CIVIL, or EEE']);
     instructionsSheet.addRow(['- Year: Passout year (e.g., 2025)']);
     instructionsSheet.addRow(['- Company: Company name']);
-    instructionsSheet.addRow(['- CTC (LPA): Package in Lakhs Per Annum (e.g., 12.5, can be 0 for internships/PPO)']);
+    instructionsSheet.addRow(['- Type: PLACEMENT, INTERNSHIP, or TRAINING']);
+    instructionsSheet.addRow(['- Compensation: For PLACEMENT = CTC in LPA (e.g., 12.5). For INTERNSHIP/TRAINING = Stipend in K/month (e.g., 25)']);
     instructionsSheet.addRow([]);
     instructionsSheet.addRow(['Optional Fields:']).font = { bold: true };
     instructionsSheet.addRow(['- Email: If not provided, a placeholder will be generated']);
     instructionsSheet.addRow(['- Phone: If not provided, defaults to 0000000000']);
+    instructionsSheet.addRow(['- Duration: FULL TIME for placements, or 1-12 (months) for internships/training. Auto-defaults based on Type.']);
     instructionsSheet.addRow(['- Role: Job role (defaults to "Software Engineer" if empty)']);
     instructionsSheet.addRow([]);
     instructionsSheet.addRow(['Important Notes:']).font = { bold: true };
     instructionsSheet.addRow(['1. Do not modify column headers']);
-    instructionsSheet.addRow(['2. Delete the example row before uploading']);
+    instructionsSheet.addRow(['2. Delete the example rows before uploading']);
     instructionsSheet.addRow(['3. For existing students, data will be updated; for new students, profiles will be created']);
-    instructionsSheet.addRow(['4. Students can have multiple rows with different companies (system will store highest package)']);
-    instructionsSheet.addRow(['5. CTC can be 0 for internships or PPO without immediate compensation']);
-    instructionsSheet.addRow(['6. Maximum 5000 rows per upload']);
+    instructionsSheet.addRow(['4. Students can have multiple rows with different companies (system ranks: PLACEMENT > TRAINING > INTERNSHIP, then by compensation)']);
+    instructionsSheet.addRow(['5. Maximum 5000 rows per upload']);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="Placement_Import_Template.xlsx"');
@@ -1725,9 +1768,13 @@ const uploadPastPlacements = async (req, res) => {
       const college = normalizeCollege(row['College']);
       const branch = normalizeBranch(row['Branch']);
       const year = normalizeYear(row['Year']);
-      const ctc = parseCTC(row['CTC (LPA)']);
       const phone = normalizePhone(row['Phone']);
       const company = String(row['Company']).trim();
+
+      // Parse type, duration, compensation
+      const type = parseType(row['Type']);
+      const rawDuration = row['Duration'];
+      const compensation = parseCompensation(row['Compensation']);
 
       // Check for exact duplicates (same roll number AND same company)
       const rollNoCompanyKey = `${rollNo}-${company.toUpperCase()}`;
@@ -1777,16 +1824,72 @@ const uploadPastPlacements = async (req, res) => {
         return;
       }
 
-      if (ctc === null || ctc === undefined || ctc < 0) {
+      if (!type) {
         errors.push({
           row: rowNum,
           rollNo,
-          field: 'CTC (LPA)',
-          error: 'Invalid CTC. Must be a number (0 or greater)',
+          field: 'Type',
+          error: 'Invalid type. Must be PLACEMENT, INTERNSHIP, or TRAINING',
           severity: 'critical'
         });
         return;
       }
+
+      if (compensation === null || compensation < 0) {
+        errors.push({
+          row: rowNum,
+          rollNo,
+          field: 'Compensation',
+          error: 'Invalid compensation. Must be a number (0 or greater)',
+          severity: 'critical'
+        });
+        return;
+      }
+
+      // Auto-derive duration based on type if not provided
+      let duration;
+      if (rawDuration !== null && rawDuration !== undefined && String(rawDuration).trim() !== '') {
+        duration = parseDuration(rawDuration);
+        if (!duration) {
+          errors.push({
+            row: rowNum,
+            rollNo,
+            field: 'Duration',
+            error: 'Invalid duration. Must be FULL TIME or 1-12 (months)',
+            severity: 'critical'
+          });
+          return;
+        }
+      } else {
+        // Default: PLACEMENT → FULL TIME, INTERNSHIP/TRAINING → 6 months
+        duration = type === 'PLACEMENT' ? 'FULL TIME' : '6';
+      }
+
+      // Cross-validate type vs duration
+      if (type === 'PLACEMENT' && duration !== 'FULL TIME') {
+        errors.push({
+          row: rowNum,
+          rollNo,
+          field: 'Duration',
+          error: 'PLACEMENT type must have FULL TIME duration',
+          severity: 'critical'
+        });
+        return;
+      }
+      if ((type === 'INTERNSHIP' || type === 'TRAINING') && duration === 'FULL TIME') {
+        errors.push({
+          row: rowNum,
+          rollNo,
+          field: 'Duration',
+          error: `${type} type must have a duration in months (1-12), not FULL TIME`,
+          severity: 'critical'
+        });
+        return;
+      }
+
+      // Store ctc or stipend based on type
+      const ctc = type === 'PLACEMENT' ? compensation : 0;
+      const stipend = type !== 'PLACEMENT' ? compensation : 0;
 
       // Build valid row object
       validRows.push({
@@ -1799,6 +1902,9 @@ const uploadPastPlacements = async (req, res) => {
         year,
         company: String(row['Company']).trim(),
         ctc,
+        type,
+        duration,
+        stipend,
         role: row['Role'] ? String(row['Role']).trim() : 'Software Engineer',
         originalRow: rowNum
       });
@@ -1863,9 +1969,10 @@ const previewImport = async (req, res) => {
       });
     }
 
-    // Group rows by roll number and select highest package for each
+    // Group rows by roll number and select highest-ranked for each
     const studentDataMap = new Map();
     const multipleOffersMap = new Map(); // Track students with multiple offers
+    const typeRank = { PLACEMENT: 3, TRAINING: 2, INTERNSHIP: 1 };
 
     importHistory.validRows.forEach(row => {
       const existing = studentDataMap.get(row.rollNo);
@@ -1879,8 +1986,10 @@ const previewImport = async (req, res) => {
         }
         multipleOffersMap.get(row.rollNo).push(row);
 
-        // Keep the highest package
-        if (row.ctc > existing.ctc) {
+        // Type-aware ranking: PLACEMENT > TRAINING > INTERNSHIP, then by compensation
+        const existingRank = typeRank[existing.type] || 0;
+        const rowRank = typeRank[row.type] || 0;
+        if (rowRank > existingRank || (rowRank === existingRank && (row.ctc + (row.stipend || 0)) > (existing.ctc + (existing.stipend || 0)))) {
           studentDataMap.set(row.rollNo, row);
         }
       }
@@ -1909,6 +2018,8 @@ const previewImport = async (req, res) => {
         toUpdate.push({
           rollNo: row.rollNo,
           name: row.name,
+          type: row.type || 'PLACEMENT',
+          stipend: row.stipend || 0,
           currentData: {
             name: existing.name,
             company: existing.placementDetails?.company || 'Not placed',
@@ -1918,6 +2029,8 @@ const previewImport = async (req, res) => {
           newData: {
             company: row.company + offersText,
             package: row.ctc,
+            type: row.type || 'PLACEMENT',
+            stipend: row.stipend || 0,
             yearOfPassing: row.year
           }
         });
@@ -1930,6 +2043,9 @@ const previewImport = async (req, res) => {
           year: row.year,
           company: row.company + offersText,
           package: row.ctc,
+          type: row.type || 'PLACEMENT',
+          duration: row.duration || 'FULL TIME',
+          stipend: row.stipend || 0,
           role: row.role
         });
       }
@@ -2017,15 +2133,26 @@ const confirmImport = async (req, res) => {
     for (const [rollNo, offers] of studentOffersMap.entries()) {
       const existing = existingMap.get(rollNo);
 
-      // Find highest package offer
-      const highestOffer = offers.reduce((max, offer) =>
-        offer.ctc > max.ctc ? offer : max
-      );
+      // Type-aware ranking: PLACEMENT > TRAINING > INTERNSHIP, then by compensation
+      const typeRank = { PLACEMENT: 3, TRAINING: 2, INTERNSHIP: 1 };
+      const highestOffer = offers.reduce((max, offer) => {
+        const maxRank = typeRank[max.type] || 0;
+        const offerRank = typeRank[offer.type] || 0;
+        if (offerRank > maxRank) return offer;
+        if (offerRank < maxRank) return max;
+        // Same type: compare compensation (ctc for PLACEMENT, stipend for others)
+        const maxComp = max.type === 'PLACEMENT' ? max.ctc : (max.stipend || 0);
+        const offerComp = offer.type === 'PLACEMENT' ? offer.ctc : (offer.stipend || 0);
+        return offerComp > maxComp ? offer : max;
+      });
 
-      // Store final placement (highest package)
+      // Store final placement (highest-ranked offer)
       const placementData = {
         company: highestOffer.company,
         package: highestOffer.ctc,
+        type: highestOffer.type || 'PLACEMENT',
+        duration: highestOffer.duration || 'FULL TIME',
+        stipend: highestOffer.stipend || 0,
         placedDate: new Date(),
         role: highestOffer.role
       };
@@ -2035,7 +2162,11 @@ const confirmImport = async (req, res) => {
         company: offer.company,
         role: offer.role,
         package: offer.ctc,
-        offeredDate: new Date()
+        type: offer.type || 'PLACEMENT',
+        duration: offer.duration || 'FULL TIME',
+        stipend: offer.stipend || 0,
+        offeredDate: new Date(),
+        source: 'import'
       }));
 
       if (existing) {
@@ -2059,14 +2190,13 @@ const confirmImport = async (req, res) => {
           });
         }
       } else {
-        // Create new student
+        // Create new student (password will be hashed in bulk below)
         const username = rollNo.toLowerCase();
         const email = generateUniqueEmail(rollNo, highestOffer.email);
-        const password = generatePassword();
 
         toCreate.push({
           username,
-          password,
+          _rawPassword: rollNo, // temporary — will be replaced with hash
           passwordChanged: false,
           name: highestOffer.name,
           rollNo: rollNo,
@@ -2081,6 +2211,15 @@ const confirmImport = async (req, res) => {
           isActive: false // Mark imported students as inactive
         });
       }
+    }
+
+    // Hash all passwords in parallel (salt=6 for bulk import — accounts are inactive, password=rollNo)
+    if (toCreate.length > 0) {
+      const hashes = await Promise.all(toCreate.map(s => bcrypt.hash(s._rawPassword, 6)));
+      toCreate.forEach((s, i) => {
+        s.password = hashes[i];
+        delete s._rawPassword;
+      });
     }
 
     // Execute bulk operations
@@ -2190,7 +2329,8 @@ const migrateAllOffers = async (req, res) => {
             company: row.company,
             role: row.role || 'Software Engineer',
             package: row.ctc,
-            offeredDate: new Date()
+            offeredDate: new Date(),
+            source: 'import'
           }]);
         }
       }
@@ -2226,12 +2366,13 @@ const migrateAllOffers = async (req, res) => {
         // Use offers from import history (includes ALL companies)
         allOffersData = importOffers;
       } else {
-        // Fallback: use current placementDetails (student not from import)
+        // Fallback: use current placementDetails (student not from import — likely from event)
         allOffersData = [{
           company: student.placementDetails.company,
           role: student.placementDetails.role || 'Not specified',
           package: student.placementDetails.package,
-          offeredDate: student.placementDetails.placedDate || new Date()
+          offeredDate: student.placementDetails.placedDate || new Date(),
+          source: 'event'
         }];
       }
 
@@ -2281,39 +2422,113 @@ const migrateAllOffers = async (req, res) => {
 // @access Admin only
 const deleteAllPastStudents = async (req, res) => {
   try {
-    // 1. Delete students that were created purely by the past-placement import
-    //    (they have a placeholder email, no active batch, and are inactive)
-    const deleteResult = await Student.deleteMany({
-      email: { $regex: /imported\.placeholder/i },
-      isActive: false,
-      batchId: { $exists: false }
-    });
-
-    // 2. Clear placement data for existing active students whose records were
-    //    updated by the import (they have a batchId but got placement details
-    //    set from the Excel). Reset them to 'pursuing' so re-import works cleanly.
-    const clearResult = await Student.updateMany(
-      {
-        batchId: { $exists: true },
-        $or: [
-          { 'placementDetails.company': { $exists: true, $ne: null } },
-          { allOffers: { $exists: true, $not: { $size: 0 } } }
-        ]
-      },
-      {
-        $set: { status: 'pursuing' },
-        $unset: { placementDetails: '', allOffers: '' }
-      }
+    // ── Build a map of studentId → calendar event offer data ──
+    // This is the source of truth for event placements. If confirmImport
+    // overwrote allOffers, we reconstruct the event offer from here.
+    const eventsWithSelections = await Calendar.find(
+      { 'selectedStudents.0': { $exists: true } }
     );
 
-    // 3. Delete all ImportHistory records so the same file can be re-uploaded
+    // Map: studentId string → array of reconstructed event offers
+    const eventOfferMap = new Map();
+    for (const ev of eventsWithSelections) {
+      const companyName = ev.companyDetails?.companyName || ev.title;
+      const role = ev.companyDetails?.roles?.[0] || 'Software Engineer';
+      const pkg = ev.companyDetails?.packageDetails?.max || ev.companyDetails?.packageDetails?.min || 0;
+
+      for (const s of ev.selectedStudents) {
+        if (!s.studentId) continue;
+        const sid = s.studentId.toString();
+        if (!eventOfferMap.has(sid)) eventOfferMap.set(sid, []);
+        eventOfferMap.get(sid).push({
+          company: companyName,
+          role,
+          package: pkg,
+          offeredDate: s.selectedAt || new Date(),
+          source: 'event'
+        });
+      }
+    }
+
+    // ── Step 1: Delete students created purely by the Excel import ──
+    // (inactive, no batch) but SKIP any student placed via a calendar event.
+    const importOnlyCandidates = await Student.find({
+      isActive: false,
+      $or: [
+        { batchId: { $exists: false } },
+        { batchId: null }
+      ]
+    }, '_id');
+
+    const idsToDelete = importOnlyCandidates
+      .filter(s => !eventOfferMap.has(s._id.toString()))
+      .map(s => s._id);
+
+    const deleteResult = await Student.deleteMany({ _id: { $in: idsToDelete } });
+
+    // ── Step 2: For ALL students with placement data, remove import offers ──
+    // Keep any offer NOT tagged 'import'. If confirmImport overwrote the event
+    // offers (keptOffers is empty), reconstruct them from Calendar data.
+    const studentsWithPlacement = await Student.find({
+      $or: [
+        { 'placementDetails.company': { $exists: true, $ne: null } },
+        { 'allOffers.0': { $exists: true } }
+      ]
+    });
+
+    let clearedCount = 0;
+    for (const student of studentsWithPlacement) {
+      const allOffers = student.allOffers || [];
+      const hasImportOffers = allOffers.some(o => o.source === 'import');
+      if (!hasImportOffers) continue; // nothing to clean on this student
+
+      // Keep every offer that is NOT from the import
+      let keptOffers = allOffers.filter(o => o.source !== 'import');
+
+      // If no offers remain but Calendar shows this student was event-placed,
+      // reconstruct the event offers from Calendar data
+      const sid = student._id.toString();
+      if (keptOffers.length === 0 && eventOfferMap.has(sid)) {
+        keptOffers = eventOfferMap.get(sid);
+      }
+
+      if (keptOffers.length > 0) {
+        // Recalculate placementDetails from the remaining offers (highest package)
+        const highest = keptOffers.reduce(
+          (max, o) => ((o.package || 0) > (max.package || 0) ? o : max),
+          keptOffers[0]
+        );
+        await Student.findByIdAndUpdate(student._id, {
+          $set: {
+            allOffers: keptOffers,
+            placementDetails: {
+              companyId: student.placementDetails?.companyId || null,
+              company: highest.company,
+              role: highest.role,
+              package: highest.package,
+              placedDate: student.placementDetails?.placedDate || new Date()
+            },
+            status: 'placed'
+          }
+        });
+      } else {
+        // No event offers at all — safe to clear everything
+        await Student.findByIdAndUpdate(student._id, {
+          $set: { status: 'pursuing', allOffers: [] },
+          $unset: { placementDetails: '' }
+        });
+      }
+      clearedCount++;
+    }
+
+    // ── Step 3: Wipe ImportHistory so the same file can be re-uploaded ──
     await ImportHistory.deleteMany({});
 
     return res.json({
       success: true,
-      message: `Reset complete: ${deleteResult.deletedCount} past student(s) deleted, ${clearResult.modifiedCount} active student placement record(s) cleared, import history wiped.`,
+      message: `Reset complete: ${deleteResult.deletedCount} past student(s) deleted, ${clearedCount} active student placement record(s) cleared, import history wiped.`,
       deletedCount: deleteResult.deletedCount,
-      clearedCount: clearResult.modifiedCount
+      clearedCount
     });
   } catch (error) {
     console.error('Delete all past students error:', error);

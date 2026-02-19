@@ -114,6 +114,7 @@ const mapped = data.map((e) => {
     placed: e.eventSummary?.selectedStudents || 0,
     externalLink: e.companyDetails?.externalLink || "",
     targetGroup: e.targetGroup || "both",
+    isEligible: e.isEligible !== undefined ? e.isEligible : true,
   };
 });
 
@@ -541,6 +542,8 @@ const canRegisterForEvent = (eventStartDate) => {
                           {event.status === 'scheduled' ? (
                             registeredEventIds.includes(event.id) ? (
                               <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs">Registered</span>
+                            ) : !event.isEligible ? (
+                              <span className="px-2.5 py-1 bg-gray-200 text-gray-500 rounded text-xs cursor-not-allowed">Not Eligible</span>
                             ) : canRegisterForEvent(event.startDate) ? (
                               <button onClick={(e)=>{e.stopPropagation(); handleOpenRegistration(event);}} className="px-2.5 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700">Register</button>
                             ) : (
@@ -602,6 +605,8 @@ const canRegisterForEvent = (eventStartDate) => {
                               {event.status === 'scheduled' && (
                                 registeredEventIds.includes(eid) ? (
                                   <span className="text-xs text-green-700 bg-green-100 px-3 py-1 rounded font-medium">Registered</span>
+                                ) : !event.isEligible ? (
+                                  <span className="text-xs text-gray-500 bg-gray-200 px-3 py-1 rounded font-medium cursor-not-allowed">Not Eligible</span>
                                 ) : canRegisterForEvent(event.startDate) ? (
                                   <button onClick={() => handleOpenRegistration(event)} className="text-xs text-white bg-blue-600 px-3 py-1 rounded font-medium hover:bg-blue-700">Register</button>
                                 ) : (

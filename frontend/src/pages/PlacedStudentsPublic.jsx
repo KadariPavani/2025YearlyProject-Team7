@@ -39,6 +39,7 @@ export default function PlacedStudentsPublic() {
   const [companyFilter, setCompanyFilter] = useState('all');
   const [yearFilter, setYearFilter]       = useState('all');
   const [packageFilter, setPackageFilter] = useState('all');
+  const [typeFilter, setTypeFilter]       = useState('all');
 
   // table UI state
   const [sortBy, setSortBy] = useState('package'); // default: sort by package desc
@@ -110,6 +111,7 @@ export default function PlacedStudentsPublic() {
     const matchSearch  = !q || s.name?.toLowerCase().includes(q) || (s.rollNo || '').toLowerCase().includes(q);
     const matchCompany = companyFilter === 'all' || (s.companyName || 'Unknown') === companyFilter;
     const matchYear    = yearFilter === 'all' || s.yearOfPassing == yearFilter;
+    const matchType    = typeFilter === 'all' || (s.type || 'PLACEMENT') === typeFilter;
     let   matchPkg     = true;
     if (packageFilter !== 'all' && s.package) {
       const p = parseFloat(s.package);
@@ -119,17 +121,19 @@ export default function PlacedStudentsPublic() {
       else if (packageFilter === '10-20') matchPkg = p >= 10 && p < 20;
       else if (packageFilter === '20+')   matchPkg = p >= 20;
     }
-    return matchSearch && matchCompany && matchYear && matchPkg;
+    return matchSearch && matchCompany && matchYear && matchPkg && matchType;
   });
 
   /* table view uses `filtered` (no year grouping) */
 
-  const withPkg    = students.filter(s => s.package);
+  // Avg/Highest Package computed from PLACEMENT-type only
+  const placementStudents = students.filter(s => (s.type || 'PLACEMENT') === 'PLACEMENT');
+  const withPkg    = placementStudents.filter(s => s.package);
   const avgPkg     = withPkg.length > 0
     ? (withPkg.reduce((sum, s) => sum + (parseFloat(s.package) || 0), 0) / withPkg.length).toFixed(1)
     : '0';
-  const maxPkg     = students.length > 0
-    ? Math.max(...students.map(s => parseFloat(s.package) || 0)).toFixed(1)
+  const maxPkg     = placementStudents.length > 0
+    ? Math.max(...placementStudents.map(s => parseFloat(s.package) || 0)).toFixed(1)
     : '0';
 
   // table helpers & derived data (sorting + pagination)
@@ -158,7 +162,7 @@ export default function PlacedStudentsPublic() {
   const totalPages = Math.max(1, Math.ceil(sortedFiltered.length / pageSize));
   const paginated = sortedFiltered.slice((page - 1) * pageSize, page * pageSize);
 
-  useEffect(() => { setPage(1); }, [search, companyFilter, yearFilter, packageFilter, pageSize]);
+  useEffect(() => { setPage(1); }, [search, companyFilter, yearFilter, packageFilter, typeFilter, pageSize]);
   useEffect(() => { if (page > totalPages) setPage(totalPages); }, [totalPages]);
 
   return (
@@ -303,7 +307,7 @@ export default function PlacedStudentsPublic() {
           )}
 
           {/* ── Filters ── */}
-          <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               <input
@@ -320,6 +324,12 @@ export default function PlacedStudentsPublic() {
             <select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)} className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="all">All Companies</option>
               {companies.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <option value="all">All Types</option>
+              <option value="PLACEMENT">Placement</option>
+              <option value="INTERNSHIP">Internship</option>
+              <option value="TRAINING">Training</option>
             </select>
             <select value={packageFilter} onChange={e => setPackageFilter(e.target.value)} className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="all">All Packages</option>
@@ -385,8 +395,9 @@ export default function PlacedStudentsPublic() {
                       <th className="px-4 py-3 text-left font-medium text-gray-500">Branch</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-500">Year</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-500">Company</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-500">Type</th>
                       <th className="px-4 py-3 text-left font-medium text-gray-500 cursor-pointer" onClick={() => handleSort('package')}>
-                        Package {sortBy === 'package' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
+                        Compensation {sortBy === 'package' ? (sortDir === 'asc' ? '↑' : '↓') : ''}
                       </th>
                       <th className="px-4 py-3 text-left font-medium text-gray-500">Offers</th>
                     </tr>
@@ -394,7 +405,7 @@ export default function PlacedStudentsPublic() {
                   <tbody className="bg-white divide-y divide-gray-100">
                     {paginated.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-4 py-6 text-center text-gray-500">No students to display.</td>
+                        <td colSpan={8} className="px-4 py-6 text-center text-gray-500">No students to display.</td>
                       </tr>
                     )}
 
@@ -403,6 +414,11 @@ export default function PlacedStudentsPublic() {
                       const primary = offers ? offers[0] : { company: s.companyName || '—', package: s.package };
                       const id = s.studentId || s._id || `${s.rollNo || s.name}-${idx}`;
                       const isExpanded = !!expandedRows[id];
+                      const sType = s.type || 'PLACEMENT';
+                      const typeBadgeStyle = { PLACEMENT: 'bg-green-100 text-green-700', INTERNSHIP: 'bg-blue-100 text-blue-700', TRAINING: 'bg-orange-100 text-orange-700' };
+                      const compText = sType === 'PLACEMENT'
+                        ? `${parseFloat(s.package || 0).toFixed(1)} LPA`
+                        : `${s.stipend || 0} K/month`;
 
                       return (
                         <React.Fragment key={id}>
@@ -420,7 +436,10 @@ export default function PlacedStudentsPublic() {
                             <td className="px-4 py-3 text-gray-700">{s.branch || '—'}</td>
                             <td className="px-4 py-3 text-gray-700">{s.yearOfPassing || '—'}</td>
                             <td className="px-4 py-3 text-gray-700">{primary.company}</td>
-                            <td className="px-4 py-3 text-blue-600 font-semibold">{parseFloat(primary.package || 0).toFixed(1)} LPA</td>
+                            <td className="px-4 py-3">
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${typeBadgeStyle[sType] || typeBadgeStyle.PLACEMENT}`}>{sType}</span>
+                            </td>
+                            <td className="px-4 py-3 text-blue-600 font-semibold">{compText}</td>
                             <td className="px-4 py-3">
                               {offers && offers.length > 1 ? (
                                 <button onClick={() => toggleRow(id)} className="text-xs text-blue-600 hover:underline flex items-center gap-2">
@@ -435,14 +454,21 @@ export default function PlacedStudentsPublic() {
 
                           {isExpanded && (
                             <tr>
-                              <td colSpan={7} className="px-4 py-3 bg-gray-50">
+                              <td colSpan={8} className="px-4 py-3 bg-gray-50">
                                 <div className="flex flex-wrap gap-3">
-                                  {offers.map((o, i) => (
-                                    <div key={i} className="px-3 py-2 bg-white border rounded shadow-sm text-xs flex items-center gap-3">
-                                      <div className="text-sm font-medium text-gray-700">{o.company}</div>
-                                      <div className="text-xs text-blue-600 font-semibold">{parseFloat(o.package || 0).toFixed(1)} LPA</div>
-                                    </div>
-                                  ))}
+                                  {offers.map((o, i) => {
+                                    const oType = o.type || 'PLACEMENT';
+                                    const oComp = oType === 'PLACEMENT'
+                                      ? `${parseFloat(o.package || 0).toFixed(1)} LPA`
+                                      : `${o.stipend || 0} K/month`;
+                                    return (
+                                      <div key={i} className="px-3 py-2 bg-white border rounded shadow-sm text-xs flex items-center gap-3">
+                                        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${typeBadgeStyle[oType] || typeBadgeStyle.PLACEMENT}`}>{oType}</span>
+                                        <div className="text-sm font-medium text-gray-700">{o.company}</div>
+                                        <div className="text-xs text-blue-600 font-semibold">{oComp}</div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </td>
                             </tr>
@@ -466,6 +492,11 @@ export default function PlacedStudentsPublic() {
                     const primary = offers ? offers[0] : { company: s.companyName || '—', package: s.package };
                     const id = s.studentId || s._id || `${s.rollNo || s.name}-${idx}`;
                     const isExpanded = !!expandedRows[id];
+                    const sType = s.type || 'PLACEMENT';
+                    const typeBadgeStyle = { PLACEMENT: 'bg-green-100 text-green-700', INTERNSHIP: 'bg-blue-100 text-blue-700', TRAINING: 'bg-orange-100 text-orange-700' };
+                    const compText = sType === 'PLACEMENT'
+                      ? `${parseFloat(s.package || 0).toFixed(1)} LPA`
+                      : `${s.stipend || 0} K/month`;
 
                     return (
                       <div key={id} className="border rounded-lg p-3 bg-white shadow-sm">
@@ -474,11 +505,14 @@ export default function PlacedStudentsPublic() {
                           <div className="flex-1">
                             <div className="flex items-center justify-between gap-3">
                               <div>
-                                <div className="font-medium text-gray-900">{s.name}</div>
+                                <div className="font-medium text-gray-900 flex items-center gap-1.5">
+                                  {s.name}
+                                  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${typeBadgeStyle[sType] || typeBadgeStyle.PLACEMENT}`}>{sType}</span>
+                                </div>
                                 <div className="text-xs text-gray-500">{[s.rollNo, s.branch].filter(Boolean).join(' · ') || '—'}</div>
                               </div>
                               <div className="text-right">
-                                <div className="text-sm font-semibold text-blue-600">{parseFloat(primary.package || 0).toFixed(1)} LPA</div>
+                                <div className="text-sm font-semibold text-blue-600">{compText}</div>
                                 <div className="text-xs text-gray-400">{s.yearOfPassing || '—'}</div>
                               </div>
                             </div>
@@ -503,12 +537,21 @@ export default function PlacedStudentsPublic() {
 
                             {isExpanded && offers && (
                               <div className="mt-3 space-y-2">
-                                {offers.map((o, i) => (
-                                  <div key={i} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded">
-                                    <div className="text-sm text-gray-700">{o.company}</div>
-                                    <div className="text-sm font-semibold text-blue-600">{parseFloat(o.package || 0).toFixed(1)} LPA</div>
-                                  </div>
-                                ))}
+                                {offers.map((o, i) => {
+                                  const oType = o.type || 'PLACEMENT';
+                                  const oComp = oType === 'PLACEMENT'
+                                    ? `${parseFloat(o.package || 0).toFixed(1)} LPA`
+                                    : `${o.stipend || 0} K/month`;
+                                  return (
+                                    <div key={i} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${typeBadgeStyle[oType] || typeBadgeStyle.PLACEMENT}`}>{oType}</span>
+                                        <div className="text-sm text-gray-700">{o.company}</div>
+                                      </div>
+                                      <div className="text-sm font-semibold text-blue-600">{oComp}</div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>

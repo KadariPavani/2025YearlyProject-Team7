@@ -181,58 +181,103 @@ const getPlacement = async (req, res) => {
 // @access Past Student (JWT)
 const updatePlacement = async (req, res) => {
   try {
-    const { company, role, package: pkg, addNew, offerId } = req.body;
+    const { company, role, package: pkg, type: offerType, duration, stipend, addNew, offerId } = req.body;
 
-    if (!company || !role || pkg === undefined) {
-      return res.status(400).json({ success: false, message: 'Company, role, and package are required' });
+    const type = offerType || 'PLACEMENT';
+
+    // Validate type
+    if (!['PLACEMENT', 'INTERNSHIP', 'TRAINING'].includes(type)) {
+      return res.status(400).json({ success: false, message: 'Type must be PLACEMENT, INTERNSHIP, or TRAINING' });
     }
 
-    const ctc = parseFloat(pkg);
-    if (isNaN(ctc) || ctc < 0) {
-      return res.status(400).json({ success: false, message: 'Invalid package value' });
+    if (!company || !role) {
+      return res.status(400).json({ success: false, message: 'Company and role are required' });
     }
+
+    // Validate compensation based on type
+    if (type === 'PLACEMENT') {
+      if (pkg === undefined || pkg === null || pkg === '') {
+        return res.status(400).json({ success: false, message: 'Package (LPA) is required for PLACEMENT type' });
+      }
+      const ctc = parseFloat(pkg);
+      if (isNaN(ctc) || ctc < 0) {
+        return res.status(400).json({ success: false, message: 'Invalid package value' });
+      }
+    } else {
+      if (stipend === undefined || stipend === null || stipend === '') {
+        return res.status(400).json({ success: false, message: 'Stipend (K/month) is required for INTERNSHIP/TRAINING type' });
+      }
+      const stip = parseFloat(stipend);
+      if (isNaN(stip) || stip < 0) {
+        return res.status(400).json({ success: false, message: 'Invalid stipend value' });
+      }
+    }
+
+    const ctc = type === 'PLACEMENT' ? parseFloat(pkg) : 0;
+    const stip = type !== 'PLACEMENT' ? parseFloat(stipend) : 0;
+    const dur = type === 'PLACEMENT' ? 'FULL TIME' : (duration || '6');
 
     const student = await Student.findById(req.studentId);
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
     student.allOffers = student.allOffers || [];
 
+    const offerData = {
+      company: company.trim(),
+      role: role.trim(),
+      package: ctc,
+      type,
+      duration: dur,
+      stipend: stip,
+      offeredDate: new Date()
+    };
+
     if (addNew) {
-      // Add new offer entry
-      student.allOffers.push({
-        company: company.trim(),
-        role: role.trim(),
-        package: ctc,
-        offeredDate: new Date()
-      });
+      student.allOffers.push(offerData);
     } else if (offerId) {
-      // Edit an existing offer by its _id
       const offer = student.allOffers.id(offerId);
       if (!offer) return res.status(404).json({ success: false, message: 'Offer not found' });
       offer.company = company.trim();
       offer.role = role.trim();
       offer.package = ctc;
+      offer.type = type;
+      offer.duration = dur;
+      offer.stipend = stip;
     } else {
-      // Update the primary placementDetails directly
       student.placementDetails = {
         ...student.placementDetails,
         company: company.trim(),
         role: role.trim(),
-        package: ctc
+        package: ctc,
+        type,
+        duration: dur,
+        stipend: stip
       };
     }
 
-    // Keep placementDetails in sync with the highest offer
+    // Keep placementDetails in sync with the highest-ranked offer
+    // Type-aware ranking: PLACEMENT > TRAINING > INTERNSHIP, then by compensation
     if (student.allOffers.length > 0) {
-      const highest = student.allOffers.reduce((max, o) => o.package > max.package ? o : max, student.allOffers[0]);
-      if (!student.placementDetails?.package || highest.package >= student.placementDetails.package) {
-        student.placementDetails = {
-          company: highest.company,
-          role: highest.role,
-          package: highest.package,
-          placedDate: student.placementDetails?.placedDate || new Date()
-        };
-      }
+      const typeRank = { PLACEMENT: 3, TRAINING: 2, INTERNSHIP: 1 };
+      const highest = student.allOffers.reduce((max, o) => {
+        const maxRank = typeRank[max.type] || 0;
+        const oRank = typeRank[o.type] || 0;
+        if (oRank > maxRank) return o;
+        if (oRank < maxRank) return max;
+        const maxComp = max.type === 'PLACEMENT' ? (max.package || 0) : (max.stipend || 0);
+        const oComp = o.type === 'PLACEMENT' ? (o.package || 0) : (o.stipend || 0);
+        return oComp > maxComp ? o : max;
+      }, student.allOffers[0]);
+
+      student.placementDetails = {
+        company: highest.company,
+        role: highest.role,
+        package: highest.package || 0,
+        type: highest.type || 'PLACEMENT',
+        duration: highest.duration || 'FULL TIME',
+        stipend: highest.stipend || 0,
+        placedDate: student.placementDetails?.placedDate || new Date()
+      };
     }
 
     student.status = 'placed';

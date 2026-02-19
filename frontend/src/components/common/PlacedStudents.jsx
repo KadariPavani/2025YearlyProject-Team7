@@ -226,6 +226,11 @@ export default function PlacedStudents() {
 
           <div className="text-sm mb-3" style={{ color: index === currentIndex ? '#374151' : '#1e3a8a' }}>
             {s.companyName && <div className="font-medium">{s.companyName}</div>}
+            {s.type && s.type !== 'PLACEMENT' && (
+              <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full mt-1 ${s.type === 'INTERNSHIP' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                {s.type}
+              </span>
+            )}
             <div className="text-xs font-semibold text-blue-600">
               Roll No: {s.rollNumber || s.rollNo || '—'}
             </div>
@@ -271,7 +276,14 @@ export default function PlacedStudents() {
             Roll No: {t.rollNumber || t.rollNo || '—'}
           </div>
           {t.companyName && (
-            <div className="text-xs sm:text-sm text-gray-600 truncate">{t.companyName}</div>
+            <div className="text-xs sm:text-sm text-gray-600 truncate flex items-center gap-1.5">
+              {t.companyName}
+              {t.type && t.type !== 'PLACEMENT' && (
+                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${t.type === 'INTERNSHIP' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                  {t.type}
+                </span>
+              )}
+            </div>
           )}
           {t.batchName && t.batchName !== 'NA' && (
             <div className="text-xs text-gray-500 mt-0.5">Batch: {t.batchName}</div>
