@@ -76,6 +76,11 @@ const AdminDashboard = () => {
   const [adminSortBy, setAdminSortBy] = useState("email");
   const [adminSortOrder, setAdminSortOrder] = useState("asc");
 
+  // ── Notifications ──
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [categoryUnread, setCategoryUnread] = useState({});
+
   // ── Toast ──
   const [toast, setToast] = useState(null);
   const showToast = (type, message) => {
@@ -166,12 +171,63 @@ const AdminDashboard = () => {
     } catch (error) { showToast("error", error.message ?? "Network error"); return null; }
   };
 
+  // ────────────────────────────── Notification helpers ──────────────────────────────
+
+  const fetchNotifications = async () => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/notifications/admin`, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      if (res.status === 401) return;
+      const json = await res.json();
+      if (json.success) {
+        setNotifications(json.data || []);
+        setCategoryUnread(json.unreadByCategory || {});
+        const total = Object.values(json.unreadByCategory || {}).reduce((a, b) => a + b, 0);
+        setUnreadCount(total);
+      }
+    } catch (e) {
+      console.error("Error fetching admin notifications:", e);
+    }
+  };
+
+  const markAsRead = async (id) => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+    try {
+      await fetch(`${API_BASE}/api/notifications/admin/mark-read/${id}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      await fetchNotifications();
+    } catch (e) {
+      console.error("Error marking notification as read:", e);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return;
+    try {
+      await fetch(`${API_BASE}/api/notifications/admin/mark-all-read`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      await fetchNotifications();
+    } catch (e) {
+      console.error("Error marking all notifications as read:", e);
+    }
+  };
+
   // ────────────────────────────── Data fetching ──────────────────────────────
 
   useEffect(() => {
     const storedAdminData = localStorage.getItem("adminData");
     if (storedAdminData) setAdminData(JSON.parse(storedAdminData));
     fetchDashboardAnalytics();
+    fetchNotifications();
   }, []);
 
   const fetchDashboardAnalytics = async () => {
@@ -389,6 +445,13 @@ const AdminDashboard = () => {
           if (window.location.pathname === "/admin-dashboard") window.scrollTo({ top: 0, behavior: "smooth" });
           else navigate("/admin-dashboard");
         }}
+        notifications={notifications}
+        onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
+        categoryUnread={categoryUnread}
+        unreadCount={unreadCount}
+        userType="admin"
+        userId={adminData?._id || adminData?.id}
       />
 
       <main className="max-w-full mx-auto px-4 sm:px-8 lg:px-12 py-6 pt-24 pb-[220px] sm:pb-8">

@@ -30,6 +30,7 @@ const ContactsTab = ({
           { label: "Name", key: "name" },
           { label: "Email", key: "email" },
           { label: "Phone", key: "phone" },
+          { label: "Message", key: "message" },
           { label: "Submitted At", key: "createdAt" },
         ]}
         actions={(contact) => (

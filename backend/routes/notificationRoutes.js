@@ -5,10 +5,21 @@ const {
   markNotificationAsRead,
   markAllNotificationsAsRead,
   getTrainerNotifications,
-  getTpoNotifications
+  getTpoNotifications,
+  getAdminNotifications,
+  markAdminNotificationAsRead,
+  markAllAdminNotificationsAsRead,
+  getCoordinatorNotifications
 } = require("../controllers/notificationController");
 const generalAuth = require('../middleware/generalAuth');
-const Notification = require("../models/Notification"); 
+const { verifyAdmin } = require('../middleware/auth');
+const Notification = require("../models/Notification");
+
+// 🔹 Admin notification routes (must be before parameterized routes)
+router.get("/admin", verifyAdmin, getAdminNotifications);
+router.put("/admin/mark-read/:id", verifyAdmin, markAdminNotificationAsRead);
+router.put("/admin/mark-all-read", verifyAdmin, markAllAdminNotificationsAsRead);
+
 // 🔹 Get all notifications for the logged-in student
 router.get("/student", generalAuth, getStudentNotifications);
 
@@ -43,6 +54,9 @@ router.get("/trainer/:trainerId", async (req, res) => {
     });
   }
 });
+
+// ✅ Get Notifications for Coordinator (logged-in Coordinator)
+router.get("/coordinator", generalAuth, getCoordinatorNotifications);
 
 // ✅ Get Notifications for TPO (logged-in TPO)
 router.get("/tpo", generalAuth, getTpoNotifications);

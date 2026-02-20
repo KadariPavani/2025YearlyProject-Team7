@@ -289,8 +289,8 @@ const createQuiz = async (req, res) => {
     if (allTargetBatches.length > 0) {
       await sendNotificationToBatches({
         title: `New Quiz: ${title}`,
-        message: `A new quiz "${title}" has been created by ${req.user.name}. Check your Available Quizzes section.`,
-        category: "Available Quizzes",
+        message: `A new quiz "${title}" has been created by ${req.user.name}. Check your Quizzes section.`,
+        category: "Tests",
         targetBatchIds: allTargetBatches,
         type: "quiz",
         user: req.user

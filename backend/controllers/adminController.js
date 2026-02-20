@@ -32,6 +32,7 @@ const {
   parseDuration,
   parseCompensation
 } = require('../utils/placementDataHelpers');
+const { notifyTpoBatchAssignment, notifyTpoAccountCreated } = require('./notificationController');
 
 
 // @desc     Super Admin Login
@@ -443,6 +444,17 @@ const addTPO = async (req, res) => {
       `
     });
 
+    try {
+      await notifyTpoAccountCreated({
+        tpoId: tpo._id,
+        tpoName: tpo.name,
+        tpoEmail: tpo.email,
+        adminName: req.admin.email || "Admin",
+      });
+    } catch (e) {
+      console.error("Failed to send TPO account notification:", e);
+    }
+
     return created(res, { success: true, message: 'TPO added successfully and credentials sent via email', data: { id: tpo._id, name: tpo.name, email: tpo.email } });
 
   } catch (error) {
@@ -493,6 +505,19 @@ const toggleTrainerStatus = async (req, res) => {
     trainer.status = trainer.status === 'active' ? 'inactive' : 'active';
     await trainer.save();
 
+    const isSuspended = trainer.status === 'inactive';
+    try {
+      const { notifyTrainerStatusChange } = require('./notificationController');
+      await notifyTrainerStatusChange({
+        trainerId: trainer._id,
+        trainerName: trainer.name,
+        isSuspended,
+        adminId: req.admin._id,
+      });
+    } catch (e) {
+      console.error("Failed to send trainer status notification:", e);
+    }
+
     res.json({ success: true, message: `Trainer ${trainer.status === 'active' ? 'activated' : 'suspended'}`, data: { id: trainer._id, status: trainer.status } });
   } catch (error) {
     console.error("Toggle Trainer Status Error:", error);
@@ -531,6 +556,19 @@ const toggleTPOStatus = async (req, res) => {
 
     tpo.status = tpo.status === 'active' ? 'inactive' : 'active';
     await tpo.save();
+
+    const isSuspended = tpo.status === 'inactive';
+    try {
+      const { notifyTpoStatusChange } = require('./notificationController');
+      await notifyTpoStatusChange({
+        tpoId: tpo._id,
+        tpoName: tpo.name,
+        isSuspended,
+        adminId: req.admin._id,
+      });
+    } catch (e) {
+      console.error("Failed to send TPO status notification:", e);
+    }
 
     res.json({ success: true, message: `TPO ${tpo.status === 'active' ? 'activated' : 'suspended'}`, data: { id: tpo._id, status: tpo.status } });
   } catch (error) {
@@ -1436,6 +1474,18 @@ const createCrtBatch = async (req, res) => {
     await batch.save();
 
     console.log('Batch Creation: Batch updated with students');
+
+    try {
+      await notifyTpoBatchAssignment({
+        tpoId,
+        batchNumber,
+        colleges,
+        studentsCount: allStudentIds.length,
+        adminId: req.admin._id,
+      });
+    } catch (e) {
+      console.error("Failed to send TPO batch assignment notification:", e);
+    }
 
     return res.status(201).json({
       success: true,
