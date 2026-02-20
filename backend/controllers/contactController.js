@@ -1,4 +1,5 @@
 const Contact = require("../models/Contact");
+const { notifyAdminNewContact } = require("./notificationController");
 
 const createContact = async (req, res) => {
   try {
@@ -21,6 +22,12 @@ const createContact = async (req, res) => {
     });
 
     await contact.save();
+
+    try {
+      await notifyAdminNewContact({ name, email, phone, message });
+    } catch (e) {
+      console.error("Failed to send admin contact notification:", e);
+    }
 
     return res.status(201).json({
       message: "Saved successfully",

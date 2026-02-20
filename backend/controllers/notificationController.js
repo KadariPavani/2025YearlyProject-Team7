@@ -1,5 +1,6 @@
 const Notification = require("../models/Notification");
 const Student = require("../models/Student");
+const Admin = require("../models/Admin");
 const asyncHandler = require("express-async-handler");
 const PlacementTrainingBatch = require("../models/PlacementTrainingBatch");
 
@@ -877,9 +878,129 @@ const notifyBatches = async (batchIds, batchTypeLabel) => {
   }
 };
 
+// ✅ Get all notifications for the logged-in admin
+exports.getAdminNotifications = asyncHandler(async (req, res) => {
+  try {
+    const adminId = req.admin?._id || req.userId;
+    if (!adminId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
 
+    const notifications = await Notification.find({
+      "recipients.recipientId": adminId,
+      "recipients.recipientModel": "Admin",
+    })
+      .sort({ createdAt: -1 })
+      .lean();
 
+    const unreadByCategory = notifications.reduce(
+      (acc, n) => {
+        const category = n.category || "Contact Messages";
+        const recipient = n.recipients?.find(
+          (r) => r.recipientId?.toString() === adminId?.toString()
+        );
+        const isUnread = recipient && !recipient.isRead;
+        if (isUnread) {
+          acc[category] = (acc[category] || 0) + 1;
+        }
+        return acc;
+      },
+      { "Contact Messages": 0 }
+    );
 
+    res.status(200).json({
+      success: true,
+      count: notifications.length,
+      data: notifications,
+      unreadByCategory,
+    });
+  } catch (error) {
+    console.error("Error fetching admin notifications:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+});
+
+// ✅ Mark one admin notification as read
+exports.markAdminNotificationAsRead = async (req, res) => {
+  try {
+    const adminId = req.admin?._id || req.userId;
+    const notificationId = req.params.id;
+
+    await Notification.updateOne(
+      { _id: notificationId, "recipients.recipientId": adminId },
+      {
+        $set: {
+          "recipients.$.isRead": true,
+          "recipients.$.readAt": new Date(),
+        },
+      }
+    );
+
+    return res.status(200).json({ success: true, message: "Notification marked as read" });
+  } catch (err) {
+    console.error("Error marking admin notification as read:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ Mark all admin notifications as read
+exports.markAllAdminNotificationsAsRead = async (req, res) => {
+  try {
+    const adminId = req.admin?._id || req.userId;
+
+    const result = await Notification.updateMany(
+      { "recipients.recipientId": adminId, "recipients.recipientModel": "Admin" },
+      {
+        $set: {
+          "recipients.$[elem].isRead": true,
+          "recipients.$[elem].readAt": new Date(),
+        },
+      },
+      { arrayFilters: [{ "elem.recipientId": adminId }] }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "All admin notifications marked as read",
+      data: { modifiedCount: result.modifiedCount },
+    });
+  } catch (err) {
+    console.error("Error marking all admin notifications as read:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ✅ Create notification for all admins when a new contact form is submitted
+exports.notifyAdminNewContact = async (contactData) => {
+  try {
+    const { name, email, phone, message } = contactData;
+
+    const admins = await Admin.find({}, "_id");
+    if (!admins.length) return;
+
+    const notification = new Notification({
+      title: "New Contact Message",
+      message: `${name} (${phone}) sent: "${message ? message.substring(0, 100) : ""}"`,
+      category: "Contact Messages",
+      senderId: admins[0]._id,
+      senderModel: "Admin",
+      recipients: admins.map((a) => ({
+        recipientId: a._id,
+        recipientModel: "Admin",
+        isRead: false,
+      })),
+      targetRoles: ["admin"],
+      status: "sent",
+      type: "info",
+      priority: "medium",
+    });
+
+    await notification.save();
+    console.log(`Sent contact notification to ${admins.length} admins.`);
+  } catch (error) {
+    console.error("Error in notifyAdminNewContact:", error);
+  }
+};
 
 
 

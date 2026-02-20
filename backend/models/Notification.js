@@ -33,7 +33,7 @@ const NotificationSchema = new mongoose.Schema({
     },
     recipientModel: {
       type: String,
-      enum: ['Student', 'Trainer', 'TPO', 'Coordinator', 'Alumni']
+      enum: ['Student', 'Trainer', 'TPO', 'Coordinator', 'Alumni', 'Admin']
     },
     isRead: {
       type: Boolean,
@@ -47,7 +47,7 @@ const NotificationSchema = new mongoose.Schema({
   }],
   targetRoles: [{
     type: String,
-    enum: ['student', 'trainer', 'tpo', 'coordinator', 'alumni']
+    enum: ['student', 'trainer', 'tpo', 'coordinator', 'alumni', 'admin']
   }],
   isGlobal: {
     type: Boolean,
@@ -90,6 +90,7 @@ category: {
     "Learning Resources",
 "My Classes",
 "Placement Calendar",
+"Contact Messages",
   ],
   required: true
 },
