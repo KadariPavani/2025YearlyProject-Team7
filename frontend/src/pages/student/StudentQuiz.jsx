@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import { Clock, CheckCircle, AlertTriangle, BookOpen, Calendar, User, BarChart3, Trophy, RefreshCw, ChevronLeft, XCircle } from "lucide-react";
 import { LoadingSkeleton } from '../../components/ui/LoadingSkeletons';
@@ -16,6 +16,19 @@ export default function StudentQuiz() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState(null);
+
+  const [showFullscreenModal, setShowFullscreenModal] = useState(false);
+  const fsExitCountRef = useRef(0);
+  const submittingRef = useRef(false);
+
+  // Refs for accessing latest state in event handlers
+  const answersRef = useRef(answers);
+  const indexRef = useRef(currentQuestionIndex);
+  const startedAtRef = useRef(null);
+  const durationSecondsRef = useRef(0);
+
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+  useEffect(() => { indexRef.current = currentQuestionIndex; }, [currentQuestionIndex]);
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -40,9 +53,46 @@ export default function StudentQuiz() {
 
   useEffect(() => { fetchQuizzes(); }, []);
 
+  // --- Auto-submit quiz on page refresh/close ---
+  useEffect(() => {
+    if (currentView !== "quiz" || !activeQuizId) return;
+    const handler = () => {
+      if (submittingRef.current) return;
+      submittingRef.current = true;
+      const token = localStorage.getItem('userToken');
+      if (!token) return;
+      const timeSpent = startedAtRef.current
+        ? Math.min(Math.floor((Date.now() - startedAtRef.current) / 1000), durationSecondsRef.current)
+        : 0;
+      try {
+        fetch(`/api/quizzes/${activeQuizId}/submit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ answers: answersRef.current, timeSpent }),
+          keepalive: true
+        });
+      } catch {}
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [currentView, activeQuizId]);
+
+  // --- Feature 2: Timer uses wallclock diff ---
   useEffect(() => {
     let interval;
-    if (currentView === "quiz" && timeRemaining > 0) {
+    if (currentView === "quiz" && timeRemaining > 0 && startedAtRef.current) {
+      interval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startedAtRef.current) / 1000);
+        const remaining = durationSecondsRef.current - elapsed;
+        if (remaining <= 0) {
+          setTimeRemaining(0);
+          handleSubmitQuiz();
+        } else {
+          setTimeRemaining(remaining);
+        }
+      }, 1000);
+    } else if (currentView === "quiz" && timeRemaining > 0 && !startedAtRef.current) {
+      // Fallback for non-wallclock (shouldn't happen but safe)
       interval = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev <= 1) { handleSubmitQuiz(); return 0; }
@@ -51,7 +101,26 @@ export default function StudentQuiz() {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [currentView, timeRemaining]);
+  }, [currentView, timeRemaining > 0, activeQuizId]);
+
+  // --- Feature 3: Fullscreen change listener during quiz (3 strikes then auto-submit) ---
+  useEffect(() => {
+    if (currentView !== "quiz") return;
+    const handleFsChange = () => {
+      if (!document.fullscreenElement && currentView === "quiz" && !submittingRef.current) {
+        fsExitCountRef.current += 1;
+        if (fsExitCountRef.current >= 3) {
+          // 3 strikes — auto-submit
+          submittingRef.current = true;
+          handleSubmitQuiz();
+        } else {
+          setShowFullscreenModal(true);
+        }
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, [currentView]);
 
   const startQuiz = async (quizId) => {
     try {
@@ -64,12 +133,21 @@ export default function StudentQuiz() {
       const quiz = response.data;
       const statusCheck = getQuizStatus(quiz);
       if (statusCheck.status !== 'active') { showToast('error', 'Quiz is not active at the moment.'); return; }
+      const durationSec = quiz.duration * 60;
+      const now = Date.now();
       setCurrentQuiz(quiz);
       setActiveQuizId(quizId);
       setCurrentQuestionIndex(0);
-      setTimeRemaining(quiz.duration * 60);
+      setTimeRemaining(durationSec);
       setAnswers(quiz.questions.map(() => ({ selectedOption: '', answer: '' })));
+      startedAtRef.current = now;
+      durationSecondsRef.current = durationSec;
       setCurrentView("quiz");
+
+      // Feature 3: Show fullscreen modal (needs user gesture)
+      fsExitCountRef.current = 0;
+      submittingRef.current = false;
+      setShowFullscreenModal(true);
     } catch (err) {
       const message = err.response?.data?.message || 'Failed to start quiz';
       const reason = err.response?.data?.reason ? ` (${err.response?.data?.reason})` : '';
@@ -98,7 +176,17 @@ export default function StudentQuiz() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setQuizResult(response.data);
+
+      // Mark as submitting so fullscreen exit listener won't re-trigger
+      submittingRef.current = true;
+      setShowFullscreenModal(false);
       setCurrentView("review");
+
+      // Feature 3: Exit fullscreen after submission
+      if (document.fullscreenElement) {
+        try { await document.exitFullscreen(); } catch {}
+      }
+
       showToast('success', 'Quiz submitted successfully!');
       const updatedQuizzes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/quizzes/student/list`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -164,6 +252,18 @@ export default function StudentQuiz() {
       return `${s.toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}, ${s.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} - ${e.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
     }
     return `${new Date(quiz.scheduledDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}, ${quiz.startTime} - ${quiz.endTime}`;
+  };
+
+  // Helper to return to list
+  const returnToList = () => {
+    setCurrentView("list");
+    setCurrentQuiz(null);
+    setActiveQuizId(null);
+    setQuizResult(null);
+    setAnswers([]);
+    setCurrentQuestionIndex(0);
+    startedAtRef.current = null;
+    durationSecondsRef.current = 0;
   };
 
   // ============ LIST VIEW ============
@@ -278,7 +378,7 @@ export default function StudentQuiz() {
                                 quiz.percentage >= 80 ? 'text-green-700' : quiz.percentage >= 60 ? 'text-yellow-600' : 'text-red-600'
                               }`}>{quiz.score}/{quiz.totalMarks}</span>
                             ) : (
-                              <span className="text-xs text-gray-400">—</span>
+                              <span className="text-xs text-gray-400">&mdash;</span>
                             )}
                           </td>
                           <td className="px-3 py-2 text-center whitespace-nowrap">
@@ -315,7 +415,36 @@ export default function StudentQuiz() {
     const answered = answers.filter(a => a.selectedOption || a.answer).length;
 
     return (
-      <div className="space-y-3 sm:space-y-4">
+      <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
+        {/* Fullscreen modal */}
+        {showFullscreenModal && (
+          <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow-xl p-8 max-w-md text-center">
+              <h2 className="text-xl font-bold mb-3">Fullscreen Required</h2>
+              <p className="text-gray-600 mb-2">This quiz must be taken in fullscreen mode.</p>
+              {fsExitCountRef.current > 0 && (
+                <p className="text-red-600 text-sm mb-4 font-medium">
+                  Warning {fsExitCountRef.current}/3 — After 3 exits the quiz will be auto-submitted.
+                </p>
+              )}
+              {fsExitCountRef.current === 0 && <p className="text-gray-500 text-sm mb-4">Exiting fullscreen 3 times will auto-submit your quiz.</p>}
+              <button
+                onClick={async () => {
+                  try {
+                    await document.documentElement.requestFullscreen();
+                    setShowFullscreenModal(false);
+                  } catch {
+                    showToast('error', 'Could not enter fullscreen. Please allow fullscreen access.');
+                  }
+                }}
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              >
+                Enter Fullscreen
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="max-w-4xl mx-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
         {toast && <ToastNotification type={toast.type} message={toast.message} onClose={() => setToast(null)} />}
 
         {/* Quiz Header */}
@@ -423,7 +552,17 @@ export default function StudentQuiz() {
               Previous
             </button>
             {currentQuestionIndex === currentQuiz.questions.length - 1 ? (
-              <button onClick={() => { if (window.confirm('Submit quiz? You cannot change answers after submission.')) handleSubmitQuiz(); }}
+              <button onClick={() => {
+                  submittingRef.current = true;
+                  const ok = window.confirm('Submit quiz? You cannot change answers after submission.');
+                  if (ok) {
+                    handleSubmitQuiz();
+                  } else {
+                    submittingRef.current = false;
+                    // Re-request fullscreen since confirm exited it
+                    if (!document.fullscreenElement) setShowFullscreenModal(true);
+                  }
+                }}
                 disabled={loading}
                 className="px-3 sm:px-4 py-1.5 bg-green-600 text-white rounded text-xs sm:text-sm font-medium hover:bg-green-700 disabled:opacity-50">
                 {loading ? 'Submitting...' : 'Submit Quiz'}
@@ -435,6 +574,7 @@ export default function StudentQuiz() {
               </button>
             )}
           </div>
+        </div>
         </div>
       </div>
     );
@@ -524,7 +664,7 @@ export default function StudentQuiz() {
               </p>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => { setCurrentView("list"); setCurrentQuiz(null); setActiveQuizId(null); setQuizResult(null); setAnswers([]); setCurrentQuestionIndex(0); }}
+              <button onClick={returnToList}
                 className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs sm:text-sm font-medium hover:bg-blue-700 inline-flex items-center gap-1.5">
                 <ChevronLeft className="w-3.5 h-3.5" />Back to Quizzes
               </button>
