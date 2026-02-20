@@ -91,6 +91,8 @@ category: {
 "My Classes",
 "Placement Calendar",
 "Contact Messages",
+"CRT Batches",
+"Account",
   ],
   required: true
 },

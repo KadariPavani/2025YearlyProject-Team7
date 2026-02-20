@@ -185,10 +185,8 @@ const [notifications, setNotifications] = useState([]);
 const [unreadCount, setUnreadCount] = useState(0);
 const [categoryUnread, setCategoryUnread] = useState({
   "Placement": 0,
-  "Weekly Class Schedule": 0,
-  "My Assignments": 0,
-  "Available Quizzes": 0,
-  "Learning Resources": 0,
+  "CRT Batches": 0,
+  "Account": 0,
 });
 const [selectedCategory, setSelectedCategory] = useState(null);
 const notificationRef = useRef(null);
@@ -384,10 +382,8 @@ const fetchNotifications = async () => {
 
     const unreadByCategory = res.data.unreadByCategory || {
       "Placement": 0,
-      "Weekly Class Schedule": 0,
-      "My Assignments": 0,
-      "Available Quizzes": 0,
-      "Learning Resources": 0,
+      "CRT Batches": 0,
+      "Account": 0,
     };
 
     const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);

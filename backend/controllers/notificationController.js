@@ -1,6 +1,7 @@
 const Notification = require("../models/Notification");
 const Student = require("../models/Student");
 const Admin = require("../models/Admin");
+const TPO = require("../models/TPO");
 const asyncHandler = require("express-async-handler");
 const PlacementTrainingBatch = require("../models/PlacementTrainingBatch");
 
@@ -497,16 +498,13 @@ exports.getTpoNotifications = asyncHandler(async (req, res) => {
       );
       const isUnread = recipient && !recipient.isRead;
       if (isUnread) {
-        console.log(`📝 Backend counting unread for TPO: "${n.title}" in ${category}`);
         acc[category] = (acc[category] || 0) + 1;
       }
       return acc;
     }, {
-      Placement: 0,
-      "Weekly Class Schedule": 0,
-      "My Assignments": 0,
-      "Available Quizzes": 0,
-      "Learning Resources": 0,
+      "Placement": 0,
+      "CRT Batches": 0,
+      "Account": 0,
     });
 
     console.log("📊 Backend TPO unread by category:", unreadByCategory);
@@ -1002,5 +1000,79 @@ exports.notifyAdminNewContact = async (contactData) => {
   }
 };
 
+// ✅ Notify TPO when a CRT batch is assigned to them
+exports.notifyTpoBatchAssignment = async ({ tpoId, batchNumber, colleges, studentsCount, adminId }) => {
+  try {
+    const notification = new Notification({
+      title: "New CRT Batch Assigned",
+      message: `CRT Batch "${batchNumber}" (${colleges.join(", ")}) with ${studentsCount} students has been assigned to you.`,
+      category: "CRT Batches",
+      senderId: adminId,
+      senderModel: "Admin",
+      recipients: [{ recipientId: tpoId, recipientModel: "TPO", isRead: false }],
+      targetRoles: ["tpo"],
+      status: "sent",
+      type: "info",
+      priority: "medium",
+    });
 
+    await notification.save();
+    console.log(`Sent CRT batch assignment notification to TPO ${tpoId}.`);
+  } catch (error) {
+    console.error("Error in notifyTpoBatchAssignment:", error);
+  }
+};
 
+// ✅ Notify TPO when their account is created with login credentials
+exports.notifyTpoAccountCreated = async ({ tpoId, tpoName, tpoEmail, adminName }) => {
+  try {
+    const admins = await Admin.find({}, "_id");
+    const senderId = admins.length > 0 ? admins[0]._id : tpoId;
+
+    const notification = new Notification({
+      title: "Welcome to InfoVerse!",
+      message: `Hello ${tpoName}, your TPO account has been created by ${adminName}. Your login credentials have been sent to ${tpoEmail}. Please login and change your password.`,
+      category: "Account",
+      senderId: senderId,
+      senderModel: "Admin",
+      recipients: [{ recipientId: tpoId, recipientModel: "TPO", isRead: false }],
+      targetRoles: ["tpo"],
+      status: "sent",
+      type: "info",
+      priority: "high",
+    });
+
+    await notification.save();
+    console.log(`Sent account creation notification to TPO ${tpoId}.`);
+  } catch (error) {
+    console.error("Error in notifyTpoAccountCreated:", error);
+  }
+};
+
+// ✅ Notify TPO when their account is suspended or reactivated
+exports.notifyTpoStatusChange = async ({ tpoId, tpoName, isSuspended, adminId }) => {
+  try {
+    const title = isSuspended ? "Account Suspended" : "Account Reactivated";
+    const message = isSuspended
+      ? `Hello ${tpoName}, your TPO account has been suspended by the admin. Please contact the administrator for more details.`
+      : `Hello ${tpoName}, your TPO account has been reactivated by the admin. You can now access all features.`;
+
+    const notification = new Notification({
+      title,
+      message,
+      category: "Account",
+      senderId: adminId,
+      senderModel: "Admin",
+      recipients: [{ recipientId: tpoId, recipientModel: "TPO", isRead: false }],
+      targetRoles: ["tpo"],
+      status: "sent",
+      type: isSuspended ? "warning" : "success",
+      priority: "high",
+    });
+
+    await notification.save();
+    console.log(`Sent ${isSuspended ? "suspend" : "reactivate"} notification to TPO ${tpoId}.`);
+  } catch (error) {
+    console.error("Error in notifyTpoStatusChange:", error);
+  }
+};
