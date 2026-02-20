@@ -477,7 +477,7 @@ const CoordinatorDashboard = () => {
   // Notification states
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [categoryUnread, setCategoryUnread] = useState({});
+  const [categoryUnread, setCategoryUnread] = useState({ "Account": 0, "Batch Updates": 0 });
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: UserCheck },
@@ -527,7 +527,7 @@ const CoordinatorDashboard = () => {
       });
 
       const notifications = res.data.data || [];
-      const unreadByCategory = res.data.unreadByCategory || {};
+      const unreadByCategory = res.data.unreadByCategory || { "Account": 0, "Batch Updates": 0 };
       const totalUnread = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
 
       setNotifications(notifications);
@@ -542,7 +542,7 @@ const CoordinatorDashboard = () => {
     try {
       const token = localStorage.getItem("userToken");
       await axios.put(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/${notificationId}/read`,
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-read/${notificationId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );

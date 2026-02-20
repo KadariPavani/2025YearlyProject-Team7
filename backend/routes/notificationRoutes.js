@@ -8,7 +8,8 @@ const {
   getTpoNotifications,
   getAdminNotifications,
   markAdminNotificationAsRead,
-  markAllAdminNotificationsAsRead
+  markAllAdminNotificationsAsRead,
+  getCoordinatorNotifications
 } = require("../controllers/notificationController");
 const generalAuth = require('../middleware/generalAuth');
 const { verifyAdmin } = require('../middleware/auth');
@@ -53,6 +54,9 @@ router.get("/trainer/:trainerId", async (req, res) => {
     });
   }
 });
+
+// ✅ Get Notifications for Coordinator (logged-in Coordinator)
+router.get("/coordinator", generalAuth, getCoordinatorNotifications);
 
 // ✅ Get Notifications for TPO (logged-in TPO)
 router.get("/tpo", generalAuth, getTpoNotifications);

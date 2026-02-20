@@ -2,6 +2,7 @@ const Notification = require("../models/Notification");
 const Student = require("../models/Student");
 const Admin = require("../models/Admin");
 const TPO = require("../models/TPO");
+const Coordinator = require("../models/Coordinator");
 const asyncHandler = require("express-async-handler");
 const PlacementTrainingBatch = require("../models/PlacementTrainingBatch");
 
@@ -30,8 +31,8 @@ if (!category) {
     else category = "My Classes";
   } else {
     // 🧩 Default for student-facing notifications
-    if (/quiz|test/i.test(title)) category = "Available Quizzes";
-    else if (/assign/i.test(title)) category = "My Assignments";
+    if (/quiz|test/i.test(title)) category = "Tests";
+    else if (/assign/i.test(title)) category = "Tests";
     else if (/schedule|class/i.test(title)) category = "Weekly Class Schedule";
     else category = "Learning Resources";
   }
@@ -184,7 +185,7 @@ exports.notifyAssignmentCreated = async (batchId, trainerName, assignmentTitle, 
     const notifications = students.map((student) => ({
       title: `New Assignment: ${assignmentTitle}`,
       message: `A new assignment "${assignmentTitle}" has been created by ${trainerName}.`,
-      category: "My Assignments",
+      category: "Tests",
       senderId: validTrainerId,
       senderModel: "Trainer",
       targetBatches: [batchId],
@@ -225,7 +226,7 @@ exports.notifyContestCreated = async (contestId, trainerId, contestName, targetB
     const notifications = students.map((student) => ({
       title: `New Contest: ${contestName}`,
       message: `${trainerName} created a new coding contest: ${contestName}. Please check your Contests section to participate.`,
-      category: 'Available Quizzes',
+      category: 'Contest',
       senderId: trainerId,
       senderModel: 'Trainer',
       targetBatches: targetBatchIds || [],
@@ -261,16 +262,21 @@ exports.getStudentNotifications = asyncHandler(async (req, res) => {
 
     console.log(`✅ Found ${notifications.length} notifications.`);
 
-    // 🧩 Fix any missing categories before sending to frontend
+    // 🧩 Normalize legacy categories to current ones
+    const normalizeCat = (cat) => {
+      if (cat === "Available Quizzes" || cat === "My Assignments" || cat === "Contest") return "Tests";
+      return cat || "Placement";
+    };
+
     const fixedNotifications = notifications.map((n) => ({
       ...n,
-      category: n.category || "Placement", // Default fallback
+      category: normalizeCat(n.category),
     }));
 
     // Calculate unread counts - check if THIS specific user has read the notification
     const unreadByCategory = fixedNotifications.reduce(
       (acc, n) => {
-        const cat = n.category || "Placement";
+        const cat = n.category;
         // Find if THIS user has read this notification
         const userRecipient = n.recipients?.find(
           (r) => r.recipientId?.toString() === userId?.toString()
@@ -286,9 +292,9 @@ exports.getStudentNotifications = asyncHandler(async (req, res) => {
       {
         Placement: 0,
         "Weekly Class Schedule": 0,
-        "My Assignments": 0,
-        "Available Quizzes": 0,
+        "Tests": 0,
         "Learning Resources": 0,
+        "Account": 0,
       }
     );
 
@@ -435,11 +441,14 @@ exports.getTrainerNotifications = asyncHandler(async (req, res) => {
       );
       const isUnread = recipient && !recipient.isRead;
       if (isUnread) {
-        console.log(`📝 Backend counting unread for trainer: "${n.title}" in ${category}`);
         acc[category] = (acc[category] || 0) + 1;
       }
       return acc;
-    }, {});
+    }, {
+      "My Classes": 0,
+      "Placement Calendar": 0,
+      "Account": 0,
+    });
 
     console.log("📊 Backend trainer unread by category:", unreadByCategory);
     console.log("📊 Backend trainer total unread:", Object.values(unreadByCategory).reduce((a, b) => a + b, 0));
@@ -737,7 +746,7 @@ exports.notifyAssignmentDeleted = async (batchId, trainerName, assignmentTitle, 
     const notifications = students.map((student) => ({
       title: `Assignment Cancelled: ${assignmentTitle}`,
       message: `The assignment "${assignmentTitle}" created by ${trainerName} has been cancelled.`,
-      category: "My Assignments",
+      category: "Tests",
       senderId: validTrainerId,
       senderModel: "Trainer",
       targetBatches: [batchId],
@@ -779,7 +788,7 @@ exports.sendNotificationToBatches = async (data) => {
     const notification = new Notification({
       title,
       message,
-      category: category || (type === "quiz" ? "Available Quizzes" : "My Assignments"),
+      category: category || "Tests",
       senderId: user.id,
       senderModel: user.role || "Trainer",
       recipients: targetStudents.map(s => ({
@@ -811,7 +820,7 @@ exports.notifyQuizDeleted = async (batchId, trainerName, quizTitle, trainerId) =
     const notifications = students.map(s => ({
       title: `Quiz Cancelled: ${quizTitle}`,
       message: `The quiz "${quizTitle}" created by ${trainerName} has been cancelled.`,
-      category: "Available Quizzes",
+      category: "Tests",
       senderId: trainerId,
       senderModel: "Trainer",
       recipients: [{ recipientId: s._id, recipientModel: "Student", isRead: false }],
@@ -839,7 +848,7 @@ exports.notifyQuizCreated = async (batchId, trainerName, quizTitle, trainerId) =
     const notifications = students.map((s) => ({
       title: `New Quiz Created: ${quizTitle}`,
       message: `A new quiz "${quizTitle}" has been created by ${trainerName}.`,
-      category: "Available Quizzes",
+      category: "Tests",
       senderId: trainerId,
       senderModel: "Trainer",
       recipients: [{ recipientId: s._id, recipientModel: "Student", isRead: false }],
@@ -1074,5 +1083,157 @@ exports.notifyTpoStatusChange = async ({ tpoId, tpoName, isSuspended, adminId })
     console.log(`Sent ${isSuspended ? "suspend" : "reactivate"} notification to TPO ${tpoId}.`);
   } catch (error) {
     console.error("Error in notifyTpoStatusChange:", error);
+  }
+};
+
+// ✅ Notify Trainer when their account is suspended or reactivated by admin
+exports.notifyTrainerStatusChange = async ({ trainerId, trainerName, isSuspended, adminId }) => {
+  try {
+    const title = isSuspended ? "Account Suspended" : "Account Reactivated";
+    const message = isSuspended
+      ? `Hello ${trainerName}, your trainer account has been suspended by the admin. Please contact the administrator for more details.`
+      : `Hello ${trainerName}, your trainer account has been reactivated by the admin. You can now access all features.`;
+
+    const notification = new Notification({
+      title,
+      message,
+      category: "Account",
+      senderId: adminId,
+      senderModel: "Admin",
+      recipients: [{ recipientId: trainerId, recipientModel: "Trainer", isRead: false }],
+      targetRoles: ["trainer"],
+      status: "sent",
+      type: isSuspended ? "warning" : "success",
+      priority: "high",
+    });
+
+    await notification.save();
+    console.log(`Sent ${isSuspended ? "suspend" : "reactivate"} notification to Trainer ${trainerId}.`);
+  } catch (error) {
+    console.error("Error in notifyTrainerStatusChange:", error);
+  }
+};
+
+// ✅ Notify Student when their account is suspended or unsuspended by TPO
+exports.notifyStudentStatusChange = async ({ studentId, studentName, isSuspended, tpoId, tpoName }) => {
+  try {
+    const title = isSuspended ? "Account Suspended" : "Account Reactivated";
+    const message = isSuspended
+      ? `Hello ${studentName}, your student account has been suspended by ${tpoName}. Please contact your TPO for more details.`
+      : `Hello ${studentName}, your student account has been reactivated by ${tpoName}. You can now access all features.`;
+
+    const notification = new Notification({
+      title,
+      message,
+      category: "Account",
+      senderId: tpoId,
+      senderModel: "TPO",
+      recipients: [{ recipientId: studentId, recipientModel: "Student", isRead: false }],
+      targetRoles: ["student"],
+      status: "sent",
+      type: isSuspended ? "warning" : "success",
+      priority: "high",
+    });
+
+    await notification.save();
+    console.log(`Sent ${isSuspended ? "suspend" : "unsuspend"} notification to Student ${studentId}.`);
+  } catch (error) {
+    console.error("Error in notifyStudentStatusChange:", error);
+  }
+};
+
+// ✅ Get all notifications for the logged-in coordinator
+exports.getCoordinatorNotifications = asyncHandler(async (req, res) => {
+  try {
+    const coordinatorId = req.user?._id || req.user?.userId;
+    if (!coordinatorId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const notifications = await Notification.find({
+      "recipients.recipientId": coordinatorId,
+      "recipients.recipientModel": "Coordinator",
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const unreadByCategory = notifications.reduce(
+      (acc, n) => {
+        const category = n.category || "Batch Updates";
+        const recipient = n.recipients?.find(
+          (r) => r.recipientId?.toString() === coordinatorId?.toString()
+        );
+        const isUnread = recipient && !recipient.isRead;
+        if (isUnread) {
+          acc[category] = (acc[category] || 0) + 1;
+        }
+        return acc;
+      },
+      { "Account": 0, "Batch Updates": 0 }
+    );
+
+    res.status(200).json({
+      success: true,
+      count: notifications.length,
+      data: notifications,
+      unreadByCategory,
+    });
+  } catch (error) {
+    console.error("Error fetching coordinator notifications:", error);
+    res.status(500).json({ success: false, message: "Server error", error: error.message });
+  }
+});
+
+// ✅ Notify coordinator when assigned to a batch
+exports.notifyCoordinatorAssignment = async ({ coordinatorId, coordinatorName, batchNumber, tpoId, tpoName }) => {
+  try {
+    const notification = new Notification({
+      title: "Assigned as Batch Coordinator",
+      message: `Hello ${coordinatorName}, you have been assigned as the student coordinator for batch "${batchNumber}" by ${tpoName}. Your login credentials have been sent to your email.`,
+      category: "Account",
+      senderId: tpoId,
+      senderModel: "TPO",
+      recipients: [{ recipientId: coordinatorId, recipientModel: "Coordinator", isRead: false }],
+      targetRoles: ["coordinator"],
+      status: "sent",
+      type: "info",
+      priority: "high",
+    });
+
+    await notification.save();
+    console.log(`Sent batch assignment notification to Coordinator ${coordinatorId}.`);
+  } catch (error) {
+    console.error("Error in notifyCoordinatorAssignment:", error);
+  }
+};
+
+// ✅ Notify coordinator when a student in their batch is suspended/unsuspended
+exports.notifyCoordinatorStudentSuspended = async ({ studentName, isSuspended, batchId, tpoId, tpoName }) => {
+  try {
+    const coordinator = await Coordinator.findOne({ assignedPlacementBatch: batchId });
+    if (!coordinator) return;
+
+    const title = isSuspended ? "Student Suspended" : "Student Reactivated";
+    const message = isSuspended
+      ? `${studentName} has been suspended from your batch by ${tpoName}.`
+      : `${studentName} has been reactivated in your batch by ${tpoName}.`;
+
+    const notification = new Notification({
+      title,
+      message,
+      category: "Batch Updates",
+      senderId: tpoId,
+      senderModel: "TPO",
+      recipients: [{ recipientId: coordinator._id, recipientModel: "Coordinator", isRead: false }],
+      targetRoles: ["coordinator"],
+      status: "sent",
+      type: isSuspended ? "warning" : "success",
+      priority: "medium",
+    });
+
+    await notification.save();
+    console.log(`Sent student ${isSuspended ? "suspend" : "unsuspend"} notification to Coordinator ${coordinator._id}.`);
+  } catch (error) {
+    console.error("Error in notifyCoordinatorStudentSuspended:", error);
   }
 };

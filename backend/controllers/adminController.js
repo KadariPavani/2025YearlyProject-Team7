@@ -505,6 +505,19 @@ const toggleTrainerStatus = async (req, res) => {
     trainer.status = trainer.status === 'active' ? 'inactive' : 'active';
     await trainer.save();
 
+    const isSuspended = trainer.status === 'inactive';
+    try {
+      const { notifyTrainerStatusChange } = require('./notificationController');
+      await notifyTrainerStatusChange({
+        trainerId: trainer._id,
+        trainerName: trainer.name,
+        isSuspended,
+        adminId: req.admin._id,
+      });
+    } catch (e) {
+      console.error("Failed to send trainer status notification:", e);
+    }
+
     res.json({ success: true, message: `Trainer ${trainer.status === 'active' ? 'activated' : 'suspended'}`, data: { id: trainer._id, status: trainer.status } });
   } catch (error) {
     console.error("Toggle Trainer Status Error:", error);

@@ -156,6 +156,7 @@ const TrainerDashboard = () => {
       const unreadByCategory = {
         "My Classes": 0,
         "Placement Calendar": 0,
+        "Account": 0,
         ...(res.data.unreadByCategory || {})
       };
 

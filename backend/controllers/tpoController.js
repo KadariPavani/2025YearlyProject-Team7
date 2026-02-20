@@ -379,6 +379,35 @@ const suspendStudent = async (req, res) => {
     student.isActive = false;
     await student.save();
 
+    try {
+      const { notifyStudentStatusChange } = require('./notificationController');
+      await notifyStudentStatusChange({
+        studentId: student._id,
+        studentName: student.name,
+        isSuspended: true,
+        tpoId: req.user._id,
+        tpoName: req.user.name || 'TPO',
+      });
+    } catch (e) {
+      console.error("Failed to send student suspend notification:", e);
+    }
+
+    try {
+      const { notifyCoordinatorStudentSuspended } = require('./notificationController');
+      const batchId = student.placementTrainingBatchId || student.batchId;
+      if (batchId) {
+        await notifyCoordinatorStudentSuspended({
+          studentName: student.name,
+          isSuspended: true,
+          batchId,
+          tpoId: req.user._id,
+          tpoName: req.user.name || 'TPO',
+        });
+      }
+    } catch (e) {
+      console.error("Failed to send coordinator suspend notification:", e);
+    }
+
     res.json({ success: true, message: 'Student suspended', data: { id: student._id } });
   } catch (error) {
     console.error('Error suspending student by TPO:', error);
@@ -423,6 +452,35 @@ const unsuspendStudent = async (req, res) => {
 
     student.isActive = true;
     await student.save();
+
+    try {
+      const { notifyStudentStatusChange } = require('./notificationController');
+      await notifyStudentStatusChange({
+        studentId: student._id,
+        studentName: student.name,
+        isSuspended: false,
+        tpoId: req.user._id,
+        tpoName: req.user.name || 'TPO',
+      });
+    } catch (e) {
+      console.error("Failed to send student unsuspend notification:", e);
+    }
+
+    try {
+      const { notifyCoordinatorStudentSuspended } = require('./notificationController');
+      const batchId = student.placementTrainingBatchId || student.batchId;
+      if (batchId) {
+        await notifyCoordinatorStudentSuspended({
+          studentName: student.name,
+          isSuspended: false,
+          batchId,
+          tpoId: req.user._id,
+          tpoName: req.user.name || 'TPO',
+        });
+      }
+    } catch (e) {
+      console.error("Failed to send coordinator unsuspend notification:", e);
+    }
 
     res.json({ success: true, message: 'Student unsuspended', data: { id: student._id } });
   } catch (error) {
@@ -1671,6 +1729,19 @@ const assignCoordinator = async (req, res) => {
         <p>Note: Use these credentials specifically for coordinator access. Your student account remains unchanged.</p>
       `
     });
+
+    try {
+      const { notifyCoordinatorAssignment } = require('./notificationController');
+      await notifyCoordinatorAssignment({
+        coordinatorId: coordinator._id,
+        coordinatorName: coordinator.name,
+        batchNumber: batch.batchNumber,
+        tpoId: req.user._id,
+        tpoName: req.user.name || 'TPO',
+      });
+    } catch (e) {
+      console.error("Failed to send coordinator assignment notification:", e);
+    }
 
     res.json({
       success: true,
