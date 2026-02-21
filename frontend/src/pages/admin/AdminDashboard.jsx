@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Shield,
   Users,
@@ -30,6 +30,7 @@ import PlacementImportTab from "./tabs/PlacementImportTab";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Core state ──
   const [adminData, setAdminData] = useState(null);
@@ -41,7 +42,7 @@ const AdminDashboard = () => {
     totalActive: 0,
   });
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
 
   // ── Tab overflow (desktop "More" dropdown) ──
   const [visibleTabsCount, setVisibleTabsCount] = useState(100);
@@ -228,6 +229,12 @@ const AdminDashboard = () => {
     if (storedAdminData) setAdminData(JSON.parse(storedAdminData));
     fetchDashboardAnalytics();
     fetchNotifications();
+    // Load data for the tab restored from URL
+    const tab = searchParams.get("tab");
+    if (tab === "trainers") fetchTrainers();
+    if (tab === "tpos") fetchTpos();
+    if (tab === "admins") fetchAdmins();
+    if (tab === "contacts") fetchContacts();
   }, []);
 
   const fetchDashboardAnalytics = async () => {
@@ -287,6 +294,7 @@ const AdminDashboard = () => {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
+    setSearchParams({ tab });
     if (tab === "trainers") fetchTrainers();
     if (tab === "tpos") fetchTpos();
     if (tab === "admins") fetchAdmins();
