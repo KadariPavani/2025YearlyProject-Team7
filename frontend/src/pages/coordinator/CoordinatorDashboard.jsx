@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   UserCheck, Clock, Activity, Eye, ArrowLeft, ChevronLeft, ChevronRight,
   User, Phone, Mail, MapPin, GraduationCap, Building, Code2, Briefcase,
@@ -469,7 +469,8 @@ const CoordinatorDashboard = () => {
   const [coordinatorData, setCoordinatorData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ type: '', message: '' });
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || 'dashboard');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const navigate = useNavigate();
@@ -484,6 +485,12 @@ const CoordinatorDashboard = () => {
     { id: 'attendance', label: 'Attendance', icon: Clock },
     { id: 'student-activity', label: 'Student Activity', icon: Activity },
   ];
+
+  const handleTabClick = (id) => {
+    setActiveTab(id);
+    setSearchParams({ tab: id });
+    setSelectedStudent(null);
+  };
 
   useEffect(() => {
     fetchDashboard();
@@ -648,7 +655,7 @@ const CoordinatorDashboard = () => {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => { setActiveTab(tab.id); setSelectedStudent(null); }}
+                    onClick={() => handleTabClick(tab.id)}
                     className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
                       activeTab === tab.id
                         ? 'border-b-2 border-blue-700 text-blue-700'
@@ -802,7 +809,7 @@ const CoordinatorDashboard = () => {
 
           {/* Mobile bottom nav */}
           <div className="sm:hidden">
-            <BottomNav tabs={tabs} active={activeTab} onChange={(id) => { setActiveTab(id); setSelectedStudent(null); }} />
+            <BottomNav tabs={tabs} active={activeTab} onChange={handleTabClick} />
           </div>
         </div>
       </main>

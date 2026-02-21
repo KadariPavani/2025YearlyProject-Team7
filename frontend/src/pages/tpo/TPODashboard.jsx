@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import api from '../../services/api';
 import {
@@ -63,7 +63,8 @@ const TPODashboard = () => {
   const [loadingSuspended, setLoadingSuspended] = useState(false);
 
   // New state for tab navigation and filters
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || 'dashboard');
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
@@ -539,6 +540,7 @@ const markAllAsRead = async () => {
   // Handle tab clicks so we can trigger immediate loading skeletons for heavy tabs
   const handleTabClick = (tabId) => {
     setActiveTab(tabId);
+    setSearchParams({ tab: tabId });
     if (tabId === 'schedule') {
       setLoadingSchedule(true);
       fetchScheduleData();
@@ -1218,7 +1220,7 @@ const markAllAsRead = async () => {
                     return (
                       <button
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
+                        onClick={() => handleTabClick(tab.id)}
                         className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
                           activeTab === tab.id
                             ? 'border-b-2 border-blue-700 text-blue-700'

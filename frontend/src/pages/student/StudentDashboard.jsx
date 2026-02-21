@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Users, Calendar, Clock,
   BookOpen, Award, Activity, GraduationCap, Phone, Mail,
@@ -254,7 +254,8 @@ const [categoryUnread, setCategoryUnread] = useState({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false);
-  const [activeTab, setActiveTab] = useState(initialTab || 'overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || initialTab || 'overview');
   const [selectedTrainer, setSelectedTrainer] = useState(null);
 
   const tabs = [
@@ -347,8 +348,8 @@ const [categoryUnread, setCategoryUnread] = useState({
   }, []);
 
   const handleTabClick = (tabId) => {
-    if (tabId === 'feedback') { setActiveTab('feedback'); return; }
     setActiveTab(tabId);
+    setSearchParams({ tab: tabId });
     if (tabId === 'trainers') fetchTodaySchedule();
     if (tabId === 'approvals') fetchPendingApprovals();
   };
@@ -950,7 +951,7 @@ const markAllAsRead = async () => {
                       You have {pendingApprovals.totalPending} pending approval request{pendingApprovals.totalPending !== 1 ? 's' : ''} awaiting TPO review
                     </p>
                     <button
-                      onClick={() => setActiveTab('approvals')}
+                      onClick={() => handleTabClick('approvals')}
                       className="mt-2 text-xs sm:text-sm text-yellow-700 hover:text-yellow-900 font-semibold underline"
                     >
                       View Details →
@@ -969,7 +970,7 @@ const markAllAsRead = async () => {
                     return (
                       <button
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
+                        onClick={() => handleTabClick(tab.id)}
                         className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
                           activeTab === tab.id
                             ? 'border-b-2 border-blue-700 text-blue-700'

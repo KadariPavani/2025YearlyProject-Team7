@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Users, UserCheck, Calendar,
   BookOpen, GraduationCap,
@@ -31,9 +31,10 @@ const TrainerDashboard = () => {
   const [contests, setContests] = useState([]);
   const trainerId = trainerData?._id || trainerData?.id || null;
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || 'dashboard');
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -97,6 +98,7 @@ const TrainerDashboard = () => {
 
   const handleTabClick = (id) => {
     setActiveTab(id);
+    setSearchParams({ tab: id });
   };
 
   useEffect(() => {
