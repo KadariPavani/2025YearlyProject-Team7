@@ -306,7 +306,8 @@ const AdminDashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem("adminToken");
     localStorage.removeItem("adminData");
-    navigate("/super-admin-login");
+    localStorage.removeItem("userToken");
+    navigate("/super-admin-login", { replace: true });
   };
 
   // ────────────────────────────── Filtered data ──────────────────────────────

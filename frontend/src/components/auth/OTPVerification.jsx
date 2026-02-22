@@ -12,12 +12,18 @@ const OTPVerification = () => {
 
   const navigate = useNavigate();
   const inputRefs = useRef([]);
+  const successfullyVerified = useRef(false);
 
   const adminEmail = sessionStorage.getItem('adminEmail');
 
   useEffect(() => {
+    // Only redirect to login if adminEmail is missing AND we haven't just
+    // completed a successful verification (which clears sessionStorage before
+    // the low-priority navigation to dashboard is committed).
     if (!adminEmail) {
-      navigate('/super-admin-login');
+      if (!successfullyVerified.current) {
+        navigate('/super-admin-login');
+      }
       return;
     }
 
@@ -73,6 +79,7 @@ const OTPVerification = () => {
       });
 
       if (response.data.success) {
+        successfullyVerified.current = true;
         localStorage.setItem('adminToken', response.data.token);
         localStorage.setItem('userToken', response.data.token);
         localStorage.setItem('adminData', JSON.stringify(response.data.admin));
