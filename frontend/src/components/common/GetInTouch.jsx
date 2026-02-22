@@ -1,313 +1,195 @@
-import React, { useEffect, useRef } from 'react';
-import { FaPhone, FaEnvelope } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Send, MapPin, Phone, Mail, CheckCircle, AlertCircle } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function GetInTouch() {
-  const formRef = useRef(null);
-  const mapRef = useRef(null);
-  const mapContainerRef = useRef(null);
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
+  const [sending, setSending] = useState(false);
+  const [toast, setToast] = useState(null);
 
-  useEffect(() => {
-    const updateMapHeight = () => {
-      if (formRef.current) {
-        const formH = formRef.current.offsetHeight;
-        const targetH = Math.max(220, Math.round(formH * 0.85));
-        if (mapRef.current) mapRef.current.style.height = `${targetH}px`;
-        if (mapContainerRef.current) mapContainerRef.current.style.height = `${targetH}px`;
-      }
-    };
-    updateMapHeight();
-    window.addEventListener('resize', updateMapHeight);
-    return () => window.removeEventListener('resize', updateMapHeight);
-  }, []);
-
-  const accent = '#e24b6b';
-  const blue = '#5791ED';
-
-  const sharedInput = {
-    width: '100%',
-    padding: '12px 14px',
-    border: '1px solid #e6e9ef',
-    borderRadius: 6,
-    fontSize: 14,
-    outline: 'none',
-    boxSizing: 'border-box',
+  const handleChange = (e) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  const name = e.target.name.value;
-  const email = e.target.email.value;
-  const phone = e.target.phone.value;
-  const message = e.target.message.value;
-
-  console.log("Sending 👉", { name, email, phone, message }); // 🧪 debug
-
-  try {
-    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/contact`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name, email, phone, message }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      alert("Saved successfully ✅");
-      e.target.reset();
-    } else {
-      alert(data.message || "Something went wrong ❌");
+    e.preventDefault();
+    setSending(true);
+    try {
+      const response = await fetch(`${API_URL}/api/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setToast({ type: 'success', msg: 'Message sent successfully!' });
+        setFormData({ name: '', email: '', phone: '', message: '' });
+      } else {
+        setToast({ type: 'error', msg: data.message || 'Something went wrong' });
+      }
+    } catch {
+      setToast({ type: 'error', msg: 'Server error. Please try again.' });
+    } finally {
+      setSending(false);
+      setTimeout(() => setToast(null), 4000);
     }
-  } catch (error) {
-    console.error("Frontend error 👉", error);
-    alert("Server error ❌");
-  }
-};
+  };
 
-  
   return (
-    <section
-      style={{
-        fontFamily: "Inter, 'Segoe UI', Roboto, Arial, sans-serif",
-        padding: 36,
-        background: '#f6f8fb',
-        position: 'relative',
-      }}
-    >
-      {/* 🔙 Back to Home Link */}
-      <Link
-        to="/"
-        style={{
-          position: 'absolute',
-          top: 24,
-          left: 36,
-          color: accent,
-          textDecoration: 'none',
-          fontWeight: 700,
-          fontSize: 15,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-        }}
-      >
-        ← Back to Home
-      </Link>
+    <section className="py-8 sm:py-10 md:py-12 bg-white">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
-      <div style={{ maxWidth: 1200, margin: '60px auto 0' }}>
-        <div
-          style={{
-            position: 'relative',
-            display: 'flex',
-            borderRadius: 28,
-            overflow: 'visible',
-            alignItems: 'stretch',
-            background: 'white',
-            boxShadow: '0 6px 20px rgba(2,6,23,0.06)',
-          }}
-        >
-          {/* Left: white card with form */}
-          <div
-            ref={formRef}
-            style={{
-              flex: '0 0 50%',
-              width: '50%',
-              background: 'white',
-              padding: '56px 64px',
-              boxSizing: 'border-box',
-            }}
-          >
-            <h1 style={{ fontSize: 40, margin: 0, lineHeight: 1.05 }}>
-              <span style={{ color: '#111827', fontWeight: 800 }}>Get in </span>
-              <span style={{ color: accent, fontWeight: 800 }}>Touch</span>
-            </h1>
-            <p
-              style={{
-                color: '#6b7280',
-                marginTop: 12,
-                marginBottom: 20,
-                maxWidth: 460,
-              }}
-            >
-              Enim tempor eget pharetra facilisis sed maecenas adipiscing. Eu leo
-              molestie vel, ornare non id blandit netus.
-            </p>
+        {/* Header */}
+        <div className="mb-5 sm:mb-8">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
+            Get in Touch
+          </h1>
+          <p className="text-[10px] sm:text-sm text-gray-500 mt-1 sm:mt-1.5">
+            We'd love to hear from you. Fill out the form and we'll respond as soon as possible.
+          </p>
+        </div>
 
-            <form onSubmit={handleSubmit} style={{ maxWidth: 520 }}>
-              <div style={{ marginBottom: 12 }}>
-                <input
-                  name="name"
-                  placeholder="Name *"
-                  required
-                  style={{ ...sharedInput, height: 46 }}
-                />
+        <div className="flex flex-col lg:flex-row gap-6 sm:gap-8 lg:gap-12">
+
+          {/* Form */}
+          <div className="flex-1">
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-1.5">
+                    Full Name <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    placeholder="Your name"
+                    className="w-full px-3 py-2 sm:px-3.5 sm:py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-[#5791ED] transition-colors placeholder:text-gray-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-1.5">
+                    Email
+                  </label>
+                  <input
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="you@example.com"
+                    className="w-full px-3 py-2 sm:px-3.5 sm:py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-[#5791ED] transition-colors placeholder:text-gray-400"
+                  />
+                </div>
               </div>
-              <div style={{ marginBottom: 12 }}>
-                <input
-                  name="email"
-                  type="email"
-                  placeholder="Email"
-                  style={{ ...sharedInput, height: 46 }}
-                />
-              </div>
-              <div style={{ marginBottom: 12 }}>
+
+              <div>
+                <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-1.5">
+                  Phone <span className="text-red-400">*</span>
+                </label>
                 <input
                   name="phone"
-                  placeholder="Phone number *"
+                  value={formData.phone}
+                  onChange={handleChange}
                   required
-                  style={{ ...sharedInput, height: 46 }}
-                />
-              </div>
-              <div style={{ marginBottom: 12 }}>
-                <textarea
-                  name="message"
-                  placeholder="Your message..."
-                  rows={4}
-                  style={{ ...sharedInput, resize: 'vertical', minHeight: 100 }}
+                  placeholder="+91 XXXXX XXXXX"
+                  className="w-full px-3 py-2 sm:px-3.5 sm:py-2.5 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-[#5791ED] transition-colors placeholder:text-gray-400"
                 />
               </div>
 
               <div>
-                <button
-                  type="submit"
-                  style={{
-                    background: accent,
-                    color: 'white',
-                    width: '100%',
-                    padding: '14px 20px',
-                    borderRadius: 6,
-                    border: 'none',
-                    fontSize: 15,
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    marginTop: 6,
-                  }}
-                >
-                  SEND
-                </button>
+                <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 mb-1 sm:mb-1.5">
+                  Message
+                </label>
+                <textarea
+                  name="message"
+                  value={formData.message}
+                  onChange={handleChange}
+                  rows={5}
+                  placeholder="How can we help you?"
+                  className="w-full px-3 py-2 sm:px-3.5 sm:py-2.5 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#5791ED] transition-colors placeholder:text-gray-300 resize-none"
+                />
               </div>
 
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 28,
-                  marginTop: 26,
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                }}
+              <button
+                type="submit"
+                disabled={sending}
+                className="inline-flex items-center gap-2 px-5 py-2 sm:px-6 sm:py-2.5 bg-[#5791ED] hover:bg-[#4a7fd4] text-white text-xs sm:text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div
-                    style={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 8,
-                      background: '#f3f4f6',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <FaPhone style={{ color: '#111827' }} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>PHONE</div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: accent,
-                        fontWeight: 700,
-                      }}
-                    >
-                      03 5432 1234
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div
-                    style={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 8,
-                      background: '#f3f4f6',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <FaEnvelope style={{ color: '#111827' }} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>EMAIL</div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: accent,
-                        fontWeight: 700,
-                      }}
-                    >
-                      info@marcc.com.au
-                    </div>
-                  </div>
-                </div>
-              </div>
+                {sending ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    Send Message
+                  </>
+                )}
+              </button>
             </form>
+
+            {toast && (
+              <div className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium ${
+                toast.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+              }`}>
+                {toast.type === 'success' ? <CheckCircle className="w-3.5 h-3.5" /> : <AlertCircle className="w-3.5 h-3.5" />}
+                {toast.msg}
+              </div>
+            )}
           </div>
 
-          {/* Right: blue rounded shape */}
-          <div
-            style={{
-              flex: '0 0 50%',
-              width: '50%',
-              position: 'relative',
-              boxSizing: 'border-box',
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                right: -8,
-                top: 0,
-                bottom: 0,
-                width: '60%',
-                background: blue,
-                borderTopRightRadius: 28,
-                borderBottomRightRadius: 28,
-              }}
-            />
-            <div
-              ref={mapContainerRef}
-              style={{
-                position: 'relative',
-                width: '74%',
-                marginLeft: 'auto',
-                marginRight: '6%',
-                background: 'white',
-                borderRadius: 10,
-                overflow: 'hidden',
-                boxShadow: '0 18px 40px rgba(2,6,23,0.08)',
-                transform: 'translateX(-18%)',
-                top: 28,
-              }}
-            >
+          {/* Contact info + Map */}
+          <div className="w-full lg:w-[280px] shrink-0 space-y-4 sm:space-y-5">
+            <div className="space-y-3 sm:space-y-4">
+              <a href="tel:+919347132534" className="flex items-center gap-3 group">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#5791ED]/10 flex items-center justify-center shrink-0">
+                  <Phone className="w-4 h-4 text-[#5791ED]" />
+                </div>
+                <div>
+                  <p className="text-[9px] sm:text-[11px] text-gray-400 font-medium">Phone</p>
+                  <p className="text-xs sm:text-sm text-gray-800 font-medium group-hover:text-[#5791ED] transition-colors">+91 9347132534</p>
+                </div>
+              </a>
+
+              <a href="mailto:kadaripavani1@gmail.com" className="flex items-center gap-3 group">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#5791ED]/10 flex items-center justify-center shrink-0">
+                  <Mail className="w-4 h-4 text-[#5791ED]" />
+                </div>
+                <div>
+                  <p className="text-[9px] sm:text-[11px] text-gray-400 font-medium">Email</p>
+                  <p className="text-xs sm:text-sm text-gray-800 font-medium group-hover:text-[#5791ED] transition-colors">kadaripavani1@gmail.com</p>
+                </div>
+              </a>
+
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#5791ED]/10 flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4 text-[#5791ED]" />
+                </div>
+                <div>
+                  <p className="text-[9px] sm:text-[11px] text-gray-400 font-medium">Address</p>
+                  <p className="text-xs sm:text-sm text-gray-800 font-medium">Kakinada, Andhra Pradesh</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Map */}
+            <div className="rounded-lg overflow-hidden border border-gray-200 h-40 sm:h-48">
               <iframe
-                ref={mapRef}
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3806.792230604352!2d83.297592!3d17.685411!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a394ca2f9999999%3A0x7e5b4f3e3a3a3a3a!2sKakinada%2C%20Andhra%20Pradesh!5e0!3m2!1sen!2sin!4v1599999999999"
                 width="100%"
                 height="100%"
-                style={{ border: 0, display: 'block' }}
+                style={{ border: 0 }}
                 allowFullScreen
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
-                title="Map"
+                title="Location"
               />
             </div>
           </div>
+
         </div>
       </div>
     </section>

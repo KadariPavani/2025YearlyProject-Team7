@@ -8,6 +8,11 @@ const {
   downloadPlacementsExcel
 } = require('../controllers/publicController');
 
+const { getPublicLandingContent } = require('../controllers/landingContentController');
+
+// Public endpoint: landing page content (hero slides, FAQs)
+router.get('/landing-content', getPublicLandingContent);
+
 // Public endpoint: get recent placed students across all events
 router.get('/placed-students', getPlacedStudents);
 

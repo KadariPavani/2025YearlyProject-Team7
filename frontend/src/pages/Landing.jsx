@@ -266,11 +266,7 @@ const Landing = () => {
         <HeroCarousel />
 
         {/* Placements section */}
-        <section id="placements">
-          <h2 className="text-2xl font-semibold text-center mt-6 mb-4">
-          </h2>
-          <Placements />
-        </section>
+        <Placements />
 
         {/* PlacedStudents section with animation */}
         <motion.section

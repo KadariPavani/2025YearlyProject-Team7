@@ -1,106 +1,106 @@
-import { FaLinkedin, FaTwitter, FaGithub, FaInstagram, FaFacebookF } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { FaLinkedin, FaInstagram, FaGithub } from "react-icons/fa";
+import { Phone, Mail, MapPin } from "lucide-react";
 
 const Footer = () => {
+  const navigate = useNavigate();
+
   return (
-    <footer className="w-full bg-gray-100 text-gray-800 py-8 mt-auto border-t border-gray-200">
+    <footer className="w-full bg-gray-100 text-gray-800 py-8 sm:py-10 mt-auto border-t border-gray-200">
       <div className="w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-6 md:gap-8 items-start">
-          
-          <div className="sm:col-span-2 md:col-span-2">
-            <div className="flex items-center space-x-3 mb-4">
-                            <button
-                type="button"
-                onClick={() => navigate("/")}
-                aria-label="Super Admin Login"
-              >
-                <img
-                  src="/IFlogo.png"
-                  alt="InfoVerse Logo"
-                  className="h-20 w-20 object-contain cursor-pointer centered"
-                />
-              </button>
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-5 gap-6 sm:gap-8 items-start">
 
-              {/* <div className="w-12 h-12 bg-white rounded flex items-center justify-center shadow-sm">
-                <svg width="36" height="24" viewBox="0 0 36 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M4 12L14 2H20L10 12L20 22H14L4 12Z" fill="#5B8CFF"/>
-                </svg>
-              </div> */}
-              {/* <div>
-                <h3 className="text-xl font-bold tracking-wide">INFOVERSE</h3>
-                <p className="text-sm text-gray-600">Empowering Your Career</p>
-              </div> */}
-            </div>
-
-            <p className="text-sm text-gray-600 leading-relaxed">
-              INFOVERSE is the premier platform for placements and career guidance.  
-              We provide students with the latest updates on companies, interview tips, training sessions, and success stories to help them achieve their dream jobs.
+          {/* Brand */}
+          <div className="col-span-2 sm:col-span-2 md:col-span-2">
+            <img
+              src="/IFlogo.png"
+              alt="InfoVerse Logo"
+              className="h-12 w-12 sm:h-16 sm:w-16 object-contain cursor-pointer mb-2 sm:mb-3"
+              onClick={() => navigate("/")}
+            />
+            <p className="text-[11px] sm:text-sm text-gray-600 leading-relaxed max-w-xs">
+              INFOVERSE is KIET's all-in-one Training & Placement Management System. It manages student profiles, training schedules, placement drives, contests, learning resources, and real-time notifications — all in one place.
             </p>
-
-            <p className="text-xs text-gray-500 mt-4">INFOVERSE Powered by Metis Eduventures Private Limited</p>
+            <p className="text-[10px] sm:text-xs text-gray-400 mt-3 sm:mt-4">Powered by KHUB Team-07 &mdash; 2025-26</p>
           </div>
 
-          {/* Support Us */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold">Support</h4>
-            <ul className="mt-2 space-y-2 text-sm text-gray-600">
-              <li><a href="#" className="hover:text-indigo-600">Contact Us</a></li>
-              <li><a href="#" className="hover:text-indigo-600">About INFOVERSE</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Terms & Conditions</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Feedback</a></li>
+          {/* Quick Links */}
+          <div>
+            <h4 className="text-[11px] sm:text-sm font-semibold text-gray-800 mb-2 sm:mb-3">Quick Links</h4>
+            <ul className="space-y-1.5 sm:space-y-2">
+              <li><a href="/#home" className="text-[10px] sm:text-sm text-gray-600 hover:text-[#5791ED] transition-colors">Home</a></li>
+              <li><a href="/#placements" className="text-[10px] sm:text-sm text-gray-600 hover:text-[#5791ED] transition-colors">Placements</a></li>
+              <li><a href="/#students" className="text-[10px] sm:text-sm text-gray-600 hover:text-[#5791ED] transition-colors">Placed Students</a></li>
+              <li><a href="/#faqs" className="text-[10px] sm:text-sm text-gray-600 hover:text-[#5791ED] transition-colors">FAQs</a></li>
+              <li>
+                <button onClick={() => navigate("/contact")} className="text-[10px] sm:text-sm text-gray-600 hover:text-[#5791ED] transition-colors">
+                  Contact Us
+                </button>
+              </li>
             </ul>
           </div>
 
-          {/* Companies */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold">Companies</h4>
-            <ul className="mt-2 space-y-2 text-sm text-gray-600">
-              <li><a href="#" className="hover:text-indigo-600">TCS</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Infosys</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Wipro</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Accenture</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Cognizant</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Amazon</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Other Partner Companies</a></li>
+          {/* Portals */}
+          <div>
+            <h4 className="text-[11px] sm:text-sm font-semibold text-gray-800 mb-2 sm:mb-3">Portals</h4>
+            <ul className="space-y-1.5 sm:space-y-2">
+              <li>
+                <button onClick={() => navigate("/student-login")} className="text-[10px] sm:text-sm text-gray-600 hover:text-[#5791ED] transition-colors">
+                  Student Portal
+                </button>
+              </li>
+              <li>
+                <button onClick={() => navigate("/trainer-login")} className="text-[10px] sm:text-sm text-gray-600 hover:text-[#5791ED] transition-colors">
+                  Trainer Portal
+                </button>
+              </li>
+              <li>
+                <button onClick={() => navigate("/coordinator-login")} className="text-[10px] sm:text-sm text-gray-600 hover:text-[#5791ED] transition-colors">
+                  Coordinator Portal
+                </button>
+              </li>
+              <li>
+                <button onClick={() => navigate("/tpo-login")} className="text-[10px] sm:text-sm text-gray-600 hover:text-[#5791ED] transition-colors">
+                  TPO Portal
+                </button>
+              </li>
             </ul>
           </div>
 
-          {/* Dashboards */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold">Dashboards</h4>
-            <ul className="mt-2 space-y-2 text-sm text-gray-600">
-              <li><a href="#" className="hover:text-indigo-600">Student Dashboard</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Trainer Dashboard</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Placement Dashboard</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Admin Dashboard</a></li>
+          {/* Contact */}
+          <div className="col-span-2 sm:col-span-1">
+            <h4 className="text-[11px] sm:text-sm font-semibold text-gray-800 mb-2 sm:mb-3">Contact</h4>
+            <ul className="space-y-2 sm:space-y-3">
+              <li>
+                <a href="tel:+919347132534" className="flex items-start gap-1.5 sm:gap-2 hover:text-[#5791ED] transition-colors">
+                  <Phone className="w-3 h-3 sm:w-4 sm:h-4 mt-0.5 shrink-0 text-[#5791ED]" />
+                  <span className="text-[10px] sm:text-sm text-gray-600">+91 9347132534</span>
+                </a>
+              </li>
+              <li>
+                <a href="mailto:kadaripavani1@gmail.com" className="flex items-start gap-1.5 sm:gap-2 hover:text-[#5791ED] transition-colors">
+                  <Mail className="w-3 h-3 sm:w-4 sm:h-4 mt-0.5 shrink-0 text-[#5791ED]" />
+                  <span className="text-[10px] sm:text-sm text-gray-600 break-all">kadaripavani1@gmail.com</span>
+                </a>
+              </li>
+              <li className="flex items-start gap-1.5 sm:gap-2">
+                <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mt-0.5 shrink-0 text-[#5791ED]" />
+                <span className="text-[10px] sm:text-sm text-gray-600">Kakinada, Andhra Pradesh, India</span>
+              </li>
             </ul>
-          </div>
 
-          {/* Get in Touch */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-semibold">Get in Touch</h4>
-            <ul className="mt-2 space-y-2 text-sm text-gray-600">
-              <li>Email: <span className="text-gray-800 font-medium">info@infoverse.com</span></li>
-              <li><a href="#" className="hover:text-indigo-600">Instagram</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Twitter</a></li>
-              <li><a href="#" className="hover:text-indigo-600">LinkedIn</a></li>
-              <li><a href="#" className="hover:text-indigo-600">Facebook</a></li>
-            </ul>
-
-            <div className="flex items-center space-x-3 mt-3">
-              <a href="#" className="text-gray-600 hover:text-indigo-600"><FaInstagram /></a>
-              <a href="#" className="text-gray-600 hover:text-indigo-600"><FaTwitter /></a>
-              <a href="#" className="text-gray-600 hover:text-indigo-600"><FaLinkedin /></a>
-              <a href="#" className="text-gray-600 hover:text-indigo-600"><FaFacebookF /></a>
-              <a href="#" className="text-gray-600 hover:text-indigo-600"><FaGithub /></a>
+            <div className="flex items-center gap-2.5 sm:gap-3 mt-3 sm:mt-4">
+              <a href="https://www.instagram.com/kiet.channel?igsh=MjhvYzNsenU0Z3Ax" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-[#5791ED] transition-colors"><FaInstagram size={14} className="sm:w-4 sm:h-4" /></a>
+              <a href="https://www.linkedin.com/school/kakinada-institute-of-engineering-and-technology/" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-[#5791ED] transition-colors"><FaLinkedin size={14} className="sm:w-4 sm:h-4" /></a>
+              <a href="https://github.com/KadariPavani/2025YearlyProject-Team7.git" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-[#5791ED] transition-colors"><FaGithub size={14} className="sm:w-4 sm:h-4" /></a>
             </div>
           </div>
+
         </div>
 
-        <div className="mt-8 border-t border-gray-200 pt-6 text-sm text-gray-500 flex flex-col md:flex-row items-center justify-between">
-          <p>&copy; {new Date().getFullYear()} INFOVERSE. All rights reserved.</p>
-          <p className="mt-2 md:mt-0">INFOVERSE
-          </p>
+        <div className="mt-6 sm:mt-8 border-t border-gray-200 pt-4 sm:pt-6 flex flex-col sm:flex-row items-center justify-between gap-1.5 sm:gap-2">
+          <p className="text-[10px] sm:text-xs text-gray-400">&copy; {new Date().getFullYear()} INFOVERSE &mdash; KIET. All rights reserved.</p>
+          <p className="text-[10px] sm:text-xs text-gray-400">KHUB Team-07 2025-26 &mdash; Kakinada, Andhra Pradesh</p>
         </div>
       </div>
     </footer>

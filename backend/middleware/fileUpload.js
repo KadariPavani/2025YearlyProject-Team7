@@ -89,8 +89,26 @@ const resumeUpload = multer({
   }
 }).single('resume');
 
+// ==========================================
+// CLOUDINARY - LANDING PAGE IMAGE UPLOAD
+// ==========================================
+const landingImageStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'landing-content',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    resource_type: 'image'
+  }
+});
+
+const landingImageUpload = multer({
+  storage: landingImageStorage,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+}).single('image');
+
 module.exports = {
   excelUploadMiddleware,
   profileUpload,
-  resumeUpload
+  resumeUpload,
+  landingImageUpload
 };

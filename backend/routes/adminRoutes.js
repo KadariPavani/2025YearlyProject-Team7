@@ -43,8 +43,13 @@ const {
   migrateAllOffers,
   deleteAllPastStudents
 } = require('../controllers/adminController');
+const {
+  getAdminLandingContent,
+  addHeroSlide, updateHeroSlide, deleteHeroSlide,
+  addFAQ, updateFAQ, deleteFAQ
+} = require('../controllers/landingContentController');
 const auth = require('../middleware/auth');
-const { excelUploadMiddleware } = require('../middleware/fileUpload'); // Import the middleware
+const { excelUploadMiddleware, landingImageUpload } = require('../middleware/fileUpload');
 const router = express.Router();
 
 // Public routes
@@ -112,5 +117,18 @@ router.delete('/placement-import/past-students', auth, deleteAllPastStudents);
 
 // Migration route - populate allOffers for existing students
 router.post('/migrate-all-offers', auth, migrateAllOffers);
+
+// ────────── Landing Page Content Management ──────────
+router.get('/landing-content', auth, getAdminLandingContent);
+
+// Hero Slides
+router.post('/landing-content/hero-slides', auth, landingImageUpload, addHeroSlide);
+router.put('/landing-content/hero-slides/:id', auth, landingImageUpload, updateHeroSlide);
+router.delete('/landing-content/hero-slides/:id', auth, deleteHeroSlide);
+
+// FAQs
+router.post('/landing-content/faqs', auth, addFAQ);
+router.put('/landing-content/faqs/:id', auth, updateFAQ);
+router.delete('/landing-content/faqs/:id', auth, deleteFAQ);
 
 module.exports = router;
