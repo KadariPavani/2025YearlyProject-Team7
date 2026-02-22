@@ -57,7 +57,6 @@ const Assignment = () => {
       setAssignments(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch assignments');
-      console.error('Error fetching assignments:', err);
     } finally {
       setLoading(false);
     }
@@ -74,7 +73,6 @@ const Assignment = () => {
       setBatches(response.data || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch batches');
-      console.error('Error fetching batches:', err);
     }
   };
 
@@ -91,7 +89,6 @@ const Assignment = () => {
       setFormData(prev => ({ ...prev, subject: fetchedSubject }));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch subject');
-      console.error('Error fetching subject:', err);
     }
   };
 
@@ -250,7 +247,6 @@ const Assignment = () => {
       await fetchAssignments();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create assignment');
-      console.error('Error creating assignment:', err);
     } finally {
       setUploading(false);
     }
@@ -271,7 +267,6 @@ const Assignment = () => {
       await fetchAssignments();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to delete assignment');
-      console.error('Error deleting assignment:', err);
     } finally {
       setLoading(false);
     }

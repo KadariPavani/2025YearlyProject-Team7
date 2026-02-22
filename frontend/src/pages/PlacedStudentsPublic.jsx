@@ -173,17 +173,18 @@ export default function PlacedStudentsPublic() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
           {/* ── Page title ── */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center justify-between gap-3 mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Placed Students</h1>
-              <p className="text-sm text-gray-500 mt-1">Sorted by highest package within each batch year</p>
+              <h1 className="text-lg sm:text-2xl font-bold text-gray-900">Placed Students</h1>
+              <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">Sorted by highest package within each batch year</p>
             </div>
             <button
               onClick={handleDownload}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-green-600 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
             >
-              <Download className="w-4 h-4" />
-              Download Excel
+              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Download Excel</span>
+              <span className="sm:hidden">Excel</span>
             </button>
           </div>
 
@@ -213,12 +214,12 @@ export default function PlacedStudentsPublic() {
                       { icon: DollarSign,label: 'Avg Package',       value: `${avgPkg} LPA`,  bg: 'bg-purple-50', text: 'text-purple-600', icon2: 'text-purple-500' },
                       { icon: Award,     label: 'Highest Package',   value: `${maxPkg} LPA`,  bg: 'bg-orange-50', text: 'text-orange-600', icon2: 'text-orange-500' },
                     ].map(({ icon: Icon, label, value, bg, text, icon2 }) => (
-                      <div key={label} className={`${bg} rounded-lg p-4`}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <Icon className={`w-5 h-5 ${icon2}`} />
-                          <span className="text-sm text-gray-500">{label}</span>
+                      <div key={label} className={`${bg} rounded-lg p-3 sm:p-4`}>
+                        <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                          <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${icon2}`} />
+                          <span className="text-[10px] sm:text-sm text-gray-500 leading-tight">{label}</span>
                         </div>
-                        <div className={`text-2xl font-bold ${text}`}>{value}</div>
+                        <div className={`text-lg sm:text-2xl font-bold ${text}`}>{value}</div>
                       </div>
                     ))}
                   </div>
@@ -307,31 +308,31 @@ export default function PlacedStudentsPublic() {
           )}
 
           {/* ── Filters ── */}
-          <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+            <div className="relative col-span-2 sm:col-span-1">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 pointer-events-none" />
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search by name or roll"
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Search name or roll"
+                className="w-full pl-8 sm:pl-9 pr-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            <select value={yearFilter}    onChange={e => setYearFilter(e.target.value)}    className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <select value={yearFilter}    onChange={e => setYearFilter(e.target.value)}    className="px-2 sm:px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="all">All Years</option>
               {years.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
-            <select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)} className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <select value={companyFilter} onChange={e => setCompanyFilter(e.target.value)} className="px-2 sm:px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="all">All Companies</option>
               {companies.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
-            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="px-2 sm:px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="all">All Types</option>
               <option value="PLACEMENT">Placement</option>
               <option value="INTERNSHIP">Internship</option>
               <option value="TRAINING">Training</option>
             </select>
-            <select value={packageFilter} onChange={e => setPackageFilter(e.target.value)} className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <select value={packageFilter} onChange={e => setPackageFilter(e.target.value)} className="px-2 sm:px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="all">All Packages</option>
               <option value="0-3">0 – 3 LPA</option>
               <option value="3-5">3 – 5 LPA</option>
@@ -367,16 +368,17 @@ export default function PlacedStudentsPublic() {
           {/* ── Table view (desktop) + responsive cards (mobile) ── */}
           {!loading && !error && (
             <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-sm text-gray-600">
-                  Showing <span className="font-medium text-gray-900">{filtered.length === 0 ? 0 : Math.min((page - 1) * pageSize + 1, filtered.length)}</span>
-                  {' '}to{' '}
+              <div className="flex items-center justify-between mb-4 gap-2">
+                <div className="text-xs sm:text-sm text-gray-600">
+                  <span className="font-medium text-gray-900">{filtered.length === 0 ? 0 : Math.min((page - 1) * pageSize + 1, filtered.length)}</span>
+                  {' – '}
                   <span className="font-medium text-gray-900">{Math.min(page * pageSize, filtered.length)}</span>
-                  {' '}of <span className="font-medium text-gray-900">{filtered.length}</span> placements
+                  {' of '}
+                  <span className="font-medium text-gray-900">{filtered.length}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-500">Rows</label>
-                  <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }} className="px-2 py-1 border rounded text-sm bg-white">
+                <div className="flex items-center gap-1.5">
+                  <label className="text-xs text-gray-500 hidden sm:inline">Rows</label>
+                  <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }} className="px-1.5 sm:px-2 py-1 border rounded text-xs sm:text-sm bg-white">
                     <option value={10}>10</option>
                     <option value={20}>20</option>
                     <option value={50}>50</option>
@@ -499,63 +501,65 @@ export default function PlacedStudentsPublic() {
                       : `${s.stipend || 0} K/month`;
 
                     return (
-                      <div key={id} className="border rounded-lg p-3 bg-white shadow-sm">
-                        <div className="flex items-start gap-3">
-                          <img src={s.profileImageUrl || `https://ui-avatars.com/api/?background=dbeafe&color=1d4ed8&name=${encodeURIComponent(s.name)}&bold=true&size=64`} alt={s.name} className="w-12 h-12 rounded-full object-cover ring-1 ring-gray-100 flex-shrink-0" />
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <div className="font-medium text-gray-900 flex items-center gap-1.5">
-                                  {s.name}
-                                  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${typeBadgeStyle[sType] || typeBadgeStyle.PLACEMENT}`}>{sType}</span>
-                                </div>
-                                <div className="text-xs text-gray-500">{[s.rollNo, s.branch].filter(Boolean).join(' · ') || '—'}</div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-sm font-semibold text-blue-600">{compText}</div>
-                                <div className="text-xs text-gray-400">{s.yearOfPassing || '—'}</div>
-                              </div>
+                      <div key={id} className="border border-gray-100 rounded-xl p-3 bg-white shadow-sm">
+                        {/* Row 1: avatar + name + package */}
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <img
+                            src={s.profileImageUrl || `https://ui-avatars.com/api/?background=dbeafe&color=1d4ed8&name=${encodeURIComponent(s.name)}&bold=true&size=64`}
+                            alt={s.name}
+                            className="w-10 h-10 rounded-full object-cover ring-1 ring-gray-100 shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 break-words">{s.name}</p>
+                              <span className="text-sm font-bold text-[#5791ED] shrink-0">{compText}</span>
                             </div>
-
-                            <div className="mt-3 flex items-center justify-between gap-3">
-                              <div className="text-xs text-gray-600">
-                                <div className="font-medium text-gray-800">{primary.company}</div>
-                                <div className="text-xs text-gray-400 mt-0.5">{s.email || ''}</div>
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                {offers && offers.length > 1 ? (
-                                  <button onClick={() => toggleRow(id)} className="text-xs text-blue-600 hover:underline flex items-center gap-2">
-                                    {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                                    {offers.length} offers
-                                  </button>
-                                ) : (
-                                  <div className="text-xs text-gray-500">1 offer</div>
-                                )}
-                              </div>
+                            <div className="flex items-center justify-between gap-2 mt-0.5">
+                              <p className="text-[10px] text-gray-400 truncate">{[s.rollNo, s.branch].filter(Boolean).join(' · ') || '—'}</p>
+                              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${typeBadgeStyle[sType] || typeBadgeStyle.PLACEMENT}`}>{sType}</span>
                             </div>
-
-                            {isExpanded && offers && (
-                              <div className="mt-3 space-y-2">
-                                {offers.map((o, i) => {
-                                  const oType = o.type || 'PLACEMENT';
-                                  const oComp = oType === 'PLACEMENT'
-                                    ? `${parseFloat(o.package || 0).toFixed(1)} LPA`
-                                    : `${o.stipend || 0} K/month`;
-                                  return (
-                                    <div key={i} className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded">
-                                      <div className="flex items-center gap-2">
-                                        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${typeBadgeStyle[oType] || typeBadgeStyle.PLACEMENT}`}>{oType}</span>
-                                        <div className="text-sm text-gray-700">{o.company}</div>
-                                      </div>
-                                      <div className="text-sm font-semibold text-blue-600">{oComp}</div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
                           </div>
                         </div>
+
+                        {/* Row 2: company + year + offers toggle */}
+                        <div className="mt-2 pt-2 border-t border-gray-50 flex items-center justify-between gap-2 min-w-0">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-gray-700 truncate">{primary.company}</p>
+                            <p className="text-[10px] text-gray-400">{s.yearOfPassing || '—'}</p>
+                          </div>
+                          {offers && offers.length > 1 ? (
+                            <button
+                              onClick={() => toggleRow(id)}
+                              className="shrink-0 flex items-center gap-1 text-[10px] text-[#5791ED] font-medium"
+                            >
+                              {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                              {offers.length} offers
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-gray-400 shrink-0">1 offer</span>
+                          )}
+                        </div>
+
+                        {/* Expanded offers */}
+                        {isExpanded && offers && (
+                          <div className="mt-2 space-y-1.5">
+                            {offers.map((o, i) => {
+                              const oType = o.type || 'PLACEMENT';
+                              const oComp = oType === 'PLACEMENT'
+                                ? `${parseFloat(o.package || 0).toFixed(1)} LPA`
+                                : `${o.stipend || 0} K/month`;
+                              return (
+                                <div key={i} className="flex items-center justify-between px-2.5 py-1.5 bg-gray-50 rounded-lg min-w-0 gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${typeBadgeStyle[oType] || typeBadgeStyle.PLACEMENT}`}>{oType}</span>
+                                    <p className="text-xs text-gray-700 truncate">{o.company}</p>
+                                  </div>
+                                  <p className="text-xs font-semibold text-[#5791ED] shrink-0">{oComp}</p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -563,11 +567,11 @@ export default function PlacedStudentsPublic() {
               </div>
 
               {/* Pagination (shared) */}
-              <div className="flex items-center justify-between mt-4">
-                <div className="text-sm text-gray-500">Page <span className="font-medium text-gray-900">{page}</span> of <span className="font-medium text-gray-900">{totalPages}</span></div>
-                <div className="flex items-center gap-2">
-                  <button disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="px-3 py-1 bg-white border rounded disabled:opacity-50">Previous</button>
-                  <button disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="px-3 py-1 bg-white border rounded disabled:opacity-50">Next</button>
+              <div className="flex items-center justify-between mt-4 gap-2">
+                <div className="text-xs sm:text-sm text-gray-500">Page <span className="font-medium text-gray-900">{page}</span> / <span className="font-medium text-gray-900">{totalPages}</span></div>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <button disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="px-2.5 sm:px-3 py-1 bg-white border rounded text-xs sm:text-sm disabled:opacity-50">Prev</button>
+                  <button disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="px-2.5 sm:px-3 py-1 bg-white border rounded text-xs sm:text-sm disabled:opacity-50">Next</button>
                 </div>
               </div>
             </div>

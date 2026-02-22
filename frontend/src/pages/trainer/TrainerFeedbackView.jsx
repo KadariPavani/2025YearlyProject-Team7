@@ -25,7 +25,6 @@ const TrainerFeedbackView = () => {
           setError('Failed to load feedback data');
         }
       } catch (error) {
-        console.error('Error fetching feedback:', error);
         setError('Error loading feedback. Please try again.');
       } finally {
         setLoading(false);

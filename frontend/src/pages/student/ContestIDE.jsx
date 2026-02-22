@@ -51,7 +51,6 @@ const ContestIDE = () => {
     try {
       await axios.post(`/api/contests/${contestId}/finalize`, {}, { headers: { Authorization: `Bearer ${token}` } });
     } catch (err) {
-      console.error('Finalize error', err);
     }
     // Always navigate away — finalizingRef stays true to prevent re-entry
     navigate(`/student/contests/${contestId}`);
@@ -303,7 +302,6 @@ const ContestIDE = () => {
       setResult(res.data.submission || res.data);
       if (isFinal) showToast('success','Submission recorded');
     } catch (err) {
-      console.error('Submission error', err);
       showToast('error', err.response?.data?.error || err.response?.data?.message || 'Failed to submit code');
     } finally {
       setSubmitting(false);
@@ -335,7 +333,6 @@ const ContestIDE = () => {
         }
       }
     } catch (err) {
-      console.error('Run error', err);
       showToast('error', err.response?.data?.error || err.response?.data?.message || 'Failed to run code');
     } finally {
       setRunning(false);

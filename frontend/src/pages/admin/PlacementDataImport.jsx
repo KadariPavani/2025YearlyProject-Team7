@@ -68,7 +68,6 @@ const PlacementDataImport = () => {
         showToast(response.data.message || 'Upload failed', 'error');
       }
     } catch (error) {
-      console.error('Upload error:', error);
       showToast(error.response?.data?.message || 'Upload failed', 'error');
     } finally {
       setUploading(false);
@@ -92,7 +91,6 @@ const PlacementDataImport = () => {
         showToast('Preview loaded', 'success');
       }
     } catch (error) {
-      console.error('Preview error:', error);
       showToast(error.response?.data?.message || 'Preview failed', 'error');
     }
   };
@@ -123,7 +121,6 @@ const PlacementDataImport = () => {
         }, 3000);
       }
     } catch (error) {
-      console.error('Confirm error:', error);
       showToast(error.response?.data?.message || 'Import failed', 'error');
     } finally {
       setConfirming(false);
@@ -150,7 +147,6 @@ const PlacementDataImport = () => {
       link.remove();
       showToast('Template downloaded', 'success');
     } catch (error) {
-      console.error('Template download error:', error);
       showToast('Failed to download template', 'error');
     }
   };

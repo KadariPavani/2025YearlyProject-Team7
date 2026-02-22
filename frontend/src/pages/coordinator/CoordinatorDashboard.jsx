@@ -541,7 +541,6 @@ const CoordinatorDashboard = () => {
       setCategoryUnread(unreadByCategory);
       setUnreadCount(totalUnread);
     } catch (err) {
-      console.error("Error fetching notifications:", err);
     }
   };
 
@@ -555,7 +554,6 @@ const CoordinatorDashboard = () => {
       );
       await fetchNotifications();
     } catch (err) {
-      console.error("Error marking notification as read:", err);
     }
   };
 
@@ -569,7 +567,6 @@ const CoordinatorDashboard = () => {
       );
       await fetchNotifications();
     } catch (err) {
-      console.error("Error marking all as read:", err);
     }
   };
 
@@ -583,7 +580,6 @@ const CoordinatorDashboard = () => {
         }
       });
     } catch (error) {
-      console.error('Logout error:', error);
     } finally {
       localStorage.removeItem('userToken');
       localStorage.removeItem('userData');

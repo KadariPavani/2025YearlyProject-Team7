@@ -57,7 +57,6 @@ const TrainerProfile = () => {
         setError(data.message || 'Failed to fetch profile');
       }
     } catch (err) {
-      console.error('Profile fetch error:', err);
       setError(err.response?.data?.message || 'Failed to fetch profile');
     } finally {
       setLoading(false);
@@ -83,7 +82,6 @@ const TrainerProfile = () => {
         createdAssignments: Array.isArray(assignments) ? assignments.length : 0
       });
     } catch (err) {
-      console.error('Stats fetch error:', err);
     } finally {
       setLoadingStats(false);
     }

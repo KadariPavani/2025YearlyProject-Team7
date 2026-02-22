@@ -28,7 +28,6 @@ const ScheduleTimetable = ({ scheduleData, loading, onRefresh }) => {
           setTechStackColors(response.data.data.colors);
         }
       } catch (error) {
-        console.error('Error fetching tech stack colors:', error);
       }
     };
     fetchTechStackColors();

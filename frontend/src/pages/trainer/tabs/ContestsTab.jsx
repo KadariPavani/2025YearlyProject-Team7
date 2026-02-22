@@ -73,7 +73,6 @@ const ContestsTab = ({ contests, setContests, navigate }) => {
                             await axios.delete(`/api/contests/admin/${c._id}`, { headers: { Authorization: `Bearer ${token}` } });
                             setContests(prev => prev.filter(x => x._id !== c._id));
                           } catch (err) {
-                            console.error('Delete contest error', err);
                             setToastMsg(err.response?.data?.error || 'Failed to delete contest');
                           }
                         }} className="px-2 py-1 rounded text-xs font-medium bg-red-600 text-white hover:bg-red-700 inline-flex items-center gap-1">

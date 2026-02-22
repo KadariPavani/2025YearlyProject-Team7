@@ -26,7 +26,6 @@ const ViewStudentsPage = () => {
       setError(null);
     } catch (err) {
       setError('Failed to fetch students data');
-      console.error('Error fetching students:', err);
     } finally {
       setLoading(false);
     }

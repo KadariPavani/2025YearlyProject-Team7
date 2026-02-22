@@ -92,7 +92,6 @@ function AddEditStudentForm({ batches = [], initial = {}, onSubmit, onClose }) {
       }
     } catch (err) {
       setSubmitting(false);
-      console.error('Submit error:', err);
       alert(err.message || 'Failed');
     }
   };

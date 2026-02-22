@@ -30,7 +30,6 @@ const TPOFeedbackView = () => {
       });
       setFeedbacks(response.data.data.feedbacks || []);
     } catch (err) {
-      console.error('Error fetching feedbacks:', err);
       showToast('error', 'Failed to load feedback');
       setFeedbacks([]);
     } finally {

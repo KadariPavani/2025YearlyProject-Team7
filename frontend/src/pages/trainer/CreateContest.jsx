@@ -133,7 +133,6 @@ const CreateContest = () => {
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create contest');
-      console.error('Create contest error', err);
     } finally {
       setSubmitting(false);
     }

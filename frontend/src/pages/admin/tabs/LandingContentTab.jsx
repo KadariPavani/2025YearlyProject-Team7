@@ -82,7 +82,6 @@ const LandingContentTab = () => {
         setFaqs(json.data.faqs || []);
       }
     } catch (err) {
-      console.error("Error fetching landing content:", err);
       showToast?.("error", "Failed to load landing content");
     } finally {
       setLoading(false);

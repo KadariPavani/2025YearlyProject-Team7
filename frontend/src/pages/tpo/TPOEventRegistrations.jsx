@@ -19,7 +19,6 @@ const TPOEventRegistrations = ({ eventId }) => {
       });
       setRegistrations(res.data.data);
     } catch (err) {
-      console.error('Error fetching registrations:', err);
     }
     setLoading(false);
   }; 

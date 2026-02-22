@@ -88,22 +88,6 @@ const TrainerRegister = React.lazy(() => import('./pages/trainer/TrainerRegister
   ),
 })));
 
-const TrainerLogin = React.lazy(() => import('./pages/trainer/TrainerLogin').catch(() => ({
-  default: () => (
-    <div className="min-h-screen bg-green-50 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full mx-4">
-        <h2 className="text-2xl font-bold text-green-600 mb-4">Trainer Login</h2>
-        <p className="text-gray-600">Trainer login component is being developed...</p>
-        <div className="mt-4">
-          <a href="/trainer-register" className="text-green-600 hover:text-green-800">
-            Register as Trainer →
-          </a>
-        </div>
-      </div>
-    </div>
-  ),
-})));
-
 // Configure axios defaults
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 axios.defaults.withCredentials = true;
@@ -127,20 +111,8 @@ axios.interceptors.request.use(
 axios.interceptors.response.use(
   response => response,
   error => {
-    console.error('Axios error details:', {
-      message: error.message,
-      code: error.code,
-      config: {
-        url: error.config?.url,
-        method: error.config?.method,
-        data: error.config?.data,
-      },
-      response: {
-        status: error.response?.status,
-        data: error.response?.data,
-        headers: error.response?.headers,
-      },
-    });
+    // Skip logging for canceled requests (React StrictMode double-invoke)
+    if (error?.code === 'ERR_CANCELED') return Promise.reject(error);
 
     // Handle 401 errors by redirecting to login, but avoid redirecting for login pages or login requests
     if (error.response?.status === 401) {
@@ -655,7 +627,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Router>
+      <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <div className="App text-sm md:text-base">
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>

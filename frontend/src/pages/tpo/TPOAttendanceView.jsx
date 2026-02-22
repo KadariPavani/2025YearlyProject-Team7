@@ -27,7 +27,6 @@ const TPOAttendanceView = () => {
       if (response.data.success) setReportData(response.data.data);
       else setError('Failed to fetch attendance data');
     } catch (err) {
-      console.error('Error fetching attendance:', err);
       setError(err.response?.data?.message || 'Error loading attendance data');
     } finally { setLoading(false); }
   };
@@ -51,7 +50,6 @@ const TPOAttendanceView = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Error downloading Excel:', err);
       alert('Error downloading report. Please try again.');
     } finally { setDownloading(false); }
   };

@@ -18,7 +18,6 @@ const companies = [
   { name: "CUMMINS", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Cummins_logo.svg/960px-Cummins_logo.svg.png", url: "https://www.cummins.com" },
   { name: "CYIENT", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d2/Cyient_Logo.svg/512px-Cyient_Logo.svg.png", url: "https://www.cyient.com" },
   { name: "DATA I2I", logo: "https://www.datai2i.com/datai2i.png", url: "https://www.datai2i.com" },
-  { name: "DEVTOWN", logo: "https://www.google.com/s2/favicons?domain=devtown.in&sz=128", url: "https://www.devtown.in" },
   { name: "EIZEN AI", logo: "https://eizen.ai/img/logo.svg", url: "https://eizen.ai" },
   { name: "GOLA CYBER.AI", logo: null, url: "https://golacyber.ai" },
   { name: "HEALTHCATALYST", logo: "https://companieslogo.com/img/orig/HCAT_BIG-99c11c37.png?t=1720244492", url: "https://www.healthcatalyst.com" },

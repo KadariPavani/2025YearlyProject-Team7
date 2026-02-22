@@ -50,7 +50,6 @@ const StudentFeedback = () => {
       });
       setMyFeedbacks(res.data.data || []);
     } catch (err) {
-      console.error('Error fetching feedbacks:', err);
     } finally {
       setHistoryLoading(false);
     }

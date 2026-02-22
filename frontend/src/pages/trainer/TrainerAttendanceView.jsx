@@ -39,7 +39,6 @@ const TrainerAttendanceView = () => {
         setStatistics(response.data.data.statistics);
       }
     } catch (error) {
-      console.error('Error fetching attendance:', error);
     } finally {
       setLoading(false);
     }

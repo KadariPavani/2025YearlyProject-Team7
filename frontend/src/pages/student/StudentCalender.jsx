@@ -51,7 +51,6 @@ useEffect(() => {
       });
       setStudentData(res.data?.data || {});
     } catch (err) {
-      console.error("Error fetching student profile:", err);
     }
   };
   fetchStudentProfile();
@@ -127,7 +126,6 @@ for (const ev of mapped) {
     seen.set(ev.id, true);
     processedEvents.push(ev);
   } else {
-    console.warn('Duplicate event id filtered:', ev.id);
   }
 }
 
@@ -160,7 +158,6 @@ const fetchRegisteredEvents = async () => {
     });
 
     const events = res.data?.data || [];
-    console.log("✅ Registered events fetched:", events);
 
     // ✅ Store both event IDs and event data
     const registeredIds = events.map((event) => event._id?.toString());
@@ -178,7 +175,6 @@ useEffect(() => {
 
   // Refresh when other parts of app (eg. TPO) update calendar
   const onCalendarUpdated = () => {
-    console.log('📣 calendarUpdated event received — refreshing student calendar');
     fetchEvents();
   };
 

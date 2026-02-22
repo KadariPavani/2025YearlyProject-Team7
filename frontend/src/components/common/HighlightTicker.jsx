@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000');
-console.log('[HighlightTicker] Using API_BASE:', API_BASE);
 
 const HighlightTicker = () => {
   const [upcoming, setUpcoming] = useState([]);
@@ -33,7 +32,6 @@ const HighlightTicker = () => {
           withCredentials: true
         })
       ]);
-      console.log('[HighlightTicker] Fetched data:', { upcoming: uRes.data, recent: rRes.data });
 
       if (uRes.data?.success) setUpcoming(uRes.data.data.events || []);
       if (rRes.data?.success) setRecent(rRes.data.data.students || []);
@@ -54,9 +52,7 @@ const HighlightTicker = () => {
 
   useEffect(() => {
     fetchData();
-    const timer = setInterval(fetchData, 30000); // refresh every 30s
     return () => {
-      clearInterval(timer);
       if (fetchRef.current) fetchRef.current.abort();
     };
   }, []);

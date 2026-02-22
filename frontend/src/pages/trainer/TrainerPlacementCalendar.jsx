@@ -16,7 +16,6 @@ const TrainerPlacementCalendar = () => {
     fetchEvents();
 
     const onCalendarUpdated = () => {
-      console.log('📣 calendarUpdated received on trainer calendar — refreshing');
       fetchEvents();
     };
     window.addEventListener('calendarUpdated', onCalendarUpdated);
@@ -144,7 +143,6 @@ const handleDateClick = (day) => {
     });
     setSelectedDateEvents(currentDateEvents);
   } catch (err) {
-    console.error("Error fetching events:", err);
   }
   setLoading(false);
 };

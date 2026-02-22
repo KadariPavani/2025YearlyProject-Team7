@@ -59,7 +59,6 @@ const TrainerAssignment = ({ batchId, onClose, onUpdate, compact = false }) => {
         setAvailableTrainers(data.data);
       }
     } catch (err) {
-      console.error('Failed to fetch trainers:', err);
     } finally {
       setLoading(false);
     }

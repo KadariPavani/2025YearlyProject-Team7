@@ -139,7 +139,6 @@ const TrainerDashboard = () => {
       const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/contests/admin`, { headers: { Authorization: `Bearer ${token}` } });
       setContests(res.data.contests || []);
     } catch (err) {
-      console.error('Error fetching trainer contests:', err);
     }
   };
 
@@ -168,7 +167,6 @@ const TrainerDashboard = () => {
       setCategoryUnread(unreadByCategory);
       setUnreadCount(totalUnread);
     } catch (err) {
-      console.error("Error fetching trainer notifications:", err);
     }
   };
 
@@ -180,7 +178,6 @@ const TrainerDashboard = () => {
       });
       await fetchTrainerNotifications();
     } catch (error) {
-      console.error("Error marking notification as read:", error);
     }
   };
 
@@ -192,7 +189,6 @@ const TrainerDashboard = () => {
       });
       await fetchTrainerNotifications();
     } catch (error) {
-      console.error("Error marking all notifications as read:", error);
     }
   };
 
@@ -232,7 +228,6 @@ const TrainerDashboard = () => {
             localStorage.setItem('trainerData', JSON.stringify(parsedData));
           }
         } catch (err) {
-          console.warn('Failed to fetch full trainer profile:', err?.response?.data || err.message || err);
         }
       }
 
@@ -263,7 +258,6 @@ const TrainerDashboard = () => {
         setPlacementStats(data.data.stats || {});
       }
     } catch (err) {
-      console.error('Failed to fetch placement batches:', err);
     } finally {
       setLoading(false);
     }
@@ -279,7 +273,6 @@ const TrainerDashboard = () => {
         }
       });
     } catch (error) {
-      console.error('Logout error:', error);
     } finally {
       localStorage.removeItem('userToken');
       localStorage.removeItem('trainerToken');
