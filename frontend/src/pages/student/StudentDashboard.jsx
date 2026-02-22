@@ -420,7 +420,6 @@ useEffect(() => {
       const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/contests`, { headers: { Authorization: `Bearer ${token}` } });
       setContests(res.data.contests || []);
     } catch (err) {
-      console.error('Error fetching contests:', err);
     } finally {
       setLoadingContests(false);
     }
@@ -463,7 +462,6 @@ const fetchNotifications = async () => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    console.log("🔔 Notifications fetched:", res.data);
 
     const notifications = res.data.data || [];
     const currentStudentId = studentData?.user?.id || studentData?.user?._id || studentData?.id || studentData?._id;
@@ -489,7 +487,6 @@ const fetchNotifications = async () => {
       const isUnread = recipient && !recipient.isRead;
       
       if (isUnread) {
-        console.log(`📝 Frontend counting unread: "${notification.title}" in ${notification.category}`);
         totalUnread++;
       }
     });
@@ -497,18 +494,11 @@ const fetchNotifications = async () => {
     // Use the sum from backend categories
     const backendTotal = Object.values(unreadByCategory).reduce((a, b) => a + b, 0);
     
-    console.log("📊 Unread counts:", { 
-      backendTotal, 
-      frontendTotal: totalUnread, 
-      unreadByCategory,
-      notificationsCount: notifications.length
-    });
 
     setNotifications(notifications);
     setCategoryUnread(unreadByCategory);
     setUnreadCount(backendTotal); // Use backend total
   } catch (err) {
-    console.error("Error fetching notifications:", err);
   }
 };
 
@@ -528,12 +518,10 @@ const markAsRead = async (id) => {
       headers: { Authorization: `Bearer ${token}` },
     });
     
-    console.log(`✅ Marked notification ${id} as read, refreshing...`);
     
     // Refresh to get updated counts from backend
     await fetchNotifications();
   } catch (err) {
-    console.error("Error marking notification as read:", err);
   }
 };
 
@@ -542,16 +530,12 @@ const markAllAsRead = async () => {
   try {
     const token = localStorage.getItem("userToken");
     
-    console.log("� Mark All Read button clicked!");
-    console.log("📊 Current unread count:", unreadCount);
-    console.log("📊 Current notifications:", notifications.length);
     
     // Call backend to mark all as read
     const response = await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/notifications/mark-all-read`, {}, {
       headers: { Authorization: `Bearer ${token}` },
     });
     
-    console.log("✅ Backend response:", response.data);
     
     // Small delay to ensure backend has processed
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -559,10 +543,7 @@ const markAllAsRead = async () => {
     // Refresh to get updated counts from backend
     await fetchNotifications();
     
-    console.log("✅ Successfully refreshed notifications after mark all read");
   } catch (err) {
-    console.error("❌ Error marking all notifications as read:", err);
-    console.error("Error details:", err.response?.data);
   }
 };
 
@@ -581,7 +562,6 @@ const markAllAsRead = async () => {
         setBatchInfo(result.data);
       }
     } catch (err) {
-      console.error('Failed to fetch batch info:', err);
     }
   };
 
@@ -598,7 +578,6 @@ const markAllAsRead = async () => {
         setPlacementBatchInfo(result.data);
       }
     } catch (err) {
-      console.error('Failed to fetch placement batch info:', err);
     } finally {
       setLoading(false);
     }
@@ -617,7 +596,6 @@ const markAllAsRead = async () => {
         setTodaySchedule(result.data.todaySchedule);
       }
     } catch (err) {
-      console.error('Failed to fetch today schedule:', err);
     }
   };
 
@@ -631,7 +609,6 @@ const markAllAsRead = async () => {
       });
       setAssignments(response.data || []);
     } catch (err) {
-      console.error('Failed to fetch assignments:', err);
       setAssignments([]);
     }
   };
@@ -646,7 +623,6 @@ const markAllAsRead = async () => {
       });
       setQuizzes(response.data || []);
     } catch (err) {
-      console.error('Failed to fetch quizzes:', err);
       setQuizzes([]);
     }
   };
@@ -665,7 +641,6 @@ const markAllAsRead = async () => {
       if (err.response?.status === 404) {
         setResources([]);
       } else {
-        console.error('Failed to fetch resources:', err);
         setResources([]);
       }
     }
@@ -697,7 +672,6 @@ const markAllAsRead = async () => {
         setPendingApprovals(data.data);
       }
     } catch (err) {
-      console.error('Error fetching approvals:', err);
     }
   };
 
@@ -828,7 +802,6 @@ const markAllAsRead = async () => {
         }
       });
     } catch (error) {
-      console.error('Logout error:', error);
     } finally {
       localStorage.removeItem('userToken');
       localStorage.removeItem('userData');

@@ -52,7 +52,7 @@ const CoordinatorProfile = () => {
         setNeedsPasswordChange(true);
         setShowPasswordChangeModal(true);
       }
-    } catch (err) { console.error('Failed to check password status:', err); }
+    } catch (err) {  }
   };
 
   const handleInputChange = (e) => {

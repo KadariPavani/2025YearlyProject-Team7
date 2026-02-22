@@ -145,7 +145,6 @@ const StudentProfile = () => {
           }
         }
       } catch (error) {
-        console.error('Error fetching tech stacks:', error);
       }
     };
 
@@ -213,7 +212,6 @@ const StudentProfile = () => {
         }
       }
     } catch (err) {
-      console.error('Fetch profile error:', err);
       if (err.response && err.response.status === 401) {
         localStorage.removeItem('userToken');
         localStorage.removeItem('userData');
@@ -236,7 +234,6 @@ const StudentProfile = () => {
         setPendingApprovals(dataObj);
       }
     } catch (error) {
-      console.error('Error fetching approvals:', error);
     }
   };
 
@@ -309,7 +306,6 @@ const StudentProfile = () => {
         throw new Error(resp.data?.message || 'Failed to upload image');
       }
     } catch (err) {
-      console.error('Upload profile image error:', err);
       setError(err?.message || 'Error uploading profile image');
     } finally {
       setUploadingImage(false);
@@ -352,7 +348,6 @@ const StudentProfile = () => {
         throw new Error(resp.data?.message || 'Failed to upload resume');
       }
     } catch (err) {
-      console.error('Upload resume error:', err);
       setError(err?.message || 'Error uploading resume');
     } finally {
       setUploadingResume(false);
@@ -471,7 +466,6 @@ const StudentProfile = () => {
         }
       }
     } catch (err) {
-      console.error('Save error:', err);
       setError(err.response?.data?.message || 'An error occurred while saving the profile. Please try again.');
     } finally {
       setLoading(false);

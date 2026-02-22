@@ -224,7 +224,6 @@ const notificationRef = useRef(null);
       const res = await api.get('/api/tpo/suspended-students');
       if (res.data && res.data.success) setSuspendedStudents(res.data.data || []);
     } catch (err) {
-      console.error('Failed to fetch suspended students:', err);
     } finally {
       setLoadingSuspended(false);
     }
@@ -244,7 +243,6 @@ const notificationRef = useRef(null);
       }
       return { success: false, message: res.data?.message || 'Failed' };
     } catch (err) {
-      console.error('Create student failed:', err);
       return { success: false, message: err.response?.data?.message || err.message };
     }
   };
@@ -267,7 +265,6 @@ const notificationRef = useRef(null);
       return { success: false, message: res.data?.message || 'Failed' };
     } catch (err) {
       const serverMsg = err?.response?.data?.message || err.message || 'Server error';
-      console.error('Update student failed:', err?.response?.data || err.message);
       return { success: false, message: serverMsg };
     }
   };
@@ -280,7 +277,6 @@ const notificationRef = useRef(null);
         fetchSuspendedStudents();
       }
     } catch (err) {
-      console.error('Suspend failed:', err);
     }
   };
 
@@ -292,7 +288,6 @@ const notificationRef = useRef(null);
         fetchSuspendedStudents();
       }
     } catch (err) {
-      console.error('Unsuspend failed:', err);
     }
   };
 
@@ -306,7 +301,6 @@ const notificationRef = useRef(null);
         alert('Student deleted');
       }
     } catch (err) {
-      console.error('Delete failed:', err);
       alert(err?.response?.data?.message || 'Failed to delete student');
     }
   };
@@ -336,7 +330,6 @@ const notificationRef = useRef(null);
           setTechStackColors(response.data.data.colors);
         }
       } catch (error) {
-        console.error('Error fetching tech stack colors:', error);
       }
     };
 
@@ -353,7 +346,6 @@ const notificationRef = useRef(null);
         setError('Failed to fetch dashboard data');
       }
     } catch (err) {
-      console.error('Dashboard fetch error:', err);
       setError('Failed to fetch dashboard data');
     } finally {
       setLoading(false);
@@ -393,7 +385,6 @@ const fetchNotifications = async () => {
     setCategoryUnread(unreadByCategory);
     setUnreadCount(totalUnread);
   } catch (err) {
-    console.error("Error fetching TPO notifications:", err);
   }
 };
 
@@ -412,7 +403,6 @@ const markAsRead = async (id) => {
 
     await fetchNotifications();
   } catch (err) {
-    console.error("Error marking TPO notification as read:", err);
   }
 };
 
@@ -426,7 +416,6 @@ const markAllAsRead = async () => {
 
     await fetchNotifications();
   } catch (err) {
-    console.error("Error marking all TPO notifications as read:", err);
   }
 };
 
@@ -462,10 +451,8 @@ const markAllAsRead = async () => {
         setStudentBatchData(data.data.batches);
         setStudentStats(data.data.stats);
       } else {
-        console.error('Failed to fetch student details:', data.message);
       }
     } catch (err) {
-      console.error('Failed to fetch student details:', err);
     } finally {
       setLoadingStudentDetails(false);
     }
@@ -511,7 +498,6 @@ const markAllAsRead = async () => {
         if (years.length > 0) setSelectedYear(years[0]);
       }
     } catch (err) {
-      console.error('Failed to fetch placement training batches:', err);
     } finally {
       setLoadingPlacementBatches(false);
     }
@@ -528,10 +514,8 @@ const markAllAsRead = async () => {
       if (data.success) {
         setScheduleData(data.data);
       } else {
-        console.error('Failed to fetch schedule data:', data.message);
       }
     } catch (err) {
-      console.error('Failed to fetch schedule data:', err);
     } finally {
       setLoadingSchedule(false);
     }
@@ -582,7 +566,6 @@ const markAllAsRead = async () => {
       await fetchPlacementTrainingBatches();
 
     } catch (err) {
-      console.error('Coordinator assignment error:', err);
       setAssignmentError(err.message || 'Failed to assign coordinator');
       setError(err.message || 'Failed to assign coordinator');
     } finally {
@@ -602,7 +585,6 @@ const markAllAsRead = async () => {
       });
 
       if (!response.ok) {
-        console.error('Fetch approvals failed:', response.status, response.statusText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -614,7 +596,6 @@ const markAllAsRead = async () => {
         setError(data.message || 'Failed to fetch approvals');
       }
     } catch (error) {
-      console.error('Error fetching approvals:', error);
       setError('Failed to fetch pending approvals');
     } finally {
       setLoadingApprovals(false);
@@ -662,7 +643,6 @@ const markAllAsRead = async () => {
         setError(data.message || 'Failed to approve request');
       }
     } catch (error) {
-      console.error('Error approving request:', error);
       setError('Failed to process approval');
     } finally {
       setLoading(false);
@@ -706,7 +686,6 @@ const markAllAsRead = async () => {
         return false;
       }
     } catch (error) {
-      console.error('Error rejecting request:', error);
       setError('Failed to process rejection');
       return false;
     } finally {
@@ -858,7 +837,6 @@ const markAllAsRead = async () => {
         }
       });
     } catch (error) {
-      console.error('Logout error:', error);
     } finally {
       localStorage.removeItem('userToken');
       localStorage.removeItem('userData');
@@ -1109,7 +1087,6 @@ const markAllAsRead = async () => {
           setLocalError('Failed to reject request. See error message on the page.');
         }
       } catch (err) {
-        console.error('RejectModal confirm error:', err);
         setLocalError('An error occurred while rejecting.');
       } finally {
         setSubmitting(false);

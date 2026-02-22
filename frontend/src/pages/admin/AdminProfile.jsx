@@ -24,7 +24,6 @@ const AdminProfile = () => {
           throw new Error("Failed to fetch profile");
         }
       } catch (err) {
-        console.error("Profile fetch error:", err);
         setError(err.response?.data?.message || err.message || "Failed to fetch profile");
         if (err.response?.status === 401) {
           localStorage.removeItem("adminToken");

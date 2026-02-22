@@ -70,7 +70,6 @@ const TrainerLogin = () => {
       }
     } catch (error) {
       const message = error.response?.data?.message || 'Login failed. Please try again.';
-      console.error('Login error:', error);
       toast.error(message);
 
       if (/Trainer not found|User not found|Admin not found/i.test(message)) {

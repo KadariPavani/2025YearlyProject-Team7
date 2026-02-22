@@ -14,7 +14,6 @@ const CompanyRegistrationForm = ({  eventId, onClose, tpoExternalLink, onRegiste
   };
 useEffect(() => {
   if (tpoExternalLink) {
-    console.log("Received external link from TPO:", tpoExternalLink);
     setExternalLink(tpoExternalLink);
   }
 }, [tpoExternalLink]);
@@ -29,10 +28,8 @@ useEffect(() => {
       const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log("Student profile data:", res.data?.data);
       setStudentData(res.data?.data || {});
     } catch (err) {
-      console.error("Error fetching student profile:", err);
     }
   };
 
@@ -55,7 +52,6 @@ const handleSubmit = async (e) => {
   }
 
   try {
-    console.log("🟣 Registering event:", eventId);
 
     const res = await axios.post(
       `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}/register`,
@@ -68,7 +64,6 @@ const handleSubmit = async (e) => {
       }
     );
 
-    console.log("✅ Registration response:", res.data);
     showToast('success','Registration submitted successfully!');
 
     // ✅ Trigger parent to refresh registered list & hide register button
@@ -85,7 +80,6 @@ if (typeof onRegistered === "function") {
 
     onClose();
   } catch (err) {
-    console.error("❌ Error submitting registration:", err?.response?.data || err.message || err);
     showToast('error', err.response?.data?.message || "Failed to submit registration");
   }
 };

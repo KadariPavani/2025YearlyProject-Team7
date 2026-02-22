@@ -192,7 +192,6 @@ const AdminDashboard = () => {
         setUnreadCount(total);
       }
     } catch (e) {
-      console.error("Error fetching admin notifications:", e);
     }
   };
 
@@ -206,7 +205,6 @@ const AdminDashboard = () => {
       });
       await fetchNotifications();
     } catch (e) {
-      console.error("Error marking notification as read:", e);
     }
   };
 
@@ -220,7 +218,6 @@ const AdminDashboard = () => {
       });
       await fetchNotifications();
     } catch (e) {
-      console.error("Error marking all notifications as read:", e);
     }
   };
 

@@ -56,7 +56,6 @@ const Reference = () => {
       setBatches(response.data || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch batches');
-      console.error('Error fetching batches:', err);
     }
   };
 
@@ -74,7 +73,6 @@ const Reference = () => {
       setReferences(refs);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch references');
-      console.error('Error fetching references:', err);
     } finally {
       setLoading(false);
     }
@@ -188,7 +186,6 @@ const Reference = () => {
       setError('');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save reference');
-      console.error('Error saving reference:', err);
     } finally {
       setLoading(false);
     }

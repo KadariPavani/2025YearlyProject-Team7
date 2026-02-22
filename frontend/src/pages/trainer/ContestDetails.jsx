@@ -47,7 +47,6 @@ const ContestDetails = () => {
       }
     } catch (err) {
       setContestEditError(err.response?.data?.error || 'Failed to update contest');
-      console.error('Update contest error', err);
     } finally {
       setContestEditSubmitting(false);
     }
@@ -116,7 +115,6 @@ const ContestDetails = () => {
       }
     } catch (err) {
       setFormError(err.response?.data?.error || 'Failed to add question');
-      console.error('Add question error', err);
     } finally {
       setSubmitting(false);
     }
@@ -168,7 +166,6 @@ const ContestDetails = () => {
       }
     } catch (err) {
       setEditError(err.response?.data?.error || 'Failed to update question');
-      console.error('Update question error', err);
     } finally {
       setEditingSubmitting(false);
     }
@@ -184,7 +181,6 @@ const ContestDetails = () => {
       setContest(prev => ({ ...prev, questions: prev.questions.filter(q => q._id !== questionId) }));
       setToastType('success'); setToastMsg('Question deleted');
     } catch (err) {
-      console.error('Delete question error', err);
       setToastType('error'); setToastMsg(err.response?.data?.error || 'Failed to delete question');
     }
   };
@@ -198,7 +194,6 @@ const ContestDetails = () => {
       await axios.delete(`/api/contests/admin/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       navigate('/trainer-dashboard', { state: { refreshContests: true } });
     } catch (err) {
-      console.error('Delete contest error', err);
       setToastType('error'); setToastMsg(err.response?.data?.error || 'Failed to delete contest');
     }
   };
@@ -275,7 +270,6 @@ const ContestDetails = () => {
                   const res = await axios.post(`/api/contests/admin/${id}/finalize-all`, {}, { headers: { Authorization: `Bearer ${token}` } });
                   setToastType('success'); setToastMsg(res.data.message || 'Finalized for all participants');
                 } catch (err) {
-                  console.error('Finalize all error', err);
                   setToastType('error'); setToastMsg(err.response?.data?.error || 'Failed to finalize contest for all');
                 }
               }}

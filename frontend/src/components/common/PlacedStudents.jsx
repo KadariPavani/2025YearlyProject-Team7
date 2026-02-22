@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000');
-console.log('[PlacedStudents] Using API_BASE:', API_BASE);
 
 export default function PlacedStudents() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -35,7 +34,6 @@ export default function PlacedStudents() {
           signal: controller.signal,
           withCredentials: true
         });
-        console.log('[PlacedStudents] Fetched data:', res.data);
         if (res.data && res.data.success) {
           setStudents(res.data.data.students || []);
         }

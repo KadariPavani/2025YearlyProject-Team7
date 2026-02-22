@@ -38,7 +38,6 @@ const ResourceItem = ({ resource }) => {
       const videoId = urlObj.searchParams.get('v');
       return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
     } catch (e) {
-      console.error("Invalid URL:", url);
       return null;
     }
   };

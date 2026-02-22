@@ -21,7 +21,6 @@ const MyBatchesTab = ({ placementBatches, weeklySchedule, getTimeSlotColor, getT
         setSelectedBatchDetails(null);
       }
     } catch (err) {
-      console.error('Failed to fetch batch details:', err);
       setSelectedBatchDetails(null);
     } finally {
       setBatchLoading(false);

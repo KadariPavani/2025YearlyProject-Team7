@@ -81,7 +81,6 @@ const handleRemoveSelectedStudent = async (email) => {
     setSelectedStudents((prev) => prev.filter((s) => s.email?.toLowerCase() !== email.toLowerCase()));
     await fetchEvents({ notify: true, message: 'Student removed from selected list' });
   } catch (err) {
-    console.error("Error removing selected student:", err);
     alert(err.response?.data?.message || "Failed to remove student");
   } finally {
     setDeletingEmail(null);
@@ -104,10 +103,8 @@ const handleViewSelectedStudents = async (eventId) => {
 
     if (!students || students.length === 0) {
       // Inform the user but keep the modal open so they can upload or take action
-      console.info("No selected students found for this event.");
     }
   } catch (err) {
-    console.error("Error fetching selected students:", err);
     // Open the modal with empty list to allow retry/upload flow; still notify the user
     setSelectedStudents([]);
     setShowSelectedStudentsModal(true);
@@ -197,7 +194,6 @@ const handleUploadSelectedList = async () => {
       alert("⚠️ Upload failed: " + res.data.message);
     }
   } catch (err) {
-    console.error("❌ Upload failed:", err);
     alert("❌ Upload failed: " + err.message);
   }
 };
@@ -218,7 +214,6 @@ const handleUploadSelectedList = async () => {
 
         if (id) setTpoId(id);
       } catch (err) {
-        console.error("Error fetching TPO profile:", err.response?.data || err.message);
       }
     };
     fetchTpoId();
@@ -237,7 +232,6 @@ const fetchBatchesAndStudents = async () => {
       { headers: { Authorization: `Bearer ${token}` } }
     );
     
-    console.log('📦 Full Batch Response:', JSON.stringify(batchRes.data, null, 2));
     
     // Parse the nested structure: year -> college -> techStack -> batches
     let allBatches = [];
@@ -252,22 +246,18 @@ const fetchBatchesAndStudents = async () => {
       
       // Iterate through years (2021, 2026, etc.)
       Object.keys(yearData).forEach(year => {
-        console.log(`📅 Processing Year: ${year}`);
         
         // Iterate through colleges
         Object.keys(yearData[year]).forEach(college => {
-          console.log(`  🏫 Processing College: ${college}`);
           
           // Iterate through tech stacks
           Object.keys(yearData[year][college]).forEach(techStack => {
             const techData = yearData[year][college][techStack];
-            console.log(`    💻 Processing TechStack: ${techStack}, Batches: ${techData.batches?.length || 0}`);
             
             if (Array.isArray(techData.batches)) {
               techData.batches.forEach(batch => {
                 // Skip empty batches (should already be filtered by backend)
                 if (!Array.isArray(batch.students) || batch.students.length === 0) {
-                  console.log(`      ⚠️ Skipping empty batch ${batch.batchNumber || batch._id}`);
                   return;
                 }
 
@@ -275,7 +265,6 @@ const fetchBatchesAndStudents = async () => {
                 allBatches.push(batch);
                 
                 // Extract students from this batch
-                console.log(`      👥 Batch ${batch.batchNumber}: ${batch.students.length} students`);
                 batch.students.forEach(student => {
                   if (student && student._id && !studentIds.has(student._id)) {
                     studentIds.add(student._id);
@@ -298,14 +287,11 @@ const fetchBatchesAndStudents = async () => {
       });
     }
     
-    console.log('✅ Extracted Batches Count:', allBatches.length);
-    console.log('✅ Extracted Students Count:', allStudents.length);
     
     setAvailableBatches(allBatches);
     setAvailableStudents(allStudents);
     
   } catch (err) {
-    console.error("❌ Error fetching batches/students:", err.response?.data || err.message);
     alert("Failed to load batches/students. Check console for details.");
     setAvailableBatches([]);
     setAvailableStudents([]);
@@ -341,7 +327,6 @@ const autoSelectOngoingDate = (eventsList) => {
 
 useEffect(() => {
   const handleStudentRegistered = () => {
-    console.log("🔄 Student registered — refreshing events...");
     fetchEvents();
   };
 
@@ -356,11 +341,6 @@ const selectStudent = async (email) => {
     const token = localStorage.getItem("userToken");
     
     // ✅ Debug: Log what we're sending
-    console.log("🔍 Selecting student (quick select):", {
-      selectedEventId,
-      studentEmail: email,
-      hasToken: !!token
-    });
     
     const res = await axios.put(
       `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${selectedEventId}/select-student`,
@@ -375,8 +355,6 @@ const selectStudent = async (email) => {
       alert(res.data.message);
     }
   } catch (err) {
-    console.error("❌ Error selecting student:", err);
-    console.error("❌ Error response:", err.response?.data);
     alert(err.response?.data?.message || "Failed to update student selection");
   }
 };
@@ -418,7 +396,6 @@ setSelectedEventId(eventId);
       alert("No registered students found.");
     }
   } catch (err) {
-    console.error("Error fetching registered students:", err.response || err);
     if (err.response?.status === 403)
       alert("Access denied. Only TPOs can view registered students.");
     else alert("Failed to load registered students");
@@ -441,7 +418,6 @@ const fetchCompletedEventStudents = async (eventId) => {
     );
     setRegisteredStudents(res.data.data || []);
   } catch (err) {
-    console.error("Error fetching completed event students:", err);
   }
 };
 
@@ -453,11 +429,6 @@ const handleSelectStudent = async (eventId) => {
     const token = localStorage.getItem("userToken");
     
     // ✅ Debug: Log what we're sending
-    console.log("🔍 Selecting student:", {
-      eventId,
-      studentEmail: selectedStudentEmail,
-      hasToken: !!token
-    });
     
     const res = await axios.put(
       `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/calendar/${eventId}/select-student`,
@@ -474,8 +445,6 @@ const handleSelectStudent = async (eventId) => {
       alert(res.data.message);
     }
   } catch (err) {
-    console.error("❌ Error selecting student:", err);
-    console.error("❌ Error response:", err.response?.data);
     alert(err.response?.data?.message || "Failed to mark student as selected");
   }
 };
@@ -607,10 +576,8 @@ const fetchEvents = async ({ notify = false, message = null } = {}) => {
     try {
       window.dispatchEvent(new Event('calendarUpdated'));
     } catch (err) {
-      console.warn('Could not dispatch calendarUpdated event', err);
     }
   } catch (err) {
-    console.error("Error fetching events:", err);
   }
   setLoading(false);
 };
@@ -678,7 +645,6 @@ const fetchRegisteredStudents = async (eventId) => {
     );
     setRegisteredStudents(res.data.students || []);
   } catch (err) {
-    console.error("Error fetching students:", err);
     setRegisteredStudents([]);
   }
 };
@@ -804,7 +770,6 @@ const handleEditEvent = async (event) => {
     setViewOnly(false);
     setShowForm(true);
   } catch (error) {
-    console.error("Error loading event for edit:", error);
     alert("Failed to load event details for editing");
   }
 };
@@ -834,11 +799,10 @@ const handleCancelDeleteEvent = async (eventId) => {
     setDeletedEvents((prev) => [{ _id: eventId, status: 'deleted' }, ...prev]);
 
     // 4) Refresh events and show ONE toast after refresh (fetchEvents will show toast when notify=true)
-    try { await fetchEvents({ notify: true, message: 'Event cancelled and deleted' }); } catch (err) { console.warn('fetchEvents failed after delete', err); }
+    try { await fetchEvents({ notify: true, message: 'Event cancelled and deleted' }); } catch (err) {  }
 
     // fetchEvents already dispatches 'calendarUpdated' so no additional dispatch needed here.
   } catch (err) {
-    console.error("❌ Error cancelling/deleting event:", err);
     showToast('error', err.response?.data?.message || "Failed to cancel & delete event");
   }
 };
@@ -975,9 +939,7 @@ targetStudentIds: selectedStudentIds,
     payload.companyDetails?.externalLink ||
     "";
   if (savedLink) {
-    console.log(`✅ External link stored successfully: ${savedLink}`);
   } else {
-    console.warn("⚠️ External link not found in saved event data.");
   }
 
   // show a success toast after refresh
@@ -985,7 +947,6 @@ targetStudentIds: selectedStudentIds,
   await fetchEvents({ notify: true, message: actionMsg }); // ✅ Refresh events list and show single toast
   setShowForm(false);
 } catch (err) {
-  console.error("Error saving event:", err.response?.data || err.message);
   alert(err.response?.data?.message || "Failed to save event");
 } finally {
   setIsSubmitting(false);
@@ -1025,7 +986,6 @@ const handleExportRegisteredStudents = async () => {
     link.remove();
     window.URL.revokeObjectURL(url);
   } catch (err) {
-    console.error("Error exporting registered students:", err);
     showToast('error', 'Failed to export registered students');
   }
 };

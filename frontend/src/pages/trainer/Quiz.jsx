@@ -56,7 +56,6 @@ const Quiz = () => {
       setQuizzes(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch quizzes');
-      console.error('Error fetching quizzes:', err);
     } finally {
       setLoading(false);
     }
@@ -74,7 +73,6 @@ const Quiz = () => {
       setBatches(response.data || []);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch batches');
-      console.error('Error fetching batches:', err);
     }
   };
 
@@ -93,7 +91,6 @@ const Quiz = () => {
       setFormData(prev => ({ ...prev, subject: fetchedSubject }));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch subject');
-      console.error('Error fetching subject:', err);
     }
   };
 
@@ -117,7 +114,6 @@ const Quiz = () => {
       }
     } catch (err) {
       setError('Error updating form data');
-      console.error('Error in handleInputChange:', err);
     }
   };
 
@@ -194,11 +190,6 @@ const Quiz = () => {
       }
 
       // DEBUG: Show payload batches so we can verify regular vs placement assignment
-      console.log('DEBUG creating quiz payload', {
-        assignedBatches: payload.assignedBatches,
-        assignedPlacementBatches: payload.assignedPlacementBatches,
-        batchType: payload.batchType
-      });
 
       await axios.post('/api/quizzes', payload, {
         headers: { Authorization: `Bearer ${token}` }
@@ -235,7 +226,6 @@ const Quiz = () => {
       setError('');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create quiz');
-      console.error('Error creating quiz:', err);
     } finally {
       setLoading(false);
     }
@@ -256,7 +246,6 @@ const Quiz = () => {
       setActiveTab('progress');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch batch progress');
-      console.error('Error fetching batch progress:', err);
     } finally {
       setLoading(false);
     }
@@ -277,7 +266,6 @@ const Quiz = () => {
       await fetchQuizzes();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to delete quiz');
-      console.error('Error deleting quiz:', err);
     } finally {
       setLoading(false);
     }

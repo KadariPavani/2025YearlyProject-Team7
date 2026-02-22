@@ -22,7 +22,7 @@ const StudentActivityView = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('userToken') || localStorage.getItem('token');
-      if (!token) console.warn('No auth token found when fetching student activity');
+      if (!token) return;
       const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/student-activity/student`, {
         headers: { Authorization: `Bearer ${token}` }
       });

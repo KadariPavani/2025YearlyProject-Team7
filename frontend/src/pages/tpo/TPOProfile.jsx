@@ -52,7 +52,6 @@ const TPOProfile = () => {
         setError(response.data.message || 'Failed to fetch profile');
       }
     } catch (err) {
-      console.error('Profile fetch error:', err);
       setError(err.response?.data?.message || 'Failed to fetch profile');
       if (err.response?.status === 401) {
         setTimeout(() => {
@@ -129,7 +128,6 @@ const TPOProfile = () => {
         pendingApprovals: pendingApprovals.length
       });
     } catch (err) {
-      console.error('Stats fetch error:', err);
     } finally {
       setLoadingStats(false);
     }

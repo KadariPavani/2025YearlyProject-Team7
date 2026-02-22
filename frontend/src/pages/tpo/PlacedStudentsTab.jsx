@@ -43,7 +43,6 @@ const PlacedStudentsTab = () => {
         setError(response.data.message || 'Failed to fetch placed students');
       }
     } catch (err) {
-      console.error('Error fetching placed students:', err);
       setError(err.response?.data?.message || 'Failed to fetch placed students');
     } finally {
       setLoading(false);
@@ -83,7 +82,6 @@ const PlacedStudentsTab = () => {
       link.click();
       document.body.removeChild(link);
     } catch (err) {
-      console.error('Error downloading Excel:', err);
       setError('Failed to download Excel file');
     } finally {
       setDownloadingExcel(false);
