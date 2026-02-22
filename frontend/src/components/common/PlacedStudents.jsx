@@ -8,6 +8,13 @@ export default function PlacedStudents() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // touch coordinates for swipe support
   const touchStartX = useRef(0);
@@ -72,49 +79,38 @@ export default function PlacedStudents() {
     else if (diff === -2 || diff === students.length - 2) position = -2;
     else position = 3;
 
-    if (position === 0) {
-      return {
-        transform: 'translateX(-230px) translateY(-30%) scale(1)',
-        opacity: 1,
-        zIndex: 30,
-        pointerEvents: 'none',
-        transition: 'all 0.8s ease-in-out',
-      };
-    } else if (position === 1) {
-      return {
-        transform: 'translateX(26%) translateY(-30%) scale(0.75)',
-        opacity: 0.5,
-        zIndex: 20,
-        transition: 'all 0.8s ease-in-out',
-      };
-    } else if (position === -1) {
-      return {
-        transform: 'translateX(-130%) translateY(-30%) scale(0.75)',
-        opacity: 0.5,
-        zIndex: 20,
-        transition: 'all 0.8s ease-in-out',
-      };
-    } else if (position === 2) {
-      return {
-        transform: 'translateX(60%) translateY(-30%) scale(0.6)',
-        opacity: 0.3,
-        zIndex: 10,
-        transition: 'all 0.8s ease-in-out',
-      };
-    } else if (position === -2) {
-      return {
-        transform: 'translateX(-160%) translateY(-30%) scale(0.6)',
-        opacity: 0.3,
-        zIndex: 10,
-        transition: 'all 0.8s ease-in-out',
-      };
-    } else {
-      return {
-        transform: 'translateX(0) translateY(-30%) scale(0.5)',
-        opacity: 0,
-        zIndex: 0,
-        transition: 'all 0.8s ease-in-out',
-      };
+    const base = { transition: 'all 0.6s ease-in-out', position: 'absolute', left: '50%', top: '50%' };
+
+    if (isMobile) {
+      switch (position) {
+        case 0:
+          return { ...base, transform: 'translate(-50%, -50%) scale(1)', opacity: 1, zIndex: 30 };
+        case 1:
+          return { ...base, transform: 'translate(30%, -50%) scale(0.65)', opacity: 0.3, zIndex: 20 };
+        case -1:
+          return { ...base, transform: 'translate(-130%, -50%) scale(0.65)', opacity: 0.3, zIndex: 20 };
+        case 2:
+          return { ...base, transform: 'translate(80%, -50%) scale(0.5)', opacity: 0.1, zIndex: 10 };
+        case -2:
+          return { ...base, transform: 'translate(-180%, -50%) scale(0.5)', opacity: 0.1, zIndex: 10 };
+        default:
+          return { ...base, transform: 'translate(-50%, -50%) scale(0.4)', opacity: 0, zIndex: 0 };
+      }
+    }
+
+    switch (position) {
+      case 0:
+        return { ...base, transform: 'translate(-50%, -50%) scale(1)', opacity: 1, zIndex: 30 };
+      case 1:
+        return { ...base, transform: 'translate(5%, -50%) scale(0.85)', opacity: 0.6, zIndex: 20 };
+      case -1:
+        return { ...base, transform: 'translate(-105%, -50%) scale(0.85)', opacity: 0.6, zIndex: 20 };
+      case 2:
+        return { ...base, transform: 'translate(50%, -50%) scale(0.7)', opacity: 0.25, zIndex: 10 };
+      case -2:
+        return { ...base, transform: 'translate(-150%, -50%) scale(0.7)', opacity: 0.25, zIndex: 10 };
+      default:
+        return { ...base, transform: 'translate(-50%, -50%) scale(0.5)', opacity: 0, zIndex: 0 };
     }
   };
 
@@ -163,154 +159,102 @@ export default function PlacedStudents() {
   return (
 <section
   id="students"
-  className="w-full flex flex-col items-center justify-center py-12 md:py-16 lg:py-20 px-0 bg-[#5791ED] min-h-[380px] md:min-h-[500px]"
+  className="w-full flex flex-col items-center justify-center py-6 sm:py-12 md:py-16 lg:py-20 px-0 bg-[#5791ED] min-h-[320px] sm:min-h-[420px] md:min-h-[520px]"
 >
 
-      <div className="text-center mb-6 w-full px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-left w-full sm:w-auto">
-          <h1 className="text-2xl md:text-4xl lg:text-5xl font-bold text-white mb-2">
+      <div className="relative mb-3 sm:mb-6 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+        <div className="text-left">
+          <h1 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white mb-0.5 sm:mb-2">
             Placement Success Stories
           </h1>
-          <p className="text-sm md:text-lg lg:text-xl text-white/90 max-w-2xl">
+          <p className="text-xs sm:text-sm md:text-base lg:text-lg text-white/90 max-w-2xl leading-snug sm:leading-normal">
             Hear what our successful candidates have to say about their journey with us
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <a
-            href="/placed-students"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3 py-2 bg-white text-blue-600 rounded-md shadow hover:opacity-95 transition"
-          >
-            View All Students
-          </a>
-        </div>
-      </div>
-
-{/* 🟩 Shift cards slightly upward */}
-
-{/* Desktop carousel - visible on md+; hidden on smaller screens */}
-<div className="hidden md:block relative w-full max-w-7xl h-80 -mt-12 px-4" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-  {students.map((s, index) => {
-    const style = getCardStyle(index);
-    return (
-      <div
-        key={`${s.studentId || s.rollNumber}-${index}`}
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md transition-all duration-700 ease-in-out cursor-pointer"
-        style={style}
-        onClick={() => handleCardClick(index)}
-      >
-        <div
-          className={`rounded-2xl shadow-2xl p-6 text-center transition-all duration-700 ${
-            index === currentIndex ? 'bg-white scale-105' : 'bg-blue-200'
-          }`}
+        <a
+          href="/placed-students"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 inline-flex items-center px-1.5 py-0.5 sm:px-3 sm:py-2 bg-white text-blue-600 rounded sm:rounded-md shadow hover:opacity-95 transition text-[8px] sm:text-sm font-medium"
         >
-          <div className="flex justify-center mb-4">
-            <img
-              loading="lazy"
-              decoding="async"
-              src={s.profileImageUrl || 'https://ui-avatars.com/api/?background=1e40af&color=fff&name=' + encodeURIComponent(s.name)}
-              alt={s.name}
-              className="w-32 h-32 rounded-full border-4 border-blue-600 object-cover"
-            />
-          </div>
-
-          <h3
-            className={`font-semibold text-xl sm:text-2xl mb-1 ${
-              index === currentIndex ? 'text-gray-900' : 'text-blue-900'
-            }`}
-          >
-            {s.name}
-          </h3>
-
-          <div className="text-sm mb-3" style={{ color: index === currentIndex ? '#374151' : '#1e3a8a' }}>
-            {s.companyName && <div className="font-medium">{s.companyName}</div>}
-            {s.type && s.type !== 'PLACEMENT' && (
-              <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full mt-1 ${s.type === 'INTERNSHIP' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                {s.type}
-              </span>
-            )}
-            <div className="text-xs font-semibold text-blue-600">
-              Roll No: {s.rollNumber || s.rollNo || '—'}
-            </div>
-            {s.batchName && s.batchName !== 'NA' && (
-              <div className="text-xs">Batch: {s.batchName}</div>
-            )}
-          </div>
-        </div>
+          View All
+        </a>
       </div>
-    );
-  })}
 
-  {/* Controls (optional) */}
-  <button aria-label="Previous" onClick={prevSlide} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-2 shadow">
-    &larr;
-  </button>
-  <button aria-label="Next" onClick={nextSlide} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 rounded-full p-2 shadow">
-    &rarr;
-  </button>
-</div>
-
-{/* Mobile stacked list with matching card styles (shown below md) */}
-    <div className="md:hidden -mt-6 space-y-3 w-full max-w-4xl mx-auto px-4" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+{/* Unified carousel for all screen sizes */}
+<div
+  className="relative w-full max-w-5xl mx-auto h-44 sm:h-64 md:h-80 mt-1 sm:mt-2 px-10 sm:px-16 md:px-20 overflow-hidden"
+  onTouchStart={handleTouchStart}
+  onTouchMove={handleTouchMove}
+  onTouchEnd={handleTouchEnd}
+>
   {loading ? (
-    <div className="text-center py-6 text-white">Loading…</div>
+    <div className="absolute inset-0 flex items-center justify-center text-white">Loading...</div>
   ) : students.length === 0 ? (
-    <div className="text-center py-6 text-white">No placed students yet</div>
+    <div className="absolute inset-0 flex items-center justify-center text-white">No placed students yet</div>
   ) : (
-    students.map((t, index) => (
-      <div 
-        key={`${t.studentId || t.rollNumber}-${index}`} 
-        className={`bg-white rounded-lg shadow p-2 sm:p-4 flex items-center gap-3 sm:gap-4 border border-blue-50 transition-all duration-500 ${
-          index === currentIndex ? 'scale-105 shadow-xl border-blue-300' : 'scale-100'
-        }`}
-        style={{
-          animation: `slideInUp 0.5s ease-out ${index * 0.05}s both`
-        }}
-      >
-        <img loading="lazy" decoding="async" src={t.profileImageUrl || 'https://ui-avatars.com/api/?background=1e40af&color=fff&name=' + encodeURIComponent(t.name)} alt={t.name} className="w-10 h-10 sm:w-14 sm:h-14 rounded-full border-2 border-blue-600 object-cover" />
-        <div className="min-w-0">
-          <div className="font-semibold text-xs sm:text-sm text-gray-900 truncate">{t.name}</div>
-          <div className="text-xs sm:text-sm text-blue-600 font-medium truncate">
-            Roll No: {t.rollNumber || t.rollNo || '—'}
-          </div>
-          {t.companyName && (
-            <div className="text-xs sm:text-sm text-gray-600 truncate flex items-center gap-1.5">
-              {t.companyName}
-              {t.type && t.type !== 'PLACEMENT' && (
-                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${t.type === 'INTERNSHIP' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                  {t.type}
+    students.map((s, index) => {
+      const style = getCardStyle(index);
+      return (
+        <div
+          key={`${s.studentId || s.rollNumber}-${index}`}
+          className="w-[130px] sm:w-[270px] md:w-[360px] cursor-pointer"
+          style={style}
+          onClick={() => handleCardClick(index)}
+        >
+          <div className={`rounded-lg sm:rounded-2xl shadow-2xl p-2 sm:p-4 md:p-6 text-center transition-colors duration-500 ${
+            index === currentIndex ? 'bg-white' : 'bg-blue-200'
+          }`}>
+            <div className="flex justify-center mb-1.5 sm:mb-3 md:mb-4">
+              <img
+                loading="lazy"
+                decoding="async"
+                src={s.profileImageUrl || 'https://ui-avatars.com/api/?background=1e40af&color=fff&name=' + encodeURIComponent(s.name)}
+                alt={s.name}
+                className="w-12 h-12 sm:w-20 sm:h-20 md:w-28 md:h-28 rounded-full border-2 md:border-4 border-blue-600 object-cover"
+              />
+            </div>
+
+            <h3 className={`font-semibold text-[10px] sm:text-base md:text-xl mb-0.5 sm:mb-1 truncate ${
+              index === currentIndex ? 'text-gray-900' : 'text-blue-900'
+            }`}>
+              {s.name}
+            </h3>
+
+            <div className="text-[8px] sm:text-sm space-y-px sm:space-y-0" style={{ color: index === currentIndex ? '#374151' : '#1e3a8a' }}>
+              {s.companyName && <div className="font-medium truncate">{s.companyName}</div>}
+              {s.type && s.type !== 'PLACEMENT' && (
+                <span className={`inline-block text-[7px] sm:text-[9px] md:text-[10px] font-semibold px-1 sm:px-1.5 md:px-2 py-px sm:py-0.5 rounded-full ${s.type === 'INTERNSHIP' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                  {s.type}
                 </span>
               )}
+              <div className="text-[7px] sm:text-xs font-semibold text-blue-600">
+                {s.rollNumber || s.rollNo || '—'}
+              </div>
             </div>
-          )}
-          {t.batchName && t.batchName !== 'NA' && (
-            <div className="text-xs text-gray-500 mt-0.5">Batch: {t.batchName}</div>
-          )}
-          {t.hometown && t.hometown !== 'NA' && (
-            <div className="text-xs text-gray-500 mt-0.5">Hometown: {t.hometown}</div>
-          )}
+          </div>
         </div>
-      </div>
-    ))
+      );
+    })
   )}
+
 </div>
 
-<style>{`
-  @keyframes slideInUp {
-    from {
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-`}</style>
-
-{/* Bring note text closer to cards */}
+{/* Dot indicators */}
+{students.length > 0 && (
+  <div className="flex justify-center gap-1 sm:gap-2 mt-2 sm:mt-4">
+    {students.map((_, i) => (
+      <button
+        key={i}
+        onClick={() => setCurrentIndex(i)}
+        className={`rounded-full transition-all duration-300 ${
+          i === currentIndex ? 'w-4 sm:w-8 h-1.5 sm:h-2.5 bg-white' : 'w-1.5 sm:w-2.5 h-1.5 sm:h-2.5 bg-white/40'
+        }`}
+      />
+    ))}
+  </div>
+)}
 
 
 
