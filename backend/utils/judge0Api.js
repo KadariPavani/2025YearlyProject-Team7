@@ -228,10 +228,8 @@ async function runSubmissionExternal({ language, code, testCases = [], timeLimit
     };
   }
 
-  console.log(`[ExternalJudge] APIs: [${apis.join(', ')}], Language: ${normalizedLang}`);
 
   for (const api of apis) {
-    console.log(`[ExternalJudge] Trying ${api}...`);
     const results = [];
     let apiFailed = false;
 
@@ -247,11 +245,9 @@ async function runSubmissionExternal({ language, code, testCases = [], timeLimit
         results.push(testResult);
       } catch (error) {
         const status = error.response?.status;
-        console.error(`[ExternalJudge] ${api} error:`, status || error.message);
 
         // If server error or auth error, try fallback API
         if ((status === 401 || status === 403 || status === 500 || status === 502 || status === 503) && api !== apis[apis.length - 1]) {
-          console.log(`[ExternalJudge] ${api} returned ${status}, trying next API...`);
           apiFailed = true;
           break;
         }

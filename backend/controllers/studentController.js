@@ -98,14 +98,12 @@ async function assignStudentToPlacementTrainingBatch(student) {
         students: []
       });
       await placementBatch.save();
-      console.log(`Created new placement training batch: ${batchNumber}`);
     }
 
     // Add student to placement training batch if not already present
     if (!placementBatch.students.includes(student._id)) {
       placementBatch.students.push(student._id);
       await placementBatch.save();
-      console.log(`Added student to batch ${placementBatch.batchNumber}`);
     }
 
     // Update student with placement training batch reference
@@ -124,11 +122,9 @@ async function assignStudentToPlacementTrainingBatch(student) {
       { new: true }
     );
 
-    console.log(`Successfully assigned student ${student.name} to placement training batch ${placementBatch.batchNumber}`);
 
     return placementBatch;
   } catch (error) {
-    console.error('Error in assignStudentToPlacementTrainingBatch:', error);
     throw error;
   }
 }
@@ -136,7 +132,7 @@ async function assignStudentToPlacementTrainingBatch(student) {
 const getProfile = async (req, res) => {
   try {
     if (req.userType !== 'student') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -148,7 +144,7 @@ const getProfile = async (req, res) => {
       .select('-password');
 
     if (!student) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Student not found'
       });
@@ -169,7 +165,6 @@ const getProfile = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching profile:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -181,7 +176,7 @@ const getProfile = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     if (req.userType !== 'student') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -191,7 +186,7 @@ const updateProfile = async (req, res) => {
     const student = await Student.findById(studentId).populate('batchId');
 
     if (!student) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Student not found'
       });
@@ -213,7 +208,7 @@ const updateProfile = async (req, res) => {
       try {
         await student.validateCRTBatchChoice(crtBatchChoice);
       } catch (error) {
-        return res.status(400).json({
+        return res.status(200).json({
           success: false,
           message: error.message
         });
@@ -227,7 +222,7 @@ const updateProfile = async (req, res) => {
       );
 
       if (pendingApproval) {
-        return res.status(400).json({
+        return res.status(200).json({
           success: false,
           message: 'You already have a pending CRT approval request',
           hasPendingApproval: true
@@ -255,7 +250,6 @@ const updateProfile = async (req, res) => {
           });
         }
       } catch (notifyErr) {
-        console.error('Error creating approval notification:', notifyErr);
       }
 
       return res.json({
@@ -287,7 +281,6 @@ const updateProfile = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error updating profile:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while updating profile'
@@ -299,7 +292,7 @@ const updateProfile = async (req, res) => {
 const getAvailableCrtOptions = async (req, res) => {
   try {
     if (req.userType !== 'student') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. Student route only.'
       });
@@ -309,14 +302,14 @@ const getAvailableCrtOptions = async (req, res) => {
     const student = await Student.findById(studentId).populate('batchId');
 
     if (!student) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Student not found'
       });
     }
 
     if (!student.batchId) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Student not assigned to a batch yet'
       });
@@ -338,7 +331,6 @@ const getAvailableCrtOptions = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching CRT options:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching CRT options',
@@ -351,7 +343,7 @@ const getAvailableCrtOptions = async (req, res) => {
 const getPendingApprovals = async (req, res) => {
   try {
     if (req.userType !== 'student') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. Student route only.'
       });
@@ -383,7 +375,6 @@ const getPendingApprovals = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching pending approvals:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching approvals'
@@ -395,17 +386,16 @@ const getPendingApprovals = async (req, res) => {
 const uploadProfileImage = (req, res) => {
   profileUpload(req, res, async (err) => {
     if (err) {
-      console.error('Profile upload error:', err);
-      return res.status(400).json({ success: false, message: err.message });
+      return res.status(200).json({ success: false, message: err.message });
     }
 
     try {
       if (req.userType !== 'student') {
-        return res.status(403).json({ success: false, message: 'Access denied' });
+        return res.status(200).json({ success: false, message: 'Access denied' });
       }
 
       if (!req.file) {
-        return res.status(400).json({ success: false, message: 'No file uploaded' });
+        return res.status(200).json({ success: false, message: 'No file uploaded' });
       }
 
       const updatedStudent = await Student.findByIdAndUpdate(
@@ -415,7 +405,7 @@ const uploadProfileImage = (req, res) => {
       );
 
       if (!updatedStudent) {
-        return res.status(404).json({ success: false, message: 'Student not found' });
+        return res.status(200).json({ success: false, message: 'Student not found' });
       }
 
       res.json({
@@ -424,7 +414,6 @@ const uploadProfileImage = (req, res) => {
         message: 'Profile image uploaded successfully'
       });
     } catch (error) {
-      console.error('Error uploading profile image:', error);
       res.status(500).json({ success: false, message: 'Failed to upload profile image' });
     }
   });
@@ -434,17 +423,16 @@ const uploadProfileImage = (req, res) => {
 const uploadResume = (req, res) => {
   resumeUpload(req, res, async (err) => {
     if (err) {
-      console.error('Resume upload error:', err);
-      return res.status(400).json({ success: false, message: err.message });
+      return res.status(200).json({ success: false, message: err.message });
     }
 
     try {
       if (req.userType !== 'student') {
-        return res.status(403).json({ success: false, message: 'Access denied' });
+        return res.status(200).json({ success: false, message: 'Access denied' });
       }
 
       if (!req.file) {
-        return res.status(400).json({ success: false, message: 'No file uploaded' });
+        return res.status(200).json({ success: false, message: 'No file uploaded' });
       }
 
       const updatedStudent = await Student.findByIdAndUpdate(
@@ -457,7 +445,7 @@ const uploadResume = (req, res) => {
       );
 
       if (!updatedStudent) {
-        return res.status(404).json({ success: false, message: 'Student not found' });
+        return res.status(200).json({ success: false, message: 'Student not found' });
       }
 
       return res.json({
@@ -469,7 +457,6 @@ const uploadResume = (req, res) => {
         message: 'Resume uploaded successfully'
       });
     } catch (error) {
-      console.error('Error uploading resume:', error);
       res.status(500).json({ success: false, message: 'Failed to upload resume' });
     }
   });
@@ -479,12 +466,12 @@ const uploadResume = (req, res) => {
 const checkPasswordChange = async (req, res) => {
   try {
     if (req.userType !== 'student') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const student = await Student.findById(req.user.id);
     if (!student) {
-      return res.status(404).json({ success: false, message: 'Student not found' });
+      return res.status(200).json({ success: false, message: 'Student not found' });
     }
 
     const needsPasswordChange = !student.lastLogin && student.password === student.username;
@@ -494,7 +481,6 @@ const checkPasswordChange = async (req, res) => {
       needsPasswordChange: needsPasswordChange
     });
   } catch (err) {
-    console.error('Check password change error:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -503,7 +489,7 @@ const checkPasswordChange = async (req, res) => {
 const getMyBatch = async (req, res) => {
   try {
     if (req.userType !== 'student') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const studentId = req.user.id;
@@ -516,11 +502,11 @@ const getMyBatch = async (req, res) => {
     });
 
     if (!student) {
-      return res.status(404).json({ success: false, message: 'Student not found' });
+      return res.status(200).json({ success: false, message: 'Student not found' });
     }
 
     if (!student.batchId) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'No batch assigned yet. Please contact your administrator.'
       });
@@ -540,7 +526,6 @@ const getMyBatch = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching student batch info:', error);
     res.status(500).json({
       success: false,
       message: 'Server error fetching batch information',
@@ -553,7 +538,7 @@ const getMyBatch = async (req, res) => {
 const getPlacementTrainingBatchInfo = async (req, res) => {
   try {
     if (req.userType !== 'student') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const studentId = req.user.id;
@@ -576,11 +561,11 @@ const getPlacementTrainingBatchInfo = async (req, res) => {
       });
 
     if (!student) {
-      return res.status(404).json({ success: false, message: 'Student not found' });
+      return res.status(200).json({ success: false, message: 'Student not found' });
     }
 
     if (!student.placementTrainingBatchId) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'No placement training batch assigned yet. Please complete your profile to get assigned to a batch.'
       });
@@ -672,7 +657,6 @@ const getPlacementTrainingBatchInfo = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching placement training batch info:', error);
     res.status(500).json({
       success: false,
       message: 'Server error fetching placement training batch information',
@@ -685,7 +669,7 @@ const getPlacementTrainingBatchInfo = async (req, res) => {
 const getMyTrainersSchedule = async (req, res) => {
   try {
     if (req.userType !== 'student') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const studentId = req.user.id;
@@ -693,14 +677,14 @@ const getMyTrainersSchedule = async (req, res) => {
     // Find student's placement training batch
     const student = await Student.findById(studentId);
     if (!student || !student.placementTrainingBatchId) {
-      return res.status(404).json({ success: false, message: 'No placement training batch found' });
+      return res.status(200).json({ success: false, message: 'No placement training batch found' });
     }
 
     const placementBatch = await PlacementTrainingBatch.findById(student.placementTrainingBatchId)
       .populate('assignedTrainers.trainer', 'name email phone subjectDealing category');
 
     if (!placementBatch) {
-      return res.status(404).json({ success: false, message: 'Placement training batch not found' });
+      return res.status(200).json({ success: false, message: 'Placement training batch not found' });
     }
 
     // Create today's schedule
@@ -742,7 +726,6 @@ const getMyTrainersSchedule = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching trainer schedule:', error);
     res.status(500).json({ success: false, message: 'Server error fetching trainer schedule' });
   }
 };
@@ -751,7 +734,7 @@ const getMyTrainersSchedule = async (req, res) => {
 const getMyAttendance = async (req, res) => {
   try {
     if (req.userType !== 'student') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -822,7 +805,6 @@ const getMyAttendance = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching student attendance:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -834,7 +816,7 @@ const getMyAttendance = async (req, res) => {
 const getAttendanceMonthlySummary = async (req, res) => {
   try {
     if (req.userType !== 'student') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -885,7 +867,6 @@ const getAttendanceMonthlySummary = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching monthly summary:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'

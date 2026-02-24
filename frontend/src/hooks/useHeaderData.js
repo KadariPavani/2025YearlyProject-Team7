@@ -110,7 +110,6 @@ const useHeaderData = (role, existingUserData = null) => {
       setCategoryUnread(unreadByCategory);
       setUnreadCount(totalUnread);
     } catch (err) {
-      console.error('Error fetching notifications:', err);
     }
   }, [getToken, config.notificationEndpoint, config.defaultCategories]);
 
@@ -124,7 +123,6 @@ const useHeaderData = (role, existingUserData = null) => {
       );
       await fetchNotifications();
     } catch (err) {
-      console.error('Error marking notification as read:', err);
     }
   }, [getToken, fetchNotifications]);
 
@@ -138,7 +136,6 @@ const useHeaderData = (role, existingUserData = null) => {
       );
       await fetchNotifications();
     } catch (err) {
-      console.error('Error marking all as read:', err);
     }
   }, [getToken, fetchNotifications]);
 
@@ -162,7 +159,6 @@ const useHeaderData = (role, existingUserData = null) => {
         } catch {}
       }
     } catch (err) {
-      console.error('Failed to fetch user data:', err);
     }
   }, [getToken, config.userDataEndpoint]);
 

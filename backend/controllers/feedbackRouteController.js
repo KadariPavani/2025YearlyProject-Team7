@@ -47,8 +47,7 @@ const submitFeedback = async (req, res) => {
     // Verify the student exists (use robust helper)
     const student = await findStudentByRequestUser(req);
     if (!student) {
-      console.warn('[feedbackRoutes] submit - Student not found for user:', req.user?.id || req.user?._id || req.user);
-      return res.status(404).json({ success: false, message: 'Student not found' });
+      return res.status(200).json({ success: false, message: 'Student not found' });
     }
 
     // Create feedback
@@ -79,7 +78,6 @@ const submitFeedback = async (req, res) => {
       data: feedback
     });
   } catch (error) {
-    console.error('Error submitting feedback:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to submit feedback',
@@ -95,7 +93,7 @@ const getStudentMyFeedback = async (req, res) => {
   try {
     const student = await findStudentByRequestUser(req);
     if (!student) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Student not found'
       });
@@ -113,7 +111,6 @@ const getStudentMyFeedback = async (req, res) => {
       data: feedbacks
     });
   } catch (error) {
-    console.error('Error fetching student feedback:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch feedback',
@@ -142,8 +139,7 @@ const getStudentTrainers = async (req, res) => {
     const finalStudent = student || studentFallback;
 
     if (!finalStudent) {
-      console.warn('[feedbackRoutes] Student not found for user id:', req.user.id);
-      return res.status(404).json({ success: false, message: 'Student not found' });
+      return res.status(200).json({ success: false, message: 'Student not found' });
     }
 
     // Try multiple ways to find the placement batch:
@@ -193,7 +189,6 @@ const getStudentTrainers = async (req, res) => {
       data: uniqueTrainers
     });
   } catch (error) {
-    console.error('Error fetching trainers:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch trainers',
@@ -219,7 +214,7 @@ const getTrainerReceivedFeedback = async (req, res) => {
     }
 
     if (!trainerId) {
-      return res.status(401).json({
+      return res.status(200).json({
         success: false,
         message: 'Trainer not found'
       });
@@ -250,7 +245,6 @@ const getTrainerReceivedFeedback = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('GET /trainer/received error:', err);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -271,7 +265,6 @@ const getTpoAllFeedback = async (req, res) => {
     if (!tpoId) {
       if (req.userType && String(req.userType).toLowerCase() === 'tpo') {
         tpoId = req.user._id || req.user.id;
-        console.log('[feedbackRoutes] Using req.user as TPO id:', tpoId);
       } else {
         try {
           const byId = await TPO.findById(req.user.id);
@@ -283,8 +276,7 @@ const getTpoAllFeedback = async (req, res) => {
     }
 
     if (!tpoId) {
-      console.warn('[feedbackRoutes] TPO not found for request user', { userId: req.user.id, userType: req.userType });
-      return res.status(404).json({ success: false, message: 'TPO not found' });
+      return res.status(200).json({ success: false, message: 'TPO not found' });
     }
 
     // Load TPO and determine batches this TPO should see
@@ -356,7 +348,6 @@ const getTpoAllFeedback = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching TPO feedback:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch feedback',
@@ -382,7 +373,7 @@ const getCoordinatorAllFeedback = async (req, res) => {
     }
 
     if (!coordinator) {
-      return res.status(404).json({ success: false, message: 'Coordinator not found' });
+      return res.status(200).json({ success: false, message: 'Coordinator not found' });
     }
 
     const feedbacks = await Feedback.find({
@@ -414,7 +405,6 @@ const getCoordinatorAllFeedback = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching coordinator feedback:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch feedback',
@@ -432,7 +422,7 @@ const respondToFeedback = async (req, res) => {
     const feedback = await Feedback.findById(req.params.id);
 
     if (!feedback) {
-      return res.status(404).json({ success: false, message: 'Feedback not found' });
+      return res.status(200).json({ success: false, message: 'Feedback not found' });
     }
 
     // Determine responder type
@@ -453,7 +443,7 @@ const respondToFeedback = async (req, res) => {
       responderModel = 'Coordinator';
       responderId = coordinator._id;
     } else {
-      return res.status(403).json({ success: false, message: 'Unauthorized to respond' });
+      return res.status(200).json({ success: false, message: 'Unauthorized to respond' });
     }
 
     feedback.response = {
@@ -473,7 +463,6 @@ const respondToFeedback = async (req, res) => {
       data: feedback
     });
   } catch (error) {
-    console.error('Error responding to feedback:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to submit response',
@@ -491,7 +480,7 @@ const updateFeedbackStatus = async (req, res) => {
     const feedback = await Feedback.findById(req.params.id);
 
     if (!feedback) {
-      return res.status(404).json({ success: false, message: 'Feedback not found' });
+      return res.status(200).json({ success: false, message: 'Feedback not found' });
     }
 
     feedback.status = status;
@@ -503,7 +492,6 @@ const updateFeedbackStatus = async (req, res) => {
       data: feedback
     });
   } catch (error) {
-    console.error('Error updating feedback status:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update status',
@@ -521,7 +509,7 @@ const deleteFeedback = async (req, res) => {
 
     // Validate ID format
     if (!feedbackId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Invalid feedback ID format'
       });
@@ -530,7 +518,7 @@ const deleteFeedback = async (req, res) => {
     const feedback = await Feedback.findById(feedbackId);
 
     if (!feedback) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Feedback not found'
       });
@@ -538,7 +526,7 @@ const deleteFeedback = async (req, res) => {
 
     // Only allow deletion if feedback is pending
     if (feedback.status !== 'pending') {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Cannot delete feedback that has been reviewed or responded to'
       });
@@ -552,7 +540,6 @@ const deleteFeedback = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error deleting feedback:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete feedback',

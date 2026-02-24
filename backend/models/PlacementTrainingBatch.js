@@ -199,7 +199,6 @@ PlacementTrainingBatchSchema.statics.reassignPendingApprovalsForPlacementBatch =
 
     return { res1, res1fb, pendingCount, updatedStudents };
   } catch (err) {
-    console.error('Error in reassignPendingApprovalsForPlacementBatch:', err);
     throw err;
   }
 };
@@ -224,7 +223,6 @@ PlacementTrainingBatchSchema.post('findOneAndUpdate', async function(result) {
       await mongoose.model('PlacementTrainingBatch').reassignPendingApprovalsForPlacementBatch(result._id, result.tpoId);
     }
   } catch (err) {
-    console.error('Error in post findOneAndUpdate hook for PlacementTrainingBatch:', err);
   }
 });
 
@@ -239,7 +237,6 @@ PlacementTrainingBatchSchema.post('save', async function(doc) {
       await mongoose.model('PlacementTrainingBatch').reassignPendingApprovalsForPlacementBatch(doc._id, doc.tpoId);
     }
   } catch (err) {
-    console.error('Error in post save hook for PlacementTrainingBatch:', err);
   }
 });
 

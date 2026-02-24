@@ -26,13 +26,6 @@ const processUploadedFile = (file) => {
   // Extract file extension from original filename
   const fileExt = path.extname(file.originalname).toLowerCase();
 
-  console.log('Processed file:', {
-    originalName: file.originalname,
-    cloudinaryUrl: secureUrl,
-    publicId: file.filename,
-    extension: fileExt
-  });
-
   return {
     url: secureUrl,  // Should now include .pdf extension
     publicId: file.filename,
@@ -65,7 +58,6 @@ const getTrainerPlacementBatches = async (trainerId) => {
       type: 'placement'
     }));
   } catch (error) {
-    console.error('Error fetching placement batches:', error);
     return [];
   }
 };
@@ -79,7 +71,6 @@ const getTrainerSubject = async (trainerId) => {
     const trainer = await Trainer.findById(trainerId).select('subjectDealing');
     return trainer?.subjectDealing ? [trainer.subjectDealing] : [];
   } catch (error) {
-    console.error('Error fetching trainer subject:', error);
     return [];
   }
 };
@@ -114,14 +105,6 @@ const getSubjects = async (req, res) => {
 // ============================================
 const createAssignment = async (req, res) => {
   try {
-    console.log('Creating assignment...');
-    console.log('Files received:', req.files?.map(f => ({
-      name: f.originalname,
-      type: f.mimetype,
-      cloudinaryPath: f.path,
-      publicId: f.filename
-    })));
-
     const {
       title, description, subject, dueDate, totalMarks,
       assignedBatches, assignedPlacementBatches, batchType,
@@ -132,7 +115,7 @@ const createAssignment = async (req, res) => {
     const trainerId = req.user.id;
 
     if (!title || !subject || !dueDate || !totalMarks || !batchType) {
-      return res.status(400).json({ message: 'Missing required fields' });
+      return res.status(200).json({ message: 'Missing required fields' });
     }
 
     const parsedAssignedBatches = typeof assignedBatches === 'string'
@@ -143,7 +126,7 @@ const createAssignment = async (req, res) => {
 
     const trainerSubject = await getTrainerSubject(trainerId);
     if (!trainerSubject.includes(subject)) {
-      return res.status(400).json({ message: 'Invalid subject for this trainer' });
+      return res.status(200).json({ message: 'Invalid subject for this trainer' });
     }
 
     let validatedRegularBatches = [];
@@ -160,7 +143,6 @@ const createAssignment = async (req, res) => {
           // Exact match by batchNumber or name
           let found = await Batch.findOne({ $or: [{ batchNumber: candidate }, { name: candidate }] }).select('_id batchNumber name');
           if (found && found._id) {
-            console.log(`Resolved regular candidate '${candidate}' -> ${found._id} (${found.batchNumber||found.name})`);
             return found._id.toString();
           }
 
@@ -168,14 +150,11 @@ const createAssignment = async (req, res) => {
           const regex = new RegExp(candidate.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
           found = await Batch.findOne({ $or: [{ batchNumber: regex }, { name: regex }] }).select('_id batchNumber name');
           if (found && found._id) {
-            console.log(`Resolved regular candidate by regex '${candidate}' -> ${found._id}`);
             return found._id.toString();
           }
 
-          console.warn(`Could not resolve regular batch candidate: '${candidateRaw}'`);
           return null;
         } catch (err) {
-          console.error('Error resolving regular batch candidate:', candidateRaw, err.message || err);
           return null;
         }
       }));
@@ -192,26 +171,21 @@ const createAssignment = async (req, res) => {
 
           let found = await PlacementTrainingBatch.findOne({ batchNumber: candidate }).select('_id batchNumber');
           if (found && found._id) {
-            console.log(`Resolved placement candidate '${candidate}' -> ${found._id} (${found.batchNumber})`);
             return found._id.toString();
           }
 
           const regex = new RegExp(candidate.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
           found = await PlacementTrainingBatch.findOne({ batchNumber: regex }).select('_id batchNumber');
           if (found && found._id) {
-            console.log(`Resolved placement candidate by regex '${candidate}' -> ${found._id} (${found.batchNumber})`);
             return found._id.toString();
           }
 
-          console.warn(`Could not resolve placement batch candidate: '${candidateRaw}'`);
           return null;
         } catch (err) {
-          console.error('Error resolving placement batch candidate:', candidateRaw, err.message || err);
           return null;
         }
       }));
       validatedPlacementBatches = resolvedPlacement.filter(Boolean);
-      console.log('Resolved placement batch ids:', validatedPlacementBatches);
     }
 
     // SAFEGUARD: If any of the resolved "regular" ids actually exist in PlacementTrainingBatch,
@@ -225,10 +199,8 @@ const createAssignment = async (req, res) => {
           validatedRegularBatches = validatedRegularBatches.filter(id => !placementIds.includes(id));
           // Add to placement list (avoid duplicates)
           validatedPlacementBatches = Array.from(new Set([...(validatedPlacementBatches || []), ...placementIds]));
-          console.log(`Moved ${placementIds.length} id(s) from validatedRegularBatches to validatedPlacementBatches because they belong to placement batches:` , placementIds);
         }
       } catch (err) {
-        console.error('Error reconciling regular vs placement batch ids:', err);
       }
     }
 
@@ -243,17 +215,15 @@ const createAssignment = async (req, res) => {
     }
 
     if ((validatedRegularBatches.length === 0 && validatedPlacementBatches.length === 0)) {
-      return res.status(400).json({ message: 'At least one batch must be selected' });
+      return res.status(200).json({ message: 'At least one batch must be selected' });
     }
 
     const attachments = req.files
       ? req.files.map(processUploadedFile).filter(f => f !== null)
       : [];
 
-    console.log('Processed attachments with extensions:', attachments);
 
     // DEBUG: show resolved batches and final batchType before saving
-    console.log('Saving assignment with resolved batches:', { validatedRegularBatches, validatedPlacementBatches, finalBatchType });
 
     const assignment = new Assignment({
       title, description, subject,
@@ -295,8 +265,7 @@ if (validatedRegularBatches.length > 0) {
 
     res.status(201).json(savedAssignment);
   } catch (error) {
-    console.error('Error creating assignment:', error);
-    res.status(400).json({ message: error.message || 'Failed to create assignment' });
+    res.status(200).json({ message: error.message || 'Failed to create assignment' });
   }
 };
 
@@ -326,7 +295,7 @@ const deleteAssignment = async (req, res) => {
     const assignment = await Assignment.findById(req.params.id);
 
     if (!assignment || assignment.trainerId.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Assignment not found or unauthorized' });
+      return res.status(200).json({ message: 'Assignment not found or unauthorized' });
     }
 
     // Delete all attachments from Cloudinary
@@ -335,7 +304,6 @@ const deleteAssignment = async (req, res) => {
         const resourceType = attachment.mimeType?.startsWith('image/') ? 'image' : 'raw';
         await cloudinary.uploader.destroy(attachment.publicId, { resource_type: resourceType });
       } catch (err) {
-        console.error(`Failed to delete Cloudinary file ${attachment.publicId}:`, err);
       }
     }
 
@@ -346,7 +314,6 @@ const deleteAssignment = async (req, res) => {
           const resourceType = file.mimeType?.startsWith('image/') ? 'image' : 'raw';
           await cloudinary.uploader.destroy(file.publicId, { resource_type: resourceType });
         } catch (err) {
-          console.error(`Failed to delete Cloudinary file ${file.publicId}:`, err);
         }
       }
     }
@@ -371,7 +338,6 @@ const deleteAssignment = async (req, res) => {
 
     res.json({ message: 'Assignment deleted successfully and students notified' });
   } catch (error) {
-    console.error("Error deleting assignment:", error);
     res.status(500).json({ message: 'Failed to delete assignment', error: error.message });
   }
 };
@@ -385,7 +351,7 @@ const getStudentAssignments = async (req, res) => {
     const student = await Student.findById(studentId).select('batchId placementTrainingBatchId');
 
     if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
+      return res.status(200).json({ message: 'Student not found' });
     }
 
     const query = { $or: [] };
@@ -444,20 +410,19 @@ const submitAssignment = async (req, res) => {
     const student = await Student.findById(studentId);
 
     if (!assignment || !student || !assignment.canStudentAccess(student)) {
-      return res.status(403).json({ message: 'Unauthorized or assignment not found' });
+      return res.status(200).json({ message: 'Unauthorized or assignment not found' });
     }
 
     if (assignment.submissions.some(sub => sub.studentId.toString() === studentId)) {
-      return res.status(400).json({ message: 'Assignment already submitted' });
+      return res.status(200).json({ message: 'Assignment already submitted' });
     }
 
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: 'At least one file is required for submission' });
+      return res.status(200).json({ message: 'At least one file is required for submission' });
     }
 
     const files = req.files.map(processUploadedFile).filter(f => f !== null);
 
-    console.log('Student submission files:', files);
 
     assignment.submissions.push({
       studentId,
@@ -486,7 +451,7 @@ const getSubmissions = async (req, res) => {
       .populate('submissions.studentId', 'name rollNo email');
 
     if (!assignment || assignment.trainerId.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized or assignment not found' });
+      return res.status(200).json({ message: 'Unauthorized or assignment not found' });
     }
 
     res.json({ submissions: assignment.submissions, assignment });
@@ -506,17 +471,17 @@ const gradeSubmission = async (req, res) => {
     const assignment = await Assignment.findById(assignmentId);
 
     if (!assignment || assignment.trainerId.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Unauthorized or assignment not found' });
+      return res.status(200).json({ message: 'Unauthorized or assignment not found' });
     }
 
     const submission = assignment.submissions.id(submissionId);
 
     if (!submission) {
-      return res.status(404).json({ message: 'Submission not found' });
+      return res.status(200).json({ message: 'Submission not found' });
     }
 
     if (score < 0 || score > assignment.totalMarks) {
-      return res.status(400).json({
+      return res.status(200).json({
         message: `Score must be between 0 and ${assignment.totalMarks}`
       });
     }

@@ -100,12 +100,10 @@ quizSchema.methods.checkStudentAccess = function(student) {
     this.assignedPlacementBatches.map(id => id.toString()).includes(student.placementTrainingBatchId.toString());
 
   if (!statusActive || !withinTimeWindow) {
-    console.warn(`[Quiz Access TIME] quiz:${this._id} now:${now.toISOString()} start:${quizStart.toISOString()} end:${quizEnd.toISOString()} hasExplicit:${!!(this.scheduledStart && this.scheduledEnd)}`);
     return { allowed: false, reason: 'time', details: { now: now.toISOString(), start: quizStart.toISOString(), end: quizEnd.toISOString() } };
   }
 
   if (!inRegular && !inPlacement) {
-    console.warn(`[Quiz Access BATCH] quiz:${this._id} student:${student._id} batchType:${this.batchType} assignedBatches:${this.assignedBatches?.length||0} assignedPlacementBatches:${this.assignedPlacementBatches?.length||0} studentBatch:${student.batchId||student.placementTrainingBatchId}`);
     return { allowed: false, reason: 'batch' };
   }
 

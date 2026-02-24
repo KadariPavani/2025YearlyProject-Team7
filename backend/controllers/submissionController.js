@@ -12,15 +12,8 @@ const executeCode = (code, language, input, timeLimit) => {
     return new Promise((resolve) => {
         const startTime = Date.now();
 
-        console.log('\n\u{1f504} EXECUTING CODE:');
-        console.log('Language:', language);
-        console.log('Input:', JSON.stringify(input));
-        console.log('Input Length:', input ? input.length : 0);
-        console.log('Time Limit:', timeLimit);
-        console.log('Code Preview:', code.substring(0, 100) + '...');
 
         if (language === 'python') {
-            console.log('\u{1f40d} Python execution with input:', JSON.stringify(input));
             const inputStr = String(input || '').trim();
 
             // For Python execution - prepare code with input handling
@@ -45,10 +38,8 @@ ${code}`;
                 pythonCode,
                 function(data) {
                     const executionTime = Date.now() - startTime;
-                    console.log('\u{1f40d} Python execution result:', data);
 
                     if (data.error) {
-                        console.log('\u274c Python execution failed');
                         resolve({
                             status: 'error',
                             error: data.error,
@@ -57,7 +48,6 @@ ${code}`;
                             output: data.output || ''
                         });
                     } else if (executionTime > timeLimit) {
-                        console.log('\u23f0 Python execution timeout');
                         resolve({
                             status: 'timeout',
                             error: 'Time limit exceeded',
@@ -66,7 +56,6 @@ ${code}`;
                             output: data.output || ''
                         });
                     } else {
-                        console.log('\u2705 Python execution successful');
                         resolve({
                             status: 'success',
                             error: '',
@@ -165,19 +154,9 @@ const processSubmission = async (submissionId, question, code, language) => {
         // Run code against ALL test cases (including hidden ones for final submission)
         for (const [idx, testCase] of question.testCases.entries()) {
             try {
-                console.log('\n=== Processing Test Case ===');
-                console.log('Test Case ID:', testCase._id);
-                console.log('Input:', testCase.input);
-                console.log('Expected Output:', testCase.expectedOutput);
-                console.log('Input Type:', typeof testCase.input);
-                console.log('Is Hidden:', testCase.isHidden);
-                console.log('Marks:', testCase.marks);
 
                 const result = await executeCode(code, language, testCase.input, question.timeLimit);
 
-                console.log('Execution Result:', result);
-                console.log('Actual Output:', result.output);
-                console.log('Output Match:', result.output.trim() === testCase.expectedOutput.trim());
 
                 // Use fallback mark if stored marks sum to 0
                 const perTestMax = sumMarksOnQuestion === 0 ? (defaultMarksArr[idx] || 0) : (typeof testCase.marks === 'number' ? testCase.marks : 0);
@@ -202,15 +181,11 @@ const processSubmission = async (submissionId, question, code, language) => {
                     testCaseResult.status = 'passed';
                     testCaseResult.marksAwarded = perTestMax;
                     obtainedMarks += perTestMax;
-                    console.log('\u2705 TEST CASE PASSED');
                 } else if (result.status === 'timeout') {
                     testCaseResult.status = 'time_limit_exceeded';
-                    console.log('\u23f0 TIME LIMIT EXCEEDED');
                 } else if (result.status === 'error') {
                     testCaseResult.status = 'runtime_error';
-                    console.log('\u274c RUNTIME ERROR');
                 } else {
-                    console.log('\u274c WRONG ANSWER');
                 }
 
                 testCaseResults.push(testCaseResult);
@@ -218,7 +193,6 @@ const processSubmission = async (submissionId, question, code, language) => {
                 totalMemoryUsed = Math.max(totalMemoryUsed, result.memoryUsed || 0);
 
             } catch (error) {
-                console.error('\u274c Test case execution error:', error);
                 const perTestMax = sumMarksOnQuestion === 0 ? (defaultMarksArr[idx] || 0) : (typeof testCase.marks === 'number' ? testCase.marks : 0);
                 maxTotalMarks += perTestMax;
                 testCaseResults.push({
@@ -238,13 +212,6 @@ const processSubmission = async (submissionId, question, code, language) => {
         // Calculate final score
         const scorePercentage = maxTotalMarks > 0 ? Math.round((obtainedMarks / maxTotalMarks) * 100) : 0;
 
-        console.log('\n=== FINAL SUBMISSION RESULTS ===');
-        console.log('Max Total Marks:', maxTotalMarks);
-        console.log('Obtained Marks:', obtainedMarks);
-        console.log('Score Percentage:', scorePercentage + '%');
-        console.log('Total Test Cases:', testCaseResults.length);
-        console.log('Passed Test Cases:', testCaseResults.filter(r => r.status === 'passed').length);
-        console.log('Test Case Results:', JSON.stringify(testCaseResults, null, 2));
 
         // Update submission with results
         submission.testCaseResults = testCaseResults;
@@ -258,7 +225,6 @@ const processSubmission = async (submissionId, question, code, language) => {
 
         await submission.save();
 
-        console.log('\u2705 Submission saved successfully with ID:', submission._id);
 
         // Update student's codingScores so activity reflects contest performance
         try {
@@ -289,14 +255,11 @@ const processSubmission = async (submissionId, question, code, language) => {
                 }
 
                 await student.save();
-                console.log('\u2705 Student codingScores updated for student:', student._id);
             }
         } catch (err) {
-            console.warn('Failed to update student codingScores:', err.message);
         }
 
     } catch (error) {
-        console.error('Submission processing error:', error);
 
         // Update submission with error status
         const submission = await Submission.findById(submissionId);
@@ -310,13 +273,12 @@ const processSubmission = async (submissionId, question, code, language) => {
 
 // Run code for testing (without submitting)
 const runCode = async (req, res) => {
-    console.log('\u{1f504} /run endpoint hit');
     try {
         const { contestId, questionId, code, language, input } = req.body;
 
         // Validate inputs
         if (!code || !language) {
-            return res.status(400).json({ error: 'Code and language are required' });
+            return res.status(200).json({ error: 'Code and language are required' });
         }
 
         let testResults = [];
@@ -325,12 +287,12 @@ const runCode = async (req, res) => {
         if (contestId && questionId) {
             const contest = await Contest.findById(contestId);
             if (!contest) {
-                return res.status(404).json({ error: 'Contest not found' });
+                return res.status(200).json({ error: 'Contest not found' });
             }
 
             const question = contest.questions.id(questionId);
             if (!question) {
-                return res.status(404).json({ error: 'Question not found' });
+                return res.status(200).json({ error: 'Question not found' });
             }
 
             // Run only visible/sample test cases for testing
@@ -402,7 +364,6 @@ const runCode = async (req, res) => {
         }
 
     } catch (error) {
-        console.error('Code run error:', error);
         res.status(500).json({ error: 'Failed to run code' });
     }
 };
@@ -414,33 +375,33 @@ const submitCode = async (req, res) => {
 
         // Validate inputs
         if (!contestId || !questionId || !code || !language) {
-            return res.status(400).json({ error: 'All fields are required' });
+            return res.status(200).json({ error: 'All fields are required' });
         }
 
         // Get contest and question
         const contest = await Contest.findById(contestId);
         if (!contest) {
-            return res.status(404).json({ error: 'Contest not found' });
+            return res.status(200).json({ error: 'Contest not found' });
         }
 
         const question = contest.questions.id(questionId);
         if (!question) {
-            return res.status(404).json({ error: 'Question not found' });
+            return res.status(200).json({ error: 'Question not found' });
         }
 
         // Check if contest is active and accessible
         const now = new Date();
         if (!contest.isActive || contest.endTime < now) {
-            return res.status(403).json({ error: 'Contest is not accessible' });
+            return res.status(200).json({ error: 'Contest is not accessible' });
         }
 
         if (contest.startTime > now) {
-            return res.status(403).json({ error: 'Contest has not started yet' });
+            return res.status(200).json({ error: 'Contest has not started yet' });
         }
 
         // Check if language is allowed
         if (!contest.allowedLanguages.includes(language)) {
-            return res.status(400).json({ error: 'Programming language not allowed for this contest' });
+            return res.status(200).json({ error: 'Programming language not allowed for this contest' });
         }
 
         // Prevent submissions if user has finalized the contest
@@ -448,10 +409,9 @@ const submitCode = async (req, res) => {
             const Student = require('../models/Student');
             const student = await Student.findById(req.user._id).select('finalizedContests');
             if (student && Array.isArray(student.finalizedContests) && student.finalizedContests.some(c => c.toString() === contestId.toString())) {
-                return res.status(403).json({ error: 'Contest has been finalized; no further submissions allowed' });
+                return res.status(200).json({ error: 'Contest has been finalized; no further submissions allowed' });
             }
         } catch (e) {
-            console.warn('Could not check student finalization status:', e.message);
         }
 
         // Check submission limits
@@ -462,7 +422,7 @@ const submitCode = async (req, res) => {
         });
 
         if (existingSubmissions >= contest.maxAttempts) {
-            return res.status(403).json({ error: 'Maximum submission attempts reached' });
+            return res.status(200).json({ error: 'Maximum submission attempts reached' });
         }
 
         // Create submission record
@@ -501,7 +461,6 @@ const submitCode = async (req, res) => {
                 }
             });
         } catch (processingError) {
-            console.error('Submission processing failed:', processingError);
             res.status(201).json({
                 message: 'Code submitted but processing failed',
                 submissionId: submission._id,
@@ -511,7 +470,6 @@ const submitCode = async (req, res) => {
         }
 
     } catch (error) {
-        console.error('Submission error:', error);
         res.status(500).json({ error: 'Failed to submit code' });
     }
 };
@@ -522,17 +480,16 @@ const getSubmissionById = async (req, res) => {
         const submission = await Submission.findById(req.params.id);
 
         if (!submission) {
-            return res.status(404).json({ error: 'Submission not found' });
+            return res.status(200).json({ error: 'Submission not found' });
         }
 
         // Check if user owns this submission
         if (submission.userId.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ error: 'Access denied' });
+            return res.status(200).json({ error: 'Access denied' });
         }
 
         res.json({ submission });
     } catch (error) {
-        console.error('Error fetching submission:', error);
         res.status(500).json({ error: 'Failed to fetch submission' });
     }
 };
@@ -547,7 +504,6 @@ const getUserContestSubmissions = async (req, res) => {
 
         res.json({ submissions });
     } catch (error) {
-        console.error('Error fetching user submissions:', error);
         res.status(500).json({ error: 'Failed to fetch submissions' });
     }
 };
@@ -563,7 +519,6 @@ const getUserQuestionSubmissions = async (req, res) => {
 
         res.json({ submissions });
     } catch (error) {
-        console.error('Error fetching question submissions:', error);
         res.status(500).json({ error: 'Failed to fetch submissions' });
     }
 };

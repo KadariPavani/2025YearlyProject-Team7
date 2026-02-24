@@ -37,12 +37,6 @@ const HighlightTicker = () => {
       if (rRes.data?.success) setRecent(rRes.data.data.students || []);
     } catch (err) {
       if (err?.code === 'ERR_CANCELED') return; // request was cancelled
-      console.error('[HighlightTicker] Fetch error:', {
-        message: err.message,
-        status: err?.response?.status,
-        data: err?.response?.data,
-        url: err?.config?.url
-      });
       const status = err?.response?.status;
       setError(status ? `Could not load highlights (server ${status})` : 'Could not load highlights');
     } finally {

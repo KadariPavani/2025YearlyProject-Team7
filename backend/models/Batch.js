@@ -180,7 +180,6 @@ BatchSchema.statics.reassignPendingApprovalsForBatch = async function(batchId, n
 
     return { res1, res1fb, res2, res2fb, pendingCount, updatedStudents };
   } catch (err) {
-    console.error('Error in reassignPendingApprovalsForBatch:', err);
     throw err;
   }
 };
@@ -206,7 +205,6 @@ BatchSchema.post('findOneAndUpdate', async function(result) {
       await mongoose.model('Batch').reassignPendingApprovalsForBatch(result._id, result.tpoId);
     }
   } catch (err) {
-    console.error('Error in post findOneAndUpdate hook for Batch:', err);
   }
 });
 
@@ -222,7 +220,6 @@ BatchSchema.post('save', async function(doc) {
       await mongoose.model('Batch').reassignPendingApprovalsForBatch(doc._id, doc.tpoId);
     }
   } catch (err) {
-    console.error('Error in post save hook for Batch:', err);
   }
 });
 

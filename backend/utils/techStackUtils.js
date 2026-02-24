@@ -6,7 +6,6 @@ async function getAvailableTechStacks() {
     const techStacks = await PlacementTrainingBatch.getAvailableTechStacks();
     return techStacks;
   } catch (error) {
-    console.error('Error fetching tech stacks:', error);
     return [];
   }
 }

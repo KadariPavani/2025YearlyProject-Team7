@@ -47,7 +47,6 @@ const FAQSection = () => {
           setFaqs(dynamicFaqs);
         }
       } catch (err) {
-        console.warn('[FAQSection] Failed to fetch dynamic FAQs, using fallback:', err.message);
       }
     };
     fetchFaqs();

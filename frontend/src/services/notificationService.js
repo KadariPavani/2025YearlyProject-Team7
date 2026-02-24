@@ -11,7 +11,6 @@ function notifySubscribers(update) {
     try {
       cb(update);
     } catch (err) {
-      console.error('notificationService subscriber error:', err);
     }
   });
 }
@@ -26,7 +25,6 @@ async function getAllNotifications(options = {}) {
     notifySubscribers({ type: 'ALL_NOTIFICATIONS', data: { notifications: data, unreadCount } });
     return { notifications: data, unreadCount };
   } catch (error) {
-    console.error('notificationService.getAllNotifications error', error);
     throw error;
   }
 }
@@ -41,7 +39,6 @@ async function getCourseNotifications(courseId, options = {}) {
     notifySubscribers({ type: 'COURSE_NOTIFICATIONS', courseId, data: { notifications: data, unreadCount } });
     return { notifications: data, unreadCount };
   } catch (error) {
-    console.error('notificationService.getCourseNotifications error', error);
     throw error;
   }
 }
@@ -56,7 +53,6 @@ async function markAsRead(notificationIds = []) {
     notifySubscribers({ type: 'MARK_AS_READ', success: true, notificationIds, optimistic: true });
     return true;
   } catch (error) {
-    console.error('notificationService.markAsRead error', error);
     notifySubscribers({ type: 'MARK_AS_READ', success: false, notificationIds, optimistic: false });
     throw error;
   }
@@ -74,7 +70,6 @@ async function markAllAsRead(courseId = null) {
     notifySubscribers({ type: 'MARK_ALL_AS_READ', success: true, courseId });
     return true;
   } catch (error) {
-    console.error('notificationService.markAllAsRead error', error);
     notifySubscribers({ type: 'MARK_ALL_AS_READ', success: false, courseId });
     throw error;
   }
@@ -90,7 +85,6 @@ async function createNotification(payload) {
     }
     return notification;
   } catch (error) {
-    console.error('notificationService.createNotification error', error);
     throw error;
   }
 }
@@ -101,7 +95,6 @@ async function deleteNotification(notificationId) {
     notifySubscribers({ type: 'DELETE_NOTIFICATION', notificationId });
     return res.data;
   } catch (error) {
-    console.error('notificationService.deleteNotification error', error);
     throw error;
   }
 }
@@ -120,7 +113,6 @@ function subscribe(cb) {
       try {
         await getAllNotifications();
       } catch (err) {
-        console.error('notificationService poll error', err);
       }
     }, POLL_MS);
   }

@@ -28,7 +28,6 @@ const FeedbackWidget = () => {
           setRecentFeedbacks((feedbacks || []).slice(0, 3));
         }
       } catch (err) {
-        console.error('FeedbackWidget fetch error:', err);
       }
     };
 

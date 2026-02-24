@@ -26,7 +26,6 @@ const getTrainerPlacementBatches = async (trainerId) => {
       type: 'placement',
     }));
   } catch (error) {
-    console.error('Error fetching placement batches:', error);
     return [];
   }
 };
@@ -74,7 +73,6 @@ const getTrainerBatches = async (req, res) => {
     const placementBatches = await getTrainerPlacementBatches(req.user.id);
     res.json(placementBatches);
   } catch (error) {
-    console.error('Error fetching batches:', error);
     res.status(500).json({ message: 'Failed to fetch batches' });
   }
 };
@@ -120,10 +118,8 @@ const createReference = async (req, res) => {
           found = await Batch.findOne({ $or: [{ batchNumber: regex }, { name: regex }] }).select('_id batchNumber name');
           if (found && found._id) return found._id.toString();
 
-          console.warn(`Could not resolve regular batch candidate: '${candidateRaw}'`);
           return null;
         } catch (err) {
-          console.error('Error resolving regular batch candidate:', candidateRaw, err.message || err);
           return null;
         }
       }));
@@ -145,15 +141,12 @@ const createReference = async (req, res) => {
           found = await PlacementTrainingBatch.findOne({ batchNumber: regex }).select('_id batchNumber');
           if (found && found._id) return found._id.toString();
 
-          console.warn(`Could not resolve placement batch candidate: '${candidateRaw}'`);
           return null;
         } catch (err) {
-          console.error('Error resolving placement batch candidate:', candidateRaw, err.message || err);
           return null;
         }
       }));
       validatedPlacementBatches = resolvedPlacement.filter(Boolean);
-      console.log('Resolved placement batch ids:', validatedPlacementBatches);
     }
 
     // Reconcile placement ids accidentally passed as regular ids
@@ -164,10 +157,8 @@ const createReference = async (req, res) => {
         if (placementIds.length > 0) {
           validatedRegularBatches = validatedRegularBatches.filter(id => !placementIds.includes(id));
           validatedPlacementBatches = Array.from(new Set([...(validatedPlacementBatches || []), ...placementIds]));
-          console.log(`Moved ${placementIds.length} id(s) from validatedRegularBatches to validatedPlacementBatches because they belong to placement batches:` , placementIds);
         }
       } catch (err) {
-        console.error('Error reconciling regular vs placement batch ids in reference:', err);
       }
     }
 
@@ -193,7 +184,7 @@ const createReference = async (req, res) => {
 
     // If access is batch-specific, ensure we have at least one resolved batch
     if (accessLevel === 'batch-specific' && validatedRegularBatches.length === 0 && validatedPlacementBatches.length === 0) {
-      return res.status(400).json({ message: 'At least one batch must be selected for batch-specific resources' });
+      return res.status(200).json({ message: 'At least one batch must be selected for batch-specific resources' });
     }
 
     const reference = new Reference({
@@ -262,8 +253,7 @@ const createReference = async (req, res) => {
 
     res.status(201).json(savedReference);
   } catch (error) {
-    console.error('Error creating reference:', error);
-    res.status(400).json({ message: error.message || 'Failed to create reference' });
+    res.status(200).json({ message: error.message || 'Failed to create reference' });
   }
 };
 
@@ -301,7 +291,6 @@ const getTrainerReferences = async (req, res) => {
       total,
     });
   } catch (error) {
-    console.error('Error fetching references:', error);
     res.status(500).json({ message: 'Failed to fetch references' });
   }
 };
@@ -327,7 +316,6 @@ const getReferenceById = async (req, res) => {
 
     res.json(reference);
   } catch (error) {
-    console.error('Error fetching reference:', error);
     res.status(500).json({ message: 'Failed to fetch reference' });
   }
 };
@@ -351,7 +339,6 @@ const updateReference = async (req, res) => {
           existingFileIds.includes(f._id.toString())
         );
       } catch (err) {
-        console.error('Error parsing existing files:', err);
       }
     }
 
@@ -433,7 +420,6 @@ const updateReference = async (req, res) => {
 
     res.json(updatedReference);
   } catch (error) {
-    console.error('Error updating reference:', error);
     res
       .status(400)
       .json({ message: error.message || 'Failed to update reference' });
@@ -446,7 +432,7 @@ const deleteReference = async (req, res) => {
     const reference = await Reference.findById(req.params.id);
 
     if (!reference || reference.trainerId.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Reference not found or not authorized' });
+      return res.status(200).json({ message: 'Reference not found or not authorized' });
     }
 
     reference.status = 'archived';
@@ -476,7 +462,6 @@ const deleteReference = async (req, res) => {
 
     res.json({ message: 'Reference archived successfully and notification sent.' });
   } catch (error) {
-    console.error('Error deleting reference:', error);
     res.status(500).json({ message: 'Failed to delete reference' });
   }
 };
@@ -491,13 +476,8 @@ const getStudentReferences = async (req, res) => {
       'batchId placementTrainingBatchId'
     );
     if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
+      return res.status(200).json({ message: 'Student not found' });
     }
-
-    console.log('Student batch info:', {
-      batchId: student.batchId,
-      placementTrainingBatchId: student.placementTrainingBatchId
-    });
 
     const now = new Date();
 
@@ -557,7 +537,6 @@ const getStudentReferences = async (req, res) => {
       query.$and.push({ difficulty });
     }
 
-    console.log('Query:', JSON.stringify(query, null, 2));
 
     const references = await Reference.find(query)
       .populate([
@@ -567,7 +546,6 @@ const getStudentReferences = async (req, res) => {
       ])
       .sort({ createdAt: -1 });
 
-    console.log(`Found ${references.length} resources for student`);
 
     // Return consistent structure
     res.json({
@@ -576,7 +554,6 @@ const getStudentReferences = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching references for student:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch references for student',
@@ -638,7 +615,6 @@ const getStudentReferenceById = async (req, res) => {
 
     res.json(referenceData);
   } catch (error) {
-    console.error('Error fetching reference for student:', error);
     res.status(500).json({ message: 'Failed to fetch reference for student' });
   }
 };
@@ -651,7 +627,7 @@ const rateReference = async (req, res) => {
     const { rating, feedback } = req.body;
 
     if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+      return res.status(200).json({ message: 'Rating must be between 1 and 5' });
     }
 
     const [reference, student] = await Promise.all([
@@ -680,7 +656,6 @@ const rateReference = async (req, res) => {
       totalRatings: reference.ratings.length,
     });
   } catch (error) {
-    console.error('Error rating reference:', error);
     res.status(500).json({ message: 'Failed to submit rating' });
   }
 };
@@ -744,7 +719,6 @@ const getReferenceAnalytics = async (req, res) => {
 
     res.json(analytics);
   } catch (error) {
-    console.error('Error fetching reference analytics:', error);
     res.status(500).json({ message: 'Failed to fetch reference analytics' });
   }
 };
@@ -766,7 +740,6 @@ const getPublicReferences = async (req, res) => {
 
     res.json(references);
   } catch (error) {
-    console.error('Error fetching public references:', error);
     res.status(500).json({ message: 'Failed to fetch references' });
   }
 };

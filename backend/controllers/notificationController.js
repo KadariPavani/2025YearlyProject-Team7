@@ -60,7 +60,7 @@ if (!category) {
     }
 
     if (!targetStudents.length) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: "No target students found.",
       });
@@ -91,7 +91,6 @@ if (!category) {
       data: notification,
     });
   } catch (err) {
-    console.error("Error creating notification:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
@@ -113,21 +112,17 @@ exports.notifyWeeklyScheduleUpdate = async (batchId, trainerName) => {
     }));
 
     await Notification.insertMany(notifications);
-    console.log(`📅 Sent Weekly Schedule notifications to ${batch.students.length} students.`);
   } catch (error) {
-    console.error("Error sending Weekly Schedule notifications:", error);
   }
 };
 // 🔔 When TPO assigns trainers to a batch → notify students
 exports.notifyTrainerAssignment = async (batchId, tpoName) => {
-  console.log("📢 notifyTrainerAssignment called for batch:", batchId, "by:", tpoName);
 
   try {
     const batch = await PlacementTrainingBatch.findById(batchId)
       .populate("students", "_id name");
 
     if (!batch || !batch.students.length) {
-      console.log("⚠️ No batch or students found");
       return;
     }
 
@@ -146,9 +141,7 @@ exports.notifyTrainerAssignment = async (batchId, tpoName) => {
     }));
 
     await Notification.insertMany(notifications);
-    console.log(`✅ Notifications created for ${batch.students.length} students.`);
   } catch (error) {
-    console.error("❌ Error sending trainer assignment notifications:", error);
   }
 };
 // 🔹 Send notifications to all students when a trainer creates an assignment
@@ -158,26 +151,21 @@ exports.notifyAssignmentCreated = async (batchId, trainerName, assignmentTitle, 
     const Notification = require("../models/Notification");
     const Student = require("../models/Student");
 
-    console.log("📘 [notifyAssignmentCreated] Batch ID:", batchId);
-    console.log("👨‍🏫 Trainer:", trainerName, "Assignment:", assignmentTitle);
 
     // ✅ Validate trainer ID
     const validTrainerId = mongoose.Types.ObjectId.isValid(trainerId)
       ? new mongoose.Types.ObjectId(trainerId)
       : null;
     if (!validTrainerId) {
-      console.error("❌ Invalid trainerId:", trainerId);
       return;
     }
 
     // ✅ Fetch students who belong to this batch
     let students = await Student.find({ placementTrainingBatchId: batchId }).select("_id name email");
-    console.log(`🧾 Found ${students.length} students for batch ${batchId}`);
 
     if (!students.length) {
       students = await Student.find({ batchId: batchId }).select("_id name email");
 
-      console.warn("⚠️ No students found for placementTrainingBatchId:", batchId);
       return;
     }
 
@@ -198,9 +186,7 @@ exports.notifyAssignmentCreated = async (batchId, trainerName, assignmentTitle, 
 
     // ✅ Insert notifications in bulk
     await Notification.insertMany(notifications);
-    console.log(`✅ Inserted ${notifications.length} notifications successfully.`);
   } catch (error) {
-    console.error("❌ Error in notifyAssignmentCreated:", error);
   }
 };
 
@@ -212,14 +198,12 @@ exports.notifyContestCreated = async (contestId, trainerId, contestName, targetB
 
     // Only notify students in the specified batches
     if (!targetBatchIds || !targetBatchIds.length) {
-      console.log('⚠️ No target batches specified for contest notification, skipping.');
       return;
     }
 
     const students = await Student.find({ batch: { $in: targetBatchIds } }).select('_id name email');
 
     if (!students.length) {
-      console.log('No students found for contest notification');
       return;
     }
 
@@ -238,9 +222,7 @@ exports.notifyContestCreated = async (contestId, trainerId, contestName, targetB
     }));
 
     await Notification.insertMany(notifications);
-    console.log(`✅ Sent contest notifications to ${students.length} students.`);
   } catch (error) {
-    console.error('❌ Error in notifyContestCreated:', error);
   }
 };
 
@@ -249,9 +231,8 @@ exports.getStudentNotifications = asyncHandler(async (req, res) => {
   try {
     const userId = req.user?.userId || req.user?._id;
     if (!userId)
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return res.status(200).json({ success: false, message: "Unauthorized" });
 
-    console.log("👤 Fetching notifications for student:", userId);
 
     // Match any notification where this student is one of the recipients
     const notifications = await Notification.find({
@@ -260,7 +241,6 @@ exports.getStudentNotifications = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    console.log(`✅ Found ${notifications.length} notifications.`);
 
     // 🧩 Normalize legacy categories to current ones
     const normalizeCat = (cat) => {
@@ -284,7 +264,6 @@ exports.getStudentNotifications = asyncHandler(async (req, res) => {
         const isUnread = userRecipient && !userRecipient.isRead;
         
         if (isUnread) {
-          console.log(`📝 Counting unread in ${cat}: "${n.title}"`);
           acc[cat] = (acc[cat] || 0) + 1;
         }
         return acc;
@@ -298,8 +277,6 @@ exports.getStudentNotifications = asyncHandler(async (req, res) => {
       }
     );
 
-    console.log("📊 Unread by category:", unreadByCategory);
-    console.log("📊 Total unread:", Object.values(unreadByCategory).reduce((a, b) => a + b, 0));
 
     res.status(200).json({
       success: true,
@@ -308,7 +285,6 @@ exports.getStudentNotifications = asyncHandler(async (req, res) => {
       unreadByCategory,
     });
   } catch (error) {
-    console.error("❌ Error fetching student notifications:", error);
     res.status(500).json({
       success: false,
       message: "Server error fetching notifications.",
@@ -342,7 +318,6 @@ exports.markNotificationAsRead = async (req, res) => {
       data: updated,
     });
   } catch (err) {
-    console.error("Error marking notification as read:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -360,10 +335,9 @@ exports.markAllNotificationsAsRead = async (req, res) => {
     if (userModel.toLowerCase() === 'tpo') userModel = 'TPO';
     
     if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return res.status(200).json({ success: false, message: "Unauthorized" });
     }
 
-    console.log(`📬 Marking notifications as read for ${userModel}:`, userId, category ? `(Category: ${category})` : '(All categories)');
 
     // Build query - if category is provided, filter by it
     const query = { 
@@ -377,7 +351,6 @@ exports.markAllNotificationsAsRead = async (req, res) => {
     // Find all notifications where this user is a recipient
     const notifications = await Notification.find(query);
 
-    console.log(`📋 Found ${notifications.length} notifications for user ${userId}${category ? ` in category ${category}` : ''}`);
 
     // Update all notifications where this user is a recipient
     const result = await Notification.updateMany(
@@ -395,7 +368,6 @@ exports.markAllNotificationsAsRead = async (req, res) => {
       }
     );
 
-    console.log(`✅ Updated ${result.modifiedCount} notifications, matched ${result.matchedCount}`);
 
     return res.status(200).json({
       success: true,
@@ -407,7 +379,6 @@ exports.markAllNotificationsAsRead = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("Error marking all notifications as read:", err);
     res.status(500).json({ success: false, message: "Server error", error: err.message });
   }
 };
@@ -417,10 +388,9 @@ exports.getTrainerNotifications = asyncHandler(async (req, res) => {
   try {
     const trainerId = req.user?.userId || req.user?._id;
     if (!trainerId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return res.status(200).json({ success: false, message: "Unauthorized" });
     }
 
-    console.log("👨‍🏫 Fetching notifications for trainer:", trainerId);
 
     // 🔒 Fetch only notifications that belong to this specific trainer
     const notifications = await Notification.find({
@@ -430,7 +400,6 @@ exports.getTrainerNotifications = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    console.log(`✅ Found ${notifications.length} notifications for trainer ${trainerId}.`);
 
     // 🧮 Compute unread counts by category - check if THIS trainer has read it
     const unreadByCategory = notifications.reduce((acc, n) => {
@@ -450,8 +419,6 @@ exports.getTrainerNotifications = asyncHandler(async (req, res) => {
       "Account": 0,
     });
 
-    console.log("📊 Backend trainer unread by category:", unreadByCategory);
-    console.log("📊 Backend trainer total unread:", Object.values(unreadByCategory).reduce((a, b) => a + b, 0));
 
     res.status(200).json({
       success: true,
@@ -460,7 +427,6 @@ exports.getTrainerNotifications = asyncHandler(async (req, res) => {
       unreadByCategory,
     });
   } catch (error) {
-    console.error("❌ Error fetching trainer notifications:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching trainer notifications",
@@ -477,15 +443,12 @@ exports.getTpoNotifications = asyncHandler(async (req, res) => {
     // If token belongs to a TPO user, use req.user directly
     if (!tpoId && req.userType && String(req.userType).toLowerCase() === 'tpo') {
       tpoId = req.user?._id || req.user?.id;
-      console.log('[notificationController] Using req.user as TPO id:', tpoId);
     }
 
     if (!tpoId) {
-      console.warn('[notificationController] Unauthorized: no TPO id in request', { user: req.user?.id, userType: req.userType });
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return res.status(200).json({ success: false, message: "Unauthorized" });
     }
 
-    console.log("🔔 Fetching notifications for TPO:", tpoId);
 
     const notifications = await Notification.find({
       "recipients.recipientId": tpoId,
@@ -494,7 +457,6 @@ exports.getTpoNotifications = asyncHandler(async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
-    console.log(`✅ Found ${notifications.length} notifications for TPO ${tpoId}.`);
 
     const unreadByCategory = notifications.reduce((acc, n) => {
       const category = n.category || "Placement";
@@ -513,8 +475,6 @@ exports.getTpoNotifications = asyncHandler(async (req, res) => {
       "Account": 0,
     });
 
-    console.log("📊 Backend TPO unread by category:", unreadByCategory);
-    console.log("📊 Backend TPO total unread:", Object.values(unreadByCategory).reduce((a, b) => a + b, 0));
 
     res.status(200).json({
       success: true,
@@ -523,7 +483,6 @@ exports.getTpoNotifications = asyncHandler(async (req, res) => {
       unreadByCategory,
     });
   } catch (error) {
-    console.error("❌ Error fetching TPO notifications:", error);
     res.status(500).json({ success: false, message: "Error fetching TPO notifications", error: error.message });
   }
 });
@@ -535,7 +494,6 @@ exports.notifyTrainerEventUpdate = async (trainerIds, eventTitle, action, sender
 
     // 🧠 Safety: always sanitize inputs
     if (!trainerIds?.length || !eventTitle) {
-      console.log("⚠️ No trainers or invalid event title for notifyTrainerEventUpdate");
       return;
     }
 
@@ -577,9 +535,7 @@ exports.notifyTrainerEventUpdate = async (trainerIds, eventTitle, action, sender
     }));
 
     await Notification.insertMany(notifications, { ordered: false });
-    console.log(`📩 Sent '${baseTitle}' notifications to ${trainerIds.length} trainers.`);
   } catch (error) {
-    console.error("❌ Error sending trainer event update notifications:", error);
   }
 };
 
@@ -615,7 +571,6 @@ exports.notifyStudentEventUpdate = async (eventTitle, action, senderId, targetBa
     }
 
     if (!students.length) {
-      console.log("⚠️ No students found for event notification.");
       return;
     }
 
@@ -634,9 +589,7 @@ exports.notifyStudentEventUpdate = async (eventTitle, action, senderId, targetBa
     }));
 
     await Notification.insertMany(notifications, { ordered: false });
-    console.log(`📩 Sent '${baseTitle}' notifications to ${students.length} students.`);
   } catch (error) {
-    console.error("❌ Error sending student event update notifications:", error);
   }
 };
 // ✅ Notify Trainers that their schedule was rescheduled
@@ -649,7 +602,6 @@ exports.notifyTrainerReschedule = async (batchId, updatedBy) => {
       .populate("assignedTrainers.trainer", "_id name email");
 
     if (!batch || !batch.assignedTrainers || batch.assignedTrainers.length === 0) {
-      console.warn("⚠️ No trainers found for batch reschedule notification");
       return;
     }
 
@@ -675,10 +627,8 @@ exports.notifyTrainerReschedule = async (batchId, updatedBy) => {
         status: "sent",
       });
 
-      console.log(`📢 Reschedule notification sent to trainer ${trainer.name}`);
     }
   } catch (error) {
-    console.error("❌ Error sending trainer reschedule notifications:", error);
   }
 };
 
@@ -692,7 +642,6 @@ exports.notifyStudentReschedule = async (batchId, updatedBy) => {
       .populate("students", "_id name email");
 
     if (!batch || !batch.students || batch.students.length === 0) {
-      console.warn("⚠️ No students found for batch reschedule notification");
       return;
     }
 
@@ -715,9 +664,7 @@ exports.notifyStudentReschedule = async (batchId, updatedBy) => {
     }));
 
     await Notification.insertMany(notifications);
-    console.log(`📢 Reschedule notifications sent to ${notifications.length} students`);
   } catch (error) {
-    console.error("❌ Error sending student reschedule notifications:", error);
   }
 };
 // 🔔 Notify students when an assignment is deleted/cancelled
@@ -727,14 +674,11 @@ exports.notifyAssignmentDeleted = async (batchId, trainerName, assignmentTitle, 
     const Notification = require("../models/Notification");
     const Student = require("../models/Student");
 
-    console.log("🗑️ [notifyAssignmentDeleted] Batch ID:", batchId);
-    console.log("👨‍🏫 Trainer:", trainerName, "Assignment:", assignmentTitle);
 
     const validTrainerId = mongoose.Types.ObjectId.isValid(trainerId)
       ? new mongoose.Types.ObjectId(trainerId)
       : null;
     if (!validTrainerId) {
-      console.error("❌ Invalid trainerId:", trainerId);
       return;
     }
 
@@ -744,7 +688,6 @@ exports.notifyAssignmentDeleted = async (batchId, trainerName, assignmentTitle, 
     if (!students.length) {
       students = await Student.find({ batchId }).select("_id name email");
       if (!students.length) {
-        console.warn("⚠️ No students found for batch:", batchId);
         return;
       }
     }
@@ -765,9 +708,7 @@ exports.notifyAssignmentDeleted = async (batchId, trainerName, assignmentTitle, 
     }));
 
     await Notification.insertMany(notifications);
-    console.log(`🚮 Sent cancellation notifications to ${notifications.length} students.`);
   } catch (error) {
-    console.error("❌ Error in notifyAssignmentDeleted:", error);
   }
 };
 
@@ -787,7 +728,6 @@ exports.sendNotificationToBatches = async (data) => {
     }
 
     if (!targetStudents.length) {
-      console.log("⚠️ No students found for notification");
       return;
     }
 
@@ -809,9 +749,7 @@ exports.sendNotificationToBatches = async (data) => {
     });
 
     await notification.save();
-    console.log(`📩 Notification sent to ${targetStudents.length} students`);
   } catch (error) {
-    console.error("❌ Error creating notification:", error);
   }
 };
 
@@ -837,9 +775,7 @@ exports.notifyQuizDeleted = async (batchId, trainerName, quizTitle, trainerId) =
     }));
 
     await Notification.insertMany(notifications);
-    console.log(`🚮 Sent cancellation notifications for quiz '${quizTitle}'`);
   } catch (error) {
-    console.error("❌ Error in notifyQuizDeleted:", error);
   }
 };
 
@@ -866,9 +802,7 @@ exports.notifyQuizCreated = async (batchId, trainerName, quizTitle, trainerId) =
     }));
 
     await Notification.insertMany(notifications);
-    console.log(`🧠 Sent quiz creation notifications for '${quizTitle}'`);
   } catch (error) {
-    console.error("❌ Error in notifyQuizCreated:", error);
   }
 };
 
@@ -896,7 +830,7 @@ exports.getAdminNotifications = asyncHandler(async (req, res) => {
   try {
     const adminId = req.admin?._id || req.userId;
     if (!adminId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return res.status(200).json({ success: false, message: "Unauthorized" });
     }
 
     const notifications = await Notification.find({
@@ -928,7 +862,6 @@ exports.getAdminNotifications = asyncHandler(async (req, res) => {
       unreadByCategory,
     });
   } catch (error) {
-    console.error("Error fetching admin notifications:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 });
@@ -951,7 +884,6 @@ exports.markAdminNotificationAsRead = async (req, res) => {
 
     return res.status(200).json({ success: true, message: "Notification marked as read" });
   } catch (err) {
-    console.error("Error marking admin notification as read:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -978,7 +910,6 @@ exports.markAllAdminNotificationsAsRead = async (req, res) => {
       data: { modifiedCount: result.modifiedCount },
     });
   } catch (err) {
-    console.error("Error marking all admin notifications as read:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -1009,9 +940,7 @@ exports.notifyAdminNewContact = async (contactData) => {
     });
 
     await notification.save();
-    console.log(`Sent contact notification to ${admins.length} admins.`);
   } catch (error) {
-    console.error("Error in notifyAdminNewContact:", error);
   }
 };
 
@@ -1032,9 +961,7 @@ exports.notifyTpoBatchAssignment = async ({ tpoId, batchNumber, colleges, studen
     });
 
     await notification.save();
-    console.log(`Sent CRT batch assignment notification to TPO ${tpoId}.`);
   } catch (error) {
-    console.error("Error in notifyTpoBatchAssignment:", error);
   }
 };
 
@@ -1058,9 +985,7 @@ exports.notifyTpoAccountCreated = async ({ tpoId, tpoName, tpoEmail, adminName }
     });
 
     await notification.save();
-    console.log(`Sent account creation notification to TPO ${tpoId}.`);
   } catch (error) {
-    console.error("Error in notifyTpoAccountCreated:", error);
   }
 };
 
@@ -1084,9 +1009,7 @@ exports.notifyTrainerAccountCreated = async ({ trainerId, trainerName, trainerEm
     });
 
     await notification.save();
-    console.log(`Sent account creation notification to Trainer ${trainerId}.`);
   } catch (error) {
-    console.error("Error in notifyTrainerAccountCreated:", error);
   }
 };
 
@@ -1110,9 +1033,7 @@ exports.notifyStudentAccountCreated = async ({ studentId, studentName, studentEm
     });
 
     await notification.save();
-    console.log(`Sent account creation notification to Student ${studentId}.`);
   } catch (error) {
-    console.error("Error in notifyStudentAccountCreated:", error);
   }
 };
 
@@ -1138,9 +1059,7 @@ exports.notifyTpoStatusChange = async ({ tpoId, tpoName, isSuspended, adminId })
     });
 
     await notification.save();
-    console.log(`Sent ${isSuspended ? "suspend" : "reactivate"} notification to TPO ${tpoId}.`);
   } catch (error) {
-    console.error("Error in notifyTpoStatusChange:", error);
   }
 };
 
@@ -1166,9 +1085,7 @@ exports.notifyTrainerStatusChange = async ({ trainerId, trainerName, isSuspended
     });
 
     await notification.save();
-    console.log(`Sent ${isSuspended ? "suspend" : "reactivate"} notification to Trainer ${trainerId}.`);
   } catch (error) {
-    console.error("Error in notifyTrainerStatusChange:", error);
   }
 };
 
@@ -1194,9 +1111,7 @@ exports.notifyStudentStatusChange = async ({ studentId, studentName, isSuspended
     });
 
     await notification.save();
-    console.log(`Sent ${isSuspended ? "suspend" : "unsuspend"} notification to Student ${studentId}.`);
   } catch (error) {
-    console.error("Error in notifyStudentStatusChange:", error);
   }
 };
 
@@ -1205,7 +1120,7 @@ exports.getCoordinatorNotifications = asyncHandler(async (req, res) => {
   try {
     const coordinatorId = req.user?._id || req.user?.userId;
     if (!coordinatorId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return res.status(200).json({ success: false, message: "Unauthorized" });
     }
 
     const notifications = await Notification.find({
@@ -1237,7 +1152,6 @@ exports.getCoordinatorNotifications = asyncHandler(async (req, res) => {
       unreadByCategory,
     });
   } catch (error) {
-    console.error("Error fetching coordinator notifications:", error);
     res.status(500).json({ success: false, message: "Server error", error: error.message });
   }
 });
@@ -1259,9 +1173,7 @@ exports.notifyCoordinatorAssignment = async ({ coordinatorId, coordinatorName, b
     });
 
     await notification.save();
-    console.log(`Sent batch assignment notification to Coordinator ${coordinatorId}.`);
   } catch (error) {
-    console.error("Error in notifyCoordinatorAssignment:", error);
   }
 };
 
@@ -1290,8 +1202,6 @@ exports.notifyCoordinatorStudentSuspended = async ({ studentName, isSuspended, b
     });
 
     await notification.save();
-    console.log(`Sent student ${isSuspended ? "suspend" : "unsuspend"} notification to Coordinator ${coordinator._id}.`);
   } catch (error) {
-    console.error("Error in notifyCoordinatorStudentSuspended:", error);
   }
 };

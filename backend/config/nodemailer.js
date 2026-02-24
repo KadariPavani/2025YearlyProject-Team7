@@ -3,16 +3,9 @@ const nodemailer = require('nodemailer');
 const createTransporter = () => {
   const hasEmail = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
   if (!hasEmail) {
-    console.warn('⚠️ Email configuration missing (EMAIL_USER/EMAIL_PASS). Emails will be logged but not sent.');
     // Return a noop transporter with compatible sendMail API
     return {
       sendMail: async (mailOptions) => {
-        console.log('Email disabled - sendMail called with:', {
-          to: mailOptions.to,
-          subject: mailOptions.subject,
-          hasHtml: !!mailOptions.html,
-          attachments: Array.isArray(mailOptions.attachments) ? mailOptions.attachments.map(a => a.filename || a.filename) : []
-        });
         return Promise.resolve({ accepted: [], rejected: [], messageId: null });
       }
     };
@@ -35,9 +28,7 @@ const createTransporter = () => {
   // Verify transporter
   transporter.verify(function(error, success) {
     if (error) {
-      console.error('Nodemailer transporter verification failed:', error);
     } else {
-      console.log('Nodemailer transporter is ready to send emails');
     }
   });
 

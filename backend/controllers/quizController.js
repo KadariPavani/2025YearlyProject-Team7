@@ -25,7 +25,6 @@ const getTrainerPlacementBatches = async (trainerId) => {
       type: 'placement'
     }));
   } catch (error) {
-    console.error('Error fetching placement batches:', error);
     return [];
   }
 };
@@ -37,7 +36,6 @@ const getTrainerSubject = async (trainerId) => {
     const trainer = await Trainer.findById(trainerId).select('subjectDealing');
     return trainer?.subjectDealing ? [trainer.subjectDealing] : []; // Return as array for consistency
   } catch (error) {
-    console.error('Error fetching trainer subject:', error);
     return [];
   }
 };
@@ -48,7 +46,6 @@ const getBatches = async (req, res) => {
     const placementBatches = await getTrainerPlacementBatches(req.user.id);
     res.json(placementBatches);
   } catch (error) {
-    console.error('Error fetching batches:', error);
     res.status(500).json({ message: 'Failed to fetch batches' });
   }
 };
@@ -60,7 +57,6 @@ const getSubjects = async (req, res) => {
     const subject = await getTrainerSubject(trainerId);
     res.json(subject); // Returns array with single subject
   } catch (error) {
-    console.error('Error fetching subject:', error);
     res.status(500).json({ message: 'Failed to fetch subject' });
   }
 };
@@ -93,7 +89,7 @@ const createQuiz = async (req, res) => {
     // Validate subject
     const trainerSubject = await getTrainerSubject(trainerId);
     if (!trainerSubject.includes(subject)) {
-      return res.status(400).json({ message: 'Invalid subject for this trainer' });
+      return res.status(200).json({ message: 'Invalid subject for this trainer' });
     }
 
     // Validate batch assignments based on type
@@ -113,7 +109,6 @@ const createQuiz = async (req, res) => {
             // Exact match by batchNumber or name
             let found = await Batch.findOne({ $or: [{ batchNumber: candidate }, { name: candidate }] }).select('_id batchNumber name');
             if (found && found._id) {
-              console.log(`Resolved regular candidate '${candidate}' -> ${found._id} (${found.batchNumber||found.name})`);
               return found._id.toString();
             }
 
@@ -121,15 +116,12 @@ const createQuiz = async (req, res) => {
             const regex = new RegExp(candidate.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
             found = await Batch.findOne({ $or: [{ batchNumber: regex }, { name: regex }] }).select('_id batchNumber name');
             if (found && found._id) {
-              console.log(`Resolved regular candidate by regex '${candidate}' -> ${found._id} (${found.batchNumber||found.name})`);
               return found._id.toString();
             }
 
             // No match
-            console.warn(`Could not resolve regular batch candidate: '${candidateRaw}'`);
             return null;
           } catch (err) {
-            console.error('Error resolving regular batch candidate:', candidateRaw, err.message || err);
             return null;
           }
         }));
@@ -146,10 +138,8 @@ const createQuiz = async (req, res) => {
               validatedRegularBatches = validatedRegularBatches.filter(id => !placementIds.includes(id));
               // Add to placement list (avoid duplicates)
               validatedPlacementBatches = Array.from(new Set([...(validatedPlacementBatches || []), ...placementIds]));
-              console.log(`Moved ${placementIds.length} id(s) from validatedRegularBatches to validatedPlacementBatches because they belong to placement batches:` , placementIds);
             }
           } catch (err) {
-            console.error('Error reconciling regular vs placement batch ids:', err);
           }
         }
       }
@@ -167,26 +157,21 @@ const createQuiz = async (req, res) => {
           // Try to find by batchNumber (exact or regex)
           let found = await PlacementTrainingBatch.findOne({ batchNumber: candidate }).select('_id batchNumber');
           if (found && found._id) {
-            console.log(`Resolved placement candidate '${candidate}' -> ${found._id} (${found.batchNumber})`);
             return found._id.toString();
           }
 
           const regex = new RegExp(candidate.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'), 'i');
           found = await PlacementTrainingBatch.findOne({ batchNumber: regex }).select('_id batchNumber');
           if (found && found._id) {
-            console.log(`Resolved placement candidate by regex '${candidate}' -> ${found._id} (${found.batchNumber})`);
             return found._id.toString();
           }
 
-          console.warn(`Could not resolve placement batch candidate: '${candidateRaw}'`);
           return null;
         } catch (err) {
-          console.error('Error resolving placement batch candidate:', candidateRaw, err.message || err);
           return null;
         }
       }));
       validatedPlacementBatches = resolvedPlacement.filter(Boolean);
-      console.log('Resolved placement batch ids:', validatedPlacementBatches);
     }
 
     // Determine final batchType based on what actually got resolved
@@ -199,20 +184,12 @@ const createQuiz = async (req, res) => {
       finalBatchType = 'noncrt';
     }
 
-    // DEBUG: Show final resolved batch lists and batchType being saved
-    console.log('Saving quiz with resolved batches:', {
-      validatedRegularBatches,
-      validatedPlacementBatches,
-      finalBatchType
-    });
-
     // Normalize scheduledDate if it's a YYYY-MM-DD string (avoid timezone surprises on deploy)
     let normalizedScheduledDate = scheduledDate;
     if (typeof scheduledDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)) {
       const [y, m, d] = scheduledDate.split('-').map(Number);
       // Save as UTC midnight for the date to keep it consistent between client & server
       normalizedScheduledDate = new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
-      console.debug(`[Quiz Create] normalized scheduledDate ${scheduledDate} -> ${normalizedScheduledDate.toISOString()}`);
     }
 
     // Respect explicit scheduledStart / scheduledEnd if provided (ISO strings from frontend)
@@ -231,7 +208,6 @@ const createQuiz = async (req, res) => {
       if (scheduledEndFinal <= scheduledStartFinal) scheduledEndFinal = new Date(scheduledEndFinal.getTime() + 24 * 60 * 60 * 1000);
     }
 
-    console.debug(`[Quiz Create] final windows scheduledStart:${scheduledStartFinal?.toISOString()} scheduledEnd:${scheduledEndFinal?.toISOString()}`);
 
     const quiz = new Quiz({
       title,
@@ -281,7 +257,6 @@ const createQuiz = async (req, res) => {
       }
     }
 
-    console.log("Quiz notifications sent to all assigned batches.");
 
     // Notify regular batches
     const allTargetBatches = [...validatedRegularBatches, ...validatedPlacementBatches];
@@ -300,8 +275,7 @@ const createQuiz = async (req, res) => {
     res.status(201).json(savedQuiz);
 
   } catch (error) {
-    console.error('Error creating quiz:', error);
-    res.status(400).json({ message: error.message || 'Failed to create quiz' });
+    res.status(200).json({ message: error.message || 'Failed to create quiz' });
   }
 };
 
@@ -318,7 +292,6 @@ const getAllQuizzes = async (req, res) => {
 
     res.json(quizzes);
   } catch (error) {
-    console.error('Error fetching quizzes:', error);
     res.status(500).json({ message: 'Failed to fetch quizzes' });
   }
 };
@@ -334,12 +307,11 @@ const getQuizById = async (req, res) => {
       .select('-submissions');
 
     if (!quiz || quiz.trainerId.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Quiz not found or not authorized' });
+      return res.status(200).json({ message: 'Quiz not found or not authorized' });
     }
 
     res.json(quiz);
   } catch (error) {
-    console.error('Error fetching quiz:', error);
     res.status(500).json({ message: 'Failed to fetch quiz' });
   }
 };
@@ -354,7 +326,7 @@ const getStudentQuizList = async (req, res) => {
       .select('batchId placementTrainingBatchId');
 
     if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
+      return res.status(200).json({ message: 'Student not found' });
     }
 
     // Build query to find quizzes accessible to this student
@@ -423,7 +395,6 @@ const getStudentQuizList = async (req, res) => {
 
     res.json(quizList);
   } catch (error) {
-    console.error('Error fetching quizzes for student:', error);
     res.status(500).json({ message: 'Failed to fetch quizzes for student' });
   }
 };
@@ -440,14 +411,13 @@ const getStudentQuizById = async (req, res) => {
     ]);
 
     if (!quiz || !student) {
-      return res.status(404).json({ message: 'Quiz or student not found' });
+      return res.status(200).json({ message: 'Quiz or student not found' });
     }
 
     // Check if student can access this quiz (verbose)
     const access = quiz.checkStudentAccess(student);
     if (!access.allowed) {
-      console.warn(`[Quiz Access Denied] quiz:${quiz._id} student:${student._id} - access denied reason:${access.reason}`);
-      return res.status(403).json({ message: 'You are not authorized to access this quiz', reason: access.reason });
+      return res.status(200).json({ message: 'You are not authorized to access this quiz', reason: access.reason });
     }
 
     // Remove sensitive information for student view
@@ -478,7 +448,6 @@ const getStudentQuizById = async (req, res) => {
 
     res.json(studentQuiz);
   } catch (error) {
-    console.error('Error fetching quiz for student:', error);
     res.status(500).json({ message: 'Failed to fetch quiz for student' });
   }
 };
@@ -496,14 +465,13 @@ const submitQuiz = async (req, res) => {
     ]);
 
     if (!quiz || !student) {
-      return res.status(404).json({ message: 'Quiz or student not found' });
+      return res.status(200).json({ message: 'Quiz or student not found' });
     }
 
     // Check if student can access this quiz (verbose)
     const access = quiz.checkStudentAccess(student);
     if (!access.allowed) {
-      console.warn(`[Quiz Submit Denied] quiz:${quiz._id} student:${student._id} - submit denied reason:${access.reason}`);
-      return res.status(403).json({ message: 'You are not authorized to submit this quiz', reason: access.reason });
+      return res.status(200).json({ message: 'You are not authorized to submit this quiz', reason: access.reason });
     }
 
     // Check if student has already submitted (if retakes are not allowed)
@@ -512,7 +480,7 @@ const submitQuiz = async (req, res) => {
     );
 
     if (existingSubmission && !quiz.allowRetake) {
-      return res.status(400).json({ message: 'You have already submitted this quiz' });
+      return res.status(200).json({ message: 'You have already submitted this quiz' });
     }
 
     // Calculate score
@@ -580,7 +548,6 @@ const submitQuiz = async (req, res) => {
       attemptNumber
     });
   } catch (error) {
-    console.error('Error submitting quiz:', error);
     res.status(500).json({ message: 'Failed to submit quiz' });
   }
 };
@@ -598,14 +565,14 @@ const updateQuiz = async (req, res) => {
 
     const quiz = await Quiz.findById(quizId);
     if (!quiz || quiz.trainerId.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Quiz not found or not authorized' });
+      return res.status(200).json({ message: 'Quiz not found or not authorized' });
     }
 
     // Validate subject if updated
     if (updateData.subject) {
       const trainerSubject = await getTrainerSubject(req.user.id);
       if (!trainerSubject.includes(updateData.subject)) {
-        return res.status(400).json({ message: 'Invalid subject for this trainer' });
+        return res.status(200).json({ message: 'Invalid subject for this trainer' });
       }
     }
 
@@ -621,7 +588,6 @@ const updateQuiz = async (req, res) => {
 
     res.json(quiz);
   } catch (error) {
-    console.error('Error updating quiz:', error);
     res.status(500).json({ message: 'Failed to update quiz' });
   }
 };
@@ -632,7 +598,7 @@ const deleteQuiz = async (req, res) => {
     const quiz = await Quiz.findById(req.params.id);
 
     if (!quiz || quiz.trainerId.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Quiz not found or not authorized' });
+      return res.status(200).json({ message: 'Quiz not found or not authorized' });
     }
 
     // Notify students before deleting
@@ -655,7 +621,6 @@ const deleteQuiz = async (req, res) => {
 
     res.json({ message: 'Quiz deleted successfully and students notified' });
   } catch (error) {
-    console.error("Error deleting quiz:", error);
     res.status(500).json({ message: 'Failed to delete quiz', error: error.message });
   }
 };
@@ -672,7 +637,7 @@ const getBatchProgress = async (req, res) => {
       .select('submissions assignedBatches assignedPlacementBatches trainerId totalMarks passingMarks');
 
     if (!quiz || quiz.trainerId.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Quiz not found or not authorized' });
+      return res.status(200).json({ message: 'Quiz not found or not authorized' });
     }
 
     const progress = quiz.submissions.map(sub => ({
@@ -715,7 +680,6 @@ const getBatchProgress = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching batch progress:', error);
     res.status(500).json({ message: 'Failed to fetch batch progress' });
   }
 };
@@ -759,7 +723,6 @@ const backfillScheduledTimes = async (req, res) => {
 
     res.json({ message: `Backfilled ${updated} quizzes with explicit scheduled times`, updated });
   } catch (error) {
-    console.error('Error backfilling scheduled times:', error);
     res.status(500).json({ message: 'Failed to backfill scheduled times' });
   }
 };

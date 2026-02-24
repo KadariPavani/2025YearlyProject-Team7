@@ -23,7 +23,6 @@ export default function PublicReferences() {
         const res = await axios.get(`${API_BASE}/api/references/all`, { withCredentials: true });
         setReferences(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
-        console.error('[PublicReferences] Fetch error:', err.message);
       } finally {
         setLoading(false);
       }

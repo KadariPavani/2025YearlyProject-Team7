@@ -40,7 +40,6 @@ const FeedbackPreview = ({ role = 'tpo', tokenKey = 'userToken' }) => {
           setError(res.data?.message || 'Failed to load feedback');
         }
       } catch (err) {
-        console.error('Feedback fetch error:', err);
         setError('Network error. Please try again.');
       } finally {
         setLoading(false);

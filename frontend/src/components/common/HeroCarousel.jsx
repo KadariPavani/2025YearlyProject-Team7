@@ -37,7 +37,6 @@ const HeroCarousel = () => {
           setSlides(res.data.data.heroSlides);
         }
       } catch (err) {
-        console.warn('[HeroCarousel] Failed to fetch dynamic slides, using fallback:', err.message);
       }
     };
     fetchSlides();

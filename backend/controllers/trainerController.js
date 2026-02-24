@@ -26,7 +26,7 @@ const registerTrainer = async (req, res) => {
     });
 
     if (trainerExists) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Trainer with this email or employee ID already exists'
       });
@@ -57,10 +57,9 @@ const registerTrainer = async (req, res) => {
         }
       });
     } else {
-      res.status(400).json({ success: false, message: 'Invalid trainer data' });
+      res.status(200).json({ success: false, message: 'Invalid trainer data' });
     }
   } catch (error) {
-    console.error('Register Trainer Error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -74,15 +73,15 @@ const loginTrainer = async (req, res) => {
     const trainer = await Trainer.findOne({ email }).select('+password failedLoginAttempts lockUntil');
 
     if (!trainer) {
-      return res.status(401).json({ success: false, message: 'Trainer not found' });
+      return res.status(200).json({ success: false, message: 'Trainer not found' });
     }
 
     if (trainer.isAccountLocked && trainer.isAccountLocked()) {
-      return res.status(401).json({ success: false, message: `Account locked until ${new Date(trainer.lockUntil).toISOString()}` });
+      return res.status(200).json({ success: false, message: `Account locked until ${new Date(trainer.lockUntil).toISOString()}` });
     }
 
     if (trainer.status !== 'active') {
-      return res.status(401).json({
+      return res.status(200).json({
         success: false,
         message: 'Account is inactive. Please contact administrator.'
       });
@@ -92,9 +91,9 @@ const loginTrainer = async (req, res) => {
     if (!isMatch) {
       if (typeof trainer.incrementFailedLogin === 'function') await trainer.incrementFailedLogin();
       if (trainer.isAccountLocked && trainer.isAccountLocked()) {
-        return res.status(401).json({ success: false, message: `Account locked due to multiple failed attempts. Try again at ${new Date(trainer.lockUntil).toISOString()}` });
+        return res.status(200).json({ success: false, message: `Account locked due to multiple failed attempts. Try again at ${new Date(trainer.lockUntil).toISOString()}` });
       }
-      return res.status(401).json({ success: false, message: 'Invalid password' });
+      return res.status(200).json({ success: false, message: 'Invalid password' });
     }
 
     // Successful login: reset attempts
@@ -129,7 +128,6 @@ const loginTrainer = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login Trainer Error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -145,12 +143,11 @@ const getTrainerProfile = async (req, res) => {
       .populate('createdAssignments');
 
     if (!trainer) {
-      return res.status(404).json({ success: false, message: 'Trainer not found' });
+      return res.status(200).json({ success: false, message: 'Trainer not found' });
     }
 
     res.status(200).json({ success: true, data: trainer });
   } catch (error) {
-    console.error('Get Trainer Profile Error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -220,7 +217,6 @@ const getPlacementTrainingBatches = async (req, res) => {
       data: { batches: formattedBatches, stats }
     });
   } catch (error) {
-    console.error('Get Assigned Batches Error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -239,7 +235,7 @@ const getPlacementBatchDetails = async (req, res) => {
       .populate('createdBy', 'name email');
 
     if (!batch) {
-      return res.status(404).json({ success: false, message: 'Placement training batch not found' });
+      return res.status(200).json({ success: false, message: 'Placement training batch not found' });
     }
 
     const trainerAssignment = batch.assignedTrainers.find(
@@ -247,7 +243,7 @@ const getPlacementBatchDetails = async (req, res) => {
     );
 
     if (!trainerAssignment) {
-      return res.status(403).json({ success: false, message: 'You are not assigned to this batch' });
+      return res.status(200).json({ success: false, message: 'You are not assigned to this batch' });
     }
 
     res.json({
@@ -278,7 +274,6 @@ const getPlacementBatchDetails = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get Placement Batch Details Error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -308,7 +303,6 @@ const updateTrainerProfile = async (req, res) => {
 
     res.status(200).json({ success: true, data: trainer });
   } catch (error) {
-    console.error('Update Trainer Profile Error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -322,12 +316,12 @@ const changeTrainerPassword = async (req, res) => {
     const trainer = await Trainer.findById(req.user.id).select('+password');
 
     if (!trainer) {
-      return res.status(404).json({ success: false, message: 'Trainer not found' });
+      return res.status(200).json({ success: false, message: 'Trainer not found' });
     }
 
     const isCurrentPasswordCorrect = await trainer.matchPassword(currentPassword);
     if (!isCurrentPasswordCorrect) {
-      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+      return res.status(200).json({ success: false, message: 'Current password is incorrect' });
     }
 
     trainer.password = newPassword;
@@ -335,7 +329,6 @@ const changeTrainerPassword = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Password updated successfully' });
   } catch (error) {
-    console.error('Change Password Error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -353,12 +346,10 @@ const logoutTrainer = async (req, res) => {
         sameSite: 'lax'
       });
     } catch (e) {
-      console.warn('Failed to clear token cookie on trainer logout:', e && (e.message || e));
     }
 
     res.status(200).json({ success: true, message: 'Trainer logged out successfully' });
   } catch (error) {
-    console.error('Logout Trainer Error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -369,7 +360,7 @@ const logoutTrainer = async (req, res) => {
 const getMyAttendance = async (req, res) => {
   try {
     if (req.userType !== 'trainer') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -418,7 +409,6 @@ const getMyAttendance = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching trainer attendance:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -432,7 +422,7 @@ const getMyAttendance = async (req, res) => {
 const getSessionsTaught = async (req, res) => {
   try {
     if (req.userType !== 'trainer') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -476,7 +466,6 @@ const getSessionsTaught = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching sessions taught:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'

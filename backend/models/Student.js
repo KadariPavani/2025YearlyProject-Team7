@@ -676,7 +676,6 @@ StudentSchema.methods.handleApprovalResponse = async function(approvalId, isAppr
       }
     };
   } catch (error) {
-    console.error('Error in handleApprovalResponse:', error);
     throw error;
   }
 };

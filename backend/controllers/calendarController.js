@@ -28,7 +28,6 @@ function getPdfParse() {
     pdfParse = require('pdf-parse');
     return pdfParse;
   } catch (err) {
-    console.warn('⚠️ pdf-parse is not available in this runtime. PDF parsing disabled:', err && err.message);
     pdfParse = null;
     return null;
   }
@@ -45,9 +44,7 @@ const sendEmail = async (to, subject, htmlContent, attachments = []) => {
       html: htmlContent,
       attachments
     });
-    console.log(`📧 Email sent (or logged) for ${to}`);
   } catch (err) {
-    console.error(`❌ Error sending email to ${to}:`, err.message || err);
   }
 };
 
@@ -56,7 +53,6 @@ const sendEmail = async (to, subject, htmlContent, attachments = []) => {
 // ---------------------- CREATE EVENT ----------------------
 // ---------------------- CREATE EVENT ----------------------
 exports.createEvent = async (req, res) => {
-  console.log("📦 Incoming Event Body:", req.body);
   try {
     const {
       title, description, startDate, endDate,
@@ -102,7 +98,6 @@ exports.createEvent = async (req, res) => {
     }
 
     const students = await Student.find(studentFilter, "_id name email");
-    console.log(`👩‍🎓 Found ${students.length} students for event with filters:`, { targetGroup, targetBatchIds, targetStudentIds });
 
     // 3️⃣ Create student notifications
     if (students.length > 0) {
@@ -117,14 +112,12 @@ exports.createEvent = async (req, res) => {
       }));
 
       await Notification.insertMany(studentNotifications);
-      console.log(`🔔 ${studentNotifications.length} student notifications created.`);
     }
 
     // 4️⃣ Notify all trainers once
 const trainerIds = (await Trainer.find({}, "_id")).map(t => t._id);
 if (trainerIds.length > 0) {
   await notifyTrainerEventUpdate(trainerIds, title, "Created", createdBy);
-  console.log(`📢 Trainer notifications sent for new event "${title}"`);
 }
 // Note: Student notifications already sent in step 3 above (targeted).
 // Do NOT call notifyStudentEventUpdate() here — it sends to ALL students,
@@ -133,8 +126,7 @@ if (trainerIds.length > 0) {
 
     res.status(201).json({ success: true, data: newEvent });
   } catch (error) {
-    console.error("Error creating event:", error);
-    res.status(400).json({ success: false, error: error.message });
+    res.status(200).json({ success: false, error: error.message });
   }
 };
 
@@ -156,7 +148,7 @@ if (req.userType === "student") {
   }
 
   if (!student) {
-    return res.status(404).json({ success: false, message: "Student not found" });
+    return res.status(200).json({ success: false, message: "Student not found" });
   }
 
   // Auto-link assigned TPO
@@ -191,7 +183,6 @@ if (req.userType === "student") {
       .populate("companyDetails.companyId")
       .populate("registrations.studentId", "name rollNo email branch");
 
-    console.log(`📅 Found ${events.length} events for filter`, filter);
 
     // For students, add isEligible flag based on target group
     if (req._studentInfo) {
@@ -218,7 +209,6 @@ if (req.userType === "student") {
 
     res.json({ success: true, data: events });
   } catch (error) {
-    console.error("Error fetching events:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -234,17 +224,13 @@ async function ensureStudentTpoLink(student) {
       if (batch && batch.tpoId) {
         student.assignedTpo = batch.tpoId;
         await student.save({ validateBeforeSave: false });
-        console.log(`✅ Linked ${student.email} to TPO ${batch.tpoId}`);
       } else {
-        console.log(`⚠️ Batch not found or no TPO for ${student.email}`);
       }
     } else {
-      console.log(`⚠️ No placementTrainingBatchId for ${student.email}`);
     }
 
     return student;
   } catch (err) {
-    console.error("Error linking student to TPO:", err);
     return student;
   }
 }
@@ -254,7 +240,7 @@ exports.getRegisteredEvents = async (req, res) => {
   try {
     // ✅ Ensure the request is from a student
     if (!req.user || req.userType !== "student") {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return res.status(200).json({ success: false, message: "Unauthorized" });
     }
 
     const studentId = req.user._id; // ✅ Correct way to access student ID
@@ -273,7 +259,6 @@ exports.getRegisteredEvents = async (req, res) => {
       data: registeredEvents,
     });
   } catch (error) {
-    console.error("❌ Error fetching registered events:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -288,11 +273,10 @@ exports.getEventById = async (req, res) => {
       .populate('targetBatches')
       .populate('registrations.studentId');
 
-    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    if (!event) return res.status(200).json({ success: false, message: 'Event not found' });
 
     res.json({ success: true, data: event });
   } catch (error) {
-    console.error("Error fetching event by ID:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -303,7 +287,7 @@ exports.updateEvent = async (req, res) => {
   try {
     const event = await Calendar.findById(req.params.id);
     if (!event)
-      return res.status(404).json({ success: false, message: "Event not found" });
+      return res.status(200).json({ success: false, message: "Event not found" });
 
     // Preserve companyDetails correctly
     if (req.body.companyDetails || req.body.externalLink) {
@@ -341,7 +325,6 @@ if (!req.notifiedOnce) {
   await notifyStudentEventUpdate(event.title, notifyAction, req.user._id, event.targetBatchIds || []);
 
   req.notifiedOnce = true;
-  console.log(`📢 Trainer & Students notified for "${event.title}" → ${notifyAction.toUpperCase()}`);
 }
 
 
@@ -351,8 +334,7 @@ if (!req.notifiedOnce) {
 
     res.json({ success: true, data: event });
   } catch (error) {
-    console.error("❌ Error updating event:", error);
-    res.status(400).json({ success: false, error: error.message });
+    res.status(200).json({ success: false, error: error.message });
   }
 };
 
@@ -362,7 +344,7 @@ exports.deleteEvent = async (req, res) => {
   try {
     const event = await Calendar.findById(req.params.id);
     if (!event) {
-      return res.status(404).json({ success: false, message: "Event not found" });
+      return res.status(200).json({ success: false, message: "Event not found" });
     }
 
     // ✅ Soft delete
@@ -377,10 +359,8 @@ exports.deleteEvent = async (req, res) => {
 if (trainerIds.length > 0) {
   await notifyTrainerEventUpdate(trainerIds, event.title, "cancelled", req.user._id);
   await notifyStudentEventUpdate(event.title, "cancelled", req.user._id, event.targetBatchIds || []);
-  console.log(`📢 Cancelled notifications sent to trainers & students for "${event.title}"`);
 }
  else {
-      console.log("⚠️ No trainers found to notify about event deletion.");
     }
 
     res.status(200).json({
@@ -389,7 +369,6 @@ if (trainerIds.length > 0) {
       data: event,
     });
   } catch (error) {
-    console.error("❌ Error deleting event:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -403,11 +382,11 @@ exports.updateEventStatus = async (req, res) => {
     const { status } = req.body;
     const validStatuses = ['scheduled', 'ongoing', 'completed', 'cancelled', 'deleted'];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ success: false, message: 'Invalid event status' });
+      return res.status(200).json({ success: false, message: 'Invalid event status' });
     }
 
     const event = await Calendar.findById(req.params.id);
-    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    if (!event) return res.status(200).json({ success: false, message: 'Event not found' });
 
     event.status = status;
 
@@ -432,7 +411,6 @@ if (req.body.eventSummary) {
 
     res.json({ success: true, data: event });
   } catch (error) {
-    console.error("Error updating event status:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -440,16 +418,15 @@ if (req.body.eventSummary) {
 // ---------------------- REGISTER STUDENT WITH EMAIL ----------------------
 exports.registerStudent = async (req, res) => {
   try {
-    console.log("📩 Incoming registration request for event:", req.params.id);
 
     const event = await Calendar.findById(req.params.id);
-    if (!event) return res.status(404).json({ success: false, message: "Event not found" });
+    if (!event) return res.status(200).json({ success: false, message: "Event not found" });
 
     let student = await Student.findById(req.user.userId);
     if (!student && req.user.email) {
       student = await Student.findOne({ email: req.user.email });
     }
-    if (!student) return res.status(404).json({ success: false, message: "Student not found" });
+    if (!student) return res.status(200).json({ success: false, message: "Student not found" });
 
     const alreadyRegistered = event.registrations.some(
       (r) => r.studentId?.toString() === student._id.toString()
@@ -493,7 +470,6 @@ event.eventSummary.totalAttendees = event.registrations.length;
 
 await event.save();
 
-console.log(`✅ ${student.name} registered. Total now: ${event.eventSummary.totalAttendees}`);
 
 return res.status(200).json({
   success: true,
@@ -502,7 +478,6 @@ return res.status(200).json({
 });
 
   } catch (error) {
-    console.error("❌ Error registering student:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -518,10 +493,9 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
     const file = req.file;
     const { selectedEmails } = req.body;
 
-    console.log("📤 Uploading selected students for event:", eventId);
 
     if (!selectedEmails) {
-      return res.status(400).json({ 
+      return res.status(200).json({ 
         success: false, 
         message: "No selected student emails provided." 
       });
@@ -531,7 +505,7 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
     const event = await Calendar.findById(eventId);
     
     if (!event) {
-      return res.status(404).json({ 
+      return res.status(200).json({ 
         success: false, 
         message: "Event not found." 
       });
@@ -554,13 +528,11 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
       );
 
       if (!registeredStudent) {
-        console.log(`⚠️ Skipping ${email} — not registered for this event.`);
         continue;
       }
 
       // ✅ Skip already selected students
       if (alreadySelectedEmails.has(lowerEmail)) {
-        console.log(`⚠️ Skipping ${email} (already selected).`);
         continue;
       }
 
@@ -584,9 +556,7 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
 
       try {
         await sendEmail(student.email, subject, html);
-        console.log(`📧 Email sent to ${student.email}`);
       } catch (err) {
-        console.error(`❌ Mail failed for ${student.email}:`, err.message);
       }
 
       // ✅ Create notification with category
@@ -624,19 +594,10 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
         selectedAt: new Date(),
       });
 
-      console.log(`✅ Added ${student.name} with batch: ${batchInfo?.batchNumber || 'N/A'}`);
     }
-
-    console.log(`🟢 Notifications prepared for insertion: ${notifications.length}`);
-    notifications.forEach((n, i) => {
-      console.log(
-        ` [${i + 1}] ${n.title} | ${n.category} | ${n.recipients[0]?.recipientId}`
-      );
-    });
 
     if (notifications.length > 0) {
       await Notification.insertMany(notifications);
-      console.log("✅ Notifications successfully inserted into DB!");
     }
 
     // Update counts & save event
@@ -652,9 +613,7 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
           fileUrl: result.secure_url,
           uploadedAt: new Date(),
         });
-        console.log('Uploaded selected list to Cloudinary:', result.secure_url);
       } catch (err) {
-        console.error('Failed to upload selected list to Cloudinary:', err.message || err);
         event.selectedListFiles.push({
           fileName: file.originalname,
           fileUrl: null,
@@ -673,7 +632,6 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
       totalSelected: event.selectedStudents.length,
     });
   } catch (error) {
-    console.error("❌ Error in uploadSelectedStudents:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error while uploading selected students.",
@@ -688,7 +646,7 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
 exports.getStudentById = async (req, res) => {
   try {
     const student = await Student.findById(req.params.id);
-    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (!student) return res.status(200).json({ success: false, message: 'Student not found' });
     res.json({ success: true, data: student });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -723,7 +681,7 @@ exports.uploadSelectedStudents = async (req, res) => {
       : req.body?.files || [];
 
     const event = await Calendar.findById(req.params.id);
-    if (!event) return res.status(404).json({ success: false, message: "Event not found" });
+    if (!event) return res.status(200).json({ success: false, message: "Event not found" });
 
     // ✅ Store selected student details
     const selectedStudentDetails = [];
@@ -769,7 +727,6 @@ exports.uploadSelectedStudents = async (req, res) => {
       try {
         await sendEmail(student.email, subject, html);
       } catch (err) {
-        console.error(`Mail failed for ${student.email}:`, err.message);
       }
 
       notifications.push({
@@ -788,7 +745,6 @@ exports.uploadSelectedStudents = async (req, res) => {
 
     return res.json({ success: true, message: "Selected list uploaded successfully.", data: event });
   } catch (error) {
-    console.error("Error uploading selected students:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -802,7 +758,7 @@ exports.getRegisteredStudentsForCompleted = async (req, res) => {
     const event = await Calendar.findById(req.params.id);
 
     if (!event)
-      return res.status(404).json({ message: "Event not found" });
+      return res.status(200).json({ message: "Event not found" });
 
     // 🧠 Map registered students info — include ALL personalInfo fields
     // For older registrations missing yearOfPassing, fetch from Student document
@@ -838,7 +794,6 @@ exports.getRegisteredStudentsForCompleted = async (req, res) => {
 
     res.status(200).json({ success: true, data: registeredStudents });
   } catch (err) {
-    console.error("❌ Error fetching students:", err);
     res.status(500).json({ success: false, message: "Error fetching students", error: err.message });
   }
 };
@@ -848,7 +803,7 @@ exports.exportRegisteredStudents = async (req, res) => {
   try {
     const event = await Calendar.findById(req.params.id);
     if (!event)
-      return res.status(404).json({ success: false, message: "Event not found" });
+      return res.status(200).json({ success: false, message: "Event not found" });
 
     const rows = [];
     for (const r of event.registrations || []) {
@@ -896,7 +851,6 @@ exports.exportRegisteredStudents = async (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.send(buffer);
   } catch (err) {
-    console.error("❌ Error exporting registered students:", err);
     res.status(500).json({ success: false, message: "Error exporting students", error: err.message });
   }
 };
@@ -909,26 +863,15 @@ exports.selectStudentForEvent = asyncHandler(async (req, res) => {
     const { id: eventId } = req.params;
     const { studentEmail } = req.body;
 
-    // ✅ Debug logging
-    console.log("🔍 selectStudentForEvent called:", {
-      eventId,
-      studentEmail,
-      bodyKeys: Object.keys(req.body),
-      fullBody: req.body
-    });
-
     if (!studentEmail) {
-      console.log("❌ No studentEmail provided");
-      return res.status(400).json({ success: false, message: "Student email is required" });
+      return res.status(200).json({ success: false, message: "Student email is required" });
     }
 
     const event = await Calendar.findById(eventId);
     if (!event) {
-      console.log("❌ Event not found:", eventId);
-      return res.status(404).json({ success: false, message: "Event not found" });
+      return res.status(200).json({ success: false, message: "Event not found" });
     }
 
-    console.log(`✅ Event found: ${event.title}, Registrations: ${event.registrations?.length || 0}`);
 
     // ✅ Only registered students are eligible
     const registeredStudent = event.registrations.find(
@@ -936,9 +879,7 @@ exports.selectStudentForEvent = asyncHandler(async (req, res) => {
     );
     
     if (!registeredStudent) {
-      console.log("❌ Student not registered for this event:", studentEmail);
-      console.log("📋 Registered emails:", event.registrations.map(r => r.personalInfo.email));
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: "Student not registered for this event",
       });
@@ -949,7 +890,7 @@ exports.selectStudentForEvent = asyncHandler(async (req, res) => {
       (s) => s.email.toLowerCase() === studentEmail.toLowerCase()
     );
     if (alreadySelected)
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: "This student has already been selected for this event.",
       });
@@ -975,13 +916,6 @@ const studentInfo = {
   selectedAt: new Date(),
 };
 
-
-    console.log(`✅ Student Info Prepared:`, {
-      name: studentInfo.name,
-      email: studentInfo.email,
-      batchNumber: studentInfo.batchNumber,
-      colleges: studentInfo.colleges
-    });
 
     // ✅ Add to selected list
     event.selectedStudents.push(studentInfo);
@@ -1033,7 +967,6 @@ const studentInfo = {
     try {
       await sendEmail(studentInfo.email, subject, html);
     } catch (error) {
-      console.error(`❌ Failed to send email to ${studentInfo.email}:`, error.message);
     }
 
 await Notification.create({
@@ -1048,12 +981,6 @@ await Notification.create({
   relatedEntity: { entityId: event._id, entityModel: "Event" },
 });
 
-console.log(
-  `✅ Notification Created → ${studentInfo.email} | Category: Placement`
-);
-
-
-
     await event.save();
 
     res.status(200).json({
@@ -1062,7 +989,6 @@ console.log(
       student: studentInfo,
     });
   } catch (err) {
-    console.error("Error in selectStudentForEvent:", err);
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -1079,12 +1005,12 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
     const { selectedEmails } = req.body;
 
     if (!selectedEmails) {
-      return res.status(400).json({ success: false, message: "No selected student emails provided." });
+      return res.status(200).json({ success: false, message: "No selected student emails provided." });
     }
 
     const emails = JSON.parse(selectedEmails);
     const event = await Calendar.findById(eventId);
-    if (!event) return res.status(404).json({ success: false, message: "Event not found." });
+    if (!event) return res.status(200).json({ success: false, message: "Event not found." });
 
     const notifications = [];
     const sentEmails = new Set();
@@ -1101,13 +1027,11 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
         (r) => r.personalInfo.email?.toLowerCase() === lowerEmail
       );
       if (!registeredStudent) {
-        console.log(`⚠️ Skipping ${email} — not registered for this event.`);
         continue;
       }
 
       // ✅ Skip already selected students
       if (alreadySelectedEmails.has(lowerEmail)) {
-        console.log(`⚠️ Skipping ${email} (already selected).`);
         continue;
       }
 
@@ -1124,9 +1048,7 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
 
       try {
         await sendEmail(student.email, subject, html);
-        console.log(`📧 Sent mail to ${student.email}`);
       } catch (err) {
-        console.error(`Mail failed for ${student.email}:`, err.message);
       }
 
       notifications.push({
@@ -1163,9 +1085,7 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
           fileUrl: result.secure_url,
           uploadedAt: new Date(),
         });
-        console.log('Uploaded selected list to Cloudinary:', result.secure_url);
       } catch (err) {
-        console.error('Failed to upload selected list to Cloudinary:', err.message || err);
         event.selectedListFiles.push({
           fileName: file.originalname,
           fileUrl: null,
@@ -1184,7 +1104,6 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
       totalSelected: event.selectedStudents.length,
     });
   } catch (error) {
-    console.error("Error in uploadSelectedStudents:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error while uploading selected students.",
@@ -1201,14 +1120,13 @@ exports.getSelectedStudentsForEvent = async (req, res) => {
 
     const event = await Calendar.findById(id);
     if (!event)
-      return res.status(404).json({ success: false, message: "Event not found" });
+      return res.status(200).json({ success: false, message: "Event not found" });
 
     return res.status(200).json({
       success: true,
       data: event.selectedStudents || [],
     });
   } catch (error) {
-    console.error("Error fetching selected students:", error);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -1220,12 +1138,12 @@ exports.removeSelectedStudent = asyncHandler(async (req, res) => {
     const { studentEmail } = req.body;
 
     if (!studentEmail) {
-      return res.status(400).json({ success: false, message: "Student email is required." });
+      return res.status(200).json({ success: false, message: "Student email is required." });
     }
 
     const event = await Calendar.findById(eventId);
     if (!event) {
-      return res.status(404).json({ success: false, message: "Event not found." });
+      return res.status(200).json({ success: false, message: "Event not found." });
     }
 
     const lowerEmail = studentEmail.toLowerCase();
@@ -1234,7 +1152,7 @@ exports.removeSelectedStudent = asyncHandler(async (req, res) => {
     );
 
     if (!selectedEntry) {
-      return res.status(404).json({ success: false, message: "Student not found in selected list." });
+      return res.status(200).json({ success: false, message: "Student not found in selected list." });
     }
 
     // Remove from event's selectedStudents
@@ -1287,7 +1205,6 @@ exports.removeSelectedStudent = asyncHandler(async (req, res) => {
       totalSelected: event.selectedStudents.length
     });
   } catch (error) {
-    console.error("Error in removeSelectedStudent:", error);
     return res.status(500).json({ success: false, message: "Internal server error.", error: error.message });
   }
 });
@@ -1300,12 +1217,12 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
     const { selectedEmails } = req.body;
 
     if (!selectedEmails) {
-      return res.status(400).json({ success: false, message: "No selected student emails provided." });
+      return res.status(200).json({ success: false, message: "No selected student emails provided." });
     }
 
     const emails = JSON.parse(selectedEmails);
     const event = await Calendar.findById(eventId);
-    if (!event) return res.status(404).json({ success: false, message: "Event not found." });
+    if (!event) return res.status(200).json({ success: false, message: "Event not found." });
 
     const notifications = [];
     const sentEmails = new Set();
@@ -1322,13 +1239,11 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
         (r) => r.personalInfo.email?.toLowerCase() === lowerEmail
       );
       if (!registeredStudent) {
-        console.log(`⚠️ Skipping ${email} — not registered for this event.`);
         continue;
       }
 
       // ✅ Skip already selected students
       if (alreadySelectedEmails.has(lowerEmail)) {
-        console.log(`⚠️ Skipping ${email} (already selected).`);
         continue;
       }
 
@@ -1350,9 +1265,7 @@ exports.uploadSelectedStudents = asyncHandler(async (req, res) => {
 
       try {
         await sendEmail(student.email, subject, html);
-        console.log(`📧 Sent mail to ${student.email}`);
       } catch (err) {
-        console.error(`Mail failed for ${student.email}:`, err.message);
       }
 
 notifications.push({
@@ -1370,11 +1283,6 @@ notifications.push({
   ],
   relatedEntity: { entityId: event._id, entityModel: "Event" },
 });
-
-console.log(
-  `✅ Notification Created → Student: ${student.email} | Category: Placement | Event: ${event.title}`
-);
-
 
       event.selectedStudents.push({
         studentId: registeredStudent.studentId,
@@ -1429,9 +1337,7 @@ console.log(
           fileUrl: result.secure_url,
           uploadedAt: new Date(),
         });
-        console.log('Uploaded selected list to Cloudinary:', result.secure_url);
       } catch (err) {
-        console.error('Failed to upload selected list to Cloudinary:', err.message || err);
         event.selectedListFiles.push({
           fileName: file.originalname,
           fileUrl: null,
@@ -1450,7 +1356,6 @@ console.log(
       totalSelected: event.selectedStudents.length,
     });
   } catch (error) {
-    console.error("Error in uploadSelectedStudents:", error);
     res.status(500).json({
       success: false,
       message: "Internal server error while uploading selected students.",

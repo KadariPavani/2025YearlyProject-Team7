@@ -114,10 +114,10 @@ const upload = multer({
 // Error handling
 const handleMulterError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
-    return res.status(400).json({ message: `Upload error: ${err.message}` });
+    return res.status(200).json({ message: `Upload error: ${err.message}` });
   }
   if (err) {
-    return res.status(400).json({ message: err.message || 'Upload failed' });
+    return res.status(200).json({ message: err.message || 'Upload failed' });
   }
   next();
 };
