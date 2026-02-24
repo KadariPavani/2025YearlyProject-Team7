@@ -22,9 +22,7 @@ const USE_EXTERNAL_JUDGE = process.env.VERCEL === '1' ||
 if (!fs.existsSync(TEMP_DIR)) {
   try {
     fs.mkdirSync(TEMP_DIR, { recursive: true });
-    console.log(`✅ Created temp directory: ${TEMP_DIR}`);
   } catch (err) {
-    console.error(`❌ Failed to create temp directory: ${err.message}`);
   }
 }
 
@@ -36,10 +34,8 @@ function writeTempFile(prefix, ext, content) {
   
   try {
     fs.writeFileSync(filepath, content, { encoding: 'utf8' });
-    console.log(`📝 Created temp file: ${filename}`);
     return { filepath, filename };
   } catch (error) {
-    console.error(`❌ Failed to write temp file: ${error.message}`);
     throw new Error(`Failed to create temp file: ${error.message}`);
   }
 }
@@ -68,10 +64,8 @@ function cleanupTempFiles() {
     });
     
     if (cleanedCount > 0) {
-      console.log(`🧹 Cleaned up ${cleanedCount} old temp files`);
     }
   } catch (error) {
-    console.error(`⚠️ Temp cleanup error: ${error.message}`);
   }
 }
 
@@ -111,14 +105,11 @@ function normalizeOutput(s) {
 async function runSubmission({ language, code, testCases = [], timeLimit = 2000, memoryLimit = 256000 }) {
   // Check if we should use external judge (for deployment environments)
   if (USE_EXTERNAL_JUDGE) {
-    console.log('[judge] 🌐 Using external API (deployment mode) for language:', language);
     try {
       return await runSubmissionExternal({ language, code, testCases, timeLimit, memoryLimit });
     } catch (error) {
-      console.error('[judge] ❌ External API failed:', error.message);
       // For JavaScript, we can still fall back to local execution
       if (['javascript', 'js', 'node'].includes(language)) {
-        console.log('[judge] ⚠️ Falling back to local Node.js execution for JavaScript');
         // Continue with local execution below
       } else {
         return {
@@ -131,7 +122,6 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
   }
 
   // LOCAL EXECUTION (for localhost/development)
-  console.log('[judge] 💻 Using local compilers (development mode) for language:', language);
   
   // timeLimit in ms
   // memoryLimit in KB (not enforced here, just metadata)
@@ -221,7 +211,6 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
         }
         if (changed) {
           sanitizedCode = lines.join('\n');
-          console.log('[judge][java] sanitized leading # lines into // comments to avoid syntax errors');
         }
       }
 
@@ -316,7 +305,6 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
           const runClass = className || 'Main';
           binPath = `java -cp "${workDir}" ${runClass}`;
           // log detected versions to aid debugging
-          try { console.log(`[judge][java] javaVersion="${javaVerOut.split('\n')[0] || ''}" javacVersion="${javacVerOut.split('\n')[0] || ''}"`); } catch (e) {}
         }
       } catch (e) {
         compilationError = e.message || 'Compilation error';
@@ -334,7 +322,6 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
     // Log which binary/interpreter we'll invoke (helpful when 'python3' missing on Windows)
     try {
       const _bin = (binPath || '').split(' ')[0];
-      console.log(`[judge] Executing with: ${_bin}`);
     } catch (e) {}
 
     // run per test case
@@ -382,7 +369,6 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
           if (/UnsupportedClassVersionError/i.test(combinedErr) && srcInfo && srcInfo.filepath) {
             try {
               const targetRelease = (typeof javaMajor === 'number' && javaMajor > 0) ? javaMajor : 8;
-              console.log(`[judge] UnsupportedClassVersionError detected; attempting to recompile with --release ${targetRelease}`);
               const recompile = await execWithTimeout(`javac --release ${targetRelease} "${srcInfo.filepath}"`, { cwd: path.dirname(srcInfo.filepath) }, 10000);
               if (recompile.code === 0) {
                 // rerun this test
@@ -417,7 +403,6 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
                 continue; // go to next test case
               } else {
                 const reErr = (recompile.stderr || '') + (recompile.stdout || '');
-                console.log(`[judge] Recompile with --release ${targetRelease} failed: ${reErr.split('\n')[0] || reErr}`);
               }
             } catch (e) {
               // ignore and fall through to normal error handling
@@ -427,7 +412,6 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
           // Detect interpreter-missing errors and retry with a Python fallback if applicable
           if (/not recognized|not found|command not found/i.test(combinedErr) && /python3/.test(binPath)) {
             const altBin = binPath.replace('python3', 'python');
-            console.log(`[judge] Interpreter ${binPath.split(' ')[0]} not found; retrying with ${altBin.split(' ')[0]}`);
             // rerun this test with the alternative interpreter
             const rerunRes = await new Promise((resolve) => {
               const proc2 = exec(altBin, execOptions, (error2, stdout2, stderr2) => {
@@ -486,10 +470,8 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
     try {
       if (srcInfo && fs.existsSync(srcInfo.filepath)) {
         fs.unlinkSync(srcInfo.filepath);
-        console.log(`🗑️ Cleaned up source file: ${srcInfo.filename}`);
       }
     } catch (e) {
-      console.error(`⚠️ Failed to cleanup source file: ${e.message}`);
     }
     
     // Clean up compiled binaries
@@ -501,12 +483,10 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
           const binFile = binMatch[1];
           if (fs.existsSync(binFile)) {
             fs.unlinkSync(binFile);
-            console.log(`🗑️ Cleaned up binary: ${path.basename(binFile)}`);
           }
         }
       }
     } catch (e) {
-      console.error(`⚠️ Failed to cleanup binary: ${e.message}`);
     }
     
     // Clean up Java class files
@@ -515,11 +495,9 @@ async function runSubmission({ language, code, testCases = [], timeLimit = 2000,
         const classFile = srcInfo.filepath.replace('.java', '.class');
         if (fs.existsSync(classFile)) {
           fs.unlinkSync(classFile);
-          console.log(`🗑️ Cleaned up class file: ${path.basename(classFile)}`);
         }
       }
     } catch (e) {
-      console.error(`⚠️ Failed to cleanup class file: ${e.message}`);
     }
   }
 }

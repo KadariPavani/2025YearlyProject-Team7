@@ -168,7 +168,6 @@ const calculateStudentActivity = async (student, batchId = null, subject = null)
       }
     };
   } catch (error) {
-    console.error('Error calculating student activity:', error);
     throw error;
   }
 };
@@ -182,7 +181,7 @@ const getTpoStudentActivity = async (req, res) => {
   try {
     // Check if user is TPO
     if (req.userType !== 'tpo') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. Only TPO can view all student activities.'
       });
@@ -229,7 +228,6 @@ const getTpoStudentActivity = async (req, res) => {
       data: activityData
     });
   } catch (error) {
-    console.error('Error fetching TPO student activity:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching student activity',
@@ -247,7 +245,7 @@ const getTrainerStudentActivity = async (req, res) => {
   try {
     // Check if user is Trainer
     if (req.userType !== 'trainer') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. Only trainers can view this data.'
       });
@@ -321,7 +319,6 @@ const getTrainerStudentActivity = async (req, res) => {
       data: activityData
     });
   } catch (error) {
-    console.error('Error fetching trainer student activity:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching student activity',
@@ -339,7 +336,7 @@ const getCoordinatorStudentActivity = async (req, res) => {
   try {
     // Check if user is Coordinator
     if (req.userType !== 'coordinator') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. Only coordinators can view this data.'
       });
@@ -393,7 +390,6 @@ const getCoordinatorStudentActivity = async (req, res) => {
       data: activityData
     });
   } catch (error) {
-    console.error('Error fetching coordinator student activity:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching student activity',
@@ -411,7 +407,7 @@ const getStudentOwnActivity = async (req, res) => {
   try {
     // Check if user is Student
     if (req.userType !== 'student') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. Only students can view their own activity.'
       });
@@ -426,7 +422,7 @@ const getStudentOwnActivity = async (req, res) => {
       .lean();
 
     if (!student) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Student not found'
       });
@@ -459,7 +455,6 @@ const getStudentOwnActivity = async (req, res) => {
       data: activity
     });
   } catch (error) {
-    console.error('Error fetching student activity:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching student activity',
@@ -476,7 +471,7 @@ const getStudentOwnActivity = async (req, res) => {
 const getStudentActivityById = async (req, res) => {
   try {
     if (req.userType !== 'tpo' && req.userType !== 'coordinator') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. Only TPO or Coordinator can view student activity.'
       });
@@ -490,7 +485,7 @@ const getStudentActivityById = async (req, res) => {
       .lean();
 
     if (!student) {
-      return res.status(404).json({ success: false, message: 'Student not found' });
+      return res.status(200).json({ success: false, message: 'Student not found' });
     }
 
     const activity = await calculateStudentActivity(student);
@@ -500,7 +495,6 @@ const getStudentActivityById = async (req, res) => {
       data: activity
     });
   } catch (error) {
-    console.error('Error fetching student activity by ID:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching student activity',

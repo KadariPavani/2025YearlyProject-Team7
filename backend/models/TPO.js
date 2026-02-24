@@ -110,22 +110,11 @@ TPOSchema.methods.resetFailedLogin = async function() {
 TPOSchema.methods.canApproveRequest = async function(student) {
   try {
     if (!student) {
-      console.log('Student object is null or undefined');
       return false;
     }
 
-    // For debugging
-    console.log('Checking permissions for:', {
-      tpoId: this._id,
-      studentId: student._id,
-      tpoBatches: this.assignedBatches,
-      studentBatchId: student.batchId,
-      studentPlacementBatchId: student.placementTrainingBatchId
-    });
-
     // Always allow TPO to approve if student has no batch
     if (!student.batchId && !student.placementTrainingBatchId) {
-      console.log('Student has no batch assignments - allowing approval');
       return true;
     }
 
@@ -161,16 +150,13 @@ TPOSchema.methods.canApproveRequest = async function(student) {
             await this.ensureBatchAssignment(batchId);
             return true;
           } catch (error) {
-            console.error('Error assigning batch:', error);
           }
         }
       }
-      console.log(`TPO ${this._id} does not have permission for student ${student._id}'s batches`);
     }
 
     return hasPermission;
   } catch (error) {
-    console.error('Error in canApproveRequest:', error);
     return false;
   }
 };
@@ -194,12 +180,10 @@ TPOSchema.methods.ensureBatchAssignment = async function(batchId) {
       const batchObjectId = new mongoose.Types.ObjectId(batchIdStr);
       this.assignedBatches.push(batchObjectId);
       await this.save();
-      console.log(`Successfully assigned batch ${batchIdStr} to TPO ${this._id}`);
       return true;
     }
     return false;
   } catch (error) {
-    console.error('Error in ensureBatchAssignment:', error);
     throw error;
   }
 };

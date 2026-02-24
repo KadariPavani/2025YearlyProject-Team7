@@ -4,11 +4,6 @@ const { getTokenFromRequest, verifyToken } = require('../utils/authToken');
 
 const generalAuth = async (req, res, next) => {
   try {
-    console.log('Auth Middleware - Headers:', {
-      authorization: req.headers.authorization ? 'Present' : 'Missing',
-      contentType: req.headers['content-type']
-    });
-
     const token = getTokenFromRequest(req);
     if (!token) {
       return res.status(401).json({
@@ -45,19 +40,12 @@ const generalAuth = async (req, res, next) => {
       });
     }
 
-    console.log('User Authenticated:', {
-      userType: effectiveUserType,
-      userId: user._id,
-      email: user.email
-    });
-
     // Add user to request
     req.user = user;
     req.userType = effectiveUserType;
     next();
 
   } catch (error) {
-    console.error('Auth Middleware Unexpected Error:', error);
     res.status(500).json({
       success: false,
       message: 'Authentication server error',

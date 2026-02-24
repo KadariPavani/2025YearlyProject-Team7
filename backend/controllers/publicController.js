@@ -12,18 +12,15 @@ const ensureDbConnected = async (maxWaitMs = 5000) => {
     return true;
   }
 
-  console.log('[publicRoutes] DB not ready, waiting for connection... readyState:', mongoose.connection.readyState);
 
   // Wait for connection with timeout
   return new Promise((resolve) => {
     const checkConnection = setInterval(() => {
       if (mongoose.connection.readyState === 1) {
         clearInterval(checkConnection);
-        console.log('[publicRoutes] DB connected successfully');
         resolve(true);
       } else if (Date.now() - startTime > maxWaitMs) {
         clearInterval(checkConnection);
-        console.error('[publicRoutes] DB connection timeout after', maxWaitMs, 'ms');
         resolve(false);
       }
     }, 100);
@@ -37,7 +34,6 @@ const getPlacedStudents = async (req, res) => {
     // Wait for DB connection (important for serverless)
     const isConnected = await ensureDbConnected();
     if (!isConnected) {
-      console.error('[publicRoutes] DB connection failed for placed-students');
       return res.json({ success: true, message: 'Database connection unavailable', data: { students: [], total: 0 } });
     }
 
@@ -99,7 +95,6 @@ const getPlacedStudents = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Public placed-students error:', error?.message, error?.stack);
     res.status(500).json({ success: false, message: 'Server error', error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
   }
 };
@@ -110,7 +105,6 @@ const getUpcomingEvents = async (req, res) => {
     // Wait for DB connection (important for serverless)
     const isConnected = await ensureDbConnected();
     if (!isConnected) {
-      console.error('[publicRoutes] DB connection failed for upcoming-events');
       return res.json({ success: true, message: 'Database connection unavailable', data: { events: [] } });
     }
 
@@ -133,7 +127,6 @@ const getUpcomingEvents = async (req, res) => {
 
     res.json({ success: true, message: 'Upcoming events fetched', data: { events: results } });
   } catch (error) {
-    console.error('Error fetching upcoming events:', error?.message, error?.stack);
     res.status(500).json({ success: false, message: 'Server error', error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error' });
   }
 };
@@ -242,7 +235,6 @@ const getPlacementStatistics = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching placement statistics:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -359,7 +351,6 @@ const downloadPlacementsExcel = async (req, res) => {
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
-    console.error('Error downloading placements:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

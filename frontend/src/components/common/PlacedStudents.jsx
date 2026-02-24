@@ -39,12 +39,6 @@ export default function PlacedStudents() {
         }
       } catch (err) {
         if (err?.code === 'ERR_CANCELED') return;
-        console.error('[PlacedStudents] Fetch error:', {
-          message: err.message,
-          status: err?.response?.status,
-          data: err?.response?.data,
-          url: err?.config?.url
-        });
       } finally {
         setLoading(false);
         if (fetchRef.current === controller) fetchRef.current = null;

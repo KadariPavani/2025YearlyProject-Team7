@@ -21,12 +21,12 @@ const createSyllabus = async (req, res) => {
 
     // Validate topics
     if (!Array.isArray(topics) || topics.length === 0) {
-      return res.status(400).json({ message: 'Topics array is required and must not be empty' });
+      return res.status(200).json({ message: 'Topics array is required and must not be empty' });
     }
 
     const validTopics = topics.every(topic => topic.topicName && topic.duration);
     if (!validTopics) {
-      return res.status(400).json({ message: 'Each topic must have a name and duration' });
+      return res.status(200).json({ message: 'Each topic must have a name and duration' });
     }
 
     // Resolve batch identifiers robustly (accept names/numbers or ids)
@@ -47,10 +47,8 @@ const createSyllabus = async (req, res) => {
           found = await Batch.findOne({ $or: [{ batchNumber: regex }, { name: regex }] }).select('_id batchNumber name');
           if (found && found._id) return found._id.toString();
 
-          console.warn(`Could not resolve regular batch candidate: '${candidateRaw}'`);
           return null;
         } catch (err) {
-          console.error('Error resolving regular batch candidate:', candidateRaw, err.message || err);
           return null;
         }
       }));
@@ -71,15 +69,12 @@ const createSyllabus = async (req, res) => {
           found = await PlacementTrainingBatch.findOne({ batchNumber: regex }).select('_id batchNumber');
           if (found && found._id) return found._id.toString();
 
-          console.warn(`Could not resolve placement batch candidate: '${candidateRaw}'`);
           return null;
         } catch (err) {
-          console.error('Error resolving placement batch candidate:', candidateRaw, err.message || err);
           return null;
         }
       }));
       validatedPlacementBatches = resolvedPlacement.filter(Boolean);
-      console.log('Resolved placement batch ids:', validatedPlacementBatches);
     }
 
     // Reconcile placement ids accidentally passed in validatedRegularBatches
@@ -90,10 +85,8 @@ const createSyllabus = async (req, res) => {
         if (placementIds.length > 0) {
           validatedRegularBatches = validatedRegularBatches.filter(id => !placementIds.includes(id));
           validatedPlacementBatches = Array.from(new Set([...(validatedPlacementBatches || []), ...placementIds]));
-          console.log(`Moved ${placementIds.length} id(s) from validatedRegularBatches to validatedPlacementBatches because they belong to placement batches:` , placementIds);
         }
       } catch (err) {
-        console.error('Error reconciling regular vs placement batch ids in syllabus:', err);
       }
     }
 
@@ -128,8 +121,7 @@ const createSyllabus = async (req, res) => {
 
     res.status(201).json(savedSyllabus);
   } catch (error) {
-    console.error('Error creating syllabus:', error);
-    res.status(400).json({ message: error.message || 'Failed to create syllabus' });
+    res.status(200).json({ message: error.message || 'Failed to create syllabus' });
   }
 };
 
@@ -146,7 +138,6 @@ const getAllSyllabi = async (req, res) => {
 
     res.json(syllabi);
   } catch (error) {
-    console.error('Error fetching syllabi:', error);
     res.status(500).json({ message: 'Failed to fetch syllabi' });
   }
 };
@@ -161,12 +152,11 @@ const getSyllabusById = async (req, res) => {
       ]);
 
     if (!syllabus || syllabus.trainerId.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Syllabus not found or not authorized' });
+      return res.status(200).json({ message: 'Syllabus not found or not authorized' });
     }
 
     res.json(syllabus);
   } catch (error) {
-    console.error('Error fetching syllabus:', error);
     res.status(500).json({ message: 'Failed to fetch syllabus' });
   }
 };
@@ -177,7 +167,7 @@ const updateSyllabus = async (req, res) => {
     const syllabus = await Syllabus.findById(req.params.id);
 
     if (!syllabus || syllabus.trainerId.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Syllabus not found or not authorized' });
+      return res.status(200).json({ message: 'Syllabus not found or not authorized' });
     }
 
     const { title, description, topics, assignedBatches, assignedPlacementBatches, batchType } = req.body;
@@ -185,11 +175,11 @@ const updateSyllabus = async (req, res) => {
     // Validate topics if provided
     if (topics) {
       if (!Array.isArray(topics) || topics.length === 0) {
-        return res.status(400).json({ message: 'Topics array is required and must not be empty' });
+        return res.status(200).json({ message: 'Topics array is required and must not be empty' });
       }
       const validTopics = topics.every(topic => topic.topicName && topic.duration);
       if (!validTopics) {
-        return res.status(400).json({ message: 'Each topic must have a name and duration' });
+        return res.status(200).json({ message: 'Each topic must have a name and duration' });
       }
     }
 
@@ -216,8 +206,7 @@ const updateSyllabus = async (req, res) => {
 
     res.json(updatedSyllabus);
   } catch (error) {
-    console.error('Error updating syllabus:', error);
-    res.status(400).json({ message: error.message || 'Failed to update syllabus' });
+    res.status(200).json({ message: error.message || 'Failed to update syllabus' });
   }
 };
 
@@ -227,13 +216,12 @@ const deleteSyllabus = async (req, res) => {
     const syllabus = await Syllabus.findById(req.params.id);
 
     if (!syllabus || syllabus.trainerId.toString() !== req.user.id) {
-      return res.status(404).json({ message: 'Syllabus not found or not authorized' });
+      return res.status(200).json({ message: 'Syllabus not found or not authorized' });
     }
 
     await Syllabus.findByIdAndDelete(req.params.id);
     res.json({ message: 'Syllabus deleted successfully' });
   } catch (error) {
-    console.error('Error deleting syllabus:', error);
     res.status(500).json({ message: 'Failed to delete syllabus' });
   }
 };
@@ -253,7 +241,7 @@ const getStudentSyllabi = async (req, res) => {
       .lean();
 
     if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
+      return res.status(200).json({ message: 'Student not found' });
     }
 
     // Build query to find syllabi accessible to this student
@@ -290,7 +278,6 @@ const getStudentSyllabi = async (req, res) => {
 
     res.json(syllabi);
   } catch (error) {
-    console.error('Error fetching syllabi for student:', error);
     res.status(500).json({ message: 'Failed to fetch syllabi for student' });
   }
 };
@@ -307,13 +294,13 @@ const getStudentSyllabusById = async (req, res) => {
     ]);
 
     if (!syllabus || !student) {
-      return res.status(404).json({ message: 'Syllabus or student not found' });
+      return res.status(200).json({ message: 'Syllabus or student not found' });
     }
 
     // Check if student can access this syllabus
     const canAccess = syllabus.canStudentAccess(student);
     if (!canAccess) {
-      return res.status(403).json({ message: 'You are not authorized to access this syllabus' });
+      return res.status(200).json({ message: 'You are not authorized to access this syllabus' });
     }
 
     // Populate and return
@@ -324,7 +311,6 @@ const getStudentSyllabusById = async (req, res) => {
 
     res.json(syllabus);
   } catch (error) {
-    console.error('Error fetching syllabus for student:', error);
     res.status(500).json({ message: 'Failed to fetch syllabus for student' });
   }
 };

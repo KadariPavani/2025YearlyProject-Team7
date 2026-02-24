@@ -43,15 +43,14 @@ const superAdminLogin = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Email and password are required' });
+      return res.status(200).json({ success: false, message: 'Email and password are required' });
     }
 
     const normalizedEmail = String(email).trim().toLowerCase();
-    console.debug('Super admin login request for:', normalizedEmail);
 
     const admin = await Admin.findOne({ email: normalizedEmail }).select('+password failedLoginAttempts lockUntil');
     if (!admin) {
-      return res.status(401).json({
+      return res.status(200).json({
         success: false,
         message: 'Admin not found'
       });
@@ -59,16 +58,16 @@ const superAdminLogin = async (req, res) => {
 
     // Check lock
     if (admin.isAccountLocked && admin.isAccountLocked()) {
-      return res.status(401).json({ success: false, message: `Account locked until ${new Date(admin.lockUntil).toISOString()}` });
+      return res.status(200).json({ success: false, message: `Account locked until ${new Date(admin.lockUntil).toISOString()}` });
     }
 
     const isMatch = await admin.matchPassword(password);
     if (!isMatch) {
       if (typeof admin.incrementFailedLogin === 'function') await admin.incrementFailedLogin();
       if (admin.isAccountLocked && admin.isAccountLocked()) {
-        return res.status(401).json({ success: false, message: `Account locked due to multiple failed attempts. Try again at ${new Date(admin.lockUntil).toISOString()}` });
+        return res.status(200).json({ success: false, message: `Account locked due to multiple failed attempts. Try again at ${new Date(admin.lockUntil).toISOString()}` });
       }
-      return res.status(401).json({ success: false, message: 'Invalid password' });
+      return res.status(200).json({ success: false, message: 'Invalid password' });
     }
 
     // successful password: reset attempts
@@ -77,7 +76,6 @@ const superAdminLogin = async (req, res) => {
     const otp = generateOTP();
 
     // ✅ Log OTP to terminal for testing/debugging
-    console.log(`🔐 OTP for ${email}: ${otp}`);
 
     await OTP.create({
       email,
@@ -88,25 +86,20 @@ const superAdminLogin = async (req, res) => {
     // If SMTP is configured, send the OTP email. Otherwise, keep logging the OTP to server logs.
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
       try {
-        console.log('Attempting to send OTP email to:', email);
         await sendEmail({
           email,
           subject: 'Admin Login Verification - InfoVerse',
           message: `Your OTP for admin login is: <strong>${otp}</strong>. It will expire in 5 minutes.`
         });
-        console.log('OTP email sent to:', email);
       } catch (emailErr) {
-        console.error('Failed to send OTP email:', emailErr);
         // Surface error so frontend can know OTP wasn't emailed
         return serverError(res, 'Failed to send OTP email');
       }
     } else {
-      console.warn('Email not configured; OTP logged to server only.');
     }
 
     return ok(res, { success: true, message: process.env.EMAIL_USER ? 'OTP sent successfully' : 'OTP created and logged on server (EMAIL not configured)'});
   } catch (error) {
-    console.error('❌ Error in superAdminLogin:', error && (error.stack || error.message || error));
     return serverError(res, `Internal server error${process.env.NODE_ENV === 'development' ? ': ' + (error.message || '') : ''}`);
   }
 };
@@ -132,14 +125,14 @@ const verifyOTP = async (req, res) => {
 
     const admin = await Admin.findOne({ email });
     if (!admin) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Admin not found'
       });
     }
 
     if (admin.isAccountLocked && admin.isAccountLocked()) {
-      return res.status(401).json({ success: false, message: `Account locked until ${new Date(admin.lockUntil).toISOString()}` });
+      return res.status(200).json({ success: false, message: `Account locked until ${new Date(admin.lockUntil).toISOString()}` });
     }
 
     const token = generateToken({
@@ -156,7 +149,6 @@ const verifyOTP = async (req, res) => {
     return ok(res, { success: true, token, admin: { id: admin._id, email: admin.email, role: admin.role, permissions: admin.permissions } });
 
   } catch (error) {
-    console.error('OTP Verification Error:', error);
     return serverError(res, 'Internal server error during OTP verification');
   }
 };
@@ -170,7 +162,7 @@ const resendOTP = async (req, res) => {
     // Validate email exists
     const admin = await Admin.findOne({ email: normalizedEmail });
     if (!admin) {
-      return res.status(404).json({ success: false, message: 'Admin not found' });
+      return res.status(200).json({ success: false, message: 'Admin not found' });
     }
 
     const otp = await createOtp(normalizedEmail, 'login');
@@ -184,15 +176,12 @@ const resendOTP = async (req, res) => {
         });
         return ok(res, { success: true, message: 'OTP resent successfully' });
       } catch (emailErr) {
-        console.error('Failed to send OTP email on resend:', emailErr);
         return serverError(res, 'Failed to send OTP email');
       }
     } else {
-      console.warn('Email not configured; OTP resent but not emailed');
       return ok(res, { success: true, message: 'OTP created and logged on server (EMAIL not configured)' });
     }
   } catch (error) {
-    console.error('Resend OTP error:', error);
     return serverError(res, 'Server error');
   }
 };
@@ -203,13 +192,13 @@ const addAdmin = async (req, res) => {
     const { email, role } = req.body;
 
     if (!req.admin.permissions?.adminControls?.add) {
-      return res.status(403).json({ success: false, message: "No permission to add admin" });
+      return res.status(200).json({ success: false, message: "No permission to add admin" });
     }
     if (!email || !role) {
-      return res.status(400).json({ success: false, message: "Email and role are required" });
+      return res.status(200).json({ success: false, message: "Email and role are required" });
     }
     if (await Admin.findOne({ email })) {
-      return res.status(400).json({ success: false, message: "Admin with this email already exists" });
+      return res.status(200).json({ success: false, message: "Admin with this email already exists" });
     }
 
     // Generate strong random password
@@ -240,7 +229,6 @@ const addAdmin = async (req, res) => {
     return created(res, { success: true, data: { id: newAdmin._id, email: newAdmin.email, role: newAdmin.role, permissions: newAdmin.permissions } });
 
   } catch (error) {
-    console.error("Add admin error:", error);
     res.status(500).json({ success: false, message: "Failed to add admin" });
   }
 };
@@ -260,14 +248,14 @@ const editAdmin = async (req, res) => {
   try {
     // Must have permission
     if (!req.admin.permissions?.adminControls?.edit) {
-      return res.status(403).json({ success: false, message: "No permission to edit admin" });
+      return res.status(200).json({ success: false, message: "No permission to edit admin" });
     }
 
     const { email, role, permissions, status } = req.body;
     const adminToUpdate = await Admin.findById(req.params.id);
     
     if (!adminToUpdate) {
-      return res.status(404).json({ success: false, message: "Admin not found" });
+      return res.status(200).json({ success: false, message: "Admin not found" });
     }
 
     // Update fields if provided
@@ -282,7 +270,6 @@ const editAdmin = async (req, res) => {
     const updatedAdmin = await Admin.findById(adminToUpdate._id).select('-password');
     res.json({ success: true, data: updatedAdmin });
   } catch (error) {
-    console.error("Edit Admin Error:", error);
     res.status(500).json({ success: false, message: "Server error editing admin" });
   }
 };
@@ -292,23 +279,22 @@ const deleteAdmin = async (req, res) => {
   try {
     // Must have permission
     if (!req.admin.permissions?.adminControls?.delete) {
-      return res.status(403).json({ success: false, message: "No permission to delete admin" });
+      return res.status(200).json({ success: false, message: "No permission to delete admin" });
     }
 
     // Prevent self-deletion
     if (req.admin._id.toString() === req.params.id) {
-      return res.status(400).json({ success: false, message: "Admins cannot delete themselves" });
+      return res.status(200).json({ success: false, message: "Admins cannot delete themselves" });
     }
 
     const adminToDelete = await Admin.findById(req.params.id);
     if (!adminToDelete) {
-      return res.status(404).json({ success: false, message: "Admin not found" });
+      return res.status(200).json({ success: false, message: "Admin not found" });
     }
 
     await Admin.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Admin deleted successfully" });
   } catch (error) {
-    console.error("Delete Admin Error:", error);
     res.status(500).json({ success: false, message: "Server error deleting admin" });
   }
 };
@@ -384,7 +370,6 @@ const addTrainer = async (req, res) => {
     return created(res, { success: true, message: 'Trainer added successfully and credentials sent via email', data: { id: trainer._id, name: trainer.name, email: trainer.email, employeeId: trainer.employeeId } });
 
   } catch (error) {
-    console.error('Add Trainer Error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -401,7 +386,7 @@ const addTPO = async (req, res) => {
 
     // Check admin permissions
     if (!req.admin.permissions?.tpoControls?.add) {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'You do not have permission to add TPOs'
       });
@@ -411,7 +396,7 @@ const addTPO = async (req, res) => {
     const existingTPO = await TPO.findOne({ email });
 
     if (existingTPO) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'TPO with this email already exists'
       });
@@ -460,13 +445,11 @@ const addTPO = async (req, res) => {
         adminName: req.admin.email || "Admin",
       });
     } catch (e) {
-      console.error("Failed to send TPO account notification:", e);
     }
 
     return created(res, { success: true, message: 'TPO added successfully and credentials sent via email', data: { id: tpo._id, name: tpo.name, email: tpo.email } });
 
   } catch (error) {
-    console.error('Add TPO Error:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -504,11 +487,11 @@ const getAllTPOs = async (req, res) => {
 const toggleTrainerStatus = async (req, res) => {
   try {
     if (!req.admin.permissions?.trainerControls?.suspend) {
-      return res.status(403).json({ success: false, message: "No permission to change trainer status" });
+      return res.status(200).json({ success: false, message: "No permission to change trainer status" });
     }
     const { id } = req.params;
     const trainer = await Trainer.findById(id);
-    if (!trainer) return res.status(404).json({ success: false, message: "Trainer not found" });
+    if (!trainer) return res.status(200).json({ success: false, message: "Trainer not found" });
 
     trainer.status = trainer.status === 'active' ? 'inactive' : 'active';
     await trainer.save();
@@ -523,12 +506,10 @@ const toggleTrainerStatus = async (req, res) => {
         adminId: req.admin._id,
       });
     } catch (e) {
-      console.error("Failed to send trainer status notification:", e);
     }
 
     res.json({ success: true, message: `Trainer ${trainer.status === 'active' ? 'activated' : 'suspended'}`, data: { id: trainer._id, status: trainer.status } });
   } catch (error) {
-    console.error("Toggle Trainer Status Error:", error);
     res.status(500).json({ success: false, message: "Failed to update trainer status" });
   }
 };
@@ -537,11 +518,11 @@ const toggleTrainerStatus = async (req, res) => {
 const deleteTrainer = async (req, res) => {
   try {
     if (!req.admin.permissions?.trainerControls?.delete) {
-      return res.status(403).json({ success: false, message: "No permission to delete trainer" });
+      return res.status(200).json({ success: false, message: "No permission to delete trainer" });
     }
     const { id } = req.params;
     const deleted = await Trainer.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ success: false, message: "Trainer not found" });
+    if (!deleted) return res.status(200).json({ success: false, message: "Trainer not found" });
 
     // Remove only this trainer's assignments from all placement batches
     await PlacementTrainingBatch.updateMany(
@@ -551,7 +532,6 @@ const deleteTrainer = async (req, res) => {
 
     res.json({ success: true, message: "Trainer deleted successfully" });
   } catch (error) {
-    console.error("Delete Trainer Error:", error);
     res.status(500).json({ success: false, message: "Failed to delete trainer" });
   }
 };
@@ -562,11 +542,11 @@ const deleteTrainer = async (req, res) => {
 const toggleTPOStatus = async (req, res) => {
   try {
     if (!req.admin.permissions?.tpoControls?.suspend) {
-      return res.status(403).json({ success: false, message: "No permission to change TPO status" });
+      return res.status(200).json({ success: false, message: "No permission to change TPO status" });
     }
     const { id } = req.params;
     const tpo = await TPO.findById(id);
-    if (!tpo) return res.status(404).json({ success: false, message: "TPO not found" });
+    if (!tpo) return res.status(200).json({ success: false, message: "TPO not found" });
 
     tpo.status = tpo.status === 'active' ? 'inactive' : 'active';
     await tpo.save();
@@ -581,12 +561,10 @@ const toggleTPOStatus = async (req, res) => {
         adminId: req.admin._id,
       });
     } catch (e) {
-      console.error("Failed to send TPO status notification:", e);
     }
 
     res.json({ success: true, message: `TPO ${tpo.status === 'active' ? 'activated' : 'suspended'}`, data: { id: tpo._id, status: tpo.status } });
   } catch (error) {
-    console.error("Toggle TPO Status Error:", error);
     res.status(500).json({ success: false, message: "Failed to update TPO status" });
   }
 };
@@ -595,15 +573,14 @@ const toggleTPOStatus = async (req, res) => {
 const deleteTPO = async (req, res) => {
   try {
     if (!req.admin.permissions?.tpoControls?.delete) {
-      return res.status(403).json({ success: false, message: "No permission to delete TPO" });
+      return res.status(200).json({ success: false, message: "No permission to delete TPO" });
     }
     const { id } = req.params;
     const deleted = await TPO.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ success: false, message: "TPO not found" });
+    if (!deleted) return res.status(200).json({ success: false, message: "TPO not found" });
 
     res.json({ success: true, message: "TPO deleted successfully" });
   } catch (error) {
-    console.error("Delete TPO Error:", error);
     res.status(500).json({ success: false, message: "Failed to delete TPO" });
   }
 };
@@ -628,7 +605,6 @@ const forgotPassword = async (req, res) => {
 
     return ok(res, { success: true, message: 'OTP sent to email' });
   } catch (error) {
-    console.error('Forgot Password Error:', error);
     return serverError(res, 'Server error');
   }
 };
@@ -663,7 +639,6 @@ const resetPassword = async (req, res) => {
 
     return ok(res, { success: true, message: 'Password reset successful' });
   } catch (error) {
-    console.error('Reset Password Error:', error);
     return serverError(res, 'Server error');
   }
 };
@@ -709,7 +684,6 @@ const logoutAdmin = async (req, res) => {
         sameSite: 'lax'
       });
     } catch (e) {
-      console.warn('Failed to clear token cookie on admin logout:', e && (e.message || e));
     }
 
     res.status(200).json({
@@ -717,7 +691,6 @@ const logoutAdmin = async (req, res) => {
       message: 'Logged out successfully'
     });
   } catch (error) {
-    console.error(error);
     res.status(500).json({
       success: false,
       message: 'Server error occurred'
@@ -734,7 +707,7 @@ const changePassword = async (req, res) => {
 
     const admin = await Admin.findOne({ email }).select('+password');
     if (!admin) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Admin not found'
       });
@@ -742,7 +715,7 @@ const changePassword = async (req, res) => {
 
     const isMatch = await admin.matchPassword(currentPassword);
     if (!isMatch) {
-      return res.status(401).json({
+      return res.status(200).json({
         success: false,
         message: 'Current password is incorrect'
       });
@@ -756,7 +729,6 @@ const changePassword = async (req, res) => {
       message: 'Password updated successfully'
     });
   } catch (error) {
-    console.error('Change Password Error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to change password'
@@ -772,7 +744,7 @@ const getAdminProfile = async (req, res) => {
     const admin = await Admin.findById(req.admin.id);
     
     if (!admin) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Admin not found'
       });
@@ -792,7 +764,6 @@ const getAdminProfile = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get Profile Error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -809,7 +780,7 @@ const updateStudent = async (req, res) => {
 
     const student = await Student.findById(studentId);
     if (!student) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Student not found'
       });
@@ -827,7 +798,6 @@ const updateStudent = async (req, res) => {
       data: updatedStudent
     });
   } catch (error) {
-    console.error('Error updating student:', error);
     res.status(500).json({
       success: false,
       message: 'Error updating student',
@@ -843,7 +813,7 @@ const deleteStudent = async (req, res) => {
     // Check if student exists
     const student = await Student.findById(studentId);
     if (!student) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Student not found'
       });
@@ -867,7 +837,6 @@ const deleteStudent = async (req, res) => {
       message: 'Student deleted successfully'
     });
   } catch (error) {
-    console.error('Error deleting student:', error);
     res.status(500).json({
       success: false,
       message: 'Error deleting student',
@@ -880,7 +849,7 @@ exports.deleteBatch = async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.id);
     if (!batch) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Batch not found'
       });
@@ -918,7 +887,6 @@ exports.deleteBatch = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Delete batch error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete batch and related data'
@@ -935,7 +903,7 @@ const initializeSuperAdmin = async (req, res) => {
     const existingAdmin = await Admin.findOne();
     
     if (existingAdmin) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Super admin already exists. Cannot initialize again.'
       });
@@ -956,7 +924,6 @@ const initializeSuperAdmin = async (req, res) => {
       name: 'Super Admin',
     });
 
-    console.log('✅ Super admin initialized:', admin.email);
 
     return res.status(201).json({
       success: true,
@@ -967,7 +934,6 @@ const initializeSuperAdmin = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('❌ Error initializing super admin:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to initialize super admin'
@@ -991,7 +957,6 @@ const getAllBatches = async (req, res) => {
       data: batches
     });
   } catch (error) {
-    console.error('Error fetching batches:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -1004,29 +969,23 @@ const getAllBatches = async (req, res) => {
 // @access  Private/Admin
 const getBatchStudents = async (req, res) => {
   try {
-    console.log('Fetching students for batch:', req.params.batchId);
 
     // Populate tpoId so frontend receives assigned TPO details
     const batch = await Batch.findById(req.params.batchId).populate('tpoId', 'name email');
     if (!batch) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Batch not found'
       });
     }
 
-    console.log('Found batch:', batch);
-    console.log('Student IDs in batch:', batch.students);
 
     // Look for students where their batchId matches this batch's ID
-    console.log('Finding students with batchId:', req.params.batchId);
     const students = await Student.find({ batchId: req.params.batchId })
       .select('-password -__v') // Exclude password and version fields
       .sort({ name: 1 });
 
-    console.log('Found students:', students);
 
-    console.log('Found students:', students);
 
     res.json({
       success: true,
@@ -1040,7 +999,6 @@ const getBatchStudents = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching batch students:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
@@ -1057,11 +1015,11 @@ const updateBatch = async (req, res) => {
     const { batchNumber, colleges, tpoId, startDate, endDate } = req.body;
 
     const batch = await Batch.findById(req.params.batchId);
-    if (!batch) return res.status(404).json({ success: false, message: 'Batch not found' });
+    if (!batch) return res.status(200).json({ success: false, message: 'Batch not found' });
 
     // Validate colleges if provided
     if (colleges && !Array.isArray(colleges)) {
-      return res.status(400).json({ success: false, message: 'Colleges must be an array' });
+      return res.status(200).json({ success: false, message: 'Colleges must be an array' });
     }
     const normColleges = colleges ? colleges.map(c => c.trim().toUpperCase()) : batch.colleges;
 
@@ -1093,7 +1051,6 @@ const updateBatch = async (req, res) => {
         { $set: { tpoId: updatedBatch.tpoId } }
       );
 
-      console.log('Cascaded TPO update to PlacementTrainingBatch:', { updateResult1, updateResult2 });
 
       // If TPO changed for this batch, make sure assignedBatches on TPO documents stay in sync
       const newTpoId = updatedBatch.tpoId ? updatedBatch.tpoId.toString() : null;
@@ -1133,22 +1090,17 @@ const updateBatch = async (req, res) => {
             await TPO.findByIdAndUpdate(originalTpoId, { $pull: { assignedBatches: updatedBatch._id } });
           }
 
-          console.log('Synchronized TPO assignedBatches for moved batch and its placement batches');
 
           // --- Reassign any pending student approval requests to the new TPO (centralized helper) ---
           try {
             const reassignResult = await mongoose.model('Batch').reassignPendingApprovalsForBatch(updatedBatch._id, updatedBatch.tpoId);
-            console.log('Reassign result:', { pendingCount: reassignResult.pendingCount });
           } catch (reassignErr) {
-            console.error('Error reassigning pending approvals to new TPO (via Batch helper):', reassignErr);
           }
         } catch (syncErr) {
-          console.error('Error synchronizing TPO assignedBatches after batch reassign:', syncErr);
         }
       }
 
     } catch (cascadeErr) {
-      console.error('Error cascading TPO update to PlacementTrainingBatch:', cascadeErr);
       // non-fatal - continue
     }
 
@@ -1157,7 +1109,6 @@ const updateBatch = async (req, res) => {
 
     res.json({ success: true, data: populatedBatch });
   } catch (error) {
-    console.error('Error updating batch:', error);
     res.status(500).json({ success: false, message: 'Server error updating batch' });
   }
 };
@@ -1169,7 +1120,7 @@ const deleteBatchAndRelated = async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.batchId);
     if (!batch) {
-      return res.status(404).json({ success: false, message: 'Batch not found' });
+      return res.status(200).json({ success: false, message: 'Batch not found' });
     }
 
     // Step 1: Find all students in this batch
@@ -1198,7 +1149,6 @@ const deleteBatchAndRelated = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error deleting batch:', error);
     res.status(500).json({
       success: false,
       message: 'Error deleting batch',
@@ -1213,7 +1163,7 @@ const deleteBatchAndRelated = async (req, res) => {
 const reassignPendingApprovals = async (req, res) => {
   try {
     const batch = await Batch.findById(req.params.batchId);
-    if (!batch) return res.status(404).json({ success: false, message: 'Batch not found' });
+    if (!batch) return res.status(200).json({ success: false, message: 'Batch not found' });
 
     // Call centralized Batch helper
     const result = await mongoose.model('Batch').reassignPendingApprovalsForBatch(batch._id, batch.tpoId);
@@ -1224,7 +1174,6 @@ const reassignPendingApprovals = async (req, res) => {
       data: result
     });
   } catch (err) {
-    console.error('Error in reassign-pending-approvals:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -1234,12 +1183,9 @@ const reassignPendingApprovals = async (req, res) => {
 // @access  Private/Admin
 const createCrtBatch = async (req, res) => {
   try {
-    console.log('Batch Creation: Request received');
-    console.log('Files:', req.files);
-    console.log('Body:', req.body);
 
     if (!req.files || !req.files.file) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Student Excel file is required',
         details: 'No file uploaded'
@@ -1253,8 +1199,7 @@ const createCrtBatch = async (req, res) => {
       try {
         colleges = JSON.parse(colleges);
       } catch (err) {
-        console.error('Invalid colleges format', err);
-        return res.status(400).json({
+        return res.status(200).json({
           success: false,
           message: 'Invalid colleges format'
         });
@@ -1266,8 +1211,7 @@ const createCrtBatch = async (req, res) => {
       try {
         allowedTechStacks = JSON.parse(allowedTechStacks);
       } catch (err) {
-        console.error('Invalid tech stacks format', err);
-        return res.status(400).json({
+        return res.status(200).json({
           success: false,
           message: 'Invalid tech stacks format'
         });
@@ -1275,7 +1219,7 @@ const createCrtBatch = async (req, res) => {
     }
 
     if (!Array.isArray(colleges)) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Colleges must be an array'
       });
@@ -1283,14 +1227,14 @@ const createCrtBatch = async (req, res) => {
 
     // NEW: Validate allowedTechStacks
     if (!allowedTechStacks || !Array.isArray(allowedTechStacks)) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Allowed tech stacks must be provided as an array'
       });
     }
 
     if (allowedTechStacks.length === 0) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'At least one tech stack must be specified'
       });
@@ -1303,7 +1247,7 @@ const createCrtBatch = async (req, res) => {
 
     // Validate required fields
     if (!batchNumber || !colleges.length || !tpoId || !startDate || !endDate) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Missing required fields: Batch number, colleges, TPO, startDate, endDate, and tech stacks are required',
         details: {
@@ -1320,7 +1264,7 @@ const createCrtBatch = async (req, res) => {
     // Verify TPO exists
     const tpo = await TPO.findById(tpoId);
     if (!tpo) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'TPO not found'
       });
@@ -1329,13 +1273,12 @@ const createCrtBatch = async (req, res) => {
     // Validate file
     const file = req.files.file;
     if (!file.name.match(/\.(xls|xlsx)$/)) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Please upload an Excel file (.xls or .xlsx)'
       });
     }
 
-    console.log('Batch Creation: Excel file received:', file.name);
 
     // Read Excel file
     const workbook = XLSX.readFile(file.tempFilePath);
@@ -1343,7 +1286,7 @@ const createCrtBatch = async (req, res) => {
     const data = XLSX.utils.sheet_to_json(worksheet);
 
     if (data.length === 0) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Excel file is empty'
       });
@@ -1361,7 +1304,7 @@ const createCrtBatch = async (req, res) => {
       const phonenumber = row.phonenumber?.toString().trim();
 
       if (!name || !email || !rollNumber || !branch || !college || !phonenumber) {
-        return res.status(400).json({
+        return res.status(200).json({
           success: false,
           message: `Missing fields in student row ${index + 1}. Required: name, email, roll number, branch, college, phonenumber`,
           details: `Row ${index + 1}: ${JSON.stringify(row)}`
@@ -1369,14 +1312,14 @@ const createCrtBatch = async (req, res) => {
       }
 
       if (!validBranches.includes(branch)) {
-        return res.status(400).json({
+        return res.status(200).json({
           success: false,
           message: `Invalid branch '${branch}' in student ${name}. Valid branches: ${validBranches.join(', ')}`
         });
       }
 
       if (!colleges.includes(college)) {
-        return res.status(400).json({
+        return res.status(200).json({
           success: false,
           message: `College '${college}' not in batch colleges for student ${name}`
         });
@@ -1395,8 +1338,6 @@ const createCrtBatch = async (req, res) => {
       allowedTechStacks: allowedTechStacks // NEW FIELD
     });
 
-    console.log('Batch Creation: Batch created:', batch._id);
-    console.log('Allowed Tech Stacks:', allowedTechStacks);
 
     // Prepare student data and hash passwords in parallel batches
     const studentsData = data.map(row => ({
@@ -1434,10 +1375,8 @@ const createCrtBatch = async (req, res) => {
       if (toInsert.length > 0) {
         const insertedDocs = await Student.insertMany(toInsert, { ordered: false });
         insertedDocs.forEach(doc => allStudentIds.push(doc._id));
-        console.log(`Batch Creation: Inserted ${insertedDocs.length} new students`);
       }
     } catch (err) {
-      console.error('Batch Creation: Error inserting new students', err);
       await Batch.findByIdAndDelete(batch._id);
       return res.status(500).json({
         success: false,
@@ -1472,9 +1411,7 @@ const createCrtBatch = async (req, res) => {
       try {
         await Student.bulkWrite(bulkOps, { ordered: false });
         toUpdate.forEach(s => allStudentIds.push(existingRollNoIdMap.get(s.rollNo)));
-        console.log(`Batch Creation: Re-linked ${toUpdate.length} existing students`);
       } catch (err) {
-        console.error('Batch Creation: Error updating existing students', err);
         await Batch.findByIdAndDelete(batch._id);
         return res.status(500).json({
           success: false,
@@ -1487,7 +1424,6 @@ const createCrtBatch = async (req, res) => {
     batch.students = allStudentIds;
     await batch.save();
 
-    console.log('Batch Creation: Batch updated with students');
 
     try {
       await notifyTpoBatchAssignment({
@@ -1498,7 +1434,6 @@ const createCrtBatch = async (req, res) => {
         adminId: req.admin._id,
       });
     } catch (e) {
-      console.error("Failed to send TPO batch assignment notification:", e);
     }
 
     return res.status(201).json({
@@ -1514,7 +1449,6 @@ const createCrtBatch = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Batch Creation Error:', error);
     return res.status(500).json({
       success: false,
       message: error.message || 'Failed to create CRT batch',
@@ -1533,7 +1467,7 @@ const getBatchById = async (req, res) => {
       .populate('students', 'name email branch college');
 
     if (!batch) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Batch not found'
       });
@@ -1547,7 +1481,6 @@ const getBatchById = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching batch:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -1561,7 +1494,7 @@ const getBatchById = async (req, res) => {
 const getBatchesGrouped = async (req, res) => {
   try {
     if (req.userType !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     // Aggregation pipeline
@@ -1607,7 +1540,6 @@ const getBatchesGrouped = async (req, res) => {
 
     res.json({ success: true, data: result });
   } catch (err) {
-    console.error('Error in batch grouping:', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -1745,7 +1677,6 @@ const downloadPlacementTemplate = async (req, res) => {
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
-    console.error('Error generating template:', error);
     res.status(500).json({ success: false, message: 'Error generating template' });
   }
 };
@@ -1756,14 +1687,14 @@ const downloadPlacementTemplate = async (req, res) => {
 const uploadPastPlacements = async (req, res) => {
   try {
     if (!req.files || !req.files.file) {
-      return res.status(400).json({ success: false, message: 'No file uploaded' });
+      return res.status(200).json({ success: false, message: 'No file uploaded' });
     }
 
     const file = req.files.file;
 
     // Validate file type
     if (!file.mimetype.includes('spreadsheet') && !file.mimetype.includes('excel')) {
-      return res.status(400).json({ success: false, message: 'Invalid file type. Please upload an Excel file.' });
+      return res.status(200).json({ success: false, message: 'Invalid file type. Please upload an Excel file.' });
     }
 
     // Read Excel file
@@ -1772,11 +1703,11 @@ const uploadPastPlacements = async (req, res) => {
     const data = XLSX.utils.sheet_to_json(worksheet);
 
     if (data.length === 0) {
-      return res.status(400).json({ success: false, message: 'Excel file is empty' });
+      return res.status(200).json({ success: false, message: 'Excel file is empty' });
     }
 
     if (data.length > 5000) {
-      return res.status(400).json({ success: false, message: 'Maximum 5000 rows allowed per upload' });
+      return res.status(200).json({ success: false, message: 'Maximum 5000 rows allowed per upload' });
     }
 
     // Generate file hash for duplicate detection
@@ -1787,7 +1718,7 @@ const uploadPastPlacements = async (req, res) => {
     // Check for duplicate uploads
     const duplicateImport = await ImportHistory.findOne({ fileHash, status: 'completed' });
     if (duplicateImport) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'This file has already been imported',
         importDate: duplicateImport.createdAt
@@ -2003,7 +1934,6 @@ const uploadPastPlacements = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error uploading placement data:', error);
     res.status(500).json({ success: false, message: 'Server error during file upload' });
   }
 };
@@ -2017,16 +1947,16 @@ const previewImport = async (req, res) => {
 
     const importHistory = await ImportHistory.findById(importId);
     if (!importHistory) {
-      return res.status(404).json({ success: false, message: 'Import not found' });
+      return res.status(200).json({ success: false, message: 'Import not found' });
     }
 
     // Check authorization
     if (importHistory.uploadedBy.toString() !== req.userId.toString() && req.userType !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     if (importHistory.status !== 'pending') {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: `Import already ${importHistory.status}`,
         data: { status: importHistory.status }
@@ -2132,7 +2062,6 @@ const previewImport = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error previewing import:', error);
     res.status(500).json({ success: false, message: 'Server error during preview' });
   }
 };
@@ -2151,20 +2080,20 @@ const confirmImport = async (req, res) => {
     if (!importHistory) {
       await session.abortTransaction();
       session.endSession();
-      return res.status(404).json({ success: false, message: 'Import not found' });
+      return res.status(200).json({ success: false, message: 'Import not found' });
     }
 
     // Check authorization
     if (importHistory.uploadedBy.toString() !== req.userId.toString() && req.userType !== 'admin') {
       await session.abortTransaction();
       session.endSession();
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     if (importHistory.status !== 'pending') {
       await session.abortTransaction();
       session.endSession();
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: `Import already ${importHistory.status}`
       });
@@ -2326,7 +2255,6 @@ const confirmImport = async (req, res) => {
     await session.abortTransaction();
     session.endSession();
 
-    console.error('Error confirming import:', error);
 
     // Update import status to failed
     await ImportHistory.findByIdAndUpdate(req.params.importId, { status: 'failed' });
@@ -2355,7 +2283,6 @@ const getImportHistory = async (req, res) => {
       data: history
     });
   } catch (error) {
-    console.error('Error fetching import history:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -2363,7 +2290,6 @@ const getImportHistory = async (req, res) => {
 // Migration: Rebuild allOffers from import history data
 const migrateAllOffers = async (req, res) => {
   try {
-    console.log('[migrateAllOffers] Starting full migration from import history...');
 
     // Step 1: Get all completed imports with their validRows
     const ImportHistory = require('../models/ImportHistory');
@@ -2372,7 +2298,6 @@ const migrateAllOffers = async (req, res) => {
       'validRows.0': { $exists: true }
     }).select('validRows');
 
-    console.log(`[migrateAllOffers] Found ${completedImports.length} completed imports`);
 
     // Step 2: Build a map of rollNo -> all offers from ALL imports
     const rollNoOffersMap = new Map();
@@ -2400,14 +2325,12 @@ const migrateAllOffers = async (req, res) => {
       }
     }
 
-    console.log(`[migrateAllOffers] Built offers map for ${rollNoOffersMap.size} unique students`);
 
     // Count students with multiple offers
     let multiOfferCount = 0;
     for (const [, offers] of rollNoOffersMap) {
       if (offers.length > 1) multiOfferCount++;
     }
-    console.log(`[migrateAllOffers] Students with multiple offers: ${multiOfferCount}`);
 
     // Step 3: Find ALL placed students and update their allOffers
     const allPlacedStudents = await Student.find({
@@ -2415,7 +2338,6 @@ const migrateAllOffers = async (req, res) => {
       'placementDetails.company': { $exists: true, $ne: null }
     }).select('rollNo placementDetails allOffers');
 
-    console.log(`[migrateAllOffers] Found ${allPlacedStudents.length} placed students in DB`);
 
     // Step 4: Build bulk update operations
     const bulkOps = [];
@@ -2454,12 +2376,6 @@ const migrateAllOffers = async (req, res) => {
       result = await Student.bulkWrite(bulkOps, { ordered: false });
     }
 
-    console.log(`[migrateAllOffers] Migration completed:`, {
-      totalStudents: allPlacedStudents.length,
-      modified: result.modifiedCount,
-      multiOfferStudents: multiOfferCount
-    });
-
     res.json({
       success: true,
       message: 'Migration completed successfully',
@@ -2471,7 +2387,6 @@ const migrateAllOffers = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('[migrateAllOffers] Error:', error);
     res.status(500).json({
       success: false,
       message: 'Migration failed',
@@ -2595,7 +2510,6 @@ const deleteAllPastStudents = async (req, res) => {
       clearedCount
     });
   } catch (error) {
-    console.error('Delete all past students error:', error);
     return res.status(500).json({ success: false, message: 'Server error while resetting placement data' });
   }
 };

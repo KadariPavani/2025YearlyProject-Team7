@@ -14,7 +14,7 @@ const { getTechStackColor } = require('../utils/techStackUtils');
 const getProfile = async (req, res) => {
   try {
     if (req.userType !== 'coordinator') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. Coordinator route only.'
       });
@@ -35,7 +35,7 @@ const getProfile = async (req, res) => {
       .select('-password');
 
     if (!coordinator) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Coordinator not found'
       });
@@ -47,7 +47,6 @@ const getProfile = async (req, res) => {
       data: { user: coordinator }
     });
   } catch (error) {
-    console.error('Error fetching coordinator profile:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching profile'
@@ -59,7 +58,7 @@ const getProfile = async (req, res) => {
 const getDashboard = async (req, res) => {
   try {
     if (req.userType !== 'coordinator') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -92,7 +91,6 @@ const getDashboard = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching dashboard:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -108,7 +106,7 @@ const getDashboard = async (req, res) => {
 const getTodaySessions = async (req, res) => {
   try {
     if (req.userType !== 'coordinator') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -116,7 +114,7 @@ const getTodaySessions = async (req, res) => {
 
     const coordinator = await Coordinator.findById(req.user.id);
     if (!coordinator || !coordinator.assignedPlacementBatch) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'No batch assigned'
       });
@@ -127,7 +125,7 @@ const getTodaySessions = async (req, res) => {
       .populate('assignedTrainers.trainer', 'name email subjectDealing category');
 
     if (!batch) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Batch not found'
       });
@@ -167,7 +165,6 @@ const getTodaySessions = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching today sessions:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -179,7 +176,7 @@ const getTodaySessions = async (req, res) => {
 const markAttendance = async (req, res) => {
   try {
     if (req.userType !== 'coordinator') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -201,7 +198,7 @@ const markAttendance = async (req, res) => {
 
     // Validation
     if (!batchId || !sessionDate || !timeSlot || !startTime || !endTime) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Required fields missing'
       });
@@ -210,7 +207,7 @@ const markAttendance = async (req, res) => {
     // Verify coordinator has access to this batch
     const coordinator = await Coordinator.findById(req.user.id);
     if (coordinator.assignedPlacementBatch.toString() !== batchId) {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Not authorized for this batch'
       });
@@ -225,7 +222,7 @@ const markAttendance = async (req, res) => {
     });
 
     if (existingAttendance) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Attendance already marked for this session'
       });
@@ -273,7 +270,6 @@ const markAttendance = async (req, res) => {
       data: attendance
     });
   } catch (error) {
-    console.error('Error marking attendance:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Server error while marking attendance'
@@ -289,7 +285,7 @@ const markAttendance = async (req, res) => {
 const getAttendanceHistory = async (req, res) => {
   try {
     if (req.userType !== 'coordinator') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -431,7 +427,6 @@ const getAttendanceHistory = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching attendance history:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -443,7 +438,7 @@ const getAttendanceHistory = async (req, res) => {
 const getAttendanceByDate = async (req, res) => {
   try {
     if (req.userType !== 'coordinator') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -527,7 +522,6 @@ const getAttendanceByDate = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching date attendance:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -539,7 +533,7 @@ const getAttendanceByDate = async (req, res) => {
 const updateAttendance = async (req, res) => {
   try {
     if (req.userType !== 'coordinator') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -552,7 +546,7 @@ const updateAttendance = async (req, res) => {
     const attendance = await Attendance.findById(attendanceId);
 
     if (!attendance) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Attendance record not found'
       });
@@ -560,7 +554,7 @@ const updateAttendance = async (req, res) => {
 
     // Verify coordinator has access
     if (attendance.batchId.toString() !== coordinator.assignedPlacementBatch.toString()) {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Not authorized'
       });
@@ -585,7 +579,6 @@ const updateAttendance = async (req, res) => {
       data: attendance
     });
   } catch (error) {
-    console.error('Error updating attendance:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -597,7 +590,7 @@ const updateAttendance = async (req, res) => {
 const getAttendanceSummary = async (req, res) => {
   try {
     if (req.userType !== 'coordinator') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -654,7 +647,6 @@ const getAttendanceSummary = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching summary:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'
@@ -666,7 +658,7 @@ const getAttendanceSummary = async (req, res) => {
 const getStudentAttendanceDetails = async (req, res) => {
   try {
     if (req.userType !== 'coordinator') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied'
       });
@@ -677,7 +669,7 @@ const getStudentAttendanceDetails = async (req, res) => {
       .populate('trainerId', 'name email');
 
     if (!attendance) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Attendance record not found'
       });
@@ -722,7 +714,6 @@ const getStudentAttendanceDetails = async (req, res) => {
       data: detailedStats
     });
   } catch (error) {
-    console.error('Error fetching student details:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'

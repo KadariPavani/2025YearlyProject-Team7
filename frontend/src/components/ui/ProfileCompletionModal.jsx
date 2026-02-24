@@ -42,7 +42,6 @@ const ProfileCompletionModal = ({ studentData, show, pendingApprovals, placement
         setCrtOptions(res.data.data.availableOptions || []);
       }
     } catch (err) {
-      console.error('Failed to fetch CRT options:', err);
     } finally {
       setLoadingOptions(false);
     }
@@ -114,7 +113,6 @@ const ProfileCompletionModal = ({ studentData, show, pendingApprovals, placement
         setTimeout(() => setVisible(false), 300);
       }, 1200);
     } catch (err) {
-      console.error('Failed to save batch:', err);
     } finally {
       setSaving(false);
     }

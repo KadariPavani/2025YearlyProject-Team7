@@ -117,7 +117,6 @@ async function assignStudentToPlacementTrainingBatch(student) {
 
     return placementBatch;
   } catch (error) {
-    console.error('Error in assignStudentToPlacementTrainingBatch:', error);
     throw error;
   }
 }
@@ -144,7 +143,6 @@ const validateSession = async (req, res) => {
     }
     return ok(res, { valid: false });
   } catch (error) {
-    console.error('Session validation error:', error);
     return ok(res, { valid: false });
   }
 };
@@ -167,7 +165,6 @@ const generalLogin = async (req, res) => {
       return badRequest(res, 'Invalid userType');
     }
 
-    console.debug('General login request:', { email, userType });
 
     const Model = getModelByUserType(userType);
     if (!Model) {
@@ -178,19 +175,19 @@ const generalLogin = async (req, res) => {
 
     if (!user) {
       // allow client to focus username field
-      return unauthorized(res, 'User not found');
+      return ok(res, { success: false, message: 'User not found' });
     }
 
     // Check lock status
     if (user.isAccountLocked && user.isAccountLocked()) {
-      return unauthorized(res, `Account locked until ${new Date(user.lockUntil).toISOString()}`);
+      return ok(res, { success: false, message: `Account locked until ${new Date(user.lockUntil).toISOString()}` });
     }
 
     // Special check for student login
     if (userType === 'student') {
       // Check if student has a valid batch and is active
       if (!user.batchId || !user.isActive) {
-        return unauthorized(res, 'Your account has been deactivated. Please contact your administrator.');
+        return ok(res, { success: false, message: 'Your account has been deactivated. Please contact your administrator.' });
       }
 
       // Additional check to verify if batch exists
@@ -202,24 +199,23 @@ const generalLogin = async (req, res) => {
           isActive: false,
           status: 'inactive'
         });
-        return unauthorized(res, 'Your batch has been deleted. Please contact your administrator.');
+        return ok(res, { success: false, message: 'Your batch has been deleted. Please contact your administrator.' });
       }
     } else {
       // For other userTypes apply previous status check
       if (user.isActive === false || (user.status && user.status !== 'active')) {
-        return unauthorized(res, 'Your account is inactive or suspended. Please contact administrator.');
+        return ok(res, { success: false, message: 'Your account is inactive or suspended. Please contact administrator.' });
       }
     }
 
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      console.log('Password mismatch:', email);
       // increment failed attempts and lock if necessary
       if (typeof user.incrementFailedLogin === 'function') await user.incrementFailedLogin();
       if (user.isAccountLocked && user.isAccountLocked()) {
-        return unauthorized(res, `Account locked due to multiple failed attempts. Try again at ${new Date(user.lockUntil).toISOString()}`);
+        return ok(res, { success: false, message: `Account locked due to multiple failed attempts. Try again at ${new Date(user.lockUntil).toISOString()}` });
       }
-      return unauthorized(res, 'Invalid password');
+      return ok(res, { success: false, message: 'Invalid password' });
     }
 
     // Successful login: reset attempts
@@ -235,7 +231,6 @@ const generalLogin = async (req, res) => {
       userType,
     });
 
-    console.log('Login successful:', email);
 
     return ok(res, {
       success: true,
@@ -244,7 +239,6 @@ const generalLogin = async (req, res) => {
     });
   } catch (error) {
     // Log stack for debugging
-    console.error('General Login Error:', error && (error.stack || error.message || error));
     // Give a bit more info in development-friendly way (non-sensitive)
     return serverError(res, `Login failed${process.env.NODE_ENV === 'development' ? ': ' + (error.message || '') : ''}`);
   }
@@ -258,7 +252,7 @@ exports.studentLogin = async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Please provide username and password'
       });
@@ -268,7 +262,7 @@ exports.studentLogin = async (req, res) => {
     const student = await Student.findOne({ username }).select('+password');
 
     if (!student) {
-      return res.status(401).json({
+      return res.status(200).json({
         success: false,
         message: 'Invalid credentials'
       });
@@ -276,7 +270,7 @@ exports.studentLogin = async (req, res) => {
 
     // Check if student can login
     if (!student.canLogin()) {
-      return res.status(401).json({
+      return res.status(200).json({
         success: false,
         message: 'Your account has been deactivated. Please contact your administrator.'
       });
@@ -284,7 +278,7 @@ exports.studentLogin = async (req, res) => {
 
     // Check lock status
     if (student.isAccountLocked && student.isAccountLocked()) {
-      return res.status(401).json({
+      return res.status(200).json({
         success: false,
         message: `Account locked until ${new Date(student.lockUntil).toISOString()}`
       });
@@ -296,12 +290,12 @@ exports.studentLogin = async (req, res) => {
       // increment attempts
       if (typeof student.incrementFailedLogin === 'function') await student.incrementFailedLogin();
       if (student.isAccountLocked && student.isAccountLocked()) {
-        return res.status(401).json({
+        return res.status(200).json({
           success: false,
           message: `Account locked due to multiple failed attempts. Try again at ${new Date(student.lockUntil).toISOString()}`
         });
       }
-      return res.status(401).json({
+      return res.status(200).json({
         success: false,
         message: 'Invalid password'
       });
@@ -316,7 +310,6 @@ exports.studentLogin = async (req, res) => {
 
     // Create token
     if (!process.env.JWT_SECRET) {
-      console.error('JWT_SECRET not set - cannot create token');
       return serverError(res, 'Authentication configuration error');
     }
 
@@ -340,7 +333,6 @@ exports.studentLogin = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Student login error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -424,7 +416,6 @@ const getDashboard = async (req, res) => {
     return ok(res, { success: true, data: dashboardData });
 
   } catch (error) {
-    console.error('Dashboard Error:', error);
     return serverError(res, 'Failed to fetch dashboard data');
   }
 };
@@ -465,7 +456,6 @@ const getProfile = async (req, res) => {
     return ok(res, { success: true, data: user });
 
   } catch (error) {
-    console.error('Get Profile Error:', error);
     const errorMessage = error.name === 'CastError' ? 'Invalid user ID format' : 'Failed to fetch profile';
     return serverError(res, errorMessage);
   }
@@ -506,7 +496,6 @@ const changePassword = async (req, res) => {
     return ok(res, { success: true, message: 'Password updated successfully' });
 
   } catch (error) {
-    console.error('Change Password Error:', error);
     return serverError(res, 'Failed to change password');
   }
 };
@@ -539,7 +528,6 @@ const forgotPassword = async (req, res) => {
     return ok(res, { success: true, message: 'OTP sent to email' });
 
   } catch (error) {
-    console.error('Forgot Password Error:', error);
     return serverError(res, 'Failed to send OTP');
   }
 };
@@ -586,7 +574,6 @@ const resetPassword = async (req, res) => {
     return ok(res, { success: true, message: 'Password reset successful' });
 
   } catch (error) {
-    console.error('Reset Password Error:', error);
     return serverError(res, 'Failed to reset password');
   }
 };
@@ -603,7 +590,7 @@ const checkPasswordChange = async (req, res) => {
 
     const user = await Model.findById(userId).select('lastLogin createdAt');
     if (!user) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'User not found'
       });
@@ -625,7 +612,6 @@ const checkPasswordChange = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Check Password Change Error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to check password change status'
@@ -678,7 +664,6 @@ const updateProfile = async (req, res) => {
     return ok(res, { success: true, message: 'Profile updated successfully', data: user });
 
   } catch (error) {
-    console.error('Update Profile Error:', error);
     return serverError(res, 'Failed to update profile');
   }
 };
@@ -698,7 +683,6 @@ const logout = async (req, res) => {
       });
     } catch (e) {
       // non-fatal: clearing cookie failed
-      console.warn('Failed to clear token cookie on logout:', e && (e.message || e));
     }
 
     return ok(res, { success: true, message: 'Logged out successfully' });

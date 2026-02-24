@@ -29,7 +29,6 @@ router.use(authenticateToken);
 
 // Debugging: log incoming contest router requests
 router.use((req, res, next) => {
-    console.log('Contests router hit ->', req.method, req.path);
     next();
 });
 

@@ -18,14 +18,11 @@ const sendEmail = async (options) => {
     };
 
     // Log email attempt
-    console.log('Attempting to send email to:', options.email);
 
     const info = await transporter.sendMail(message);
-    console.log('Email sent successfully:', info.messageId);
     return info;
 
   } catch (error) {
-    console.error('Email sending failed:', error);
     throw error;
   }
 };

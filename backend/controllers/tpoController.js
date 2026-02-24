@@ -20,15 +20,9 @@ const isValidDate = (d) => d instanceof Date && !isNaN(d);
 // GET TPO Profile
 const getProfile = async (req, res) => {
   try {
-    console.log('TPO Profile Request Received:', {
-      userType: req.userType,
-      userId: req.user._id,
-      email: req.user.email
-    });
-
     // Verify this is a TPO
     if (req.userType !== 'tpo') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. TPO route only.'
       });
@@ -50,7 +44,6 @@ const getProfile = async (req, res) => {
       lastLogin: req.user.lastLogin
     };
 
-    console.log('TPO Profile Response:', userProfile);
 
     res.json({
       success: true,
@@ -59,7 +52,6 @@ const getProfile = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching TPO profile:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching profile',
@@ -72,7 +64,7 @@ const getProfile = async (req, res) => {
 const getBatches = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. TPO route only.'
       });
@@ -91,7 +83,6 @@ const getBatches = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching batches:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching batches'
@@ -103,7 +94,7 @@ const getBatches = async (req, res) => {
 const getStudentsByBatch = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. TPO route only.'
       });
@@ -193,7 +184,6 @@ const getStudentsByBatch = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching students by batch:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching students by batch',
@@ -205,31 +195,31 @@ const getStudentsByBatch = async (req, res) => {
 // POST Create student in batch
 const createStudentInBatch = async (req, res) => {
   try {
-    if (req.userType !== 'tpo') return res.status(403).json({ success: false, message: 'Access denied' });
+    if (req.userType !== 'tpo') return res.status(200).json({ success: false, message: 'Access denied' });
 
     const tpoId = req.user._id.toString();
     const { batchId } = req.params;
     const { name, email, rollNo, branch, college, phonenumber } = req.body;
 
     if (!name || !email || !rollNo || !branch || !college || !phonenumber) {
-      return res.status(400).json({ success: false, message: 'Missing required student fields' });
+      return res.status(200).json({ success: false, message: 'Missing required student fields' });
     }
 
     const batch = await Batch.findById(batchId);
-    if (!batch) return res.status(404).json({ success: false, message: 'Batch not found' });
+    if (!batch) return res.status(200).json({ success: false, message: 'Batch not found' });
 
     if (String(batch.tpoId) !== tpoId) {
-      return res.status(403).json({ success: false, message: 'You are not authorized to add student to this batch' });
+      return res.status(200).json({ success: false, message: 'You are not authorized to add student to this batch' });
     }
 
     // Ensure college belongs to batch
     if (!batch.colleges.includes(college)) {
-      return res.status(400).json({ success: false, message: 'Student college does not belong to this batch' });
+      return res.status(200).json({ success: false, message: 'Student college does not belong to this batch' });
     }
 
     // Check unique constraints
     const existing = await Student.findOne({ $or: [{ email }, { rollNo }] });
-    if (existing) return res.status(400).json({ success: false, message: 'Student with same email or roll number already exists' });
+    if (existing) return res.status(200).json({ success: false, message: 'Student with same email or roll number already exists' });
 
     const student = new Student({
       name,
@@ -259,7 +249,6 @@ const createStudentInBatch = async (req, res) => {
         message: `Your student account has been created.\nEmail: ${email}\nPassword: ${rollNo}\nPlease login and change your password.`
       });
     } catch (err) {
-      console.error('Failed to send student creation email:', err.message || err);
     }
 
     // Send welcome notification to the student
@@ -272,7 +261,6 @@ const createStudentInBatch = async (req, res) => {
 
     return res.status(201).json({ success: true, message: 'Student created', data: { id: student._id, name: student.name, email: student.email, rollNo: student.rollNo, batchId: student.batchId } });
   } catch (error) {
-    console.error('Error creating student by TPO:', error);
     res.status(500).json({ success: false, message: 'Server error while creating student', error: error.message });
   }
 };
@@ -280,14 +268,14 @@ const createStudentInBatch = async (req, res) => {
 // PUT Update student
 const updateStudent = async (req, res) => {
   try {
-    if (req.userType !== 'tpo') return res.status(403).json({ success: false, message: 'Access denied' });
+    if (req.userType !== 'tpo') return res.status(200).json({ success: false, message: 'Access denied' });
 
     const tpoId = req.user._id.toString();
     const studentId = req.params.id;
     const updates = req.body;
 
     const student = await Student.findById(studentId);
-    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (!student) return res.status(200).json({ success: false, message: 'Student not found' });
 
     // Check TPO permissions: allow if any of the following is true:
     // - The student's regular batch has tpoId === current TPO
@@ -318,20 +306,20 @@ const updateStudent = async (req, res) => {
     }
 
     if (!allowed) {
-      return res.status(403).json({ success: false, message: 'Not allowed to edit this student (TPO does not manage their batch)' });
+      return res.status(200).json({ success: false, message: 'Not allowed to edit this student (TPO does not manage their batch)' });
     }
 
     // If rollNo or email updated, check for uniqueness
     if (updates.rollNo && updates.rollNo !== student.rollNo) {
       const exists = await Student.findOne({ rollNo: updates.rollNo, _id: { $ne: studentId } });
-      if (exists) return res.status(400).json({ success: false, message: 'Roll number already exists' });
+      if (exists) return res.status(200).json({ success: false, message: 'Roll number already exists' });
       student.username = updates.rollNo;
       // Reset password to new rollNo — pre-save hook will hash it
       student.password = updates.rollNo;
     }
     if (updates.email && updates.email !== student.email) {
       const exists = await Student.findOne({ email: updates.email, _id: { $ne: studentId } });
-      if (exists) return res.status(400).json({ success: false, message: 'Email already exists' });
+      if (exists) return res.status(200).json({ success: false, message: 'Email already exists' });
     }
 
     // Apply allowed updates
@@ -344,7 +332,6 @@ const updateStudent = async (req, res) => {
 
     return res.json({ success: true, message: 'Student updated', data: student });
   } catch (error) {
-    console.error('Error updating student by TPO:', error);
     res.status(500).json({ success: false, message: 'Server error while updating student', error: error.message });
   }
 };
@@ -352,13 +339,13 @@ const updateStudent = async (req, res) => {
 // PATCH Suspend student
 const suspendStudent = async (req, res) => {
   try {
-    if (req.userType !== 'tpo') return res.status(403).json({ success: false, message: 'Access denied' });
+    if (req.userType !== 'tpo') return res.status(200).json({ success: false, message: 'Access denied' });
 
     const tpoId = req.user._id.toString();
     const studentId = req.params.id;
 
     const student = await Student.findById(studentId);
-    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (!student) return res.status(200).json({ success: false, message: 'Student not found' });
 
     // Load TPO document to inspect assignedBatches
     const tpo = await TPO.findById(tpoId);
@@ -381,7 +368,7 @@ const suspendStudent = async (req, res) => {
     }
 
     if (!allowed) {
-      return res.status(403).json({ success: false, message: 'Not allowed to suspend this student' });
+      return res.status(200).json({ success: false, message: 'Not allowed to suspend this student' });
     }
 
     student.isActive = false;
@@ -397,7 +384,6 @@ const suspendStudent = async (req, res) => {
         tpoName: req.user.name || 'TPO',
       });
     } catch (e) {
-      console.error("Failed to send student suspend notification:", e);
     }
 
     try {
@@ -413,12 +399,10 @@ const suspendStudent = async (req, res) => {
         });
       }
     } catch (e) {
-      console.error("Failed to send coordinator suspend notification:", e);
     }
 
     res.json({ success: true, message: 'Student suspended', data: { id: student._id } });
   } catch (error) {
-    console.error('Error suspending student by TPO:', error);
     res.status(500).json({ success: false, message: 'Server error while suspending student', error: error.message });
   }
 };
@@ -426,13 +410,13 @@ const suspendStudent = async (req, res) => {
 // PATCH Unsuspend student
 const unsuspendStudent = async (req, res) => {
   try {
-    if (req.userType !== 'tpo') return res.status(403).json({ success: false, message: 'Access denied' });
+    if (req.userType !== 'tpo') return res.status(200).json({ success: false, message: 'Access denied' });
 
     const tpoId = req.user._id.toString();
     const studentId = req.params.id;
 
     const student = await Student.findById(studentId);
-    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (!student) return res.status(200).json({ success: false, message: 'Student not found' });
 
     // Load TPO document to inspect assignedBatches
     const tpo = await TPO.findById(tpoId);
@@ -455,7 +439,7 @@ const unsuspendStudent = async (req, res) => {
     }
 
     if (!allowed) {
-      return res.status(403).json({ success: false, message: 'Not allowed to unsuspend this student' });
+      return res.status(200).json({ success: false, message: 'Not allowed to unsuspend this student' });
     }
 
     student.isActive = true;
@@ -471,7 +455,6 @@ const unsuspendStudent = async (req, res) => {
         tpoName: req.user.name || 'TPO',
       });
     } catch (e) {
-      console.error("Failed to send student unsuspend notification:", e);
     }
 
     try {
@@ -487,12 +470,10 @@ const unsuspendStudent = async (req, res) => {
         });
       }
     } catch (e) {
-      console.error("Failed to send coordinator unsuspend notification:", e);
     }
 
     res.json({ success: true, message: 'Student unsuspended', data: { id: student._id } });
   } catch (error) {
-    console.error('Error unsuspending student by TPO:', error);
     res.status(500).json({ success: false, message: 'Server error while unsuspending student', error: error.message });
   }
 };
@@ -500,13 +481,13 @@ const unsuspendStudent = async (req, res) => {
 // DELETE student
 const deleteStudent = async (req, res) => {
   try {
-    if (req.userType !== 'tpo') return res.status(403).json({ success: false, message: 'Access denied' });
+    if (req.userType !== 'tpo') return res.status(200).json({ success: false, message: 'Access denied' });
 
     const tpoId = req.user._id.toString();
     const studentId = req.params.id;
 
     const student = await Student.findById(studentId);
-    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (!student) return res.status(200).json({ success: false, message: 'Student not found' });
 
     // Load TPO document to inspect assignedBatches
     const tpo = await TPO.findById(tpoId);
@@ -529,7 +510,7 @@ const deleteStudent = async (req, res) => {
     }
 
     if (!allowed) {
-      return res.status(403).json({ success: false, message: 'Not allowed to delete this student' });
+      return res.status(200).json({ success: false, message: 'Not allowed to delete this student' });
     }
 
     // Remove from associated batches
@@ -544,7 +525,6 @@ const deleteStudent = async (req, res) => {
 
     res.json({ success: true, message: 'Student deleted', data: { id: student._id } });
   } catch (error) {
-    console.error('Error deleting student by TPO:', error);
     res.status(500).json({ success: false, message: 'Server error while deleting student', error: error.message });
   }
 };
@@ -552,7 +532,7 @@ const deleteStudent = async (req, res) => {
 // GET Suspended students
 const getSuspendedStudents = async (req, res) => {
   try {
-    if (req.userType !== 'tpo') return res.status(403).json({ success: false, message: 'Access denied' });
+    if (req.userType !== 'tpo') return res.status(200).json({ success: false, message: 'Access denied' });
 
     const tpoId = req.user._id.toString();
     const tpo = await TPO.findById(tpoId);
@@ -585,7 +565,6 @@ const getSuspendedStudents = async (req, res) => {
 
     res.json({ success: true, message: 'Suspended students fetched', data: payload });
   } catch (error) {
-    console.error('Error fetching suspended students:', error);
     res.status(500).json({ success: false, message: 'Server error while fetching suspended students', error: error.message });
   }
 };
@@ -594,7 +573,7 @@ const getSuspendedStudents = async (req, res) => {
 const getPlacementTrainingBatches = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. TPO route only.'
       });
@@ -698,7 +677,6 @@ const getPlacementTrainingBatches = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching placement training batches:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching placement training batches',
@@ -711,7 +689,7 @@ const getPlacementTrainingBatches = async (req, res) => {
 const getAvailableTrainers = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. TPO route only.'
       });
@@ -729,7 +707,6 @@ const getAvailableTrainers = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching available trainers:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching available trainers'
@@ -741,7 +718,7 @@ const getAvailableTrainers = async (req, res) => {
 const assignTrainers = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. TPO route only.'
       });
@@ -754,7 +731,7 @@ const assignTrainers = async (req, res) => {
     // Validate the batch belongs to this TPO
     const batch = await PlacementTrainingBatch.findOne({ _id: batchId, tpoId });
     if (!batch) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Batch not found or access denied'
       });
@@ -762,7 +739,7 @@ const assignTrainers = async (req, res) => {
 
     // Validate trainer assignments
     if (!trainerAssignments || !Array.isArray(trainerAssignments) || trainerAssignments.length === 0) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Valid trainer assignments are required'
       });
@@ -771,7 +748,7 @@ const assignTrainers = async (req, res) => {
     // Validate each assignment
     for (const assignment of trainerAssignments) {
       if (!assignment.trainerId || !assignment.timeSlot || !assignment.subject) {
-        return res.status(400).json({
+        return res.status(200).json({
           success: false,
           message: 'Each assignment must have trainerId, timeSlot, and subject'
         });
@@ -780,7 +757,7 @@ const assignTrainers = async (req, res) => {
       // Verify trainer exists
       const trainer = await Trainer.findById(assignment.trainerId);
       if (!trainer) {
-        return res.status(404).json({
+        return res.status(200).json({
           success: false,
           message: `Trainer with ID ${assignment.trainerId} not found`
         });
@@ -790,7 +767,7 @@ const assignTrainers = async (req, res) => {
       if (assignment.schedule && Array.isArray(assignment.schedule)) {
         for (const scheduleSlot of assignment.schedule) {
           if (!scheduleSlot.day || !scheduleSlot.startTime || !scheduleSlot.endTime) {
-            return res.status(400).json({
+            return res.status(200).json({
               success: false,
               message: 'Each schedule slot must have day, startTime, and endTime'
             });
@@ -815,11 +792,9 @@ batch.assignedTrainers = assignedTrainers;
 await batch.save();
 
 if (isUpdate) {
-  console.log("Existing trainer schedule detected -- sending reschedule notifications.");
   await notificationController.notifyTrainerReschedule(batch._id, req.user.name || "TPO");
   await notificationController.notifyStudentReschedule(batch._id, req.user.name || "TPO");
 } else {
-  console.log("New trainer schedule detected -- sending assignment notifications.");
   await notificationController.notifyTrainerAssignment(batch._id, req.user.name || "TPO");
 }
 
@@ -840,7 +815,6 @@ for (const assignment of trainerAssignments) {
     null;
 
   if (!trainerId) {
-    console.warn("Skipping notification -- trainerId not found in assignment:", assignment);
     continue;
   }
 
@@ -859,9 +833,7 @@ for (const assignment of trainerAssignments) {
       status: "sent",
     });
 
-    console.log(`Notification created for trainer ${trainerId}`);
   } catch (err) {
-    console.error("Error creating notification for trainer:", trainerId, err);
   }
 }
 
@@ -878,7 +850,6 @@ return res.json({
 });
 
   } catch (error) {
-    console.error('Error assigning trainers:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while assigning trainers',
@@ -891,7 +862,7 @@ return res.json({
 const getBatchTrainerAssignments = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. TPO route only.'
       });
@@ -908,7 +879,7 @@ const getBatchTrainerAssignments = async (req, res) => {
       });
 
     if (!batch) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Batch not found or access denied'
       });
@@ -936,7 +907,6 @@ const getBatchTrainerAssignments = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching batch trainer assignments:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching batch trainer assignments'
@@ -948,7 +918,7 @@ const getBatchTrainerAssignments = async (req, res) => {
 const getScheduleTimetable = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. TPO route only.'
       });
@@ -1024,7 +994,6 @@ const getScheduleTimetable = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching schedule timetable:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching schedule timetable',
@@ -1037,7 +1006,7 @@ const getScheduleTimetable = async (req, res) => {
 const getBatchSchedule = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. TPO route only.'
       });
@@ -1055,7 +1024,7 @@ const getBatchSchedule = async (req, res) => {
       });
 
     if (!batch) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Batch not found or access denied'
       });
@@ -1113,7 +1082,6 @@ const getBatchSchedule = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching batch schedule:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching batch schedule'
@@ -1125,7 +1093,7 @@ const getBatchSchedule = async (req, res) => {
 const exportSchedule = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. TPO route only.'
       });
@@ -1225,7 +1193,6 @@ const exportSchedule = async (req, res) => {
     }
 
   } catch (error) {
-    console.error('Error exporting schedule:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while exporting schedule'
@@ -1237,7 +1204,7 @@ const exportSchedule = async (req, res) => {
 const getPendingApprovals = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ success: false, message: 'Access denied. TPO route only.' });
+      return res.status(200).json({ success: false, message: 'Access denied. TPO route only.' });
     }
 
     const tpoId = req.user.id;
@@ -1268,7 +1235,6 @@ const getPendingApprovals = async (req, res) => {
       try {
         tpoObjectId = new mongoose.Types.ObjectId(tpoId);
       } catch (err) {
-        console.warn('Invalid TPO id for ObjectId conversion, using raw id string:', tpoId);
         tpoObjectId = tpoId;
       }
     }
@@ -1307,9 +1273,6 @@ const getPendingApprovals = async (req, res) => {
     studentQuery.$or = territoryFilter;
 
     // Debug: log query computation for troubleshooting
-    console.log('[pending-approvals] TPO:', tpoId, 'tpoObjectId:', tpoObjectId);
-    console.log('[pending-approvals] tpoBatchIds:', tpoBatchIds.length, 'managedColleges:', managedColleges);
-    console.log('[pending-approvals] studentQuery (snippet):', JSON.stringify({ pendingApprovalsMatch: studentQuery.pendingApprovals.$elemMatch, orCount: studentQuery.$or ? studentQuery.$or.length : 0 }));
 
     // Find only CRT-related pending approvals within this TPO's domain
     const studentsWithPendingApprovals = await Student.find(studentQuery)
@@ -1359,7 +1322,6 @@ const getPendingApprovals = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching pending approvals:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching pending approvals'
@@ -1371,7 +1333,7 @@ const getPendingApprovals = async (req, res) => {
 const approveRequest = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const { studentId, approvalId, action, rejectionReason } = req.body;
@@ -1380,18 +1342,18 @@ const approveRequest = async (req, res) => {
 
     const student = await Student.findById(studentId);
     if (!student) {
-      return res.status(404).json({ success: false, message: 'Student not found' });
+      return res.status(200).json({ success: false, message: 'Student not found' });
     }
 
     // Verify TPO permission for this student
     const tpo = await TPO.findById(tpoId);
     if (!tpo) {
-      return res.status(404).json({ success: false, message: 'TPO not found' });
+      return res.status(200).json({ success: false, message: 'TPO not found' });
     }
 
     const canApprove = await tpo.canApproveRequest(student);
     if (!canApprove) {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'You do not have permission to process requests for this student'
       });
@@ -1424,7 +1386,6 @@ const approveRequest = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Approval error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Error processing approval'
@@ -1436,14 +1397,14 @@ const approveRequest = async (req, res) => {
 const rejectRequest = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ success: false, message: 'Access denied. TPO route only.' });
+      return res.status(200).json({ success: false, message: 'Access denied. TPO route only.' });
     }
 
     const { studentId, approvalId, rejectionReason } = req.body;
     const tpoId = req.user.id;
 
     if (!studentId || !approvalId) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Student ID and Approval ID are required'
       });
@@ -1451,19 +1412,17 @@ const rejectRequest = async (req, res) => {
 
     const student = await Student.findById(studentId);
     if (!student) {
-      return res.status(404).json({ success: false, message: 'Student not found' });
+      return res.status(200).json({ success: false, message: 'Student not found' });
     }
 
     // Verify TPO permission for this student
     const tpo = await TPO.findById(tpoId);
     if (!tpo) {
-      return res.status(404).json({ success: false, message: 'TPO not found' });
+      return res.status(200).json({ success: false, message: 'TPO not found' });
     }
 
-    console.log('[reject-request] Incoming reject:', { tpoId, studentId, approvalId, rejectionReason });
 
     let canApprove = await tpo.canApproveRequest(student);
-    console.log('[reject-request] Initial canApprove:', canApprove);
 
     // If TPO currently lacks permission, attempt to auto-assign the student's batch(s) to them (transient race fix)
     if (!canApprove) {
@@ -1475,22 +1434,18 @@ const rejectRequest = async (req, res) => {
         for (const bid of batchIdsToEnsure) {
           try {
             await tpo.ensureBatchAssignment(bid);
-            console.log('[reject-request] ensureBatchAssignment succeeded for', bid);
           } catch (e) {
-            console.warn('[reject-request] ensureBatchAssignment failed for', bid, e && e.message);
           }
         }
 
         // Re-evaluate permission
         canApprove = await tpo.canApproveRequest(student);
-        console.log('[reject-request] Post-ensure canApprove:', canApprove);
       } catch (err) {
-        console.error('[reject-request] Error while trying to ensure batch assignment:', err);
       }
     }
 
     if (!canApprove) {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'You do not have permission to process requests for this student'
       });
@@ -1499,11 +1454,11 @@ const rejectRequest = async (req, res) => {
     // Find the specific approval request
     const approval = student.pendingApprovals.id(approvalId);
     if (!approval) {
-      return res.status(404).json({ success: false, message: 'Approval request not found' });
+      return res.status(200).json({ success: false, message: 'Approval request not found' });
     }
 
     if (approval.status !== 'pending') {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: `This request has already been ${approval.status}`
       });
@@ -1515,9 +1470,7 @@ const rejectRequest = async (req, res) => {
     approval.reviewedAt = new Date();
     approval.rejectionReason = rejectionReason || 'No reason provided';
 
-    console.log('[reject-request] Saving student after marking rejection');
     await student.save();
-    console.log('[reject-request] Saved student, approval status:', approval.status);
 
     // Notify student about rejection
     try {
@@ -1531,9 +1484,7 @@ const rejectRequest = async (req, res) => {
         relatedEntity: { entityId: student._id, entityModel: 'Student' },
         status: 'sent'
       });
-      console.log('[reject-request] Notification sent to student', student._id);
     } catch (notifyErr) {
-      console.error('[reject-request] Error sending rejection notification:', notifyErr);
     }
 
     res.json({
@@ -1547,7 +1498,6 @@ const rejectRequest = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error rejecting request:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while rejecting request',
@@ -1560,7 +1510,7 @@ const rejectRequest = async (req, res) => {
 const getApprovalHistory = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ success: false, message: 'Access denied. TPO route only.' });
+      return res.status(200).json({ success: false, message: 'Access denied. TPO route only.' });
     }
 
     const tpoId = req.user.id;
@@ -1614,7 +1564,6 @@ const getApprovalHistory = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching approval history:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching approval history',
@@ -1627,7 +1576,7 @@ const getApprovalHistory = async (req, res) => {
 const assignCoordinator = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({
+      return res.status(200).json({
         success: false,
         message: 'Access denied. TPO route only.'
       });
@@ -1636,7 +1585,7 @@ const assignCoordinator = async (req, res) => {
     const { studentId, batchId } = req.body;
 
     if (!studentId || !batchId) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Student ID and Batch ID are required'
       });
@@ -1649,7 +1598,7 @@ const assignCoordinator = async (req, res) => {
     });
 
     if (!batch) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Batch not found or unauthorized'
       });
@@ -1658,7 +1607,7 @@ const assignCoordinator = async (req, res) => {
     // Check student exists
     const student = await Student.findById(studentId);
     if (!student) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Student not found'
       });
@@ -1670,7 +1619,7 @@ const assignCoordinator = async (req, res) => {
     if (existingCoordinatorForBatch) {
       // If the same student is already a coordinator, do nothing
       if (existingCoordinatorForBatch.student && existingCoordinatorForBatch.student.toString() === student._id.toString()) {
-        return res.status(400).json({ success: false, message: 'Student is already assigned as coordinator for this batch' });
+        return res.status(200).json({ success: false, message: 'Student is already assigned as coordinator for this batch' });
       }
 
       // Remove old coordinator record and its reference from batch
@@ -1678,9 +1627,7 @@ const assignCoordinator = async (req, res) => {
         batch.coordinators = (batch.coordinators || []).filter(id => id.toString() !== existingCoordinatorForBatch._id.toString());
         await batch.save();
         await Coordinator.deleteOne({ _id: existingCoordinatorForBatch._id });
-        console.log(`Removed previous coordinator ${existingCoordinatorForBatch._id} for batch ${batchId}`);
       } catch (err) {
-        console.error('Error removing previous coordinator:', err);
       }
     }
 
@@ -1748,7 +1695,6 @@ const assignCoordinator = async (req, res) => {
         tpoName: req.user.name || 'TPO',
       });
     } catch (e) {
-      console.error("Failed to send coordinator assignment notification:", e);
     }
 
     res.json({
@@ -1765,11 +1711,10 @@ const assignCoordinator = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error assigning coordinator:', error);
 
     // Handle duplicate key error specifically
     if (error.code === 11000) {
-      return res.status(400).json({
+      return res.status(200).json({
         success: false,
         message: 'Student is already assigned as coordinator for another batch'
       });
@@ -1787,7 +1732,7 @@ const assignCoordinator = async (req, res) => {
 const getAttendanceOverallSummary = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const tpoId = req.user._id;
@@ -1907,7 +1852,6 @@ const getAttendanceOverallSummary = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching attendance summary:', error);
     res.status(500).json({ success: false, message: 'Server error', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
@@ -1916,7 +1860,7 @@ const getAttendanceOverallSummary = async (req, res) => {
 const getAttendanceBatch = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const { batchId } = req.params;
@@ -1924,7 +1868,7 @@ const getAttendanceBatch = async (req, res) => {
 
     const batch = await PlacementTrainingBatch.findOne({ _id: batchId, tpoId: req.user._id });
     if (!batch) {
-      return res.status(404).json({ success: false, message: 'Batch not found or access denied' });
+      return res.status(200).json({ success: false, message: 'Batch not found or access denied' });
     }
 
     const dateFilter = {};
@@ -1956,7 +1900,6 @@ const getAttendanceBatch = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching batch attendance:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -1965,21 +1908,21 @@ const getAttendanceBatch = async (req, res) => {
 const getAttendanceDateRange = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const { startDate, endDate } = req.query;
     const tpoId = req.user._id;
 
     if (!startDate || !endDate) {
-      return res.status(400).json({ success: false, message: 'Start date and end date are required' });
+      return res.status(200).json({ success: false, message: 'Start date and end date are required' });
     }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
     if (!isValidDate(start) || !isValidDate(end)) {
-      return res.status(400).json({ success: false, message: 'Invalid date format' });
+      return res.status(200).json({ success: false, message: 'Invalid date format' });
     }
 
     const batches = await PlacementTrainingBatch.find({ tpoId }).select('_id');
@@ -1999,7 +1942,6 @@ const getAttendanceDateRange = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching attendance by date range:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -2008,7 +1950,7 @@ const getAttendanceDateRange = async (req, res) => {
 const getAttendanceCompleteReport = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const tpoId = req.user._id;
@@ -2230,7 +2172,6 @@ const getAttendanceCompleteReport = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching complete attendance report:', error);
     res.status(500).json({ success: false, message: 'Server error', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
@@ -2239,7 +2180,7 @@ const getAttendanceCompleteReport = async (req, res) => {
 const downloadAttendanceExcel = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const tpoId = req.user._id;
@@ -2251,14 +2192,14 @@ const downloadAttendanceExcel = async (req, res) => {
     if (startDate) {
       start = new Date(startDate);
       if (!isValidDate(start)) {
-        return res.status(400).json({ success: false, message: 'Invalid startDate format' });
+        return res.status(200).json({ success: false, message: 'Invalid startDate format' });
       }
     }
 
     if (endDate) {
       end = new Date(endDate);
       if (!isValidDate(end)) {
-        return res.status(400).json({ success: false, message: 'Invalid endDate format' });
+        return res.status(200).json({ success: false, message: 'Invalid endDate format' });
       }
     }
 
@@ -2270,7 +2211,7 @@ const downloadAttendanceExcel = async (req, res) => {
       .lean();
 
     if (!batches || batches.length === 0) {
-      return res.status(404).json({ success: false, message: 'No batches found' });
+      return res.status(200).json({ success: false, message: 'No batches found' });
     }
 
     const batchIds = batches.map(b => b._id);
@@ -2288,7 +2229,7 @@ const downloadAttendanceExcel = async (req, res) => {
       .lean();
 
     if (!attendanceRecords || attendanceRecords.length === 0) {
-      return res.status(404).json({ success: false, message: 'No attendance records found for the given criteria' });
+      return res.status(200).json({ success: false, message: 'No attendance records found for the given criteria' });
     }
 
     const workbook = new ExcelJS.Workbook();
@@ -2459,7 +2400,6 @@ const downloadAttendanceExcel = async (req, res) => {
     res.end();
 
   } catch (error) {
-    console.error('Error generating Excel:', error);
     res.status(500).json({ success: false, message: 'Error generating Excel file', error: process.env.NODE_ENV === 'development' ? error.message : undefined });
   }
 };
@@ -2468,7 +2408,7 @@ const downloadAttendanceExcel = async (req, res) => {
 const getTechStacks = async (req, res) => {
   try {
     if (!['tpo','coordinator','trainer'].includes(req.userType)) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const techStacks = await getAvailableTechStacks();
@@ -2486,7 +2426,6 @@ const getTechStacks = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching tech stacks:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -2495,7 +2434,7 @@ const getTechStacks = async (req, res) => {
 const getPlacedStudents = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ success: false, message: 'Access denied. TPO route only.' });
+      return res.status(200).json({ success: false, message: 'Access denied. TPO route only.' });
     }
 
     const tpoId = req.user._id;
@@ -2505,7 +2444,6 @@ const getPlacedStudents = async (req, res) => {
     .populate({ path: 'selectedStudents.batchId', select: 'batchNumber colleges _id' })
     .lean();
 
-    console.log('[placed-students] TPO access: returned events count:', events.length);
 
     if (!events || events.length === 0) {
       return res.json({
@@ -2565,7 +2503,6 @@ const getPlacedStudents = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error fetching placed students:', error);
     res.status(500).json({
       success: false,
       message: 'Server error while fetching placed students',
@@ -2578,7 +2515,7 @@ const getPlacedStudents = async (req, res) => {
 const downloadPlacedStudentsExcel = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const tpoId = req.user._id;
@@ -2588,7 +2525,6 @@ const downloadPlacedStudentsExcel = async (req, res) => {
     .populate('selectedStudents.batchId', 'batchNumber colleges _id')
     .lean();
 
-    console.log('[placed-students:download-excel] events found:', events.length);
 
     const workbook = new ExcelJS.Workbook();
 
@@ -2675,7 +2611,6 @@ const downloadPlacedStudentsExcel = async (req, res) => {
     res.end();
 
   } catch (error) {
-    console.error('Error generating Excel:', error);
     res.status(500).json({
       success: false,
       message: 'Error generating Excel file',
@@ -2688,7 +2623,7 @@ const downloadPlacedStudentsExcel = async (req, res) => {
 const downloadPlacedStudentsByCompany = async (req, res) => {
   try {
     if (req.userType !== 'tpo') {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+      return res.status(200).json({ success: false, message: 'Access denied' });
     }
 
     const tpoId = req.user._id;
@@ -2699,7 +2634,6 @@ const downloadPlacedStudentsByCompany = async (req, res) => {
     .populate('selectedStudents.batchId', 'batchNumber colleges _id')
     .lean();
 
-    console.log('[placed-students:download-company] events found:', events.length);
 
     const workbook = new ExcelJS.Workbook();
 
@@ -2709,7 +2643,7 @@ const downloadPlacedStudentsByCompany = async (req, res) => {
     });
 
     if (!event || !event.selectedStudents?.length) {
-      return res.status(404).json({ success: false, message: 'No data found for this company' });
+      return res.status(200).json({ success: false, message: 'No data found for this company' });
     }
 
     const sheet = workbook.addWorksheet(companyName.substring(0, 31));
@@ -2766,7 +2700,6 @@ const downloadPlacedStudentsByCompany = async (req, res) => {
     res.end();
 
   } catch (error) {
-    console.error('Error generating Excel:', error);
     res.status(500).json({
       success: false,
       message: 'Error generating Excel file',

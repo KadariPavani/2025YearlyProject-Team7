@@ -17,7 +17,6 @@ const getActiveContests = async (req, res) => {
 
         res.json({ contests });
     } catch (error) {
-        console.error('Error fetching contests:', error);
         res.status(500).json({ error: 'Failed to fetch contests' });
     }
 };
@@ -27,14 +26,14 @@ const getAdminContestById = async (req, res) => {
     try {
         // Check if user is admin/instructor/trainer
         if (!['admin', 'instructor', 'trainer'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Admin/instructor/trainer access required' });
+            return res.status(200).json({ error: 'Admin/instructor/trainer access required' });
         }
 
         // Fetch contest, then attempt to resolve the creator across known user models
         let contest = await Contest.findById(req.params.id);
 
         if (!contest) {
-            return res.status(404).json({ error: 'Contest not found' });
+            return res.status(200).json({ error: 'Contest not found' });
         }
 
         // Try to populate createdBy from common creator models (Trainer, Admin, TPO) to avoid relying on a missing generic 'User' model
@@ -54,11 +53,9 @@ const getAdminContestById = async (req, res) => {
 
             return res.json({ contest: contestObj });
         } catch (popErr) {
-            console.warn('Could not resolve contest creator, returning contest without creator details', popErr && popErr.message);
             return res.json({ contest });
         }
     } catch (error) {
-        console.error('Error fetching admin contest:', error);
         res.status(500).json({ error: 'Failed to fetch contest' });
     }
 };
@@ -67,7 +64,7 @@ const getAdminContestById = async (req, res) => {
 const createContest = async (req, res) => {
     try {
         if (!['admin', 'instructor', 'trainer'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Admin/instructor/trainer access required' });
+            return res.status(200).json({ error: 'Admin/instructor/trainer access required' });
         }
 
         const {
@@ -114,12 +111,10 @@ const createContest = async (req, res) => {
                 });
             }
         } catch (notifyErr) {
-            console.error('Error sending contest notifications:', notifyErr);
         }
 
         res.status(201).json({ contest });
     } catch (error) {
-        console.error('Error creating contest:', error);
         res.status(500).json({ error: 'Failed to create contest' });
     }
 };
@@ -128,20 +123,20 @@ const createContest = async (req, res) => {
 const addQuestion = async (req, res) => {
     try {
         if (!['admin', 'instructor', 'trainer'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Admin/instructor/trainer access required' });
+            return res.status(200).json({ error: 'Admin/instructor/trainer access required' });
         }
 
         const contestId = req.params.id;
         if (!mongoose.Types.ObjectId.isValid(contestId)) {
-            return res.status(400).json({ error: 'Invalid contest id' });
+            return res.status(200).json({ error: 'Invalid contest id' });
         }
 
         const contest = await Contest.findById(contestId);
-        if (!contest) return res.status(404).json({ error: 'Contest not found' });
+        if (!contest) return res.status(200).json({ error: 'Contest not found' });
 
         // Only creator or admins/instructors can add questions
         if (contest.createdBy && contest.createdBy.toString() !== req.user._id.toString() && !['admin', 'instructor'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Not authorized to add question to this contest' });
+            return res.status(200).json({ error: 'Not authorized to add question to this contest' });
         }
 
         const {
@@ -159,7 +154,7 @@ const addQuestion = async (req, res) => {
         } = req.body;
 
         if (!title || !description) {
-            return res.status(400).json({ error: 'Title and description are required' });
+            return res.status(200).json({ error: 'Title and description are required' });
         }
 
         const question = {
@@ -185,7 +180,6 @@ const addQuestion = async (req, res) => {
         // Return the newly added question (the last one)
         res.status(201).json({ question: addedQuestion });
     } catch (error) {
-        console.error('Error adding question:', error);
         res.status(500).json({ error: 'Failed to add question' });
     }
 };
@@ -194,20 +188,20 @@ const addQuestion = async (req, res) => {
 const updateContest = async (req, res) => {
     try {
         if (!['admin', 'instructor', 'trainer'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Admin/instructor/trainer access required' });
+            return res.status(200).json({ error: 'Admin/instructor/trainer access required' });
         }
 
         const contestId = req.params.id;
         if (!mongoose.Types.ObjectId.isValid(contestId)) {
-            return res.status(400).json({ error: 'Invalid contest id' });
+            return res.status(200).json({ error: 'Invalid contest id' });
         }
 
         const contest = await Contest.findById(contestId);
-        if (!contest) return res.status(404).json({ error: 'Contest not found' });
+        if (!contest) return res.status(200).json({ error: 'Contest not found' });
 
         // Only creator or admins/instructors can edit
         if (contest.createdBy && contest.createdBy.toString() !== req.user._id.toString() && !['admin', 'instructor'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Not authorized to edit this contest' });
+            return res.status(200).json({ error: 'Not authorized to edit this contest' });
         }
 
         const {
@@ -238,7 +232,6 @@ const updateContest = async (req, res) => {
 
         res.json({ contest });
     } catch (error) {
-        console.error('Error updating contest:', error);
         res.status(500).json({ error: 'Failed to update contest' });
     }
 };
@@ -247,26 +240,25 @@ const updateContest = async (req, res) => {
 const deleteContest = async (req, res) => {
     try {
         if (!['admin', 'instructor', 'trainer'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Admin/instructor/trainer access required' });
+            return res.status(200).json({ error: 'Admin/instructor/trainer access required' });
         }
 
         const contestId = req.params.id;
         if (!mongoose.Types.ObjectId.isValid(contestId)) {
-            return res.status(400).json({ error: 'Invalid contest id' });
+            return res.status(200).json({ error: 'Invalid contest id' });
         }
 
         const contest = await Contest.findById(contestId);
-        if (!contest) return res.status(404).json({ error: 'Contest not found' });
+        if (!contest) return res.status(200).json({ error: 'Contest not found' });
 
         // Only creator or admins/instructors can delete
         if (contest.createdBy && contest.createdBy.toString() !== req.user._id.toString() && !['admin', 'instructor'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Not authorized to delete this contest' });
+            return res.status(200).json({ error: 'Not authorized to delete this contest' });
         }
 
         await Contest.findByIdAndDelete(contestId);
         res.json({ message: 'Contest deleted' });
     } catch (error) {
-        console.error('Error deleting contest:', error);
         res.status(500).json({ error: 'Failed to delete contest' });
     }
 };
@@ -275,24 +267,24 @@ const deleteContest = async (req, res) => {
 const updateQuestion = async (req, res) => {
     try {
         if (!['admin', 'instructor', 'trainer'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Admin/instructor/trainer access required' });
+            return res.status(200).json({ error: 'Admin/instructor/trainer access required' });
         }
 
         const { id: contestId, questionId } = req.params;
         if (!mongoose.Types.ObjectId.isValid(contestId) || !mongoose.Types.ObjectId.isValid(questionId)) {
-            return res.status(400).json({ error: 'Invalid id(s)' });
+            return res.status(200).json({ error: 'Invalid id(s)' });
         }
 
         const contest = await Contest.findById(contestId);
-        if (!contest) return res.status(404).json({ error: 'Contest not found' });
+        if (!contest) return res.status(200).json({ error: 'Contest not found' });
 
         // Only creator or admins/instructors can edit
         if (contest.createdBy && contest.createdBy.toString() !== req.user._id.toString() && !['admin', 'instructor'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Not authorized to edit questions for this contest' });
+            return res.status(200).json({ error: 'Not authorized to edit questions for this contest' });
         }
 
         const question = contest.questions.id(questionId);
-        if (!question) return res.status(404).json({ error: 'Question not found' });
+        if (!question) return res.status(200).json({ error: 'Question not found' });
 
         const {
             title,
@@ -328,7 +320,6 @@ const updateQuestion = async (req, res) => {
         await contest.save();
         res.json({ question });
     } catch (error) {
-        console.error('Error updating question:', error);
         res.status(500).json({ error: 'Failed to update question' });
     }
 };
@@ -337,31 +328,30 @@ const updateQuestion = async (req, res) => {
 const deleteQuestion = async (req, res) => {
     try {
         if (!['admin', 'instructor', 'trainer'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Admin/instructor/trainer access required' });
+            return res.status(200).json({ error: 'Admin/instructor/trainer access required' });
         }
 
         const { id: contestId, questionId } = req.params;
         if (!mongoose.Types.ObjectId.isValid(contestId) || !mongoose.Types.ObjectId.isValid(questionId)) {
-            return res.status(400).json({ error: 'Invalid id(s)' });
+            return res.status(200).json({ error: 'Invalid id(s)' });
         }
 
         const contest = await Contest.findById(contestId);
-        if (!contest) return res.status(404).json({ error: 'Contest not found' });
+        if (!contest) return res.status(200).json({ error: 'Contest not found' });
 
         // Only creator or admins/instructors can delete
         if (contest.createdBy && contest.createdBy.toString() !== req.user._id.toString() && !['admin', 'instructor'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Not authorized to delete questions for this contest' });
+            return res.status(200).json({ error: 'Not authorized to delete questions for this contest' });
         }
 
         const question = contest.questions.id(questionId);
-        if (!question) return res.status(404).json({ error: 'Question not found' });
+        if (!question) return res.status(200).json({ error: 'Question not found' });
 
         question.remove();
         await contest.save();
 
         res.json({ message: 'Question deleted' });
     } catch (error) {
-        console.error('Error deleting question:', error);
         res.status(500).json({ error: 'Failed to delete question' });
     }
 };
@@ -370,7 +360,7 @@ const deleteQuestion = async (req, res) => {
 const listAdminContests = async (req, res) => {
     try {
         if (!['admin', 'instructor', 'trainer'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Admin/instructor/trainer access required' });
+            return res.status(200).json({ error: 'Admin/instructor/trainer access required' });
         }
 
         const contests = await Contest.find({ createdBy: req.user._id })
@@ -378,7 +368,6 @@ const listAdminContests = async (req, res) => {
             .sort({ createdAt: -1 });
         res.json({ contests });
     } catch (error) {
-        console.error('Error fetching admin contests list:', error);
         res.status(500).json({ error: 'Failed to fetch contests' });
     }
 };
@@ -388,20 +377,19 @@ const getContestById = async (req, res) => {
     try {
         // Guard against reserved keywords like 'admin' being routed here
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-            console.warn('Invalid contest id received:', req.params.id);
-            return res.status(404).json({ error: 'Contest not found' });
+            return res.status(200).json({ error: 'Contest not found' });
         }
 
         const contest = await Contest.findById(req.params.id);
 
         if (!contest) {
-            return res.status(404).json({ error: 'Contest not found' });
+            return res.status(200).json({ error: 'Contest not found' });
         }
 
         // Check if contest is accessible (allow viewing after contest end so results can be read)
         const now = new Date();
         if (!contest.isActive) {
-            return res.status(403).json({ error: 'Contest is not accessible' });
+            return res.status(200).json({ error: 'Contest is not accessible' });
         }
 
         // Get user's submissions for this contest
@@ -477,10 +465,8 @@ const getContestById = async (req, res) => {
             contestData.myFinalized = false;
         }
 
-        console.log(contestData);
         res.json({ contest: contestData });
     } catch (error) {
-        console.error('Error fetching contest:', error);
         res.status(500).json({ error: 'Failed to fetch contest' });
     }
 };
@@ -491,18 +477,18 @@ const getQuestion = async (req, res) => {
         const contest = await Contest.findById(req.params.contestId);
 
         if (!contest) {
-            return res.status(404).json({ error: 'Contest not found' });
+            return res.status(200).json({ error: 'Contest not found' });
         }
 
         const question = contest.questions.id(req.params.questionId);
         if (!question) {
-            return res.status(404).json({ error: 'Question not found' });
+            return res.status(200).json({ error: 'Question not found' });
         }
 
         // Check if contest is accessible
         const now = new Date();
         if (!contest.isActive || contest.endTime < now) {
-            return res.status(403).json({ error: 'Contest is not accessible' });
+            return res.status(200).json({ error: 'Contest is not accessible' });
         }
 
         // Don't send test cases to participants
@@ -523,7 +509,6 @@ const getQuestion = async (req, res) => {
 
         res.json({ question: questionData });
     } catch (error) {
-        console.error('Error fetching question:', error);
         res.status(500).json({ error: 'Failed to fetch question' });
     }
 };
@@ -534,24 +519,20 @@ const runCode = async (req, res) => {
         const { contestId, questionId } = req.params;
         const { code, language } = req.body;
 
-        console.log('Run endpoint hit', { contestId, questionId });
 
         const contest = await Contest.findById(contestId);
         if (!contest) {
-            console.warn('Run: contest not found', contestId);
-            return res.status(404).json({ error: 'Contest not found' });
+            return res.status(200).json({ error: 'Contest not found' });
         }
 
         const now = new Date();
         if (!contest.isActive || contest.endTime < now) {
-            console.warn('Run: contest not accessible', { contestId, isActive: contest.isActive, endTime: contest.endTime });
-            return res.status(403).json({ error: 'Contest is not accessible' });
+            return res.status(200).json({ error: 'Contest is not accessible' });
         }
 
         const question = contest.questions.id(questionId);
         if (!question) {
-            console.warn('Run: question not found', { contestId, questionId });
-            return res.status(404).json({ error: 'Question not found' });
+            return res.status(200).json({ error: 'Question not found' });
         }
 
         // Build testcases for run: prefer non-hidden test cases; fallback to sample IO
@@ -582,8 +563,7 @@ const runCode = async (req, res) => {
         }
 
         if (tcs.length === 0) {
-            console.warn('Run: no visible test cases for run', { contestId, questionId });
-            return res.status(400).json({ error: 'No visible test cases available for run' });
+            return res.status(200).json({ error: 'No visible test cases available for run' });
         }
 
         // Run judge
@@ -657,16 +637,13 @@ const runCode = async (req, res) => {
                         await student.save();
                     }
                 } catch (err) {
-                    console.warn('Failed to update student codingScores on run save:', err.message);
                 }
             }
         } catch (err) {
-            console.warn('Failed to auto-save run submission:', err.message);
         }
 
         res.json({ testCaseResults, totalTime: judgeResult.totalTime || 0, savedRun: !!savedSubmission, savedSubmission });
     } catch (error) {
-        console.error('Error running code:', error);
         res.status(500).json({ error: 'Failed to run code' });
     }
 };
@@ -678,18 +655,18 @@ const submitCode = async (req, res) => {
         const { code, language } = req.body;
 
         const contest = await Contest.findById(contestId);
-        if (!contest) return res.status(404).json({ error: 'Contest not found' });
+        if (!contest) return res.status(200).json({ error: 'Contest not found' });
 
         const now = new Date();
         if (!contest.isActive || contest.endTime < now) {
-            return res.status(403).json({ error: 'Contest is not accessible' });
+            return res.status(200).json({ error: 'Contest is not accessible' });
         }
 
         const question = contest.questions.id(questionId);
-        if (!question) return res.status(404).json({ error: 'Question not found' });
+        if (!question) return res.status(200).json({ error: 'Question not found' });
 
         if (!contest.allowedLanguages.includes(language)) {
-            return res.status(400).json({ error: 'Language not allowed for this contest' });
+            return res.status(200).json({ error: 'Language not allowed for this contest' });
         }
 
         // Prevent submission if user has finalized the contest
@@ -697,10 +674,9 @@ const submitCode = async (req, res) => {
             const Student = require('../models/Student');
             const student = await Student.findById(req.user._id).select('finalizedContests');
             if (student && Array.isArray(student.finalizedContests) && student.finalizedContests.some(c => c.toString() === contest._id.toString())) {
-                return res.status(403).json({ error: 'Contest has been finalized; no further submissions allowed' });
+                return res.status(200).json({ error: 'Contest has been finalized; no further submissions allowed' });
             }
         } catch (e) {
-            console.warn('Could not check student finalization status:', e.message);
         }
 
         // Create a pending submission
@@ -777,7 +753,6 @@ const submitCode = async (req, res) => {
         res.json({ submission });
 
     } catch (error) {
-        console.error('Error submitting code:', error);
         res.status(500).json({ error: 'Failed to submit code' });
     }
 };
@@ -786,20 +761,20 @@ const submitCode = async (req, res) => {
 const finalizeContest = async (req, res) => {
     try {
         const contest = await Contest.findById(req.params.id);
-        if (!contest) return res.status(404).json({ error: 'Contest not found' });
+        if (!contest) return res.status(200).json({ error: 'Contest not found' });
 
         const now = new Date();
         if (!contest.isActive || contest.startTime > now || contest.endTime < now) {
-            return res.status(403).json({ error: 'Contest is not accessible for finalization at this time' });
+            return res.status(200).json({ error: 'Contest is not accessible for finalization at this time' });
         }
 
         const Student = require('../models/Student');
         const student = await Student.findById(req.user._id);
-        if (!student) return res.status(404).json({ error: 'Student not found' });
+        if (!student) return res.status(200).json({ error: 'Student not found' });
 
         // Already finalized?
         if (Array.isArray(student.finalizedContests) && student.finalizedContests.some(c => c.toString() === contest._id.toString())) {
-            return res.status(403).json({ error: 'Contest already finalized for this user' });
+            return res.status(200).json({ error: 'Contest already finalized for this user' });
         }
 
         // Gather existing submissions for this user
@@ -886,7 +861,6 @@ const finalizeContest = async (req, res) => {
 
         res.json({ message: 'Contest finalized successfully' });
     } catch (error) {
-        console.error('Error finalizing contest:', error);
         res.status(500).json({ error: 'Failed to finalize contest' });
     }
 };
@@ -895,11 +869,11 @@ const finalizeContest = async (req, res) => {
 const adminFinalizeAll = async (req, res) => {
     try {
         if (!['admin', 'instructor', 'trainer'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Admin/instructor/trainer access required' });
+            return res.status(200).json({ error: 'Admin/instructor/trainer access required' });
         }
 
         const contest = await Contest.findById(req.params.id);
-        if (!contest) return res.status(404).json({ error: 'Contest not found' });
+        if (!contest) return res.status(200).json({ error: 'Contest not found' });
 
         // Find all participants who submitted or were targeted by contest (from submissions)
         const submissions = await Submission.find({ contestId: contest._id });
@@ -1010,7 +984,6 @@ const adminFinalizeAll = async (req, res) => {
 
         res.json({ message: 'Contest finalized for all participants', totalParticipants: uniqueParticipants.length });
     } catch (error) {
-        console.error('Error finalizing contest for all participants:', error);
         res.status(500).json({ error: 'Failed to finalize contest for all participants' });
     }
 };
@@ -1020,7 +993,7 @@ const getContestParticipants = async (req, res) => {
     try {
         // Check if user is admin/instructor/trainer
         if (!['admin', 'instructor', 'trainer'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Admin/instructor/trainer access required' });
+            return res.status(200).json({ error: 'Admin/instructor/trainer access required' });
         }
 
         // For now, we'll get participants from submissions
@@ -1045,7 +1018,6 @@ const getContestParticipants = async (req, res) => {
         const participants = Array.from(participantsMap.values());
         res.json({ participants });
     } catch (error) {
-        console.error('Error fetching participants:', error);
         res.status(500).json({ error: 'Failed to fetch participants' });
     }
 };
@@ -1055,7 +1027,7 @@ const getContestSubmissions = async (req, res) => {
     try {
         // Check if user is admin/instructor/trainer
         if (!['admin', 'instructor', 'trainer'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Admin/instructor/trainer access required' });
+            return res.status(200).json({ error: 'Admin/instructor/trainer access required' });
         }
 
         const submissions = await Submission.find({ contestId: req.params.id })
@@ -1064,7 +1036,6 @@ const getContestSubmissions = async (req, res) => {
 
         res.json({ submissions });
     } catch (error) {
-        console.error('Error fetching submissions:', error);
         res.status(500).json({ error: 'Failed to fetch submissions' });
     }
 };
@@ -1074,12 +1045,12 @@ const getAdminLeaderboard = async (req, res) => {
     try {
         // Check if user is admin/instructor/trainer
         if (!['admin', 'instructor', 'trainer'].includes(req.user.role)) {
-            return res.status(403).json({ error: 'Admin/instructor/trainer access required' });
+            return res.status(200).json({ error: 'Admin/instructor/trainer access required' });
         }
 
         const contest = await Contest.findById(req.params.id);
         if (!contest) {
-            return res.status(404).json({ error: 'Contest not found' });
+            return res.status(200).json({ error: 'Contest not found' });
         }
 
         // Get all submissions for this contest
@@ -1151,7 +1122,6 @@ const getAdminLeaderboard = async (req, res) => {
         // also return max possible score to keep frontend consistent
         res.json({ leaderboard, maxPossibleScore });
     } catch (error) {
-        console.error('Error fetching leaderboard:', error);
         res.status(500).json({ error: 'Failed to fetch leaderboard' });
     }
 };
@@ -1160,7 +1130,7 @@ const getAdminLeaderboard = async (req, res) => {
 const getPublicLeaderboard = async (req, res) => {
     try {
         const contest = await Contest.findById(req.params.id);
-        if (!contest) return res.status(404).json({ error: 'Contest not found' });
+        if (!contest) return res.status(200).json({ error: 'Contest not found' });
 
         const now = new Date();
         let submissions;
@@ -1170,7 +1140,7 @@ const getPublicLeaderboard = async (req, res) => {
             const Student = require('../models/Student');
             const student = await Student.findById(req.user._id).select('finalizedContests');
             if (!student || !Array.isArray(student.finalizedContests) || !student.finalizedContests.some(id => id.toString() === contest._id.toString())) {
-                return res.status(403).json({ error: 'Leaderboard will be available after contest completion' });
+                return res.status(200).json({ error: 'Leaderboard will be available after contest completion' });
             }
 
             submissions = await Submission.find({ contestId: req.params.id, isFinal: true })
@@ -1222,7 +1192,6 @@ const getPublicLeaderboard = async (req, res) => {
 
         res.json({ leaderboard, maxPossibleScore });
     } catch (error) {
-        console.error('Error fetching public leaderboard:', error);
         res.status(500).json({ error: 'Failed to fetch leaderboard' });
     }
 };
@@ -1231,11 +1200,11 @@ const getPublicLeaderboard = async (req, res) => {
 const getUserResult = async (req, res) => {
     try {
         const contest = await Contest.findById(req.params.id);
-        if (!contest) return res.status(404).json({ error: 'Contest not found' });
+        if (!contest) return res.status(200).json({ error: 'Contest not found' });
 
         const now = new Date();
         if (contest.endTime > now) {
-            return res.status(403).json({ error: 'Results will be available after contest completion' });
+            return res.status(200).json({ error: 'Results will be available after contest completion' });
         }
 
         // Build leaderboard to compute ranks
@@ -1267,14 +1236,13 @@ const getUserResult = async (req, res) => {
 
         const myId = req.user._id.toString();
         const myEntry = sorted.findIndex(u => u.userId === myId);
-        if (myEntry === -1) return res.status(404).json({ error: 'No submissions found for this user in this contest' });
+        if (myEntry === -1) return res.status(200).json({ error: 'No submissions found for this user in this contest' });
 
         const rank = myEntry + 1;
         const myScore = sorted[myEntry];
 
         res.json({ rank, myScore: { totalScore: myScore.totalScore, problemsSolved: myScore.problemsSolved, percentage: maxPossibleScore ? Math.round((myScore.totalScore / maxPossibleScore)*100) : 0 }, maxPossibleScore });
     } catch (error) {
-        console.error('Error fetching user result:', error);
         res.status(500).json({ error: 'Failed to fetch user result' });
     }
 };

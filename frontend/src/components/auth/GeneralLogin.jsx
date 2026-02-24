@@ -153,7 +153,6 @@ const GeneralLogin = () => {
         }
       }
     } catch (err) {
-      console.error('Login error:', err);
       toast.error(TEXT.messages.loginFailed);
       setError(TEXT.messages.loginFailed);
     } finally {

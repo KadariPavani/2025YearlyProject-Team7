@@ -119,7 +119,6 @@ export const AuthProvider = ({ children }) => {
         try {
             authService.logout();
         } catch (e) {
-            console.warn('Logout request failed (non-fatal):', e && (e.message || e));
         }
 
         // Clear all known token keys and session data
@@ -135,7 +134,6 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('coordinatorData');
             sessionStorage.removeItem('adminEmail');
           } catch (e) {
-            console.warn('Failed to clear local/session storage on logout:', e && (e.message || e));
         }
 
         dispatch({ type: 'LOGOUT' });

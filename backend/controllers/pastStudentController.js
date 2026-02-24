@@ -10,7 +10,7 @@ const pastStudentLogin = async (req, res) => {
   try {
     const { rollNo, password } = req.body;
     if (!rollNo || !password) {
-      return res.status(400).json({ success: false, message: 'Roll number and password are required' });
+      return res.status(200).json({ success: false, message: 'Roll number and password are required' });
     }
 
     const normalizedRollNo = String(rollNo).trim().toUpperCase();
@@ -25,7 +25,7 @@ const pastStudentLogin = async (req, res) => {
     }).select('+password');
 
     if (!student) {
-      return res.status(401).json({ success: false, message: 'Student not found with this roll number' });
+      return res.status(200).json({ success: false, message: 'Student not found with this roll number' });
     }
 
     // ── Standard bcrypt comparison ────────────────────────────────────────────
@@ -82,7 +82,7 @@ const pastStudentLogin = async (req, res) => {
     }
 
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid password' });
+      return res.status(200).json({ success: false, message: 'Invalid password' });
     }
 
     const token = generateToken({
@@ -106,7 +106,6 @@ const pastStudentLogin = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Past student login error:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -117,10 +116,9 @@ const pastStudentLogin = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const student = await Student.findById(req.studentId).select('-password');
-    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (!student) return res.status(200).json({ success: false, message: 'Student not found' });
     return res.json({ success: true, data: student });
   } catch (error) {
-    console.error('Get past student profile error:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -151,11 +149,10 @@ const updateProfile = async (req, res) => {
       { new: true, runValidators: true }
     ).select('-password');
 
-    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (!student) return res.status(200).json({ success: false, message: 'Student not found' });
 
     return res.json({ success: true, message: 'Profile updated successfully', data: student });
   } catch (error) {
-    console.error('Update past student profile error:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -168,10 +165,9 @@ const getPlacement = async (req, res) => {
     const student = await Student.findById(req.studentId).select(
       'name rollNo college branch yearOfPassing status placementDetails allOffers'
     );
-    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (!student) return res.status(200).json({ success: false, message: 'Student not found' });
     return res.json({ success: true, data: student });
   } catch (error) {
-    console.error('Get placement error:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -187,29 +183,29 @@ const updatePlacement = async (req, res) => {
 
     // Validate type
     if (!['PLACEMENT', 'INTERNSHIP', 'TRAINING'].includes(type)) {
-      return res.status(400).json({ success: false, message: 'Type must be PLACEMENT, INTERNSHIP, or TRAINING' });
+      return res.status(200).json({ success: false, message: 'Type must be PLACEMENT, INTERNSHIP, or TRAINING' });
     }
 
     if (!company || !role) {
-      return res.status(400).json({ success: false, message: 'Company and role are required' });
+      return res.status(200).json({ success: false, message: 'Company and role are required' });
     }
 
     // Validate compensation based on type
     if (type === 'PLACEMENT') {
       if (pkg === undefined || pkg === null || pkg === '') {
-        return res.status(400).json({ success: false, message: 'Package (LPA) is required for PLACEMENT type' });
+        return res.status(200).json({ success: false, message: 'Package (LPA) is required for PLACEMENT type' });
       }
       const ctc = parseFloat(pkg);
       if (isNaN(ctc) || ctc < 0) {
-        return res.status(400).json({ success: false, message: 'Invalid package value' });
+        return res.status(200).json({ success: false, message: 'Invalid package value' });
       }
     } else {
       if (stipend === undefined || stipend === null || stipend === '') {
-        return res.status(400).json({ success: false, message: 'Stipend (K/month) is required for INTERNSHIP/TRAINING type' });
+        return res.status(200).json({ success: false, message: 'Stipend (K/month) is required for INTERNSHIP/TRAINING type' });
       }
       const stip = parseFloat(stipend);
       if (isNaN(stip) || stip < 0) {
-        return res.status(400).json({ success: false, message: 'Invalid stipend value' });
+        return res.status(200).json({ success: false, message: 'Invalid stipend value' });
       }
     }
 
@@ -218,7 +214,7 @@ const updatePlacement = async (req, res) => {
     const dur = type === 'PLACEMENT' ? 'FULL TIME' : (duration || '6');
 
     const student = await Student.findById(req.studentId);
-    if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
+    if (!student) return res.status(200).json({ success: false, message: 'Student not found' });
 
     student.allOffers = student.allOffers || [];
 
@@ -236,7 +232,7 @@ const updatePlacement = async (req, res) => {
       student.allOffers.push(offerData);
     } else if (offerId) {
       const offer = student.allOffers.id(offerId);
-      if (!offer) return res.status(404).json({ success: false, message: 'Offer not found' });
+      if (!offer) return res.status(200).json({ success: false, message: 'Offer not found' });
       offer.company = company.trim();
       offer.role = role.trim();
       offer.package = ctc;
@@ -293,7 +289,6 @@ const updatePlacement = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Update placement error:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -305,15 +300,15 @@ const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ success: false, message: 'Current and new password are required' });
+      return res.status(200).json({ success: false, message: 'Current and new password are required' });
     }
     if (newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+      return res.status(200).json({ success: false, message: 'New password must be at least 6 characters' });
     }
 
     const student = await Student.findById(req.studentId).select('+password');
     const isMatch = await bcrypt.compare(currentPassword, student.password);
-    if (!isMatch) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    if (!isMatch) return res.status(200).json({ success: false, message: 'Current password is incorrect' });
 
     student.password = newPassword;
     student.passwordChanged = true;
@@ -321,7 +316,6 @@ const changePassword = async (req, res) => {
 
     return res.json({ success: true, message: 'Password changed successfully' });
   } catch (error) {
-    console.error('Change password error:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 };
@@ -332,12 +326,11 @@ const changePassword = async (req, res) => {
 const uploadProfileImage = (req, res) => {
   profileUpload(req, res, async (err) => {
     if (err) {
-      console.error('Past student profile upload error:', err);
-      return res.status(400).json({ success: false, message: err.message });
+      return res.status(200).json({ success: false, message: err.message });
     }
     try {
       if (!req.file) {
-        return res.status(400).json({ success: false, message: 'No file uploaded' });
+        return res.status(200).json({ success: false, message: 'No file uploaded' });
       }
 
       const updated = await Student.findByIdAndUpdate(
@@ -347,12 +340,11 @@ const uploadProfileImage = (req, res) => {
       );
 
       if (!updated) {
-        return res.status(404).json({ success: false, message: 'Student not found' });
+        return res.status(200).json({ success: false, message: 'Student not found' });
       }
 
       return res.json({ success: true, data: updated.profileImageUrl, message: 'Profile image uploaded successfully' });
     } catch (error) {
-      console.error('Error saving profile image:', error);
       return res.status(500).json({ success: false, message: 'Failed to upload profile image' });
     }
   });

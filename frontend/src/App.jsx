@@ -163,7 +163,6 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
   }
 
   render() {
@@ -215,7 +214,6 @@ const ProtectedAdminRoute = ({ children }) => {
           setIsAuthenticated(true);
         }
       } catch (error) {
-        console.error('Admin auth check error:', error);
         navigate('/super-admin-login', { replace: true });
       }
       setIsLoading(false);
@@ -248,7 +246,6 @@ const TrainerProtectedRoute = ({ children }) => {
           setIsAuthenticated(true);
         }
       } catch (error) {
-        console.error('Trainer auth check error:', error);
         navigate('/trainer-login', { replace: true });
       }
       setIsLoading(false);

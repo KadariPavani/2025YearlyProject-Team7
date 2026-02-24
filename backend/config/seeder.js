@@ -14,7 +14,6 @@ const seedUsers = async () => {
     const existingTPO = await TPO.findOne({ email: "tpo1@example.com" });
 
     if (existingStudent && existingTrainer && existingTPO) {
-      console.log("Seed data already exists. Skipping seeding process.");
       return;
     }
 
@@ -59,7 +58,6 @@ const seedUsers = async () => {
           yearOfPassing: "2025",
         },
       ]);
-      console.log("Created new students");
     }
 
     // Create Trainers if they don't exist
@@ -84,7 +82,6 @@ const seedUsers = async () => {
           category: "non-technical",
         },
       ]);
-      console.log("Created new trainers");
     }
 
     // Create TPOs if they don't exist
@@ -105,24 +102,11 @@ const seedUsers = async () => {
           createdBy: admin._id,
         },
       ]);
-      console.log("Created new TPOs");
     }
 
-    console.log("Seed data created successfully");
-    console.log("Dummy Credentials:");
-    console.log("\nStudents:");
-    console.log("1. Username: student1, Password: student123");
-    console.log("2. Username: student2, Password: student123");
-    console.log("\nTrainers:");
-    console.log("1. Email: trainer1@example.com, Password: trainer123");
-    console.log("2. Email: trainer2@example.com, Password: trainer123");
-    console.log("\nTPOs:");
-    console.log("1. Email: tpo1@example.com, Password: tpo123");
-    console.log("2. Email: tpo2@example.com, Password: tpo123");
 
     return { students, trainers, tpos };
   } catch (error) {
-    console.error("Error seeding data:", error);
     throw error;
   }
 };

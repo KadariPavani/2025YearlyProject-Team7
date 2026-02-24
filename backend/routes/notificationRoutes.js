@@ -46,7 +46,6 @@ router.get("/trainer/:trainerId", async (req, res) => {
       data: notifications,
     });
   } catch (error) {
-    console.error("Error fetching trainer notifications:", error);
     res.status(500).json({
       success: false,
       message: "Server error fetching trainer notifications",

@@ -15,8 +15,6 @@ const router = express.Router();
 
 // Debug middleware
 router.use((req, res, next) => {
-    console.log(`\u{1f4e8} Submissions route: ${req.method} ${req.path}`);
-    console.log('Headers:', req.headers);
     next();
 });
 

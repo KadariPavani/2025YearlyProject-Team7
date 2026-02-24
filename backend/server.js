@@ -15,7 +15,6 @@ const connectDB = process.env.VERCEL === '1'
 // Initialize database connection (fire and forget for serverless)
 // Connection will complete in background; mongoose will buffer commands if needed
 connectDB().catch(err => {
-  console.error('❌ Failed to initialize database connection:', err.message);
 });
 
 const app = express();
@@ -35,14 +34,12 @@ const allowedOrigins = [
   'http://localhost:5176'
 ].filter(Boolean);
 
-console.log('Allowed CORS origins:', allowedOrigins); // log for deployment diagnostics
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow non-browser requests (e.g., Postman, server-to-server)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    console.warn('Blocked CORS origin:', origin);
     const err = new Error('Not allowed by CORS');
     err.status = 403;
     return callback(err);
@@ -57,12 +54,9 @@ app.use(cors({
 app.use(async (req, res, next) => {
   try {
     if (mongoose.connection.readyState !== 1) {
-      console.warn('DB connection state is', mongoose.connection.readyState, '- attempting reconnect');
       await connectDB();
-      console.log('DB reconnection completed');
     }
   } catch (err) {
-    console.error('DB reconnection attempt failed:', err && (err.message || err));
     // proceed to let handlers return appropriate errors; this avoids blocking requests indefinitely
   }
   return next();
@@ -79,23 +73,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Debug endpoint to check environment variables (remove in production after testing)
-app.get('/api/debug/env-check', (req, res) => {
-  res.status(200).json({
-    hasMongoUri: !!process.env.MONGO_URI,
-    hasJwtSecret: !!process.env.JWT_SECRET,
-    hasFrontendUrl: !!process.env.FRONTEND_URL,
-    hasSuperAdminEmail: !!process.env.SUPER_ADMIN_EMAIL,
-    hasEmailConfigured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
-    emailUserMask: process.env.EMAIL_USER ? process.env.EMAIL_USER.replace(/(.{2}).+@/, '$1***@') : 'NOT SET',
-    emailHost: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    mongoUriPrefix: process.env.MONGO_URI ? process.env.MONGO_URI.substring(0, 20) + '...' : 'NOT SET',
-    jwtSecretLength: process.env.JWT_SECRET ? process.env.JWT_SECRET.length : 0,
-    frontendUrl: process.env.FRONTEND_URL || 'NOT SET',
-    nodeEnv: process.env.NODE_ENV || 'NOT SET',
-    isVercel: process.env.VERCEL || 'NOT SET'
-  });
-});
 
 app.get('/', (req, res) => {
   res.status(200).json({ 
@@ -155,7 +132,6 @@ app.use('/api/past-student', pastStudentRoutes);
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Server Error:', err.message, err.stack);
   res.status(err.status || 500).json({
     message: err.message || 'Internal Server Error',
     stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
@@ -167,16 +143,13 @@ const PORT = process.env.PORT || 5000;
 // Only start server if not in Vercel serverless environment
 if (process.env.VERCEL !== '1') {
   const server = app.listen(PORT, () => {
-    console.log(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
   });
 
   // Handle unhandled promise rejections
   process.on('unhandledRejection', (err) => {
-    console.error(`❌ Unhandled Rejection: ${err.message}`, err.stack);
     server.close(() => process.exit(1));
   });
 } else {
-  console.log('🔥 Running in Vercel Serverless Mode');
 }
 
 // Export the Express app for Vercel serverless

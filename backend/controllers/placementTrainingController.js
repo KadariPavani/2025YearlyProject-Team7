@@ -92,7 +92,6 @@ const getAllBatches = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching placement training batches:', error);
     res.status(500).json({
       success: false,
       message: 'Server error fetching placement training batches'
@@ -110,7 +109,7 @@ const getBatchById = async (req, res) => {
 
     // Hide empty batches: treat as not found for all users
     if (!batch || !batch.students || batch.students.length === 0) {
-      return res.status(404).json({
+      return res.status(200).json({
         success: false,
         message: 'Batch not found'
       });
@@ -121,7 +120,6 @@ const getBatchById = async (req, res) => {
       data: batch
     });
   } catch (error) {
-    console.error('Error fetching batch:', error);
     res.status(500).json({
       success: false,
       message: 'Server error fetching batch'
