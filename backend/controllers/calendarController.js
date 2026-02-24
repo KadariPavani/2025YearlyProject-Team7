@@ -338,7 +338,7 @@ if (!req.notifiedOnce) {
 
   // 🔔 Notify both trainers & students
   await notifyTrainerEventUpdate(trainerIds, event.title, notifyAction, req.user._id);
-  await notifyStudentEventUpdate(event.title, notifyAction, req.user._id);
+  await notifyStudentEventUpdate(event.title, notifyAction, req.user._id, event.targetBatchIds || []);
 
   req.notifiedOnce = true;
   console.log(`📢 Trainer & Students notified for "${event.title}" → ${notifyAction.toUpperCase()}`);
@@ -376,31 +376,11 @@ exports.deleteEvent = async (req, res) => {
     // ✅ Notify trainers of deletion (always runs)
 if (trainerIds.length > 0) {
   await notifyTrainerEventUpdate(trainerIds, event.title, "cancelled", req.user._id);
-  await notifyStudentEventUpdate(event.title, "cancelled", req.user._id);
+  await notifyStudentEventUpdate(event.title, "cancelled", req.user._id, event.targetBatchIds || []);
   console.log(`📢 Cancelled notifications sent to trainers & students for "${event.title}"`);
 }
  else {
       console.log("⚠️ No trainers found to notify about event deletion.");
-    }
-
-    // ✅ Optional: Notify students about deletion too
-    const students = await Student.find({}, "_id");
-    if (students.length > 0) {
-      const studentNotifications = students.map(s => ({
-        title: "Placement Event Cancelled",
-        message: `The placement event "${event.title}" has been cancelled by the TPO.`,
-        category: "Placement Calendar",
-        senderId: req.user?._id,
-        senderModel: "TPO",
-        recipients: [{ recipientId: s._id, recipientModel: "Student", isRead: false }],
-        status: "sent",
-        type: "info",
-        targetRoles: ["student"],
-        isGlobal: false,
-        priority: "medium",
-      }));
-      await Notification.insertMany(studentNotifications, { ordered: false });
-      console.log(`🎓 Notified ${students.length} students about event cancellation.`);
     }
 
     res.status(200).json({

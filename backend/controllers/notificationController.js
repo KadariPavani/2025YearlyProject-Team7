@@ -210,13 +210,13 @@ exports.notifyContestCreated = async (contestId, trainerId, contestName, targetB
     const Notification = require('../models/Notification');
     const Student = require('../models/Student');
 
-    // If batches provided, target those students; otherwise all students
-    let students = [];
-    if (targetBatchIds && targetBatchIds.length) {
-      students = await Student.find({ batch: { $in: targetBatchIds } }).select('_id name email');
-    } else {
-      students = await Student.find({}).select('_id name email');
+    // Only notify students in the specified batches
+    if (!targetBatchIds || !targetBatchIds.length) {
+      console.log('⚠️ No target batches specified for contest notification, skipping.');
+      return;
     }
+
+    const students = await Student.find({ batch: { $in: targetBatchIds } }).select('_id name email');
 
     if (!students.length) {
       console.log('No students found for contest notification');
@@ -488,11 +488,8 @@ exports.getTpoNotifications = asyncHandler(async (req, res) => {
     console.log("🔔 Fetching notifications for TPO:", tpoId);
 
     const notifications = await Notification.find({
-      $or: [
-        { recipients: { $elemMatch: { recipientId: tpoId, recipientModel: 'TPO' } } },
-        { targetRoles: 'tpo' },
-        { isGlobal: true }
-      ]
+      "recipients.recipientId": tpoId,
+      "recipients.recipientModel": "TPO"
     })
       .sort({ createdAt: -1 })
       .lean();
@@ -587,7 +584,7 @@ exports.notifyTrainerEventUpdate = async (trainerIds, eventTitle, action, sender
 };
 
 // 🔔 Notify students when a TPO updates or cancels a placement event
-exports.notifyStudentEventUpdate = async (eventTitle, action, senderId) => {
+exports.notifyStudentEventUpdate = async (eventTitle, action, senderId, targetBatchIds = []) => {
   try {
     const Notification = require("../models/Notification");
     const Student = require("../models/Student");
@@ -607,7 +604,16 @@ exports.notifyStudentEventUpdate = async (eventTitle, action, senderId) => {
       baseMessage = `There is an update regarding the placement event "${eventTitle}".`;
     }
 
-    const students = await Student.find({}, "_id");
+    let students = [];
+    if (targetBatchIds && targetBatchIds.length > 0) {
+      students = await Student.find({
+        $or: [
+          { placementTrainingBatchId: { $in: targetBatchIds } },
+          { batchId: { $in: targetBatchIds } },
+        ],
+      }, "_id");
+    }
+
     if (!students.length) {
       console.log("⚠️ No students found for event notification.");
       return;
@@ -1055,6 +1061,58 @@ exports.notifyTpoAccountCreated = async ({ tpoId, tpoName, tpoEmail, adminName }
     console.log(`Sent account creation notification to TPO ${tpoId}.`);
   } catch (error) {
     console.error("Error in notifyTpoAccountCreated:", error);
+  }
+};
+
+// ✅ Notify Trainer when their account is created with login credentials
+exports.notifyTrainerAccountCreated = async ({ trainerId, trainerName, trainerEmail, adminName }) => {
+  try {
+    const admins = await Admin.find({}, "_id");
+    const senderId = admins.length > 0 ? admins[0]._id : trainerId;
+
+    const notification = new Notification({
+      title: "Welcome to InfoVerse!",
+      message: `Hello ${trainerName}, your Trainer account has been created by ${adminName}. Your login credentials have been sent to ${trainerEmail}. Please login and change your password.`,
+      category: "Account",
+      senderId: senderId,
+      senderModel: "Admin",
+      recipients: [{ recipientId: trainerId, recipientModel: "Trainer", isRead: false }],
+      targetRoles: ["trainer"],
+      status: "sent",
+      type: "info",
+      priority: "high",
+    });
+
+    await notification.save();
+    console.log(`Sent account creation notification to Trainer ${trainerId}.`);
+  } catch (error) {
+    console.error("Error in notifyTrainerAccountCreated:", error);
+  }
+};
+
+// ✅ Notify Student when their account is created with login credentials
+exports.notifyStudentAccountCreated = async ({ studentId, studentName, studentEmail, tpoName }) => {
+  try {
+    const tpos = await TPO.find({}, "_id");
+    const senderId = tpos.length > 0 ? tpos[0]._id : studentId;
+
+    const notification = new Notification({
+      title: "Welcome to InfoVerse!",
+      message: `Hello ${studentName}, your student account has been created by ${tpoName}. Your login credentials have been sent to ${studentEmail}. Please login and change your password.`,
+      category: "Account",
+      senderId: senderId,
+      senderModel: "TPO",
+      recipients: [{ recipientId: studentId, recipientModel: "Student", isRead: false }],
+      targetRoles: ["student"],
+      status: "sent",
+      type: "info",
+      priority: "high",
+    });
+
+    await notification.save();
+    console.log(`Sent account creation notification to Student ${studentId}.`);
+  } catch (error) {
+    console.error("Error in notifyStudentAccountCreated:", error);
   }
 };
 
