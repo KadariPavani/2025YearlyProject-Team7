@@ -32,7 +32,7 @@ const {
   parseDuration,
   parseCompensation
 } = require('../utils/placementDataHelpers');
-const { notifyTpoBatchAssignment, notifyTpoAccountCreated } = require('./notificationController');
+const { notifyTpoBatchAssignment, notifyTpoAccountCreated, notifyTrainerAccountCreated } = require('./notificationController');
 
 
 // @desc     Super Admin Login
@@ -373,6 +373,14 @@ const addTrainer = async (req, res) => {
       `
     });
 
+    // Send welcome notification to the trainer
+    await notifyTrainerAccountCreated({
+      trainerId: trainer._id,
+      trainerName: trainer.name,
+      trainerEmail: trainer.email,
+      adminName: req.admin.name || 'Admin',
+    });
+
     return created(res, { success: true, message: 'Trainer added successfully and credentials sent via email', data: { id: trainer._id, name: trainer.name, email: trainer.email, employeeId: trainer.employeeId } });
 
   } catch (error) {
@@ -534,6 +542,12 @@ const deleteTrainer = async (req, res) => {
     const { id } = req.params;
     const deleted = await Trainer.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ success: false, message: "Trainer not found" });
+
+    // Remove only this trainer's assignments from all placement batches
+    await PlacementTrainingBatch.updateMany(
+      { "assignedTrainers.trainer": id },
+      { $pull: { assignedTrainers: { trainer: id } } }
+    );
 
     res.json({ success: true, message: "Trainer deleted successfully" });
   } catch (error) {

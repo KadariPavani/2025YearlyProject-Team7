@@ -262,6 +262,14 @@ const createStudentInBatch = async (req, res) => {
       console.error('Failed to send student creation email:', err.message || err);
     }
 
+    // Send welcome notification to the student
+    await notificationController.notifyStudentAccountCreated({
+      studentId: student._id,
+      studentName: student.name,
+      studentEmail: student.email,
+      tpoName: req.user.name || 'TPO',
+    });
+
     return res.status(201).json({ success: true, message: 'Student created', data: { id: student._id, name: student.name, email: student.email, rollNo: student.rollNo, batchId: student.batchId } });
   } catch (error) {
     console.error('Error creating student by TPO:', error);
