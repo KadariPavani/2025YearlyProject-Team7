@@ -683,21 +683,6 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// @desc    Get password status for logged-in user
-// @route   GET /api/auth/password-status
-// @access  Private
-const getPasswordStatus = async (req, res) => {
-  try {
-    // Example: return password status for logged-in user
-    const userId = req.user._id;
-    // Find user and return password status (customize as needed)
-    const user = await User.findById(userId);
-    res.json({ passwordChanged: user.passwordChanged || false });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to check password status' });
-  }
-};
-
 // @desc    Logout
 // @route   POST /api/auth/logout
 // @access  Private
@@ -732,6 +717,5 @@ module.exports = {
   checkPasswordChange,
   forgotPassword,
   resetPassword,
-  getPasswordStatus,
   logout
 };

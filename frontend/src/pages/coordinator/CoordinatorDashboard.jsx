@@ -8,7 +8,6 @@ import {
 import axios from 'axios';
 import api from '../../services/api';
 import BottomNav from '../../components/common/BottomNav';
-import PasswordChangeNotification from '../../components/common/PasswordChangeNotification';
 import AttendanceMarking from '../coordinator/AttandanceMarking';
 import CoordinatorStudentActivity from './CoordinatorStudentActivity';
 import Header from '../../components/common/Header';
@@ -597,11 +596,6 @@ const CoordinatorDashboard = () => {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Password Change Notification */}
-      <PasswordChangeNotification
-        userType="coordinator"
-        onPasswordChange={() => navigate('/coordinator-profile')}
-      />
 
       <Header
         title="Coordinator Dashboard"

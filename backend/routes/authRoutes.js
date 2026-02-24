@@ -10,7 +10,6 @@ const {
   checkPasswordChange,
   forgotPassword,
   resetPassword,
-  getPasswordStatus,
   logout
 } = require('../controllers/generalAuthController');
 const generalAuth = require('../middleware/generalAuth');
@@ -30,6 +29,5 @@ router.put('/profile/:userType', generalAuth, updateProfile);
 router.post('/change-password/:userType', generalAuth, changePassword);
 router.get('/check-password-change/:userType', generalAuth, checkPasswordChange);
 router.post('/logout', generalAuth, logout);
-router.get('/password-status', generalAuth, getPasswordStatus);
 
 module.exports = router;
