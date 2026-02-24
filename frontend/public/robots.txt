@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://infoverse-team7-khub.vercel.app/sitemap.xml
