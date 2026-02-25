@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { clearAllAuthTokens } from '../../utils/authUtils';
 
 import api from '../../services/api';
 import {
@@ -838,8 +839,7 @@ const markAllAsRead = async () => {
       });
     } catch (error) {
     } finally {
-      localStorage.removeItem('userToken');
-      localStorage.removeItem('userData');
+      clearAllAuthTokens();
       navigate('/tpo-login');
     }
   };

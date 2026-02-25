@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { clearAllAuthTokens } from '../../utils/authUtils';
 import {
   Users, UserCheck, Calendar,
   BookOpen, GraduationCap,
@@ -274,9 +275,7 @@ const TrainerDashboard = () => {
       });
     } catch (error) {
     } finally {
-      localStorage.removeItem('userToken');
-      localStorage.removeItem('trainerToken');
-      localStorage.removeItem('trainerData');
+      clearAllAuthTokens();
       navigate('/trainer-login');
     }
   };

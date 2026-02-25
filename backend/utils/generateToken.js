@@ -6,7 +6,7 @@ const generateToken = (payload) => {
     throw new Error('JWT_SECRET is not set in environment');
   }
   return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || '7d'
+    expiresIn: process.env.JWT_EXPIRE || '1h'
   });
 };
 

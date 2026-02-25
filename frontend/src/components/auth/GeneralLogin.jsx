@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Mail, Lock, Eye, EyeOff, ArrowLeft, LogIn
 } from 'lucide-react';
+import { clearAllAuthTokens } from '../../utils/authUtils';
 
 const TEXT = {
   labels: {
@@ -110,6 +111,7 @@ const GeneralLogin = () => {
         const user = result.user;
         const effectiveUserType = user.userType || userType;
 
+        clearAllAuthTokens();
         localStorage.setItem('token', token);
         localStorage.setItem('userType', effectiveUserType);
         localStorage.setItem('userToken', token);

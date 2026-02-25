@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { clearAllAuthTokens } from '../../utils/authUtils';
 import {
   UserCheck, Clock, Activity, Eye, ArrowLeft, ChevronLeft, ChevronRight,
   User, Phone, Mail, MapPin, GraduationCap, Building, Code2, Briefcase,
@@ -580,8 +581,7 @@ const CoordinatorDashboard = () => {
       });
     } catch (error) {
     } finally {
-      localStorage.removeItem('userToken');
-      localStorage.removeItem('userData');
+      clearAllAuthTokens();
       navigate('/coordinator-login');
     }
   };

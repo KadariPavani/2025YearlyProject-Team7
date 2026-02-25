@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { clearAllAuthTokens } from "../../utils/authUtils";
 import {
   Shield,
   Users,
@@ -304,9 +305,7 @@ const AdminDashboard = () => {
   // ────────────────────────────── Auth ──────────────────────────────
 
   const handleLogout = () => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminData");
-    localStorage.removeItem("userToken");
+    clearAllAuthTokens();
     navigate("/super-admin-login", { replace: true });
   };
 

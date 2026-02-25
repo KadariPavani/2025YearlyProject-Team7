@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GraduationCap, Lock, Eye, EyeOff, ArrowLeft, LogIn } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { clearAllAuthTokens } from '../../utils/authUtils';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -27,6 +28,7 @@ const PastStudentLogin = () => {
       const data = await res.json();
 
       if (data.success) {
+        clearAllAuthTokens();
         localStorage.setItem('pastStudentToken', data.token);
         localStorage.setItem('pastStudentData',  JSON.stringify(data.student));
         toast.success(`Welcome, ${data.student.name}!`);

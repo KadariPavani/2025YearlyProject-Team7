@@ -100,6 +100,7 @@
 // export default api;
 
 import axios from 'axios';
+import { isTokenExpired, clearAllAuthTokens } from '../utils/authUtils';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
@@ -108,9 +109,15 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('userToken');
+  const token = localStorage.getItem('userToken') ||
+                localStorage.getItem('adminToken') ||
+                localStorage.getItem('trainerToken');
   if (token) {
-    config.headers.Authorization = `Bearer ${token.trim()}`;
+    if (isTokenExpired(token)) {
+      clearAllAuthTokens();
+    } else {
+      config.headers.Authorization = `Bearer ${token.trim()}`;
+    }
   }
   return config;
 });
@@ -139,13 +146,7 @@ api.interceptors.response.use(
       }
 
       // Otherwise, clear stored session data and redirect appropriately
-      localStorage.removeItem('token');
-      localStorage.removeItem('userToken');
-      localStorage.removeItem('userData');
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminData');
-      localStorage.removeItem('trainerToken');
-      localStorage.removeItem('trainerData');
+      clearAllAuthTokens();
 
       if (path.includes('admin')) {
         window.location.href = '/super-admin-login';

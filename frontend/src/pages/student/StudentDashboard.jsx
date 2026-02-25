@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { clearAllAuthTokens } from '../../utils/authUtils';
 import {
   Users, Calendar, Clock,
   BookOpen, Award, Activity, GraduationCap, Phone, Mail,
@@ -803,8 +804,7 @@ const markAllAsRead = async () => {
       });
     } catch (error) {
     } finally {
-      localStorage.removeItem('userToken');
-      localStorage.removeItem('userData');
+      clearAllAuthTokens();
       navigate('/student-login');
     }
   };
