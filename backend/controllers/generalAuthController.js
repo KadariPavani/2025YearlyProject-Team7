@@ -314,7 +314,7 @@ exports.studentLogin = async (req, res) => {
     }
 
     const token = jwt.sign({ id: student._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRE || '7d'
+      expiresIn: process.env.JWT_EXPIRE || '1h'
     });
 
     res.status(200).json({

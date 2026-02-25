@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowLeft, Mail, Lock, LogIn } from 'lucide-react';
 import axios from 'axios';
+import { clearAllAuthTokens } from '../../utils/authUtils';
 
 const TrainerLogin = () => {
   const navigate = useNavigate();
@@ -59,6 +60,7 @@ const TrainerLogin = () => {
       const response = await axios.post('/api/trainer/login', formData);
 
       if (response.data.success) {
+        clearAllAuthTokens();
         localStorage.setItem('trainerToken', response.data.token);
         localStorage.setItem('userToken', response.data.token);
         localStorage.setItem('trainerData', JSON.stringify(response.data.data));

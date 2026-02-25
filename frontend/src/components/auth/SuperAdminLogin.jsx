@@ -37,6 +37,7 @@ const SuperAdminLogin = () => {
 
       if (response.data.success) {
         sessionStorage.setItem('adminEmail', formData.email);
+        sessionStorage.setItem('otpSentAt', Date.now().toString());
         navigate('/otp-verification');
       }
     } catch (error) {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, createBrowserRouter } from 'react-router-dom';
 import axios from 'axios';
+import { isTokenExpired, clearAllAuthTokens } from './utils/authUtils';
 
 // --- NEW IMPORT: Infoverse Loading Animation ---
 // Make sure this path matches where you saved InfoverseLoader.jsx
@@ -96,11 +97,15 @@ axios.defaults.withCredentials = true;
 axios.interceptors.request.use(
   (config) => {
     // Add auth token to requests if available
-    const token = localStorage.getItem('trainerToken') || 
-                  localStorage.getItem('adminToken') || 
+    const token = localStorage.getItem('trainerToken') ||
+                  localStorage.getItem('adminToken') ||
                   localStorage.getItem('userToken');
     if (token && !config.headers.Authorization) {
-      config.headers.Authorization = `Bearer ${token}`;
+      if (isTokenExpired(token)) {
+        clearAllAuthTokens();
+      } else {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
 
     return config;
@@ -131,18 +136,12 @@ axios.interceptors.response.use(
         return Promise.reject(error);
       }
 
+      clearAllAuthTokens();
       if (path.includes('trainer')) {
-        localStorage.removeItem('trainerToken');
-        localStorage.removeItem('trainerData');
         window.location.href = '/trainer-login';
       } else if (path.includes('admin')) {
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminData');
         window.location.href = '/super-admin-login';
       } else {
-        // Generic fallback: clear user session and redirect home
-        localStorage.removeItem('userToken');
-        localStorage.removeItem('userData');
         window.location.href = '/';
       }
     }
@@ -206,9 +205,8 @@ const ProtectedAdminRoute = ({ children }) => {
       try {
         const token = localStorage.getItem('adminToken');
         const adminData = localStorage.getItem('adminData');
-        if (!token || !adminData) {
-          localStorage.removeItem('adminToken');
-          localStorage.removeItem('adminData');
+        if (!token || !adminData || isTokenExpired(token)) {
+          clearAllAuthTokens();
           navigate('/super-admin-login', { replace: true });
         } else {
           setIsAuthenticated(true);
@@ -219,6 +217,28 @@ const ProtectedAdminRoute = ({ children }) => {
       setIsLoading(false);
     };
     checkAuth();
+
+    // Periodically check token expiry
+    const interval = setInterval(() => {
+      const token = localStorage.getItem('adminToken');
+      if (!token || isTokenExpired(token)) {
+        clearAllAuthTokens();
+        navigate('/super-admin-login', { replace: true });
+      }
+    }, 60000);
+
+    // Cross-tab detection: another tab cleared auth
+    const onStorage = (e) => {
+      if (e.key === 'adminToken' && !e.newValue) {
+        navigate('/super-admin-login', { replace: true });
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', onStorage);
+    };
   }, [navigate]);
 
   if (isLoading) {
@@ -238,9 +258,8 @@ const TrainerProtectedRoute = ({ children }) => {
       try {
         const token = localStorage.getItem('trainerToken');
         const trainerData = localStorage.getItem('trainerData');
-        if (!token || !trainerData) {
-          localStorage.removeItem('trainerToken');
-          localStorage.removeItem('trainerData');
+        if (!token || !trainerData || isTokenExpired(token)) {
+          clearAllAuthTokens();
           navigate('/trainer-login', { replace: true });
         } else {
           setIsAuthenticated(true);
@@ -251,6 +270,26 @@ const TrainerProtectedRoute = ({ children }) => {
       setIsLoading(false);
     };
     checkAuth();
+
+    const interval = setInterval(() => {
+      const token = localStorage.getItem('trainerToken');
+      if (!token || isTokenExpired(token)) {
+        clearAllAuthTokens();
+        navigate('/trainer-login', { replace: true });
+      }
+    }, 60000);
+
+    const onStorage = (e) => {
+      if (e.key === 'trainerToken' && !e.newValue) {
+        navigate('/trainer-login', { replace: true });
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', onStorage);
+    };
   }, [navigate]);
 
   if (isLoading) {
@@ -270,9 +309,8 @@ const ProtectedUserRoute = ({ children }) => {
       const token = localStorage.getItem('userToken');
       const userData = localStorage.getItem('userData');
 
-      if (!token || !userData) {
-        localStorage.removeItem('userToken');
-        localStorage.removeItem('userData');
+      if (!token || !userData || isTokenExpired(token)) {
+        clearAllAuthTokens();
         navigate('/', { replace: true });
       } else {
         setIsAuthenticated(true);
@@ -281,6 +319,26 @@ const ProtectedUserRoute = ({ children }) => {
     };
 
     checkAuth();
+
+    const interval = setInterval(() => {
+      const token = localStorage.getItem('userToken');
+      if (!token || isTokenExpired(token)) {
+        clearAllAuthTokens();
+        navigate('/', { replace: true });
+      }
+    }, 60000);
+
+    const onStorage = (e) => {
+      if (e.key === 'userToken' && !e.newValue) {
+        navigate('/', { replace: true });
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', onStorage);
+    };
   }, [navigate]);
 
   if (isLoading) {

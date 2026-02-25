@@ -2,13 +2,25 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import api from '../../services/api';
+import { clearAllAuthTokens } from '../../utils/authUtils';
 
 const OTPVerification = () => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [timer, setTimer] = useState(300);
-  const [canResend, setCanResend] = useState(false);
+  const [timer, setTimer] = useState(() => {
+    const sentAt = sessionStorage.getItem('otpSentAt');
+    if (!sentAt) return 300;
+    const elapsed = Math.floor((Date.now() - parseInt(sentAt, 10)) / 1000);
+    const remaining = 300 - elapsed;
+    return remaining > 0 ? remaining : 0;
+  });
+  const [canResend, setCanResend] = useState(() => {
+    const sentAt = sessionStorage.getItem('otpSentAt');
+    if (!sentAt) return false;
+    const elapsed = Math.floor((Date.now() - parseInt(sentAt, 10)) / 1000);
+    return elapsed >= 300;
+  });
 
   const navigate = useNavigate();
   const inputRefs = useRef([]);
@@ -80,6 +92,7 @@ const OTPVerification = () => {
 
       if (response.data.success) {
         successfullyVerified.current = true;
+        clearAllAuthTokens();
         localStorage.setItem('adminToken', response.data.token);
         localStorage.setItem('userToken', response.data.token);
         localStorage.setItem('adminData', JSON.stringify(response.data.admin));
@@ -100,6 +113,7 @@ const OTPVerification = () => {
     setError('');
     try {
       await api.post('/api/admin/resend-otp', { email: adminEmail });
+      sessionStorage.setItem('otpSentAt', Date.now().toString());
       setTimer(300);
       setCanResend(false);
       setOtp(['', '', '', '', '', '']);

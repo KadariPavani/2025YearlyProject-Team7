@@ -103,7 +103,7 @@ const loginTrainer = async (req, res) => {
     await trainer.save();
 
     const token = jwt.sign({ id: trainer._id, role: 'trainer' }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRE
+      expiresIn: process.env.JWT_EXPIRE || '1h'
     });
 
     res.status(200).json({
